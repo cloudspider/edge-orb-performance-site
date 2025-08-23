@@ -326,12 +326,14 @@
             </div>
           </div>
         </div>
-        <div id="summaryCards" class="grid grid-cols-6 gap-3"></div>
+        <!-- keep 6 columns but allow horizontal scrolling if necessary; make cards more compact -->
+        <div id="summaryCards" class="overflow-x-auto"><div class="grid grid-cols-6 gap-2 min-w-max" id="summaryCardsGrid"></div></div>
       `;
       output.appendChild(summaryEl);
 
       const seg = summaryEl.querySelector('#daysSegment');
-      const cardsContainer = summaryEl.querySelector('#summaryCards');
+      // We render into inner grid container to allow horizontal scroll on small portrait screens
+      const cardsContainer = summaryEl.querySelector('#summaryCardsGrid');
 
       const setActive = (btn) => {
         seg.querySelectorAll('button').forEach(b => b.classList.remove('bg-slate-800','text-white'));
@@ -367,9 +369,10 @@
           const cls = c.total === null ? 'text-slate-400' : (c.total >= 0 ? 'num-pos' : 'num-neg');
           const val = c.total === null ? '—' : fmt(c.total);
           const bg = hl.get(`${c.orb}|${c.r}`) || '';
-          return `<div class="rounded-2xl border border-slate-200 p-4 ${bg}">
-            <div class="text-xs text-slate-500">orb_m ${c.orb} · R ${c.r}</div>
-            <div class="text-2xl font-semibold ${cls}">${val}</div>
+          // Keep 6 columns but reduce text size and padding to fit portrait mobile
+          return `<div class="rounded-2xl border border-slate-200 p-2 sm:p-3 ${bg} min-w-[120px]">
+            <div class="text-[11px] sm:text-xs text-slate-500 truncate">orb_m ${c.orb} · R ${c.r}</div>
+            <div class="text-lg sm:text-2xl font-semibold ${cls}">${val}</div>
           </div>`;
         }).join('');
       };
@@ -849,7 +852,10 @@
         rowDiv.appendChild(title);
 
         const cardsWrap = document.createElement('div');
-        cardsWrap.className = 'grid grid-cols-6 gap-3';
+        // keep 6 columns but allow horizontal scrolling on small portrait screens; make cards compact
+        cardsWrap.className = 'overflow-x-auto';
+        const innerGrid = document.createElement('div');
+        innerGrid.className = 'grid grid-cols-6 gap-3 min-w-max';
         for (const r of tbl.targets) {
           const v = getVal(tbl, r);
           const cls = v === null ? 'text-slate-400' : (v >= 0 ? 'num-pos' : 'num-neg');
@@ -857,10 +863,12 @@
           const key = `${orb}|${r}`;
           const bg = highlight.get(key) || '';
           const card = document.createElement('div');
-          card.className = 'rounded-2xl border border-slate-200 p-4 ' + bg;
-          card.innerHTML = `<div class="text-xs text-slate-500">R ${r}</div><div class="text-2xl font-semibold ${cls}">${val}</div>`;
-          cardsWrap.appendChild(card);
+          // compact card styling to match summary cards: smaller label, smaller padding, fixed min-width for columns
+          card.className = 'rounded-2xl border border-slate-200 p-2 sm:p-3 min-w-[120px] ' + bg;
+          card.innerHTML = `<div class="text-[11px] sm:text-xs text-slate-500 truncate">R ${r}</div><div class="text-lg sm:text-2xl font-semibold ${cls}">${val}</div>`;
+          innerGrid.appendChild(card);
         }
+        cardsWrap.appendChild(innerGrid);
         rowDiv.appendChild(cardsWrap);
         containerEl.appendChild(rowDiv);
       }
