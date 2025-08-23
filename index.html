@@ -37,58 +37,65 @@
     <!-- Preload palette classes for Tailwind JIT -->
     <div class="hidden bg-emerald-50 bg-emerald-100 bg-emerald-200 bg-emerald-300 bg-emerald-400 bg-rose-50 bg-rose-100 bg-rose-200 bg-rose-300 bg-rose-400"></div>
 
-    <!-- Controls -->
-    <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6 space-y-4 mb-6">
+    <!-- Controls (collapsible) -->
+    <section id="controlsSection" class="relative bg-white rounded-2xl shadow-soft p-4 md:p-6 space-y-4 mb-6">
+      <!-- Toggle (top-right) -->
+      <button id="controlsToggle" aria-expanded="false" aria-label="Expand upload controls" class="absolute right-4 top-4 inline-flex items-center gap-2 rounded-full px-2 py-1 text-sm bg-slate-100 hover:bg-slate-200">
+        <svg id="controlsChevron" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 transition-transform" viewBox="0 0 20 20" fill="currentColor" aria-hidden="false"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
+      </button>
+
       <div class="flex flex-col md:flex-row md:items-center gap-3">
         <label class="block text-sm font-medium">Upload CSV</label>
         <input id="fileInput" type="file" accept=".csv,text/csv" class="block w-full md:w-auto text-sm file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-slate-800 file:text-white hover:file:bg-slate-900" />
-        <button id="loadSample" class="ml-auto w-full md:w-auto inline-flex items-center justify-center rounded-xl px-3 py-2 text-sm font-medium bg-slate-100 hover:bg-slate-200">Load sample</button>
       </div>
 
-      <div class="grid grid-cols-1 gap-4">
-        <div>
-          <label for="csvText" class="block text-sm font-medium mb-1">Paste CSV here</label>
-          <textarea id="csvText" rows="12" class="w-full font-mono text-xs md:text-sm p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300" placeholder="Paste your CSV…"></textarea>
-        </div>
-      </div>
-
-      <div class="flex flex-col md:flex-row md:items-center gap-3">
-        <div class="flex items-center gap-2">
-          <label class="text-sm">Aggregation:</label>
-          <div class="relative inline-block">
-            <select id="aggSelect" class="appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 pr-9 text-sm">
-              <option value="sum" selected>Monthly sum of daily R</option>
-            </select>
-            <span class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-500">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
-            </span>
+      <!-- Collapsible body: hidden by default; contains the rest of the controls -->
+      <div id="controlsBody" class="hidden">
+        <div class="grid grid-cols-1 gap-4">
+          <div>
+            <label for="csvText" class="block text-sm font-medium mb-1">Paste CSV here</label>
+            <textarea id="csvText" rows="12" class="w-full font-mono text-xs md:text-sm p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300" placeholder="Paste your CSV…"></textarea>
           </div>
         </div>
-        <div class="flex items-center gap-2">
-          <label class="text-sm">Missing values:</label>
-          <div class="relative inline-block">
-            <select id="naSelect" class="appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 pr-9 text-sm">
-              <option value="skip" selected>Skip</option>
-              <option value="zero">Treat as 0</option>
-            </select>
-            <span class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-500">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
-            </span>
-          </div>
-        </div>
-        <button id="processBtn" class="w-full md:w-auto inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700">Process CSV</button>
-        <button id="clearBtn" class="w-full md:w-auto inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold bg-slate-200 text-slate-800 hover:bg-slate-300">Clear</button>
-      </div>
 
-      <details class="text-sm text-slate-600">
-        <summary class="cursor-pointer select-none">Expected CSV layout</summary>
-        <pre class="mt-2 p-3 bg-slate-100 rounded-xl overflow-x-auto text-xs">orb_m,5,5,5,5,5,5,10,10,10,10,...
+        <div class="flex flex-col md:flex-row md:items-center gap-3">
+          <div class="flex items-center gap-2">
+            <label class="text-sm">Aggregation:</label>
+            <div class="relative inline-block">
+              <select id="aggSelect" class="appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 pr-9 text-sm">
+                <option value="sum" selected>Monthly sum of daily R</option>
+              </select>
+              <span class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-500">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
+              </span>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <label class="text-sm">Missing values:</label>
+            <div class="relative inline-block">
+              <select id="naSelect" class="appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 pr-9 text-sm">
+                <option value="skip" selected>Skip</option>
+                <option value="zero">Treat as 0</option>
+              </select>
+              <span class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-500">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
+              </span>
+            </div>
+          </div>
+          <button id="processBtn" class="w-full md:w-auto inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700">Process CSV</button>
+          <button id="clearBtn" class="w-full md:w-auto inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold bg-slate-200 text-slate-800 hover:bg-slate-300">Clear</button>
+        </div>
+
+        <details class="text-sm text-slate-600 mt-2">
+          <summary class="cursor-pointer select-none">Expected CSV layout</summary>
+          <pre class="mt-2 p-3 bg-slate-100 rounded-xl overflow-x-auto text-xs">orb_m,5,5,5,5,5,5,10,10,10,10,...
  target_R,1,2,3,4,5,6,1,2,3,4,...
  Date Range,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
  2024-07-15,0.9990,1.9980,2.9970,-1.9980,...
  2024-07-12,0.9981,1.9962,2.9943,3.9924,...
  ...</pre>
-      </details>
+        </details>
+      </div>
     </section>
 
     <!-- Output -->
@@ -101,7 +108,6 @@
     const processBtn = document.getElementById('processBtn');
     const clearBtn = document.getElementById('clearBtn');
     const output = document.getElementById('output');
-    const loadSample = document.getElementById('loadSample');
 
     // NEW: track selected ticker and helper to update titles
     let currentTicker = '';
@@ -126,18 +132,6 @@
       });
       renderTables(model, combosByOrb, byOrb, monthsSorted, currentTicker);
     }
-
-    // --- Sample CSV ---
-    loadSample.addEventListener('click', () => {
-      const sample =
-`orb_m,5,5,5,5,5,5,10,10,10,10,10,10,15,15,15,15,15,15,20,20,20,20,20,20,25,25,25,25,25,25,30,30,30,30,30,30
- target_R,1,2,3,4,5,6,1,2,3,4,5,6,1,2,3,4,5,6,1,2,3,4,5,6,1,2,3,4,5,6,1,2,3,4,5,6
- Date Range,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
- 2024-07-15,0.9990,1.9980,2.9970,-1.9980,-1.9980,-1.9980,0.9996,-1.9992,-1.9992,-1.9992,-1.9992,-1.9992,-1.9958,-1.9958,-1.9958,-1.9958,-1.9958,-1.9958,-1.9958,-1.9958,-1.9958,-1.9958,-1.9958,-1.9958,-1.9972,-1.9972,-1.9972,-1.9972,-1.9972,-1.9972,-1.9980,-1.9980,-1.9980,-1.9980,-1.9980,-1.9980
- 2024-06-27,-1.9995,-1.9995,-1.9995,-1.9995,-1.9995,-1.9995,0.9992,1.9985,2.9977,-1.9985,-1.9985,-1.9985,0.9998,-1.9996,-1.9996,-1.9996,-1.9996,-1.9996,0.9998,-1.9996,-1.9996,-1.9996,-1.9996,-1.9996,0.9998,-1.9996,-1.9996,-1.9996,-1.9996,-1.9996,-1.9984,-1.9984,-1.9984,-1.9984,-1.9984,-1.9984`;
-      csvText.value = sample;
-      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-    });
 
     // --- Upload handler ---
     fileInput.addEventListener('change', async (e) => {
@@ -967,6 +961,51 @@
       return `${y}-${m}-${day}`;
     }
     // --- /NEW ---
+
+    // --- NEW: Controls section toggle ---
+    (function() {
+      const toggleBtn = document.getElementById('controlsToggle');
+      const bodyEl = document.getElementById('controlsBody');
+      if (!toggleBtn || !bodyEl) return;
+
+      toggleBtn.addEventListener('click', () => {
+        const expanded = toggleBtn.getAttribute('aria-expanded') === 'true';
+        toggleBtn.setAttribute('aria-expanded', !expanded);
+        bodyEl.classList.toggle('hidden', expanded);
+        // Update button text based on state
+        toggleBtn.innerHTML = expanded ? 'Expand' : 'Collapse';
+        // Focus first input in the body when expanding
+        if (!expanded) {
+          const firstInput = bodyEl.querySelector('input,textarea,select');
+          if (firstInput) firstInput.focus();
+        }
+      });
+    })();
+  </script>
+  <script>
+    // Controls expand/collapse wiring (chevron only; no visible text)
+    (function(){
+      const toggle = document.getElementById('controlsToggle');
+      const body = document.getElementById('controlsBody');
+      const chevron = document.getElementById('controlsChevron');
+      if (!toggle || !body || !chevron) return;
+      const setCollapsed = (collapsed) => {
+        if (collapsed) {
+          body.classList.add('hidden');
+          toggle.setAttribute('aria-expanded', 'false');
+          toggle.setAttribute('aria-label', 'Expand upload controls');
+          chevron.classList.remove('rotate-180');
+        } else {
+          body.classList.remove('hidden');
+          toggle.setAttribute('aria-expanded', 'true');
+          toggle.setAttribute('aria-label', 'Collapse upload controls');
+          chevron.classList.add('rotate-180');
+        }
+      };
+      // start collapsed
+      setCollapsed(true);
+      toggle.addEventListener('click', (e) => { e.preventDefault(); const collapsed = body.classList.contains('hidden'); setCollapsed(collapsed); });
+    })();
   </script>
 </body>
 </html>
