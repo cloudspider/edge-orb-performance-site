@@ -193,10 +193,10 @@
         if (!sym) return;
         setActiveTicker(btn);
         try {
-          // Build URL relative to this HTML file's directory
-          const url = new URL(`${sym}_backtest_results.csv`, window.location.href).toString();
+          // Build URL relative to this HTML file's directory; CSVs are located in the ./data/ folder
+          const url = new URL(`data/${sym}_backtest_results.csv`, window.location.href).toString();
           const res = await fetch(url, { cache: 'no-cache' });
-          if (!res.ok) throw new Error(`HTTP ${res.status} for ${sym}_backtest_results.csv`);
+          if (!res.ok) throw new Error(`HTTP ${res.status} for data/${sym}_backtest_results.csv`);
           const text = await res.text();
           // Update ticker and titles
           currentTicker = sym;
@@ -206,7 +206,7 @@
           processCsvAndRender(text);
         } catch (err) {
           console.error(err);
-          alert(`Failed to load ${sym}_backtest_results.csv. Make sure it is in the same folder as this page.\n\n${err.message}`);
+          alert(`Failed to load data/${sym}_backtest_results.csv. Make sure the file is located in the ./data/ folder next to this page (e.g. data/${sym}_backtest_results.csv).\n\n${err.message}`);
         }
       });
     }
@@ -391,14 +391,19 @@
       monthSection.className = 'bg-white rounded-2xl shadow-soft p-4 md:p-6 space-y-4';
       monthSection.innerHTML = `
         <div class="flex items-center gap-3 flex-wrap">
-          <h2 class="text-lg font-semibold">${prefix}Monthly totals by combo</h2>
+          <h2 class="text-lg font-semibold">${prefix}Monthly total returns by combo</h2>
           <div class="flex items-center gap-2">
-            <label class="text-sm text-slate-600" for="monthSelect">Month:</label>
+            <label class="text-sm text-slate-600">Month(s):</label>
             <div class="relative inline-block">
-              <select id="monthSelect" class="appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 pr-9 text-sm"></select>
-              <span class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-500">
-                <svg xmlns=\"http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
-              </span>
+              <button id="monthMultiBtn" type="button" class="inline-flex items-center justify-between gap-2 bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm min-w-[180px]">
+                <span id="monthMultiLabel" class="truncate">Select months</span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
+              </button>
+              <div id="monthMultiMenu" class="absolute z-30 mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-soft p-2 hidden">
+                <div id="monthMultiList" class="max-h-64 overflow-auto">
+                  <!-- items injected -->
+                </div>
+              </div>
             </div>
           </div>
           <div class="flex items-center gap-2">
@@ -406,7 +411,7 @@
             <div class="relative inline-block">
               <select id="quarterSelect" class="appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 pr-9 text-sm"></select>
               <span class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-500">
-                <svg xmlns=\"http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
               </span>
             </div>
           </div>
@@ -416,13 +421,62 @@
       `;
       output.appendChild(monthSection);
 
-      // Populate month selector
-      const monthSelect = monthSection.querySelector('#monthSelect');
-      monthsSorted.forEach(m => {
-        const opt = document.createElement('option');
-        opt.value = m; // yyyy-mm
-        opt.textContent = fmtMonthDisplay(m); // MM/YYYY
-        monthSelect.appendChild(opt);
+      // Build Month multi-select dropdown items
+      const monthBtn = monthSection.querySelector('#monthMultiBtn');
+      const monthLabel = monthSection.querySelector('#monthMultiLabel');
+      const monthMenu = monthSection.querySelector('#monthMultiMenu');
+      const monthList = monthSection.querySelector('#monthMultiList');
+
+      // Add toolbar with Select all / Clear actions
+      const monthToolbar = document.createElement('div');
+      monthToolbar.className = 'sticky top-0 bg-white z-10 px-2 pb-2 border-b border-slate-200 flex items-center justify-between gap-2';
+      monthToolbar.innerHTML = `
+        <button id="monthSelectAll" type="button" class="text-xs font-medium text-emerald-700 hover:text-emerald-900 hover:underline">Select all</button>
+        <button id="monthClearAll" type="button" class="text-xs text-slate-600 hover:text-slate-800 hover:underline">Clear</button>
+      `;
+      monthMenu.insertBefore(monthToolbar, monthList);
+
+      function fmtMonthShort(ym){
+        const [y, m] = ym.split('-');
+        const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        return `${names[Number(m)-1]} ${y}`;
+      }
+      function updateMonthBtnLabel(selected){
+        if (!selected || selected.length === 0) { monthLabel.textContent = 'Select months'; return; }
+        const shown = selected.slice().sort().map(fmtMonthShort);
+        if (shown.length === 1) { monthLabel.textContent = shown[0]; return; }
+        if (shown.length <= 3) { monthLabel.textContent = shown.join(', '); return; }
+        monthLabel.textContent = `${shown.length} months`; 
+      }
+      function getSelectedMonths(){
+        return Array.from(monthList.querySelectorAll('input[type="checkbox"]:checked')).map(i => i.value);
+      }
+      function setSelectedMonths(values){
+        const set = new Set(values);
+        monthList.querySelectorAll('input[type="checkbox"]').forEach(i => { i.checked = set.has(i.value); });
+        updateMonthBtnLabel(values);
+      }
+
+      // Populate items (descending so most recent on top)
+      [...monthsSorted].sort().forEach(m => {
+        const id = `m_${m.replace('-','_')}`;
+        const row = document.createElement('label');
+        row.className = 'flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer';
+        row.innerHTML = `
+          <input type="checkbox" class="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" value="${m}" id="${id}" />
+          <span class="text-sm text-slate-700">${fmtMonthDisplay(m)}</span>
+        `;
+        monthList.appendChild(row);
+      });
+
+      // Toggle dropdown
+      monthBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        monthMenu.classList.toggle('hidden');
+      });
+      document.addEventListener('click', (e) => {
+        const within = monthSection.contains(e.target);
+        if (!within) monthMenu.classList.add('hidden');
       });
 
       // Populate quarter selector (based on months present)
@@ -439,24 +493,70 @@
         quarterSelect.appendChild(opt);
       });
 
-      // Defaults: latest month, quarter cleared (month mode)
-      const latestMonth = monthsSorted[monthsSorted.length - 1];
-      monthSelect.value = latestMonth;
-      quarterSelect.value = '';
-      renderPeriodRows(byOrb, { type: 'month', value: monthSelect.value }, monthSection.querySelector('#monthCards'), monthSection.querySelector('#periodHint'));
+      // Wire Select all / Clear buttons
+      const monthSelectAllBtn = monthSection.querySelector('#monthSelectAll');
+      const monthClearAllBtn = monthSection.querySelector('#monthClearAll');
+      if (monthSelectAllBtn) {
+        monthSelectAllBtn.addEventListener('click', (e) => {
+          e.preventDefault(); e.stopPropagation();
+          quarterSelect.value = '';
+          setSelectedMonths(monthsSorted.slice());
+          const cardsEl = monthSection.querySelector('#monthCards');
+          const hintEl = monthSection.querySelector('#periodHint');
+          renderPeriodRows(byOrb, { type: 'months', values: monthsSorted.slice() }, cardsEl, hintEl);
+        });
+      }
+      if (monthClearAllBtn) {
+        monthClearAllBtn.addEventListener('click', (e) => {
+          e.preventDefault(); e.stopPropagation();
+          quarterSelect.value = '';
+          setSelectedMonths([]);
+          const cardsEl = monthSection.querySelector('#monthCards');
+          const hintEl = monthSection.querySelector('#periodHint');
+          if (cardsEl) cardsEl.innerHTML = '';
+          if (hintEl) hintEl.textContent = 'Select one or more months, or choose a quarter.';
+        });
+      }
 
-      // Event wiring
-      monthSelect.addEventListener('change', () => {
+      // Defaults: select all months, quarter cleared (months mode)
+      setSelectedMonths(monthsSorted.slice());
+      renderPeriodRows(byOrb, { type: 'months', values: monthsSorted.slice() }, monthSection.querySelector('#monthCards'), monthSection.querySelector('#periodHint'));
+
+      // Event wiring for checkbox changes (auto-apply)
+      monthList.addEventListener('change', () => {
+        // When selecting specific months, clear quarter selection
         quarterSelect.value = '';
-        renderPeriodRows(byOrb, { type: 'month', value: monthSelect.value }, monthSection.querySelector('#monthCards'), monthSection.querySelector('#periodHint'));
+        const selectedMonths = getSelectedMonths();
+        updateMonthBtnLabel(selectedMonths);
+        const cardsEl = monthSection.querySelector('#monthCards');
+        const hintEl = monthSection.querySelector('#periodHint');
+        if (selectedMonths.length === 0) {
+          if (cardsEl) cardsEl.innerHTML = '';
+          if (hintEl) hintEl.textContent = 'Select one or more months, or choose a quarter.';
+          return;
+        }
+        renderPeriodRows(byOrb, { type: 'months', values: selectedMonths }, cardsEl, hintEl);
       });
+
+      // Quarter change -> render or revert to selected months
       quarterSelect.addEventListener('change', () => {
+        const cardsEl = monthSection.querySelector('#monthCards');
+        const hintEl = monthSection.querySelector('#periodHint');
         if (!quarterSelect.value) {
-          renderPeriodRows(byOrb, { type: 'month', value: monthSelect.value }, monthSection.querySelector('#monthCards'), monthSection.querySelector('#periodHint'));
+          const selectedMonths = getSelectedMonths();
+          if (selectedMonths.length > 0) {
+            renderPeriodRows(byOrb, { type: 'months', values: selectedMonths }, cardsEl, hintEl);
+          } else {
+            setSelectedMonths([latestMonth]);
+            renderPeriodRows(byOrb, { type: 'months', values: [latestMonth] }, cardsEl, hintEl);
+          }
         } else {
+          // Clear months visual selection when quarter picked, for clarity
+          setSelectedMonths([]);
           const [qStr, yStr] = quarterSelect.value.split('|');
           const q = Number(qStr); const year = Number(yStr);
-          renderPeriodRows(byOrb, { type: 'quarter', q, year }, monthSection.querySelector('#monthCards'), monthSection.querySelector('#periodHint'), monthsSorted);
+          renderPeriodRows(byOrb, { type: 'quarter', q, year }, cardsEl, hintEl, monthsSorted);
+          monthMenu.classList.add('hidden');
         }
       });
 
@@ -683,12 +783,31 @@
     // Render a selected period (single month OR calendar quarter)
     function renderPeriodRows(byOrb, period, containerEl, hintEl, monthsSortedAll) {
       containerEl.innerHTML = '';
-      if (hintEl) hintEl.textContent = period.type === 'month' ? `Showing month: ${fmtMonthDisplay(period.value)}` : `Showing quarter: Q${period.q}-${period.year}`;
+      if (hintEl) {
+        if (period.type === 'month') {
+          hintEl.textContent = `Showing month: ${fmtMonthDisplay(period.value)}`;
+        } else if (period.type === 'months') {
+          const list = (period.values || []).map(fmtMonthDisplay).join(', ');
+          hintEl.textContent = list ? `Showing months: ${list}` : 'Select one or more months, or choose a quarter.';
+        } else {
+          hintEl.textContent = `Showing quarter: Q${period.q}-${period.year}`;
+        }
+      }
 
       function getVal(tbl, r) {
         if (period.type === 'month') {
           const row = tbl.rows.find(x => x.month === period.value);
           return row ? row.vals.get(r) : null;
+        } else if (period.type === 'months') {
+          const monthsInSel = (period.values || []);
+          let sum = 0; let used = 0;
+          for (const ym of monthsInSel) {
+            const row = tbl.rows.find(x => x.month === ym);
+            const v = row ? row.vals.get(r) : null;
+            if (v === null || !Number.isFinite(v)) continue;
+            sum += v; used++;
+          }
+          return used === 0 ? null : sum;
         } else {
           const monthsInQ = (monthsSortedAll || []).filter(ym => {
             const { year, q } = getQuarterFromYYYYMM(ym);
