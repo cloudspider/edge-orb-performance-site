@@ -26,11 +26,7 @@
       <div class="flex items-center gap-2">
         <span class="text-sm text-slate-600">Symbol:</span>
         <div id="tickerSegment" class="inline-flex rounded-xl border border-slate-200 overflow-hidden">
-          <button type="button" class="px-3 py-1.5 text-sm font-medium bg-white hover:bg-slate-100 border-r border-slate-200" data-symbol="TQQQ">TQQQ</button>
-          <button type="button" class="px-3 py-1.5 text-sm font-medium bg-white hover:bg-slate-100 border-r border-slate-200" data-symbol="TSLA">TSLA</button>
-          <button type="button" class="px-3 py-1.5 text-sm font-medium bg-white hover:bg-slate-100 border-r border-slate-200" data-symbol="PLTR">PLTR</button>
-          <button type="button" class="px-3 py-1.5 text-sm font-medium bg-white hover:bg-slate-100 border-r border-slate-200" data-symbol="UGL">UGL</button>
-          <button type="button" class="px-3 py-1.5 text-sm font-medium bg-white hover:bg-slate-100" data-symbol="UVXY">UVXY</button>
+          <span class="px-3 py-1.5 text-sm text-slate-500">Loading…</span>
         </div>
       </div>
     </section>
@@ -1008,5 +1004,61 @@
       toggle.addEventListener('click', (e) => { e.preventDefault(); const collapsed = body.classList.contains('hidden'); setCollapsed(collapsed); });
     })();
   </script>
+  <script>
+      // Populate the ticker segmented control by listing files in ./data/
+      async function populateTickerSegment(){
+        const container = document.getElementById('tickerSegment');
+        if (!container) return;
+        const defaultSymbols = ['TQQQ','TSLA','PLTR','UVXY'];
+        container.innerHTML = '<span class="px-3 py-1.5 text-sm text-slate-500">Loading…</span>';
+        try {
+          const res = await fetch('data/', { cache: 'no-cache' });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const text = await res.text();
+          const ct = (res.headers.get('content-type') || '').toLowerCase();
+          let files = [];
+          if (ct.includes('text/html')) {
+            const doc = new DOMParser().parseFromString(text, 'text/html');
+            files = Array.from(doc.querySelectorAll('a')).map(a => a.getAttribute('href')).filter(Boolean);
+          } else {
+            files = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+          }
+          const regex = /^([A-Za-z0-9-]+)_backtest_results\.csv$/i;
+          const syms = [];
+          for (const f of files) {
+            const name = (f || '').split('/').pop();
+            const m = name.match(regex);
+            if (m) syms.push(m[1].toUpperCase());
+          }
+          const uniq = Array.from(new Set(syms));
+          const toRender = uniq.length ? uniq : defaultSymbols;
+          container.innerHTML = '';
+          toRender.forEach((s, i) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            const cls = 'px-3 py-1.5 text-sm font-medium bg-white hover:bg-slate-100' + (i < toRender.length - 1 ? ' border-r border-slate-200' : '');
+            btn.className = cls;
+            btn.setAttribute('data-symbol', s);
+            btn.textContent = s;
+            container.appendChild(btn);
+          });
+        } catch (err) {
+          // fallback to defaults
+          container.innerHTML = '';
+          defaultSymbols.forEach((s, i) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            const cls = 'px-3 py-1.5 text-sm font-medium bg-white hover:bg-slate-100' + (i < defaultSymbols.length - 1 ? ' border-r border-slate-200' : '');
+            btn.className = cls;
+            btn.setAttribute('data-symbol', s);
+            btn.textContent = s;
+            container.appendChild(btn);
+          });
+          console.warn('populateTickerSegment failed, using defaults:', err);
+        }
+      }
+      // run now (page script is at bottom so element exists)
+      populateTickerSegment().catch(()=>{});
+    </script>
 </body>
 </html>
