@@ -17,8 +17,8 @@
   <div class="max-w-7xl mx-auto p-6">
     <header class="mb-6">
       <!-- Updated: add id for dynamic title prefixing -->
-      <h1 id="mainTitle" class="text-2xl md:text-3xl font-semibold">ORB Monthly Performance Tables</h1>
-      <p class="text-slate-600 mt-1">Paste your CSV or upload a file. The app computes <span class="font-semibold">monthly sums</span> of daily P&amp;L (R units) for each <code>orb_m</code> × <code>target_R</code> combination, and also shows overall totals filtered by the last <em>N</em> days via the Days selector.</p>
+      <h1 id="mainTitle" class="text-2xl md:text-3xl font-semibold">ORB Monthly Performance</h1>
+      <p class="text-slate-600 mt-1">This app displays <span class="font-semibold">monthly sums</span> of daily P&amp;L (R units) for each <code>orb_m</code> × <code>target_R</code> combination. Orb_m is the number of minutes after 9:30 NY time. target_R is the desired target return in R units. stop_R is fixed at 2R.</p>
     </header>
 
     <!-- NEW: Symbol segmented control -->
@@ -1011,6 +1011,37 @@
         if (!container) return;
         const defaultSymbols = ['TQQQ','TSLA','PLTR','UVXY'];
         container.innerHTML = '<span class="px-3 py-1.5 text-sm text-slate-500">Loading…</span>';
+
+        // Helper to render an array of plain symbols into the segment
+        function renderSymbols(symbols){
+          container.innerHTML = '';
+          symbols.forEach((s, i) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            const cls = 'px-3 py-1.5 text-sm font-medium bg-white hover:bg-slate-100' + (i < symbols.length - 1 ? ' border-r border-slate-200' : '');
+            btn.className = cls;
+            btn.setAttribute('data-symbol', s);
+            btn.textContent = s;
+            container.appendChild(btn);
+          });
+        }
+
+        // 1) Try a simple manifest at data/index.json containing ["SYM","SYM2",...]
+        try {
+          const mres = await fetch('data/index.json', { cache: 'no-cache' });
+          if (mres.ok) {
+            const list = await mres.json();
+            if (Array.isArray(list) && list.length) {
+              const syms = list.map(s => String(s).toUpperCase());
+              renderSymbols(syms);
+              return;
+            }
+          }
+        } catch (e) {
+          // ignore and fall back to directory listing
+        }
+
+        // 2) Fallback: try to parse a directory index (works only on some servers)
         try {
           const res = await fetch('data/', { cache: 'no-cache' });
           if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -1032,32 +1063,16 @@
           }
           const uniq = Array.from(new Set(syms));
           const toRender = uniq.length ? uniq : defaultSymbols;
-          container.innerHTML = '';
-          toRender.forEach((s, i) => {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            const cls = 'px-3 py-1.5 text-sm font-medium bg-white hover:bg-slate-100' + (i < toRender.length - 1 ? ' border-r border-slate-200' : '');
-            btn.className = cls;
-            btn.setAttribute('data-symbol', s);
-            btn.textContent = s;
-            container.appendChild(btn);
-          });
+          renderSymbols(toRender);
+          return;
         } catch (err) {
-          // fallback to defaults
-          container.innerHTML = '';
-          defaultSymbols.forEach((s, i) => {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            const cls = 'px-3 py-1.5 text-sm font-medium bg-white hover:bg-slate-100' + (i < defaultSymbols.length - 1 ? ' border-r border-slate-200' : '');
-            btn.className = cls;
-            btn.setAttribute('data-symbol', s);
-            btn.textContent = s;
-            container.appendChild(btn);
-          });
-          console.warn('populateTickerSegment failed, using defaults:', err);
+          // fall through to defaults
         }
+
+        // 3) Default fallback
+        renderSymbols(defaultSymbols);
       }
-      // run now (page script is at bottom so element exists)
+       // run now (page script is at bottom so element exists)
       populateTickerSegment().catch(()=>{});
     </script>
 </body>
