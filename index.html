@@ -258,7 +258,25 @@
         const dir = String(btn.getAttribute('data-direction') || 'BOTH').toUpperCase();
         setActiveDirectionByValue(dir);
         if (!currentTicker) return; // nothing to load yet
+        // Capture current equity selections (if present) before re-render
+        const prevOrbEl = document.getElementById('eqOrbSelect');
+        const prevREl = document.getElementById('eqRSelect');
+        const prevOrb = prevOrbEl ? prevOrbEl.value : null;
+        const prevR = prevREl ? prevREl.value : null;
         await loadAndRender(currentTicker, dir);
+        // Restore selections if still available in the new dataset
+        const orbEl = document.getElementById('eqOrbSelect');
+        const rEl = document.getElementById('eqRSelect');
+        if (orbEl && prevOrb && Array.from(orbEl.options).some(o => o.value === String(prevOrb))) {
+          orbEl.value = String(prevOrb);
+          // trigger populate of R options via existing handler
+          orbEl.dispatchEvent(new Event('change', { bubbles: true }));
+          const rElNow = document.getElementById('eqRSelect');
+          if (rElNow && prevR && Array.from(rElNow.options).some(o => o.value === String(prevR))) {
+            rElNow.value = String(prevR);
+            rElNow.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        }
       });
     })();
 
@@ -773,7 +791,7 @@
       }
 
       function computeStatsFromSeries(x, y){
-        if (!y || y.length < 2) return { cagr: null, maxDD: null };
+        if (!y || y.length < 2) return { cagr: null, maxDD: null, winPct: null };
         const startVal = y[0];
         const endVal = y[y.length - 1];
         const parse = (s) => new Date(s.replace(/\//g,'-'));
@@ -788,15 +806,27 @@
           const dd = (v / peak) - 1;
           if (dd < maxDD) maxDD = dd;
         }
-        return { cagr, maxDD };
+        // Win percentage: wins / (wins + losses), ignore 0 and NaN
+        let wins = 0, losses = 0;
+        for (let i = 1; i < y.length; i++) {
+          const prev = y[i-1];
+          const curr = y[i];
+          if (!Number.isFinite(prev) || !Number.isFinite(curr) || prev === 0) continue;
+          const r = curr / prev - 1;
+          if (!Number.isFinite(r) || r === 0) continue;
+          if (r > 0) wins++; else if (r < 0) losses++;
+        }
+        const total = wins + losses;
+        const winPct = total > 0 ? (wins / total) : null;
+        return { cagr, maxDD, winPct };
       }
 
       function draw(){
         const orb = Number(orbSelect.value);
         const r = Number(rSelect.value);
         const { x, y } = computeEquity(orb, r);
-        const { cagr, maxDD } = computeStatsFromSeries(x, y);
-        const annText = `CAGR ${fmtPct(cagr)}\nMaxDD ${fmtPct(maxDD)}`;
+  const { cagr, maxDD, winPct } = computeStatsFromSeries(x, y);
+  const annText = `CAGR ${fmtPct(cagr)}\nMaxDD ${fmtPct(maxDD)}\nWin% ${fmtPct(winPct)}`;
         const layout = {
           height: 340,
           margin: { l: 50, r: 20, t: 10, b: 40 },
