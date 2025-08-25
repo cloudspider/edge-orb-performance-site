@@ -695,8 +695,8 @@
         });
       }
 
-      // --- NEW: Last 20 days section at the very end ---
-      renderLastDaysSection(model, combosByOrb, ticker);
+  // --- NEW: Last X days section at the very end (linked to Totals filters) ---
+  renderLastDaysSection(model, combosByOrb, ticker, summaryEl);
     }
 
     // Compute totals by last N days from the raw daily data
@@ -1081,8 +1081,8 @@
     function bottomShade(rank){ const shades=['bg-rose-400','bg-rose-300','bg-rose-200','bg-rose-100','bg-rose-50']; return shades[Math.min(rank, shades.length-1)] || ''; }
     
 
-    // --- NEW: Last 20 days section (helper) ---
-    function renderLastDaysSection(model, combosByOrb, ticker) {
+  // --- NEW: Last 20 days section (helper) ---
+  function renderLastDaysSection(model, combosByOrb, ticker, filterSourceEl) {
       const prefix = ticker ? `${ticker} - ` : '';
       const section = document.createElement('section');
       section.className = 'bg-white rounded-2xl shadow-soft p-4 md:p-6';
@@ -1114,9 +1114,41 @@
         const activeOrb = eqOrbSel ? Number(eqOrbSel.value) : NaN;
         const activeR = eqRSel ? Number(eqRSel.value) : NaN;
 
-        // Last 20 rows by date (descending)
-        const rows = [...model.data].sort((a,b)=>b.date - a.date).slice(0, 20);
+        // Read Totals filters (if available) and compute filtered rows
+        const getFilters = (filterSourceEl && typeof filterSourceEl.getCurrentFilters === 'function') ? filterSourceEl.getCurrentFilters : null;
+        const { daysSel, selectedDOW, selectedMonths } = getFilters ? getFilters() : { daysSel: 'ALL', selectedDOW: new Set([1,2,3,4,5]), selectedMonths: new Set() };
+        // Build allowed set of dates based on Days filter
+        const rowsAsc = [...model.data].sort((a,b)=> a.date - b.date);
+        const timesAsc = Array.from(new Set(rowsAsc.map(d => d.date.getTime()))).sort((a,b)=>a-b);
+        const allowedTimes = (daysSel === 'ALL') ? timesAsc : timesAsc.slice(-Math.max(0, parseInt(daysSel,10)));
+        const allowed = new Set(allowedTimes);
+        // Weekday filter helper
+        const hasDowFilter = selectedDOW instanceof Set;
+        const selectedNone = hasDowFilter && selectedDOW.size === 0;
+        const isAllowedDow = (dateObj) => {
+          if (!hasDowFilter) return true;
+          if (selectedNone) return false;
+          const jsDay = dateObj.getDay(); // 0..6
+          const mapped = jsDay === 0 ? 7 : jsDay; // 1..7
+          if (mapped === 6 || mapped === 7) return false; // exclude weekends
+          return selectedDOW.has(mapped);
+        };
+        // Month filter
+        const hasMonthFilter = selectedMonths instanceof Set && selectedMonths.size > 0;
+        const rows = rowsAsc.filter(r => {
+          const t = r.date.getTime();
+          if (!allowed.has(t)) return false;
+          if (!isAllowedDow(r.date)) return false;
+          if (hasMonthFilter && !selectedMonths.has(r.yyyymm)) return false;
+          return true;
+        }).sort((a,b)=> b.date - a.date);
         const naMode = document.getElementById('naSelect').value;
+        // Update heading to reflect Days filter
+        const hd = section.querySelector('h2.text-lg.font-semibold');
+        if (hd) {
+          const daysText = daysSel === 'ALL' ? 'All applicable days' : `Last ${daysSel} days`;
+          hd.textContent = `${prefix}${daysText} — daily R by combo`;
+        }
 
         // Build table HTML
         let html = '<table class="min-w-full text-xs md:text-sm">';
@@ -1166,17 +1198,52 @@
           html += '</tr>';
         }
 
+        // Totals row across displayed days
+        html += '<tr class="bg-slate-100 font-semibold">';
+        html += '<td class="px-3 py-2">Total</td>';
+        for (const c of combos) {
+          let total = 0; let used = false;
+          for (const r of rows) {
+            let v = r[c.key];
+            if (v === null || !Number.isFinite(v)) {
+              if (naMode === 'zero') { v = 0; used = true; } else { continue; }
+            } else {
+              used = true;
+            }
+            total += v;
+          }
+          let cls = '';
+          let disp = '—';
+          const isActiveCol = Number(c.orb_m) === activeOrb && Number(c.target_R) === activeR;
+          const aCls = isActiveCol ? ' col-active-cell' : '';
+          if (used) {
+            if (total > 0) cls = 'num-pos';
+            else if (total < 0) cls = 'num-neg';
+            else cls = 'text-slate-600';
+            disp = fmt(total);
+          } else {
+            // If user has zero weekdays selected, show 0 to mirror Totals behavior
+            if (selectedDOW instanceof Set && selectedDOW.size === 0) {
+              cls = 'text-slate-600';
+              disp = fmt(0);
+            }
+          }
+          html += `<td class="px-3 py-2 text-right ${cls}${aCls}">${disp}</td>`;
+        }
+        html += '</tr>';
+
         html += '</tbody></table>';
         section.querySelector('#lastDaysTable').innerHTML = html;
       }
 
       drawLastDays();
 
-      // redraw highlight on equity selection changes
+  // redraw highlight on equity selection changes
       const eqOrbSel2 = document.getElementById('eqOrbSelect');
       const eqRSel2 = document.getElementById('eqRSelect');
       if (eqOrbSel2) eqOrbSel2.addEventListener('change', drawLastDays);
       if (eqRSel2) eqRSel2.addEventListener('change', drawLastDays);
+  if (filterSourceEl) filterSourceEl.addEventListener('filters-changed', drawLastDays);
     }
     // --- /NEW ---
 
