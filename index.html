@@ -439,10 +439,10 @@
           const val = c.total === null ? '—' : fmt(c.total);
           const bg = hl.get(`${c.orb}|${c.r}`) || '';
           // Keep 6 columns but reduce text size and padding to fit portrait mobile
-          return `<div class="rounded-2xl border border-slate-200 p-2 sm:p-3 ${bg} min-w-[120px]">
+          return `<button type="button" class="rounded-2xl border border-slate-200 p-2 sm:p-3 ${bg} min-w-[120px] text-left hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-300 cursor-pointer" data-orb="${c.orb}" data-r="${c.r}">
             <div class="text-[11px] sm:text-xs text-slate-500 truncate">orb_m ${c.orb} · R ${c.r}</div>
             <div class="text-lg sm:text-2xl font-semibold ${cls}">${val}</div>
-          </div>`;
+          </button>`;
         }).join('');
       };
 
@@ -456,6 +456,27 @@
         if (!btn) return;
         setActive(btn);
         rebuildSummaryCards();
+      });
+
+      // Click a summary tile to update the equity curve selectors
+      cardsContainer.addEventListener('click', (e) => {
+        const card = e.target.closest('button[data-orb][data-r]');
+        if (!card) return;
+        const orb = String(card.getAttribute('data-orb'));
+        const r = String(card.getAttribute('data-r'));
+        const orbSel = document.getElementById('eqOrbSelect');
+        const rSel = document.getElementById('eqRSelect');
+        if (!orbSel || !rSel) return;
+        // Set orb and trigger change to repopulate R options
+        if (Array.from(orbSel.options).some(o => o.value === orb)) {
+          orbSel.value = orb;
+          orbSel.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        // Set target_R if available after repopulation
+        if (Array.from(rSel.options).some(o => o.value === r)) {
+          rSel.value = r;
+          rSel.dispatchEvent(new Event('change', { bubbles: true }));
+        }
       });
 
   // --- NEW: Equity curve section (below Totals summary) ---
