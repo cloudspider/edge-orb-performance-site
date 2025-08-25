@@ -394,6 +394,16 @@
               <button type=\"button\" class=\"px-3 py-1.5 text-sm font-medium bg-white hover:bg-slate-100\" data-days=\"120\">120</button>
             </div>
           </div>
+          <div class="flex items-center gap-2">
+            <span class="text-sm text-slate-600">Weekdays:</span>
+            <div id="weekdaySegment" class="inline-flex rounded-xl border border-slate-200 overflow-hidden">
+              <button type="button" class="px-3 py-1.5 text-sm font-medium bg-slate-800 text-white border-r border-slate-200" data-dow="1">Mon</button>
+              <button type="button" class="px-3 py-1.5 text-sm font-medium bg-slate-800 text-white border-r border-slate-200" data-dow="2">Tue</button>
+              <button type="button" class="px-3 py-1.5 text-sm font-medium bg-slate-800 text-white border-r border-slate-200" data-dow="3">Wed</button>
+              <button type="button" class="px-3 py-1.5 text-sm font-medium bg-slate-800 text-white border-r border-slate-200" data-dow="4">Thu</button>
+              <button type="button" class="px-3 py-1.5 text-sm font-medium bg-slate-800 text-white" data-dow="5">Fri</button>
+            </div>
+          </div>
         </div>
         <!-- keep 6 columns but allow horizontal scrolling if necessary; make cards more compact -->
         <div id="summaryCards" class="overflow-x-auto"><div class="grid grid-cols-6 gap-2 min-w-max" id="summaryCardsGrid"></div></div>
@@ -409,10 +419,19 @@
         if (btn) { btn.classList.add('bg-slate-800','text-white'); seg.setAttribute('data-selected', btn.getAttribute('data-days')); }
       };
 
+      // Weekday selection state (1..5 selected by default)
+      const weekdaySegment = summaryEl.querySelector('#weekdaySegment');
+      const selectedDOW = new Set([1,2,3,4,5]);
+
+      const toggleWeekdayBtn = (btn, on) => {
+        btn.classList.toggle('bg-slate-800', on);
+        btn.classList.toggle('text-white', on);
+      };
+
       const rebuildSummaryCards = () => {
         const daysSel = seg.getAttribute('data-selected') || 'ALL';
         const naMode = document.getElementById('naSelect').value;
-        const totals = computeTotalsByDays(model, combosByOrb, daysSel, naMode); // Map orb -> Map(r -> total|null)
+        const totals = computeTotalsByDays(model, combosByOrb, daysSel, naMode, selectedDOW); // Map orb -> Map(r -> total|null)
 
         // Build flat list for rendering & highlighting
         const summaryCards = [];
@@ -457,6 +476,18 @@
         setActive(btn);
         rebuildSummaryCards();
       });
+
+      // Weekday multi-select
+      if (weekdaySegment) {
+        weekdaySegment.addEventListener('click', (e) => {
+          const b = e.target.closest('button[data-dow]');
+          if (!b) return;
+          const v = parseInt(b.getAttribute('data-dow'), 10);
+          if (selectedDOW.has(v)) { selectedDOW.delete(v); toggleWeekdayBtn(b, false); }
+          else { selectedDOW.add(v); toggleWeekdayBtn(b, true); }
+          rebuildSummaryCards();
+        });
+      }
 
       // Click a summary tile to update the equity curve selectors
       cardsContainer.addEventListener('click', (e) => {
@@ -699,10 +730,21 @@
     }
 
     // Compute totals by last N days from the raw daily data
-    function computeTotalsByDays(model, combosByOrb, daysSel, naMode) {
+    function computeTotalsByDays(model, combosByOrb, daysSel, naMode, selectedDOW) {
       const times = Array.from(new Set(model.data.map(d => d.date.getTime()))).sort((a,b) => a - b);
       const allowedTimes = (daysSel === 'ALL') ? times : times.slice(-Math.max(0, parseInt(daysSel,10)));
       const allowed = new Set(allowedTimes);
+      // Prepare weekday filter: if selectedDOW is provided, it's an active filter even if empty
+      const hasDowFilter = selectedDOW instanceof Set;
+      const selectedNone = hasDowFilter && selectedDOW.size === 0;
+      const isAllowedDow = (dateObj) => {
+        if (!hasDowFilter) return true;
+        if (selectedNone) return false; // no weekdays allowed
+        const jsDay = dateObj.getDay(); // 0 Sun .. 6 Sat
+        const mapped = jsDay === 0 ? 7 : jsDay; // 1..7, with Sun=7
+        if (mapped === 6 || mapped === 7) return false; // exclude weekends just in case
+        return selectedDOW.has(mapped);
+      };
       const result = new Map(); // orb -> Map(target_R -> total|null)
 
       for (const [orb, arr] of combosByOrb.entries()) {
@@ -712,6 +754,7 @@
           for (const row of model.data) {
             const t = row.date.getTime();
             if (!allowed.has(t)) continue;
+            if (!isAllowedDow(row.date)) continue;
             const v = row[key];
             if (v === null || !Number.isFinite(v)) {
               if (naMode === 'zero') { sum += 0; used++; }
@@ -719,7 +762,8 @@
             }
             sum += v; used++;
           }
-          rmap.set(target_R, used === 0 ? null : sum);
+          // If no rows used, return 0 only when user explicitly selected no weekdays; otherwise null
+          rmap.set(target_R, used === 0 ? (selectedNone ? 0 : null) : sum);
         }
         result.set(orb, rmap);
       }
