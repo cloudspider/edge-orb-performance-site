@@ -690,8 +690,8 @@
     // --- NEW: Equity curve rendering using Plotly ---
   function renderEquitySection(model, combosByOrb, mountAfterEl) {
       // Build container under the summary section
-      const section = document.createElement('section');
-      section.className = 'bg-white rounded-2xl shadow-soft p-4 md:p-6 mt-4';
+  const section = document.createElement('section');
+  section.className = 'bg-white rounded-2xl shadow-soft p-4 md:p-6 mt-4 overflow-hidden';
       section.innerHTML = `
         <div class="flex items-center justify-between gap-3 flex-wrap mb-3">
           <h2 class="text-lg font-semibold">Equity curve (daily compounding)</h2>
@@ -713,7 +713,7 @@
           </div>
         </div>
         <div class="text-xs text-slate-500 mb-2">Assumes starting balance of $100,000 and treats daily R value as percentage return (1R = 1%).</div>
-        <div id="equityChart" class="w-full h-[320px]"></div>
+  <div id="equityChart" class="w-full min-h-[320px]"></div>
       `;
   // Insert right after the provided element (summary section)
   mountAfterEl.parentNode.insertBefore(section, mountAfterEl.nextSibling);
@@ -745,7 +745,7 @@
       rSelect.value = rSelect.options.length ? rSelect.options[0].value : '';
 
       // Compute and plot
-      function computeEquity(orb, r){
+    function computeEquity(orb, r){
         const key = `m${orb}_r${r}`;
         const rows = [...model.data].sort((a,b)=> a.date - b.date);
         const x = [];
@@ -760,30 +760,66 @@
           }
           const pct = v / 100; // Treat 1R as 1% daily return
           equity = equity * (1 + pct);
-          x.push(fmtDate(row.date));
+      // Use ISO date string to allow Plotly 'date' axis to auto-manage ticks
+      x.push(row.date.toISOString().slice(0,10));
           y.push(equity);
         }
         return { x, y };
       }
 
-    function draw(){
+      function fmtPct(p){
+        if (p === null || p === undefined || !Number.isFinite(p)) return '—';
+        return (p * 100).toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+      }
+
+      function computeStatsFromSeries(x, y){
+        if (!y || y.length < 2) return { cagr: null, maxDD: null };
+        const startVal = y[0];
+        const endVal = y[y.length - 1];
+        const parse = (s) => new Date(s.replace(/\//g,'-'));
+        const startDate = parse(x[0]);
+        const endDate = parse(x[x.length - 1]);
+        const years = (endDate - startDate) / (365.25 * 24 * 3600 * 1000);
+        const cagr = (years > 0 && startVal > 0) ? Math.pow(endVal / startVal, 1 / years) - 1 : null;
+        // Max Drawdown
+        let peak = -Infinity; let maxDD = 0; // negative number like -0.25 for -25%
+        for (const v of y) {
+          if (v > peak) peak = v;
+          const dd = (v / peak) - 1;
+          if (dd < maxDD) maxDD = dd;
+        }
+        return { cagr, maxDD };
+      }
+
+      function draw(){
         const orb = Number(orbSelect.value);
         const r = Number(rSelect.value);
         const { x, y } = computeEquity(orb, r);
+        const { cagr, maxDD } = computeStatsFromSeries(x, y);
+        const annText = `CAGR ${fmtPct(cagr)}\nMaxDD ${fmtPct(maxDD)}`;
         const layout = {
-          margin: { l: 50, r: 20, t: 10, b: 30 },
-      xaxis: { title: 'Date', type: 'category', tickangle: -30 },
+          height: 340,
+          margin: { l: 50, r: 20, t: 10, b: 40 },
+          xaxis: { title: 'Date', type: 'date', tickformat: '%Y-%m', ticklabelmode: 'period', nticks: 8, automargin: true },
           yaxis: { title: 'Equity ($)', hoverformat: ',.2f' },
           hovermode: 'x unified',
-          template: 'plotly_white'
+          template: 'plotly_white',
+          annotations: [{
+            xref: 'paper', yref: 'paper', x: 1, y: 0, xanchor: 'right', yanchor: 'bottom', showarrow: false,
+            text: annText,
+            align: 'right',
+            font: { color: '#334155', size: 12 },
+            bgcolor: 'rgba(148,163,184,0.12)', // slate-400 at low alpha
+            bordercolor: '#cbd5e1', borderwidth: 1, borderpad: 4
+          }]
         };
         const data = [{
           x, y,
           type: 'scatter', mode: 'lines',
           line: { color: '#059669', width: 2 },
-          hovertemplate: '%{x}<br>$%{y:,.2f}<extra></extra>'
+          hovertemplate: '%{x|%Y-%m-%d}<br>$%{y:,.2f}<extra></extra>'
         }];
-        Plotly.react(section.querySelector('#equityChart'), data, layout, { responsive: true });
+  Plotly.react(section.querySelector('#equityChart'), data, layout, { responsive: true, displaylogo: false });
       }
 
       // Wire change handlers
