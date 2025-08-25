@@ -13,6 +13,8 @@
     .sticky-th { position: sticky; top: 0; background: white; z-index: 1; }
     .shadow-soft { box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
     .grid-auto { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+  /* 1px gold border for active tile (no extra shadow to avoid clipping) */
+  .outline-gold { border-color: #c28e0e !important; }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800">
@@ -379,8 +381,10 @@
       const summaryEl = document.createElement('div');
       summaryEl.className = 'bg-white rounded-2xl shadow-soft p-4 md:p-6';
       summaryEl.innerHTML = `
-        <div class="flex items-center justify-between gap-3 flex-wrap mb-3">
+        <div class="mb-2">
           <h2 class="text-lg font-semibold">${prefix}Totals (sum of daily R) by combo</h2>
+        </div>
+        <div class="flex items-center gap-4 flex-wrap mb-3">
           <div class="flex items-center gap-2">
             <span class="text-sm text-slate-600">Days:</span>
             <div id="daysSegment" class="inline-flex rounded-xl border border-slate-200 overflow-hidden">
@@ -422,7 +426,7 @@
           </div>
         </div>
         <!-- keep 6 columns but allow horizontal scrolling if necessary; make cards more compact -->
-        <div id="summaryCards" class="overflow-x-auto"><div class="grid grid-cols-6 gap-2 min-w-max" id="summaryCardsGrid"></div></div>
+        <div id="summaryCards" class="overflow-x-auto px-[1px] py-[1px]"><div class="grid grid-cols-6 gap-2 min-w-max" id="summaryCardsGrid"></div></div>
       `;
       output.appendChild(summaryEl);
 
@@ -550,12 +554,20 @@
         top.forEach((c,i)=> hl.set(`${c.orb}|${c.r}`, topShade(i)));
         bottom.forEach((c,i)=> { if (!hl.has(`${c.orb}|${c.r}`)) hl.set(`${c.orb}|${c.r}`, bottomShade(i)); });
 
+        // Determine current equity selection to highlight active card
+        const orbSelEl = document.getElementById('eqOrbSelect');
+        const rSelEl = document.getElementById('eqRSelect');
+        const activeOrb = orbSelEl ? Number(orbSelEl.value) : null;
+        const activeR = rSelEl ? Number(rSelEl.value) : null;
+
         cardsContainer.innerHTML = summaryCards.map(c => {
           const cls = c.total === null ? 'text-slate-400' : (c.total >= 0 ? 'num-pos' : 'num-neg');
           const val = c.total === null ? '—' : fmt(c.total);
           const bg = hl.get(`${c.orb}|${c.r}`) || '';
+          const isActive = (activeOrb === c.orb && activeR === c.r);
+          const activeCls = isActive ? 'outline-gold' : '';
           // Keep 6 columns but reduce text size and padding to fit portrait mobile
-          return `<button type="button" class="rounded-2xl border border-slate-200 p-2 sm:p-3 ${bg} min-w-[120px] text-left hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-300 cursor-pointer" data-orb="${c.orb}" data-r="${c.r}">
+          return `<button type="button" class="rounded-2xl border border-slate-200 p-2 sm:p-3 ${bg} ${activeCls} min-w-[120px] text-left hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-300 cursor-pointer" data-orb="${c.orb}" data-r="${c.r}">
             <div class="text-[11px] sm:text-xs text-slate-500 truncate">orb_m ${c.orb} · R ${c.r}</div>
             <div class="text-lg sm:text-2xl font-semibold ${cls}">${val}</div>
           </button>`;
@@ -853,7 +865,7 @@
         return { cagr, maxDD, winPct };
       }
 
-      function draw(){
+  function draw(){
         const orb = Number(orbSelect.value);
         const r = Number(rSelect.value);
         const { x, y } = computeEquity(orb, r);
@@ -882,6 +894,8 @@
           hovertemplate: '%{x|%Y-%m-%d}<br>$%{y:,.2f}<extra></extra>'
         }];
   Plotly.react(section.querySelector('#equityChart'), data, layout, { responsive: true, displaylogo: false });
+        // After drawing, update active highlight on summary cards
+        updateActiveHighlight();
       }
 
       // Wire change handlers
@@ -895,6 +909,21 @@
         draw();
       });
       rSelect.addEventListener('change', draw);
+
+      // Helper to highlight the active summary tile matching current orb/R
+      function updateActiveHighlight(){
+        try {
+          const orbVal = orbSelect.value;
+          const rVal = rSelect.value;
+          if (!mountAfterEl) return;
+          const grid = mountAfterEl.querySelector('#summaryCardsGrid');
+          if (!grid) return;
+          grid.querySelectorAll('button[data-orb][data-r]').forEach(btn => {
+            const isActive = btn.getAttribute('data-orb') === String(orbVal) && btn.getAttribute('data-r') === String(rVal);
+            btn.classList.toggle('outline-gold', isActive);
+          });
+        } catch {}
+      }
 
       // Initial draw
       draw();
