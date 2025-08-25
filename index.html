@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ORB Monthly Performance Tables</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Plotly for interactive charts -->
+  <script src="https://cdn.plot.ly/plotly-2.31.1.min.js"></script>
   <style>
     .num-pos { color: #065f46; } /* emerald-800 */
     .num-neg { color: #9f1239; } /* rose-800 */
@@ -380,7 +382,7 @@
       `;
       output.appendChild(summaryEl);
 
-      const seg = summaryEl.querySelector('#daysSegment');
+  const seg = summaryEl.querySelector('#daysSegment');
       // We render into inner grid container to allow horizontal scroll on small portrait screens
       const cardsContainer = summaryEl.querySelector('#summaryCardsGrid');
 
@@ -437,6 +439,9 @@
         setActive(btn);
         rebuildSummaryCards();
       });
+
+  // --- NEW: Equity curve section (below Totals summary) ---
+  renderEquitySection(model, combosByOrb, summaryEl);
 
       // Month & Quarter selector section (unchanged logic)
       const monthSection = document.createElement('section');
@@ -680,6 +685,118 @@
         result.set(orb, rmap);
       }
       return result;
+    }
+
+    // --- NEW: Equity curve rendering using Plotly ---
+  function renderEquitySection(model, combosByOrb, mountAfterEl) {
+      // Build container under the summary section
+      const section = document.createElement('section');
+      section.className = 'bg-white rounded-2xl shadow-soft p-4 md:p-6 mt-4';
+      section.innerHTML = `
+        <div class="flex items-center justify-between gap-3 flex-wrap mb-3">
+          <h2 class="text-lg font-semibold">Equity curve (daily compounding)</h2>
+          <div class="flex items-center gap-3">
+            <label class="text-sm text-slate-600">orb_m:</label>
+            <div class="relative inline-block">
+              <select id="eqOrbSelect" class="appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 pr-9 text-sm"></select>
+              <span class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-500">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
+              </span>
+            </div>
+            <label class="text-sm text-slate-600">target_R:</label>
+            <div class="relative inline-block">
+              <select id="eqRSelect" class="appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 pr-9 text-sm"></select>
+              <span class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-500">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="text-xs text-slate-500 mb-2">Assumes starting balance of $100,000 and treats daily R value as percentage return (1R = 1%).</div>
+        <div id="equityChart" class="w-full h-[320px]"></div>
+      `;
+  // Insert right after the provided element (summary section)
+  mountAfterEl.parentNode.insertBefore(section, mountAfterEl.nextSibling);
+
+      // Populate orb and R selects
+      const orbSelect = section.querySelector('#eqOrbSelect');
+      const rSelect = section.querySelector('#eqRSelect');
+      const orbs = Array.from(combosByOrb.keys()).sort((a,b)=>a-b);
+      orbs.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = String(o);
+        opt.textContent = o;
+        orbSelect.appendChild(opt);
+      });
+      function populateRSelect(orb){
+        rSelect.innerHTML = '';
+        const arr = (combosByOrb.get(Number(orb)) || []).slice().sort((a,b)=>a.target_R - b.target_R);
+        for (const { target_R } of arr) {
+          const opt = document.createElement('option');
+          opt.value = String(target_R);
+          opt.textContent = target_R;
+          rSelect.appendChild(opt);
+        }
+      }
+      populateRSelect(orbs[0]);
+
+      // Default selections: first orb and first R
+      orbSelect.value = String(orbs[0]);
+      rSelect.value = rSelect.options.length ? rSelect.options[0].value : '';
+
+      // Compute and plot
+      function computeEquity(orb, r){
+        const key = `m${orb}_r${r}`;
+        const rows = [...model.data].sort((a,b)=> a.date - b.date);
+        const x = [];
+        const y = [];
+        const start = 100000;
+        let equity = start;
+        const naMode = document.getElementById('naSelect').value;
+        for (const row of rows) {
+          let v = row[key];
+          if ((v === null || !Number.isFinite(v))) {
+            if (naMode === 'zero') v = 0; else continue;
+          }
+          const pct = v / 100; // Treat 1R as 1% daily return
+          equity = equity * (1 + pct);
+          x.push(fmtDate(row.date));
+          y.push(equity);
+        }
+        return { x, y };
+      }
+
+    function draw(){
+        const orb = Number(orbSelect.value);
+        const r = Number(rSelect.value);
+        const { x, y } = computeEquity(orb, r);
+        const layout = {
+          margin: { l: 50, r: 20, t: 10, b: 30 },
+      xaxis: { title: 'Date', type: 'category', tickangle: -30 },
+          yaxis: { title: 'Equity ($)', hoverformat: ',.2f' },
+          hovermode: 'x unified',
+          template: 'plotly_white'
+        };
+        const data = [{
+          x, y,
+          type: 'scatter', mode: 'lines',
+          line: { color: '#059669', width: 2 },
+          hovertemplate: '%{x}<br>$%{y:,.2f}<extra></extra>'
+        }];
+        Plotly.react(section.querySelector('#equityChart'), data, layout, { responsive: true });
+      }
+
+      // Wire change handlers
+      orbSelect.addEventListener('change', () => {
+        populateRSelect(Number(orbSelect.value));
+        // reset R to first option on orb change for clarity
+        if (rSelect.options.length) rSelect.value = rSelect.options[0].value;
+        draw();
+      });
+      rSelect.addEventListener('change', draw);
+
+      // Initial draw
+      draw();
     }
 
     function cardHTML(c) {
