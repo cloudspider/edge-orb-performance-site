@@ -18,6 +18,14 @@
   /* Active R column highlight in monthly table */
   .col-active-header { background-color: #fff3bf; } /* soft gold */
   .col-active-cell { background-color: #fff8dc; } /* lighter gold */
+  /* Prevent iOS tap highlight/focus from washing out selected segment buttons */
+  #tickerSegment button, #directionSegment button, #daysSegment button, #weekdaySegment button {
+    -webkit-tap-highlight-color: transparent;
+  }
+  #tickerSegment button:focus, #directionSegment button:focus, #daysSegment button:focus, #weekdaySegment button:focus {
+    outline: none;
+    box-shadow: none;
+  }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800">
@@ -225,9 +233,15 @@
     function setActiveDirectionByValue(val) {
       if (!directionSegment) return;
       const btn = directionSegment.querySelector(`button[data-direction="${val}"]`);
-      directionSegment.querySelectorAll('button').forEach(b => b.classList.remove('bg-slate-800','text-white'));
+      directionSegment.querySelectorAll('button').forEach(b => {
+        b.classList.remove('bg-slate-800','text-white','focus:outline-none');
+        // Ensure non-active buttons look like segments
+        if (!b.classList.contains('bg-white')) b.classList.add('bg-white');
+        if (!b.classList.contains('hover:bg-slate-100')) b.classList.add('hover:bg-slate-100');
+      });
       if (btn) {
-        btn.classList.add('bg-slate-800','text-white');
+        btn.classList.add('bg-slate-800','text-white','focus:outline-none');
+        btn.classList.remove('bg-white','hover:bg-slate-100');
         directionSegment.setAttribute('data-selected', val);
         currentDirection = val;
       }
@@ -237,8 +251,16 @@
     const tickerSegment = document.getElementById('tickerSegment');
     if (tickerSegment) {
       const setActiveTicker = (btn) => {
-        tickerSegment.querySelectorAll('button').forEach(b => b.classList.remove('bg-slate-800','text-white'));
-        if (btn) btn.classList.add('bg-slate-800','text-white');
+        tickerSegment.querySelectorAll('button').forEach(b => {
+          b.classList.remove('bg-slate-800','text-white','focus:outline-none');
+          // restore default look for non-active
+          if (!b.classList.contains('bg-white')) b.classList.add('bg-white');
+          if (!b.classList.contains('hover:bg-slate-100')) b.classList.add('hover:bg-slate-100');
+        });
+        if (btn) {
+          btn.classList.add('bg-slate-800','text-white','focus:outline-none');
+          btn.classList.remove('bg-white','hover:bg-slate-100');
+        }
       };
 
       tickerSegment.addEventListener('click', async (e) => {
@@ -890,7 +912,7 @@
         const r = Number(rSelect.value);
         const { x, y } = computeEquity(orb, r);
   const { cagr, maxDD, winPct } = computeStatsFromSeries(x, y);
-  const annText = `CAGR ${fmtPct(cagr)}\nMaxDD ${fmtPct(maxDD)}\nWin% ${fmtPct(winPct)}`;
+  const annText = `CAGR ${fmtPct(cagr)}<br>MaxDD ${fmtPct(maxDD)}<br>Win% ${fmtPct(winPct)}`;
         const layout = {
           height: 340,
           margin: { l: 50, r: 20, t: 10, b: 40 },
@@ -899,7 +921,7 @@
           hovermode: 'x unified',
           template: 'plotly_white',
           annotations: [{
-            xref: 'paper', yref: 'paper', x: 1, y: 0, xanchor: 'right', yanchor: 'bottom', showarrow: false,
+            xref: 'paper', yref: 'paper', x: 1, y: 0.06, xanchor: 'right', yanchor: 'bottom', showarrow: false,
             text: annText,
             align: 'right',
             font: { color: '#334155', size: 12 },
