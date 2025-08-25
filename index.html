@@ -911,7 +911,7 @@
         return { cagr, maxDD, winPct, winsCount: wins, lossesCount: losses };
       }
 
-      // Compute win/loss streak series for the selected combo, respecting Totals filters
+      // Compute win/loss streak bars only at the maximum point of each streak run
       function computeStreakSeries(orb, r){
         const key = `m${orb}_r${r}`;
         const rows = [...model.data].sort((a,b)=> a.date - b.date);
@@ -933,34 +933,63 @@
         };
         const hasMonthFilter = selectedMonths instanceof Set && selectedMonths.size > 0;
 
-        const x = []; // ISO date string
-        const y = []; // streak values (+wins, -losses, 0 flat)
+        const x = []; // dates only when a streak run reaches its max (end of run)
+        const y = []; // signed streak magnitude (+win, -loss)
         const colors = [];
         const texts = [];
-        let streak = 0; // positive for wins, negative for losses
+
+        let streak = 0;      // signed ongoing streak
+        let runSign = 0;     // 1 for wins, -1 for losses, 0 none
+        let runBest = 0;     // best magnitude within current run
+        let runBestDate = null; // date when best was reached
+
+        const flushRun = () => {
+          if (runSign !== 0 && runBest > 0 && runBestDate) {
+            const iso = runBestDate.toISOString().slice(0,10);
+            x.push(iso);
+            const val = runSign > 0 ? runBest : -runBest;
+            y.push(val);
+            if (val > 0) { colors.push('#10b981'); texts.push(`Win streak: ${val}`); }
+            else { colors.push('#f43f5e'); texts.push(`Loss streak: ${Math.abs(val)}`); }
+          }
+          runSign = 0; runBest = 0; runBestDate = null; streak = 0;
+        };
+
         for (const row of rows) {
           const t = row.date.getTime();
           if (!allowed.has(t)) continue;
           if (!isAllowedDow(row.date)) continue;
           if (hasMonthFilter && !selectedMonths.has(row.yyyymm)) continue;
           let v = row[key];
-          if ((v === null || !Number.isFinite(v))) {
-            if (naMode === 'zero') v = 0; else continue;
+          if ((v === null || !Number.isFinite(v))) { if (naMode === 'zero') v = 0; else continue; }
+
+          // Update streak
+          if (v > 0) streak = streak > 0 ? streak + 1 : 1;
+          else if (v < 0) streak = streak < 0 ? streak - 1 : -1;
+          else streak = 0; // flat resets
+
+          const sgn = Math.sign(streak);
+          if (sgn === 0) {
+            // flat day ends any prior run
+            flushRun();
+            continue;
           }
-          if (v > 0) {
-            streak = streak > 0 ? streak + 1 : 1;
-          } else if (v < 0) {
-            streak = streak < 0 ? streak - 1 : -1;
+
+          if (runSign === 0 || sgn !== runSign) {
+            // sign changed -> flush previous and start new run
+            flushRun();
+            runSign = sgn;
+            runBest = Math.abs(streak);
+            runBestDate = row.date;
           } else {
-            streak = 0; // flat resets the streak
+            // same sign; update best if improved (max at that point)
+            const mag = Math.abs(streak);
+            if (mag >= runBest) { runBest = mag; runBestDate = row.date; }
           }
-          const iso = row.date.toISOString().slice(0,10);
-          x.push(iso);
-          y.push(streak);
-          if (streak > 0) { colors.push('#10b981'); texts.push(`Win streak: ${streak}`); }
-          else if (streak < 0) { colors.push('#f43f5e'); texts.push(`Loss streak: ${Math.abs(streak)}`); }
-          else { colors.push('#94a3b8'); texts.push('Flat'); }
         }
+
+        // Flush the final run at the end
+        flushRun();
         return { x, y, colors, texts };
       }
 
@@ -1143,6 +1172,24 @@
         for (const row of tbl.rows) { const v = row.vals.get(r); if (v !== null && Number.isFinite(v)) { total += v; has = true; } }
         const aCls = (activeR !== undefined && Number(activeR) === Number(r)) ? ' col-active-cell' : '';
         html += `<td class="px-3 py-2 text-right ${has ? (total>=0?'num-pos':'num-neg') : ''}${aCls}">${has ? fmt(total) : '—'}</td>`;
+      }
+      html += '</tr>';
+
+      // Wins row: count of winning and losing months per target_R (ignore zeros/nulls)
+      html += '<tr class="bg-slate-50">';
+      html += '<td class="px-3 py-2">Wins</td>';
+      for (const r of cols) {
+        let wins = 0; let losses = 0;
+        for (const row of tbl.rows) {
+          const v = row.vals.get(r);
+          if (v === null || !Number.isFinite(v)) continue;
+          if (v > 0) wins++; else if (v < 0) losses++;
+        }
+        const denom = wins + losses;
+        const pct = denom > 0 ? Math.round((wins / denom) * 100) : null;
+        const aCls = (activeR !== undefined && Number(activeR) === Number(r)) ? ' col-active-cell' : '';
+        const text = denom > 0 ? `${wins}/${losses} (${pct}%)` : '—';
+        html += `<td class="px-3 py-2 text-right${aCls}">${text}</td>`;
       }
       html += '</tr>';
 
