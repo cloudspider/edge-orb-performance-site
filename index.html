@@ -15,6 +15,9 @@
     .grid-auto { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
   /* 1px gold border for active tile (no extra shadow to avoid clipping) */
   .outline-gold { border-color: #c28e0e !important; }
+  /* Active R column highlight in monthly table */
+  .col-active-header { background-color: #fff3bf; } /* soft gold */
+  .col-active-cell { background-color: #fff8dc; } /* lighter gold */
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800">
@@ -639,43 +642,58 @@
 
   // Monthly total returns section removed as requested
 
-      // Per-orb tables (full monthly detail)
-      for (const [orb, table] of byOrb.entries()) {
-        const section = document.createElement('section');
-        section.className = 'bg-white rounded-2xl shadow-soft p-4 md:p-6';
+      // Single monthly detail table for the currently selected orb_m
+      const monthlySection = document.createElement('section');
+      monthlySection.className = 'bg-white rounded-2xl shadow-soft p-4 md:p-6';
+      output.appendChild(monthlySection);
 
-        const header = document.createElement('div');
-        header.className = 'flex items-center justify-between mb-4';
-        header.innerHTML = `<div>
-            <h2 class="text-xl font-semibold">orb_m = ${orb}</h2>
-            <p class="text-sm text-slate-600">Monthly sum of daily R by target_R</p>
-          </div>
-          <button class="inline-flex items-center rounded-xl px-3 py-2 text-sm font-medium bg-slate-100 hover:bg-slate-200" data-download="${orb}">Download CSV</button>`;
-        section.appendChild(header);
-
-        const tableEl = document.createElement('div');
-        tableEl.className = 'overflow-auto rounded-xl border border-slate-200';
-        tableEl.innerHTML = buildTableHTML(table, monthsSorted);
-        section.appendChild(tableEl);
-
-        output.appendChild(section);
+      function renderMonthlyDetail(orb) {
+        const table = byOrb.get(Number(orb));
+        if (!table) { monthlySection.innerHTML = ''; return; }
+        const eqRSel = document.getElementById('eqRSelect');
+        const activeR = eqRSel ? Number(eqRSel.value) : undefined;
+        const headerHTML = `<div class="flex items-center justify-between mb-4">
+            <div>
+              <h2 class="text-xl font-semibold">orb_m = ${orb}</h2>
+              <p class="text-sm text-slate-600">Monthly sum of daily R by target_R</p>
+            </div>
+            <button class="inline-flex items-center rounded-xl px-3 py-2 text-sm font-medium bg-slate-100 hover:bg-slate-200" data-download="${orb}">Download CSV</button>
+          </div>`;
+        const tableHTML = `<div class="overflow-auto rounded-xl border border-slate-200">${buildTableHTML(table, monthsSorted, activeR)}</div>`;
+        monthlySection.innerHTML = headerHTML + tableHTML;
+        const btn = monthlySection.querySelector('button[data-download]');
+        if (btn) {
+          btn.addEventListener('click', () => {
+            const o = Number(btn.getAttribute('data-download'));
+            const tbl = byOrb.get(o);
+            const csv = tableToCSV(tbl, monthsSorted, o);
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `monthly_orb_${o}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+          });
+        }
       }
 
-      // Download handlers
-      output.querySelectorAll('button[data-download]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const orb = Number(btn.getAttribute('data-download'));
-          const tbl = byOrb.get(orb);
-          const csv = tableToCSV(tbl, monthsSorted, orb);
-          const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `monthly_orb_${orb}.csv`;
-          a.click();
-          URL.revokeObjectURL(url);
+      // Initial render for the active orb (from equity selector or the first orb)
+      const eqOrbSelForMonthly = document.getElementById('eqOrbSelect');
+      const initialOrb = eqOrbSelForMonthly ? Number(eqOrbSelForMonthly.value) : (Array.from(byOrb.keys()).sort((a,b)=>a-b)[0]);
+      renderMonthlyDetail(initialOrb);
+
+      // Update when equity orb or R selection changes
+      if (eqOrbSelForMonthly) {
+        eqOrbSelForMonthly.addEventListener('change', () => renderMonthlyDetail(Number(eqOrbSelForMonthly.value)));
+      }
+      const eqRSelForMonthly = document.getElementById('eqRSelect');
+      if (eqRSelForMonthly) {
+        eqRSelForMonthly.addEventListener('change', () => {
+          const currentOrb = (eqOrbSelForMonthly ? Number(eqOrbSelForMonthly.value) : initialOrb);
+          renderMonthlyDetail(currentOrb);
         });
-      });
+      }
 
       // --- NEW: Last 20 days section at the very end ---
       renderLastDaysSection(model, combosByOrb, ticker);
@@ -943,7 +961,7 @@
       </div>`;
     }
 
-    function buildTableHTML(tbl, months) {
+  function buildTableHTML(tbl, months, activeR) {
       const cols = tbl.targets;
 
       // --- Column-wise extremes for independent scaling per target_R ---
@@ -980,7 +998,8 @@
       html += '<thead class="bg-slate-50"><tr>';
       html += '<th class="sticky-th text-left font-semibold px-3 py-2 border-b border-slate-200">Month</th>';
       for (const r of cols) {
-        html += `<th class="sticky-th text-right font-semibold px-3 py-2 border-b border-slate-200">R ${r}</th>`;
+        const hCls = (activeR !== undefined && Number(activeR) === Number(r)) ? ' col-active-header' : '';
+        html += `<th class="sticky-th text-right font-semibold px-3 py-2 border-b border-slate-200${hCls}">R ${r}</th>`;
       }
       html += '</tr></thead><tbody>';
 
@@ -1010,7 +1029,8 @@
             textCls = 'text-slate-400';
           }
 
-          html += `<td class="px-3 py-2 text-right ${textCls} ${bgCls}">${v === null ? '—' : fmt(v)}</td>`;
+          const aCls = (activeR !== undefined && Number(activeR) === Number(r)) ? ' col-active-cell' : '';
+          html += `<td class="px-3 py-2 text-right ${textCls} ${bgCls}${aCls}">${v === null ? '—' : fmt(v)}</td>`;
         }
         html += '</tr>';
       }
@@ -1021,7 +1041,8 @@
       for (const r of cols) {
         let total = 0; let has = false;
         for (const row of tbl.rows) { const v = row.vals.get(r); if (v !== null && Number.isFinite(v)) { total += v; has = true; } }
-        html += `<td class="px-3 py-2 text-right ${has ? (total>=0?'num-pos':'num-neg') : ''}">${has ? fmt(total) : '—'}</td>`;
+        const aCls = (activeR !== undefined && Number(activeR) === Number(r)) ? ' col-active-cell' : '';
+        html += `<td class="px-3 py-2 text-right ${has ? (total>=0?'num-pos':'num-neg') : ''}${aCls}">${has ? fmt(total) : '—'}</td>`;
       }
       html += '</tr>';
 
@@ -1086,56 +1107,76 @@
         }
       }
 
-      // Last 20 rows by date (descending)
-      const rows = [...model.data].sort((a,b)=>b.date - a.date).slice(0, 20);
-      const naMode = document.getElementById('naSelect').value;
+      function drawLastDays(){
+        // determine active selection
+        const eqOrbSel = document.getElementById('eqOrbSelect');
+        const eqRSel = document.getElementById('eqRSelect');
+        const activeOrb = eqOrbSel ? Number(eqOrbSel.value) : NaN;
+        const activeR = eqRSel ? Number(eqRSel.value) : NaN;
 
-      // Build table HTML
-      let html = '<table class="min-w-full text-xs md:text-sm">';
-      html += '<thead class="bg-slate-50"><tr>';
-      html += '<th class="sticky-th text-left font-semibold px-3 py-2 border-b border-slate-200">Date</th>';
-      for (const c of combos) {
-        html += `<th class="sticky-th text-right font-semibold px-3 py-2 border-b border-slate-200">m ${c.orb_m} · R ${c.target_R}</th>`;
-      }
-      html += '</tr></thead><tbody>';
+        // Last 20 rows by date (descending)
+        const rows = [...model.data].sort((a,b)=>b.date - a.date).slice(0, 20);
+        const naMode = document.getElementById('naSelect').value;
 
-      for (const r of rows) {
-        // Compute per-row highlights (best 5 green, worst 5 red) using existing gradient helpers
-        const entries = [];
-        for (let i = 0; i < combos.length; i++) {
-          const c = combos[i];
-          let v = r[c.key];
-          if ((v === null || !Number.isFinite(v)) && naMode === 'zero') v = 0;
-          if (v !== null && Number.isFinite(v)) entries.push({ key: c.key, v });
-        }
-        const hi = [...entries].sort((a,b) => b.v - a.v).slice(0, 5);
-        const lo = [...entries].sort((a,b) => a.v - b.v).slice(0, 5);
-        const hl = new Map();
-        hi.forEach((o,i) => hl.set(o.key, topShade(i)));
-        lo.forEach((o,i) => { if (!hl.has(o.key)) hl.set(o.key, bottomShade(i)); });
-
-        html += '<tr class="odd:bg-white even:bg-slate-50/50">';
-        html += `<td class="px-3 py-2 whitespace-nowrap">${fmtDate(r.date)}</td>`;
+        // Build table HTML
+        let html = '<table class="min-w-full text-xs md:text-sm">';
+        html += '<thead class="bg-slate-50"><tr>';
+        html += '<th class="sticky-th text-left font-semibold px-3 py-2 border-b border-slate-200">Date</th>';
         for (const c of combos) {
-          let v = r[c.key];
-          if ((v === null || !Number.isFinite(v)) && naMode === 'zero') v = 0;
-
-          let cls = 'text-slate-400';
-          let disp = '—';
-          if (v !== null && Number.isFinite(v)) {
-            disp = fmt(v);
-            if (v > 0) cls = 'num-pos';
-            else if (v < 0) cls = 'num-neg';
-            else cls = 'text-slate-600';
-          }
-          const bg = hl.get(c.key) || '';
-          html += `<td class="px-3 py-2 text-right ${cls} ${bg}">${disp}</td>`;
+          const isActiveCol = Number(c.orb_m) === activeOrb && Number(c.target_R) === activeR;
+          const hCls = isActiveCol ? ' col-active-header' : '';
+          html += `<th class="sticky-th text-right font-semibold px-3 py-2 border-b border-slate-200${hCls}">m ${c.orb_m} · R ${c.target_R}</th>`;
         }
-        html += '</tr>';
+        html += '</tr></thead><tbody>';
+
+        for (const r of rows) {
+          // Compute per-row highlights (best 5 green, worst 5 red) using existing gradient helpers
+          const entries = [];
+          for (let i = 0; i < combos.length; i++) {
+            const c = combos[i];
+            let v = r[c.key];
+            if ((v === null || !Number.isFinite(v)) && naMode === 'zero') v = 0;
+            if (v !== null && Number.isFinite(v)) entries.push({ key: c.key, v });
+          }
+          const hi = [...entries].sort((a,b) => b.v - a.v).slice(0, 5);
+          const lo = [...entries].sort((a,b) => a.v - b.v).slice(0, 5);
+          const hl = new Map();
+          hi.forEach((o,i) => hl.set(o.key, topShade(i)));
+          lo.forEach((o,i) => { if (!hl.has(o.key)) hl.set(o.key, bottomShade(i)); });
+
+          html += '<tr class="odd:bg-white even:bg-slate-50/50">';
+          html += `<td class="px-3 py-2 whitespace-nowrap">${fmtDate(r.date)}</td>`;
+          for (const c of combos) {
+            let v = r[c.key];
+            if ((v === null || !Number.isFinite(v)) && naMode === 'zero') v = 0;
+
+            let cls = 'text-slate-400';
+            let disp = '—';
+            if (v !== null && Number.isFinite(v)) {
+              disp = fmt(v);
+              if (v > 0) cls = 'num-pos';
+              else if (v < 0) cls = 'num-neg';
+              else cls = 'text-slate-600';
+            }
+            const bg = hl.get(c.key) || '';
+            const isActiveCol = Number(c.orb_m) === activeOrb && Number(c.target_R) === activeR;
+            const aCls = isActiveCol ? ' col-active-cell' : '';
+            html += `<td class="px-3 py-2 text-right ${cls} ${bg}${aCls}">${disp}</td>`;
+          }
+          html += '</tr>';
+        }
+
+        html += '</tbody></table>';
+        section.querySelector('#lastDaysTable').innerHTML = html;
       }
 
-      html += '</tbody></table>';
-      section.querySelector('#lastDaysTable').innerHTML = html;
+      drawLastDays();
+
+      // redraw highlight on equity selection changes
+      const eqOrbSel2 = document.getElementById('eqOrbSelect');
+      const eqRSel2 = document.getElementById('eqRSelect');
+      if (eqOrbSel2) eqOrbSel2.addEventListener('change', drawLastDays);
+      if (eqRSel2) eqRSel2.addEventListener('change', drawLastDays);
     }
     // --- /NEW ---
 
