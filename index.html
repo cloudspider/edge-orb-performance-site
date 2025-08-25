@@ -395,6 +395,22 @@
             </div>
           </div>
           <div class="flex items-center gap-2">
+            <label class="text-sm text-slate-600">Month(s):</label>
+            <div class="relative inline-block">
+              <button id="sumMonthMultiBtn" type="button" class="inline-flex items-center justify-between gap-2 bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm min-w-[160px]">
+                <span id="sumMonthMultiLabel" class="truncate">All months</span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
+              </button>
+              <div id="sumMonthMultiMenu" class="absolute z-30 mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-soft p-2 hidden">
+                <div class="sticky top-0 bg-white z-10 px-2 pb-2 border-b border-slate-200 flex items-center justify-between gap-2">
+                  <button id="sumMonthSelectAll" type="button" class="text-xs font-medium text-emerald-700 hover:text-emerald-900 hover:underline">Select all</button>
+                  <button id="sumMonthClearAll" type="button" class="text-xs text-slate-600 hover:text-slate-800 hover:underline">Clear</button>
+                </div>
+                <div id="sumMonthMultiList" class="max-h-64 overflow-auto"></div>
+              </div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
             <span class="text-sm text-slate-600">Weekdays:</span>
             <div id="weekdaySegment" class="inline-flex rounded-xl border border-slate-200 overflow-hidden">
               <button type="button" class="px-3 py-1.5 text-sm font-medium bg-slate-800 text-white border-r border-slate-200" data-dow="1">Mon</button>
@@ -419,7 +435,7 @@
         if (btn) { btn.classList.add('bg-slate-800','text-white'); seg.setAttribute('data-selected', btn.getAttribute('data-days')); }
       };
 
-      // Weekday selection state (1..5 selected by default)
+  // Weekday selection state (1..5 selected by default)
       const weekdaySegment = summaryEl.querySelector('#weekdaySegment');
       const selectedDOW = new Set([1,2,3,4,5]);
 
@@ -428,10 +444,88 @@
         btn.classList.toggle('text-white', on);
       };
 
+      // Month multi-select state (default: all months = no filter)
+      const sumMonthBtn = summaryEl.querySelector('#sumMonthMultiBtn');
+      const sumMonthLabel = summaryEl.querySelector('#sumMonthMultiLabel');
+      const sumMonthMenu = summaryEl.querySelector('#sumMonthMultiMenu');
+      const sumMonthList = summaryEl.querySelector('#sumMonthMultiList');
+      let selectedMonths = new Set(); // empty means no filter (all)
+
+      function sumFmtMonthShort(ym){
+        const [y, m] = ym.split('-');
+        const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        return `${names[Number(m)-1]} ${y}`;
+      }
+      function sumUpdateMonthBtnLabel(){
+        if (!selectedMonths || selectedMonths.size === 0 || selectedMonths.size === monthsSorted.length) {
+          sumMonthLabel.textContent = 'All months';
+          return;
+        }
+        const shown = Array.from(selectedMonths).sort().map(sumFmtMonthShort);
+        if (shown.length === 1) { sumMonthLabel.textContent = shown[0]; return; }
+        if (shown.length <= 3) { sumMonthLabel.textContent = shown.join(', '); return; }
+        sumMonthLabel.textContent = `${shown.length} months`;
+      }
+
+      // Populate list
+      if (sumMonthList) {
+        monthsSorted.slice().sort().forEach(m => {
+          const id = `sum_m_${m.replace('-','_')}`;
+          const row = document.createElement('label');
+          row.className = 'flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer';
+          row.innerHTML = `
+            <input type="checkbox" class="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" value="${m}" id="${id}" />
+            <span class="text-sm text-slate-700">${fmtMonthDisplay(m)}</span>
+          `;
+          sumMonthList.appendChild(row);
+        });
+      }
+
+      // Toggle dropdown
+      if (sumMonthBtn && sumMonthMenu) {
+        sumMonthBtn.addEventListener('click', (e) => { e.stopPropagation(); sumMonthMenu.classList.toggle('hidden'); });
+        document.addEventListener('click', (e) => { const within = summaryEl.contains(e.target); if (!within) sumMonthMenu.classList.add('hidden'); });
+      }
+
+      // Select all / Clear
+      const sumMonthSelectAll = summaryEl.querySelector('#sumMonthSelectAll');
+      const sumMonthClearAll = summaryEl.querySelector('#sumMonthClearAll');
+      if (sumMonthSelectAll) sumMonthSelectAll.addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        selectedMonths = new Set(monthsSorted);
+        // check all boxes
+        sumMonthList.querySelectorAll('input[type="checkbox"]').forEach(i => i.checked = true);
+        sumUpdateMonthBtnLabel();
+        rebuildSummaryCards();
+      });
+      if (sumMonthClearAll) sumMonthClearAll.addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        selectedMonths = new Set();
+        sumMonthList.querySelectorAll('input[type="checkbox"]').forEach(i => i.checked = false);
+        sumUpdateMonthBtnLabel();
+        rebuildSummaryCards();
+      });
+
+      // Change handler for list
+      if (sumMonthList) {
+        sumMonthList.addEventListener('change', () => {
+          const checked = Array.from(sumMonthList.querySelectorAll('input[type="checkbox"]:checked')).map(i => i.value);
+          if (checked.length === monthsSorted.length) {
+            selectedMonths = new Set(monthsSorted);
+          } else {
+            selectedMonths = new Set(checked);
+          }
+          sumUpdateMonthBtnLabel();
+          rebuildSummaryCards();
+        });
+      }
+
+      sumUpdateMonthBtnLabel();
+
       const rebuildSummaryCards = () => {
         const daysSel = seg.getAttribute('data-selected') || 'ALL';
         const naMode = document.getElementById('naSelect').value;
-        const totals = computeTotalsByDays(model, combosByOrb, daysSel, naMode, selectedDOW); // Map orb -> Map(r -> total|null)
+        const totals = computeTotalsByDays(model, combosByOrb, daysSel, naMode, selectedDOW, selectedMonths); // Map orb -> Map(r -> total|null)
 
         // Build flat list for rendering & highlighting
         const summaryCards = [];
@@ -730,7 +824,7 @@
     }
 
     // Compute totals by last N days from the raw daily data
-    function computeTotalsByDays(model, combosByOrb, daysSel, naMode, selectedDOW) {
+    function computeTotalsByDays(model, combosByOrb, daysSel, naMode, selectedDOW, selectedMonths) {
       const times = Array.from(new Set(model.data.map(d => d.date.getTime()))).sort((a,b) => a - b);
       const allowedTimes = (daysSel === 'ALL') ? times : times.slice(-Math.max(0, parseInt(daysSel,10)));
       const allowed = new Set(allowedTimes);
@@ -745,6 +839,8 @@
         if (mapped === 6 || mapped === 7) return false; // exclude weekends just in case
         return selectedDOW.has(mapped);
       };
+      // Prepare month filter
+      const hasMonthFilter = selectedMonths instanceof Set && selectedMonths.size > 0;
       const result = new Map(); // orb -> Map(target_R -> total|null)
 
       for (const [orb, arr] of combosByOrb.entries()) {
@@ -755,6 +851,7 @@
             const t = row.date.getTime();
             if (!allowed.has(t)) continue;
             if (!isAllowedDow(row.date)) continue;
+            if (hasMonthFilter && !selectedMonths.has(row.yyyymm)) continue;
             const v = row[key];
             if (v === null || !Number.isFinite(v)) {
               if (naMode === 'zero') { sum += 0; used++; }
