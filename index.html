@@ -1107,6 +1107,9 @@
         }
       }
 
+  // Optimization: by default, do not compute full filtered set; only after user changes filters
+  let filtersActivated = false;
+
       function drawLastDays(){
         // determine active selection
         const eqOrbSel = document.getElementById('eqOrbSelect');
@@ -1114,40 +1117,49 @@
         const activeOrb = eqOrbSel ? Number(eqOrbSel.value) : NaN;
         const activeR = eqRSel ? Number(eqRSel.value) : NaN;
 
-        // Read Totals filters (if available) and compute filtered rows
-        const getFilters = (filterSourceEl && typeof filterSourceEl.getCurrentFilters === 'function') ? filterSourceEl.getCurrentFilters : null;
-        const { daysSel, selectedDOW, selectedMonths } = getFilters ? getFilters() : { daysSel: 'ALL', selectedDOW: new Set([1,2,3,4,5]), selectedMonths: new Set() };
-        // Build allowed set of dates based on Days filter
-        const rowsAsc = [...model.data].sort((a,b)=> a.date - b.date);
-        const timesAsc = Array.from(new Set(rowsAsc.map(d => d.date.getTime()))).sort((a,b)=>a-b);
-        const allowedTimes = (daysSel === 'ALL') ? timesAsc : timesAsc.slice(-Math.max(0, parseInt(daysSel,10)));
-        const allowed = new Set(allowedTimes);
-        // Weekday filter helper
-        const hasDowFilter = selectedDOW instanceof Set;
-        const selectedNone = hasDowFilter && selectedDOW.size === 0;
-        const isAllowedDow = (dateObj) => {
-          if (!hasDowFilter) return true;
-          if (selectedNone) return false;
-          const jsDay = dateObj.getDay(); // 0..6
-          const mapped = jsDay === 0 ? 7 : jsDay; // 1..7
-          if (mapped === 6 || mapped === 7) return false; // exclude weekends
-          return selectedDOW.has(mapped);
-        };
-        // Month filter
-        const hasMonthFilter = selectedMonths instanceof Set && selectedMonths.size > 0;
-        const rows = rowsAsc.filter(r => {
-          const t = r.date.getTime();
-          if (!allowed.has(t)) return false;
-          if (!isAllowedDow(r.date)) return false;
-          if (hasMonthFilter && !selectedMonths.has(r.yyyymm)) return false;
-          return true;
-        }).sort((a,b)=> b.date - a.date);
         const naMode = document.getElementById('naSelect').value;
-        // Update heading to reflect Days filter
+        let rows = [];
+        let selectedDOW; // defined when filters are activated
         const hd = section.querySelector('h2.text-lg.font-semibold');
-        if (hd) {
-          const daysText = daysSel === 'ALL' ? 'All applicable days' : `Last ${daysSel} days`;
-          hd.textContent = `${prefix}${daysText} — daily R by combo`;
+
+        if (!filtersActivated) {
+          // Default: just show the most recent 20 trading days
+          rows = [...model.data].sort((a,b)=> b.date - a.date).slice(0, 20);
+          if (hd) { hd.textContent = `${prefix}Last 20 days — daily R by combo`; }
+        } else {
+          // Read Totals filters and compute filtered rows
+          const getFilters = (filterSourceEl && typeof filterSourceEl.getCurrentFilters === 'function') ? filterSourceEl.getCurrentFilters : null;
+          const { daysSel, selectedDOW: sdow, selectedMonths } = getFilters ? getFilters() : { daysSel: 'ALL', selectedDOW: new Set([1,2,3,4,5]), selectedMonths: new Set() };
+          selectedDOW = sdow;
+          const rowsAsc = [...model.data].sort((a,b)=> a.date - b.date);
+          const timesAsc = Array.from(new Set(rowsAsc.map(d => d.date.getTime()))).sort((a,b)=>a-b);
+          const allowedTimes = (daysSel === 'ALL') ? timesAsc : timesAsc.slice(-Math.max(0, parseInt(daysSel,10)));
+          const allowed = new Set(allowedTimes);
+          // Weekday filter
+          const hasDowFilter = selectedDOW instanceof Set;
+          const selectedNone = hasDowFilter && selectedDOW.size === 0;
+          const isAllowedDow = (dateObj) => {
+            if (!hasDowFilter) return true;
+            if (selectedNone) return false;
+            const jsDay = dateObj.getDay(); // 0..6
+            const mapped = jsDay === 0 ? 7 : jsDay; // 1..7
+            if (mapped === 6 || mapped === 7) return false; // exclude weekends
+            return selectedDOW.has(mapped);
+          };
+          // Month filter
+          const hasMonthFilter = selectedMonths instanceof Set && selectedMonths.size > 0;
+          rows = rowsAsc.filter(r => {
+            const t = r.date.getTime();
+            if (!allowed.has(t)) return false;
+            if (!isAllowedDow(r.date)) return false;
+            if (hasMonthFilter && !selectedMonths.has(r.yyyymm)) return false;
+            return true;
+          }).sort((a,b)=> b.date - a.date);
+          // Update heading to reflect Days filter
+          if (hd) {
+            const daysText = daysSel === 'ALL' ? 'All applicable days' : `Last ${daysSel} days`;
+            hd.textContent = `${prefix}${daysText} — daily R by combo`;
+          }
         }
 
         // Build table HTML
@@ -1222,8 +1234,8 @@
             else cls = 'text-slate-600';
             disp = fmt(total);
           } else {
-            // If user has zero weekdays selected, show 0 to mirror Totals behavior
-            if (selectedDOW instanceof Set && selectedDOW.size === 0) {
+            // If user has zero weekdays selected, show 0 to mirror Totals behavior (only when filters are active)
+            if (filtersActivated && selectedDOW instanceof Set && selectedDOW.size === 0) {
               cls = 'text-slate-600';
               disp = fmt(0);
             }
@@ -1243,7 +1255,7 @@
       const eqRSel2 = document.getElementById('eqRSelect');
       if (eqOrbSel2) eqOrbSel2.addEventListener('change', drawLastDays);
       if (eqRSel2) eqRSel2.addEventListener('change', drawLastDays);
-  if (filterSourceEl) filterSourceEl.addEventListener('filters-changed', drawLastDays);
+  if (filterSourceEl) filterSourceEl.addEventListener('filters-changed', () => { filtersActivated = true; drawLastDays(); });
     }
     // --- /NEW ---
 
