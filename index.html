@@ -854,9 +854,12 @@
 
       // Wire change handlers
       orbSelect.addEventListener('change', () => {
+        // Preserve current target_R if possible
+        const prevR = rSelect.value;
         populateRSelect(Number(orbSelect.value));
-        // reset R to first option on orb change for clarity
-        if (rSelect.options.length) rSelect.value = rSelect.options[0].value;
+        if (prevR && Array.from(rSelect.options).some(o => o.value === String(prevR))) {
+          rSelect.value = String(prevR);
+        }
         draw();
       });
       rSelect.addEventListener('change', draw);
