@@ -497,6 +497,7 @@
         sumMonthList.querySelectorAll('input[type="checkbox"]').forEach(i => i.checked = true);
         sumUpdateMonthBtnLabel();
         rebuildSummaryCards();
+  summaryEl.dispatchEvent(new CustomEvent('filters-changed', { bubbles: false }));
       });
       if (sumMonthClearAll) sumMonthClearAll.addEventListener('click', (e) => {
         e.preventDefault(); e.stopPropagation();
@@ -504,6 +505,7 @@
         sumMonthList.querySelectorAll('input[type="checkbox"]').forEach(i => i.checked = false);
         sumUpdateMonthBtnLabel();
         rebuildSummaryCards();
+  summaryEl.dispatchEvent(new CustomEvent('filters-changed', { bubbles: false }));
       });
 
       // Change handler for list
@@ -517,6 +519,7 @@
           }
           sumUpdateMonthBtnLabel();
           rebuildSummaryCards();
+          summaryEl.dispatchEvent(new CustomEvent('filters-changed', { bubbles: false }));
         });
       }
 
@@ -559,6 +562,18 @@
         }).join('');
       };
 
+      // Expose current filter state for sibling sections (e.g., Equity curve)
+      function getCurrentFilters() {
+        const daysSel = seg.getAttribute('data-selected') || 'ALL';
+        return {
+          daysSel,
+          selectedDOW: new Set(Array.from(selectedDOW || [])),
+          selectedMonths: new Set(Array.from(selectedMonths || [])),
+        };
+      }
+      // Attach to summary element
+      summaryEl.getCurrentFilters = getCurrentFilters;
+
       // init to ALL
       const initBtn = seg.querySelector('button[data-days="ALL"]');
       setActive(initBtn);
@@ -569,6 +584,8 @@
         if (!btn) return;
         setActive(btn);
         rebuildSummaryCards();
+  // Notify listeners that filters changed
+  summaryEl.dispatchEvent(new CustomEvent('filters-changed', { bubbles: false }));
       });
 
       // Weekday multi-select
@@ -580,6 +597,7 @@
           if (selectedDOW.has(v)) { selectedDOW.delete(v); toggleWeekdayBtn(b, false); }
           else { selectedDOW.add(v); toggleWeekdayBtn(b, true); }
           rebuildSummaryCards();
+          summaryEl.dispatchEvent(new CustomEvent('filters-changed', { bubbles: false }));
         });
       }
 
@@ -761,7 +779,31 @@
         const start = 100000;
         let equity = start;
         const naMode = document.getElementById('naSelect').value;
+        // Read filters from the Totals section
+        const getFilters = (mountAfterEl && typeof mountAfterEl.getCurrentFilters === 'function') ? mountAfterEl.getCurrentFilters : null;
+        const { daysSel, selectedDOW, selectedMonths } = getFilters ? getFilters() : { daysSel: 'ALL', selectedDOW: new Set([1,2,3,4,5]), selectedMonths: new Set() };
+        // Build allowed date set by Days filter
+        const timesAsc = Array.from(new Set(rows.map(d => d.date.getTime()))).sort((a,b)=>a-b);
+        const allowedTimes = (daysSel === 'ALL') ? timesAsc : timesAsc.slice(-Math.max(0, parseInt(daysSel,10)));
+        const allowed = new Set(allowedTimes);
+        // Weekday filter
+        const hasDowFilter = selectedDOW instanceof Set;
+        const selectedNone = hasDowFilter && selectedDOW.size === 0;
+        const isAllowedDow = (dateObj) => {
+          if (!hasDowFilter) return true;
+          if (selectedNone) return false;
+          const jsDay = dateObj.getDay(); // 0..6
+          const mapped = jsDay === 0 ? 7 : jsDay; // 1..7
+          if (mapped === 6 || mapped === 7) return false;
+          return selectedDOW.has(mapped);
+        };
+        // Month filter
+        const hasMonthFilter = selectedMonths instanceof Set && selectedMonths.size > 0;
         for (const row of rows) {
+          const t = row.date.getTime();
+          if (!allowed.has(t)) continue;
+          if (!isAllowedDow(row.date)) continue;
+          if (hasMonthFilter && !selectedMonths.has(row.yyyymm)) continue;
           let v = row[key];
           if ((v === null || !Number.isFinite(v))) {
             if (naMode === 'zero') v = 0; else continue;
@@ -856,6 +898,11 @@
 
       // Initial draw
       draw();
+
+      // Redraw when Totals filters change
+      if (mountAfterEl) {
+        mountAfterEl.addEventListener('filters-changed', draw);
+      }
     }
 
     function cardHTML(c) {
