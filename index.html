@@ -46,13 +46,20 @@
           </div>
         </div>
       </div>
-      <!-- NEW: Direction segmented control -->
+      <!-- NEW: Direction segmented control + Risk per trade input -->
       <div class="mt-3 flex items-center gap-2">
         <span class="text-sm text-slate-600">Direction:</span>
         <div id="directionSegment" class="inline-flex rounded-xl border border-slate-200 overflow-hidden" data-selected="BOTH">
           <button type="button" class="px-3 py-1.5 text-sm font-medium bg-white hover:bg-slate-100 border-r border-slate-200" data-direction="BOTH">BOTH</button>
           <button type="button" class="px-3 py-1.5 text-sm font-medium bg-white hover:bg-slate-100 border-r border-slate-200" data-direction="LONG">LONG</button>
           <button type="button" class="px-3 py-1.5 text-sm font-medium bg-white hover:bg-slate-100" data-direction="SHORT">SHORT</button>
+        </div>
+        <div class="flex items-center gap-2 ml-auto">
+          <label for="riskInput" class="text-sm text-slate-600 whitespace-nowrap">Risk per trade:</label>
+          <div class="relative inline-block">
+            <input id="riskInput" type="number" min="0" max="100" step="0.1" value="2" class="appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl pl-3 pr-7 py-2 text-sm w-24" />
+            <span class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-500">%</span>
+          </div>
         </div>
       </div>
     </section>
@@ -230,6 +237,15 @@
 
     // Expose direction segment and a setter to reset from outside
     const directionSegment = document.getElementById('directionSegment');
+    const riskInput = document.getElementById('riskInput');
+    // Assume stop_R is fixed at 2R; interpret input as max risk per trade at stop-out.
+    // Therefore, 1R percent = (risk_per_trade_percent) / stop_R.
+    function getRiskPct(){
+      const stopR = 2; // fixed stop at 2R
+      const v = parseFloat(riskInput ? riskInput.value : '2');
+      const riskPerTrade = (!Number.isFinite(v) || v < 0) ? 2 : v; // percent
+      return (riskPerTrade / 100) / stopR; // e.g., 2% / 2R = 1% per R
+    }
     function setActiveDirectionByValue(val) {
       if (!directionSegment) return;
       const btn = directionSegment.querySelector(`button[data-direction="${val}"]`);
@@ -308,6 +324,29 @@
         }
       });
     })();
+
+    // Risk input: re-draw when changed
+    if (riskInput) {
+      const clamp = (v) => Math.min(100, Math.max(0, v));
+      riskInput.addEventListener('change', (e) => {
+        const num = parseFloat(riskInput.value);
+        if (!Number.isFinite(num)) { riskInput.value = '2'; }
+        else { riskInput.value = String(clamp(num)); }
+        // If equity section exists, trigger its draw by dispatching a change on selects or call handler
+        const eqOrb = document.getElementById('eqOrbSelect');
+        if (eqOrb) {
+          // Bubble a synthetic event to let listeners update
+          eqOrb.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      });
+      riskInput.addEventListener('input', () => {
+        // live update the assumption blurb and chart without losing selection
+        const eqR = document.getElementById('eqRSelect');
+        if (eqR) {
+          eqR.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      });
+    }
 
     function parseCSV(text) {
       const rows = [];
@@ -791,8 +830,8 @@
               </span>
             </div>
           </div>
-        </div>
-        <div class="text-xs text-slate-500 mb-2">Assumes starting balance of $100,000 and treats daily R value as percentage return (1R = 1%).</div>
+  </div>
+  <div id="equityAssumption" class="text-xs text-slate-500 mb-2">Assumes starting balance of $100,000 and treats daily R value as percentage return (1R = 1%).</div>
   <div id="equityChart" class="w-full min-h-[320px]"></div>
         <div class="mt-6">
           <h3 class="text-base font-semibold mb-2">Win/Loss streaks (by day)</h3>
@@ -837,6 +876,7 @@
         const start = 100000;
         let equity = start;
         const naMode = document.getElementById('naSelect').value;
+        const rToPct = getRiskPct();
         // Read filters from the Totals section
         const getFilters = (mountAfterEl && typeof mountAfterEl.getCurrentFilters === 'function') ? mountAfterEl.getCurrentFilters : null;
         const { daysSel, selectedDOW, selectedMonths } = getFilters ? getFilters() : { daysSel: 'ALL', selectedDOW: new Set([1,2,3,4,5]), selectedMonths: new Set() };
@@ -866,7 +906,7 @@
           if ((v === null || !Number.isFinite(v))) {
             if (naMode === 'zero') v = 0; else continue;
           }
-          const pct = v / 100; // Treat 1R as 1% daily return
+          const pct = v * rToPct; // Treat 1R as Risk% of equity
           equity = equity * (1 + pct);
       // Use ISO date string to allow Plotly 'date' axis to auto-manage ticks
       x.push(row.date.toISOString().slice(0,10));
@@ -999,6 +1039,8 @@
         const { x, y } = computeEquity(orb, r);
   const { cagr, maxDD, winPct, winsCount, lossesCount } = computeStatsFromSeries(x, y);
   const annText = `CAGR ${fmtPct(cagr)}<br>MaxDD ${fmtPct(maxDD)}<br>Win% ${fmtPct(winPct)}<br>Win/Loss: ${winsCount}/${lossesCount}`;
+        const blurb = section.querySelector('#equityAssumption');
+        if (blurb) blurb.textContent = `Assumes starting balance of $100,000 and treats daily R value as percentage return (1R = ${(getRiskPct()*100).toFixed(1)}%).`;
         const layout = {
           height: 340,
           margin: { l: 50, r: 20, t: 10, b: 40 },
