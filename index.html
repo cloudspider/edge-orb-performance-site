@@ -1292,6 +1292,34 @@
       `;
       output.appendChild(section);
 
+      // Wire up Show Data toggle: only render the last-days table when toggled on
+      (function(){
+        const showToggle = section.querySelector('#lastDaysShowDataToggle');
+        const lastDaysTableEl = section.querySelector('#lastDaysTable');
+        const lastDaysTableWrap = lastDaysTableEl ? lastDaysTableEl.parentNode : null;
+        if (!showToggle || !lastDaysTableWrap) return;
+
+        const setShow = (on) => {
+          showToggle.setAttribute('aria-checked', on ? 'true' : 'false');
+          const dot = showToggle.querySelector('.dot');
+          const track = showToggle.querySelector('span');
+          if (dot) dot.style.transform = on ? 'translateX(12px)' : 'translateX(0)';
+          if (track) track.style.backgroundColor = on ? '#10b981' : '';
+          lastDaysTableWrap.classList.toggle('hidden', !on);
+          if (on && typeof drawLastDays === 'function') {
+            try { drawLastDays(); } catch (e) { /* ignore */ }
+          }
+        };
+
+        // initialize (toggle starts off)
+        setShow(showToggle.getAttribute('aria-checked') === 'true');
+
+        showToggle.addEventListener('click', (e) => {
+          const cur = showToggle.getAttribute('aria-checked') === 'true';
+          setShow(!cur);
+        });
+      })();
+
       // Create ordered list of all combos (orb asc, R asc)
       const combos = [];
       const orbs = Array.from(combosByOrb.keys()).sort((a,b)=>a-b);
