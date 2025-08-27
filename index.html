@@ -1205,7 +1205,7 @@
           const aCls = (activeR !== undefined && Number(activeR) === Number(r)) ? ' col-active-cell' : '';
           html += `<td class="px-3 py-2 text-right ${textCls} ${bgCls}${aCls}">${v === null ? '—' : fmt(v)}</td>`;
         }
-        html += '</tr>';
+  html += '</tr>';
       }
 
       // Totals row
@@ -1457,6 +1457,24 @@
             }
           }
           html += `<td class="px-3 py-2 text-right ${cls}${aCls}">${disp}</td>`;
+        }
+        html += '</tr>';
+
+        // Wins row across displayed days: wins/losses (win%) per combo; ignore zeros and NaNs
+        html += '<tr class="bg-slate-50">';
+        html += '<td class="px-3 py-2">Wins</td>';
+        for (const c of combos) {
+          let wins = 0; let losses = 0;
+          for (const r of rows) {
+            const v = r[c.key];
+            if (v === null || !Number.isFinite(v)) continue;
+            if (v > 0) wins++;
+            else if (v < 0) losses++;
+          }
+          const denom = wins + losses;
+          const pct = denom > 0 ? Math.round((wins / denom) * 100) : null;
+          const text = denom > 0 ? `${wins}/${losses} (${pct}%)` : '—';
+          html += `<td class="px-3 py-2 text-right">${text}</td>`;
         }
         html += '</tr>';
 
