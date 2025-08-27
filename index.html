@@ -1393,20 +1393,6 @@
         html += '</tr></thead><tbody>';
 
         for (const r of rows) {
-          // Compute per-row highlights (best 5 green, worst 5 red) using existing gradient helpers
-          const entries = [];
-          for (let i = 0; i < combos.length; i++) {
-            const c = combos[i];
-            let v = r[c.key];
-            if ((v === null || !Number.isFinite(v)) && naMode === 'zero') v = 0;
-            if (v !== null && Number.isFinite(v)) entries.push({ key: c.key, v });
-          }
-          const hi = [...entries].sort((a,b) => b.v - a.v).slice(0, 5);
-          const lo = [...entries].sort((a,b) => a.v - b.v).slice(0, 5);
-          const hl = new Map();
-          hi.forEach((o,i) => hl.set(o.key, topShade(i)));
-          lo.forEach((o,i) => { if (!hl.has(o.key)) hl.set(o.key, bottomShade(i)); });
-
           html += '<tr class="odd:bg-white even:bg-slate-50/50">';
           html += `<td class="px-3 py-2 whitespace-nowrap">${fmtDate(r.date)}</td>`;
           for (const c of combos) {
@@ -1421,10 +1407,21 @@
               else if (v < 0) cls = 'num-neg';
               else cls = 'text-slate-600';
             }
-            const bg = hl.get(c.key) || '';
-            const isActiveCol = Number(c.orb_m) === activeOrb && Number(c.target_R) === activeR;
-            const aCls = isActiveCol ? ' col-active-cell' : '';
-            html += `<td class="px-3 py-2 text-right ${cls} ${bg}${aCls}">${disp}</td>`;
+            // Highlight only positives with green background; no red backgrounds for negatives
+            let bg = '';
+            if (v !== null && Number.isFinite(v)) {
+              if (v > 0) {
+                if (v >= 2) bg = 'bg-emerald-500';
+                else if (v >= 1) bg = 'bg-emerald-400';
+                else bg = 'bg-emerald-300/70'; // simulate ~250 intensity
+                if (bg === 'bg-emerald-500' || bg === 'bg-emerald-400') cls = 'text-white';
+              } else if (v < 0) {
+                // no background for negatives; keep red text only
+                bg = '';
+              }
+            }
+            // Do not highlight entire active column for body cells; only header and totals have yellow tint
+            html += `<td class="px-3 py-2 text-right ${cls} ${bg}">${disp}</td>`;
           }
           html += '</tr>';
         }
