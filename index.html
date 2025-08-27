@@ -1278,13 +1278,15 @@
       section.innerHTML = `
         <div class="mb-4">
           <h2 class="text-lg font-semibold">${prefix}Last 20 days — daily R by combo</h2>
+          <p class="text-sm text-slate-600">Most recent first. Each column is an <code>orb_m</code> × <code>target_R</code> combo.</p>
           <div class="mt-2 flex items-center gap-3">
             <button id="lastDaysShowDataToggle" type="button" role="switch" aria-checked="false" class="inline-flex items-center gap-2 rounded-full bg-white border border-slate-200 px-3 py-1 text-sm hover:bg-slate-100">
-              <span class="w-8 h-5 bg-slate-200 rounded-full relative transition-colors" aria-hidden="true"><span class="dot absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-sm transition-transform"></span></span>
+              <span class="switch-track inline-flex h-5 w-8 items-center rounded-full bg-slate-200 transition-colors" aria-hidden="true">
+                <span class="switch-dot h-4 w-4 translate-x-0 transform rounded-full bg-white shadow-sm transition-transform"></span>
+              </span>
               <span class="text-sm text-slate-700">Show Data</span>
             </button>
           </div>
-          <p class="text-sm text-slate-600">Most recent first. Each column is an <code>orb_m</code> × <code>target_R</code> combo.</p>
         </div>
         <div class="overflow-auto rounded-xl border border-slate-200">
           <div id="lastDaysTable"></div>
@@ -1301,10 +1303,16 @@
 
         const setShow = (on) => {
           showToggle.setAttribute('aria-checked', on ? 'true' : 'false');
-          const dot = showToggle.querySelector('.dot');
-          const track = showToggle.querySelector('span');
-          if (dot) dot.style.transform = on ? 'translateX(12px)' : 'translateX(0)';
-          if (track) track.style.backgroundColor = on ? '#10b981' : '';
+          const dot = showToggle.querySelector('.switch-dot');
+          const track = showToggle.querySelector('.switch-track');
+          if (track) {
+            track.classList.toggle('bg-slate-200', !on);
+            track.classList.toggle('bg-emerald-500', on);
+          }
+          if (dot) {
+            dot.classList.toggle('translate-x-0', !on);
+            dot.classList.toggle('translate-x-3', on);
+          }
           lastDaysTableWrap.classList.toggle('hidden', !on);
           if (on && typeof drawLastDays === 'function') {
             try { drawLastDays(); } catch (e) { /* ignore */ }
