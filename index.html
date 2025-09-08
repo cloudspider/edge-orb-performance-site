@@ -759,6 +759,12 @@
           if (!comboDirectionOverrides.has(key)) comboDirectionOverrides.set(key, currentDirection || 'BOTH');
           // Allocation default will be set in table draw when we know selection size
         }
+    // Equal-weight all selected strategies when selection changes (ensures e.g., 2 => 50/50)
+    const selList = Array.from(selectedCombos).map(parseComboKey).filter(Boolean);
+    if (selList.length) {
+      const eq = 100 / selList.length;
+      selList.forEach(({orb: o, r: rr}) => comboAllocationOverrides.set(comboKey(o, rr), eq));
+    }
     // Rebuild cards to reflect selection state
     rebuildSummaryCards();
     // Update selected section, if present
@@ -1218,11 +1224,22 @@
         // Read filters from Totals
         const getFilters = (mountAfterEl && typeof mountAfterEl.getCurrentFilters === 'function') ? mountAfterEl.getCurrentFilters : null;
         const { daysSel, selectedDOW, selectedMonths } = getFilters ? getFilters() : { daysSel: 'ALL', selectedDOW: new Set([1,2,3,4,5]), selectedMonths: new Set() };
-        // Ensure allocation defaults for newly added selections (equal weight for missing only)
+        // Ensure allocations: if any newly added selection has no allocation, equal-weight ALL selections
         const missing = sel.filter(({orb,r}) => !comboAllocationOverrides.has(comboKey(orb,r)));
         if (missing.length) {
-          const def = (sel.length > 0) ? (100 / sel.length) : 0;
-          missing.forEach(({orb,r}) => comboAllocationOverrides.set(comboKey(orb,r), def));
+          const eq = (sel.length > 0) ? (100 / sel.length) : 0;
+          sel.forEach(({orb,r}) => comboAllocationOverrides.set(comboKey(orb,r), eq));
+        } else if (sel.length) {
+          // No missing; normalize only if total exceeds 100% (preserve proportions)
+          const keys = sel.map(({orb,r}) => comboKey(orb,r));
+          let total = keys.reduce((acc, k) => acc + (Number(comboAllocationOverrides.get(k)) || 0), 0);
+          if (total > 100.0001) {
+            const factor = 100 / total;
+            keys.forEach(k => {
+              const v = Number(comboAllocationOverrides.get(k)) || 0;
+              comboAllocationOverrides.set(k, +(v * factor).toFixed(4));
+            });
+          }
         }
         // Compute totals per selection respecting per-row direction
         const rows = sel.map(({orb, r}) => {
@@ -1312,6 +1329,17 @@
             const num = Number.isFinite(v) ? clamp(v) : 0;
             comboAllocationOverrides.set(k, num);
             inp.value = num.toFixed(1);
+            // Re-normalize total to 100 if needed
+            const selNow = getValidSelection();
+            const keys = selNow.map(({orb,r}) => comboKey(orb,r));
+            let total = keys.reduce((acc, kk) => acc + (Number(comboAllocationOverrides.get(kk)) || 0), 0);
+            if (total > 100.0001) {
+              const factor = 100 / total;
+              keys.forEach(kk => {
+                const vv = Number(comboAllocationOverrides.get(kk)) || 0;
+                comboAllocationOverrides.set(kk, +(vv * factor).toFixed(4));
+              });
+            }
             drawTable();
             emitSelectionChanged();
           });
