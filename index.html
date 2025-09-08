@@ -148,20 +148,57 @@
   // NEW: global selection state for summary cards (orb_m × target_R combos)
   // Keys are in the form `m{orb}_r{R}`
   const selectedCombos = new Set();
-  function comboKey(orb, r){ return `m${Number(orb)}_r${Number(r)}`; }
+  function comboKey(orb, r, dir, sym){
+    const base = `m${Number(orb)}_r${Number(r)}`;
+    const d = (dir || '').toUpperCase();
+    const s = String(sym||'').toUpperCase();
+    let out = base;
+    if (d) out += `_d${d}`;
+    if (s) out += `_s${s}`;
+    return out;
+  }
   function parseComboKey(key){
-    const m = String(key||'').match(/^m(\d+(?:\.\d+)?)_r(\d+(?:\.\d+)?)$/);
+    const s = String(key||'');
+    let m = s.match(/^m(\d+(?:\.\d+)?)_r(\d+(?:\.\d+)?)(?:_d([A-Z]+))?(?:_s([A-Z0-9-]+))?$/);
     if (!m) return null;
-    return { orb: Number(m[1]), r: Number(m[2]) };
+    return { orb: Number(m[1]), r: Number(m[2]), dir: m[3] || undefined, sym: m[4] || undefined };
+  }
+  function hasSelectionForOrbR(orb, r){
+    for (const k of selectedCombos) {
+      const pr = parseComboKey(k);
+      if (pr && Number(pr.orb) === Number(orb) && Number(pr.r) === Number(r)) return true;
+    }
+    return false;
+  }
+  function hasSelectionFor(orb, r, dir, sym){
+    const d = String(dir||'').toUpperCase();
+    const s = String(sym||'').toUpperCase();
+    for (const k of selectedCombos) {
+      const pr = parseComboKey(k);
+      if (!pr) continue;
+      if (Number(pr.orb) !== Number(orb) || Number(pr.r) !== Number(r)) continue;
+      if (d && String(pr.dir||'').toUpperCase() !== d) continue;
+      if (s && String(pr.sym||'').toUpperCase() !== s) continue;
+      return true;
+    }
+    return false;
   }
   // NEW: per-combo direction overrides (BOTH/LONG/SHORT); defaults to currentDirection when first selected
   const comboDirectionOverrides = new Map(); // key -> 'BOTH'|'LONG'|'SHORT'
   // NEW: per-combo allocation overrides (percentage of starting equity 0..100)
   const comboAllocationOverrides = new Map(); // key -> number (%) 
   // NEW: cache models per direction for current ticker
-  let currentModel = null; // last rendered model
-  const dirModels = { BOTH: null, LONG: null, SHORT: null };
-  const dirCombosByOrb = { BOTH: null, LONG: null, SHORT: null };
+  let currentModel = null; // last rendered model for current view
+  // Per-symbol + direction caches
+  const modelsBySymDir = new Map(); // key: `${SYM}|${DIR}` -> model
+  const combosBySymDir = new Map(); // key: `${SYM}|${DIR}` -> combosByOrb Map
+  const symDirKey = (sym, dir) => `${String(sym||'').toUpperCase()}|${String(dir||'BOTH').toUpperCase()}`;
+  function setModelCache(sym, dir, model){
+    modelsBySymDir.set(symDirKey(sym, dir), model);
+    combosBySymDir.set(symDirKey(sym, dir), combosByOrbFromModel(model));
+  }
+  function getModelCache(sym, dir){ return modelsBySymDir.get(symDirKey(sym, dir)); }
+  function getCombosByOrbCache(sym, dir){ return combosBySymDir.get(symDirKey(sym, dir)); }
   function combosByOrbFromModel(model){
     const orbMap = new Map();
     for (const { orb_m, target_R, key } of model.combos) {
@@ -182,22 +219,26 @@
     }
 
     // NEW: helper to process CSV string and render
-    function processCsvAndRender(text) {
+    function processCsvAndRender(text, opts) {
       const trimmed = (text || '').trim();
       if (!trimmed) return;
-  // Reset multi-selection when new data is processed
-  selectedCombos.clear();
-  comboDirectionOverrides.clear();
-  comboAllocationOverrides.clear();
+  const doReset = !(opts && opts.resetSelection === false);
+  if (doReset) {
+    // Reset multi-selection on explicit request (e.g., new ticker or manual CSV)
+    selectedCombos.clear();
+    comboDirectionOverrides.clear();
+    comboAllocationOverrides.clear();
+  }
       const parsed = parseCSV(trimmed);
       const model = toModel(parsed);
   currentModel = model;
   // Cache under currentDirection for cross-direction combined calculations
-  dirModels[currentDirection] = model;
-  dirCombosByOrb[currentDirection] = combosByOrbFromModel(model);
-      const { byOrb, monthsSorted, combosByOrb } = aggregateMonthly(model, {
+  setModelCache(currentTicker, currentDirection, model);
+  const { byOrb, monthsSorted, combosByOrb } = aggregateMonthly(model, {
         naMode: document.getElementById('naSelect').value
       });
+  // Ensure the active sym+dir is cached after processing
+  try { setModelCache(currentTicker, currentDirection, model); } catch {}
       renderTables(model, combosByOrb, byOrb, monthsSorted, currentTicker);
     }
 
@@ -216,9 +257,9 @@
     });
 
     // --- Process ---
-    processBtn.addEventListener('click', () => {
+  processBtn.addEventListener('click', () => {
       try {
-        processCsvAndRender(csvText.value);
+    processCsvAndRender(csvText.value, { resetSelection: true });
       } catch (err) {
         console.error(err);
         alert('Error: ' + err.message);
@@ -248,24 +289,28 @@
     }
 
     // Helper: load and render for a given symbol + direction; clears output if missing
-    async function loadAndRender(sym, dir) {
+    async function loadAndRender(sym, dir, opts) {
       const { file, url } = buildDataUrl(sym, dir);
       try {
         const res = await fetch(url, { cache: 'no-cache' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const text = await res.text();
+        const prevSym = currentTicker;
         currentTicker = sym;
         setTickerFromFilename(file);
         csvText.value = text.trim();
-        processCsvAndRender(text);
+  const resetSelection = (opts && Object.prototype.hasOwnProperty.call(opts, 'resetSelection'))
+          ? !!opts.resetSelection
+          : (sym !== prevSym); // reset only when ticker changes by default
+  processCsvAndRender(text, { resetSelection });
+  // Cache this symbol+direction model
+  try { setModelCache(sym, dir, currentModel); } catch {}
   // Preload other directions in the background for combined equity with per-row directions
   try { preloadOtherDirections(sym, dir); } catch {}
         return true;
       } catch (err) {
         console.warn(`Data not found for ${sym} ${dir}: ${file}`, err);
-        // Clear UI/output but keep currentTicker selection
-        csvText.value = '';
-        output.innerHTML = '';
+        // Don't clear current UI; just keep the previous models and selections intact
         // Update title to show selected symbol even if data missing
         currentTicker = sym;
         setTickerFromFilename(`${sym}_backtest_results.csv`);
@@ -277,7 +322,7 @@
     async function preloadOtherDirections(sym, loadedDir){
       const dirs = ['BOTH','LONG','SHORT'].filter(d => d !== loadedDir);
       await Promise.all(dirs.map(async d => {
-        if (dirModels[d]) return; // already cached
+        if (getModelCache(sym, d)) return; // already cached for this symbol
         const { url } = buildDataUrl(sym, d);
         try {
           const res = await fetch(url, { cache: 'no-cache' });
@@ -285,8 +330,7 @@
           const text = await res.text();
           const parsed = parseCSV(text.trim());
           const mdl = toModel(parsed);
-          dirModels[d] = mdl;
-          dirCombosByOrb[d] = combosByOrbFromModel(mdl);
+          setModelCache(sym, d, mdl);
         } catch { /* ignore */ }
       }));
     }
@@ -343,8 +387,8 @@
         setActiveTicker(btn);
         // Reset direction to BOTH by default when symbol changes
         setActiveDirectionByValue('BOTH');
-        // Load BOTH for the newly selected symbol
-        await loadAndRender(sym, 'BOTH');
+  // Load BOTH for the newly selected symbol, keep existing selections
+  await loadAndRender(sym, 'BOTH', { resetSelection: false });
       });
     }
 
@@ -364,7 +408,8 @@
         const prevREl = document.getElementById('eqRSelect');
         const prevOrb = prevOrbEl ? prevOrbEl.value : null;
         const prevR = prevREl ? prevREl.value : null;
-        await loadAndRender(currentTicker, dir);
+  // Keep current selections when switching direction (we support mixed directions)
+  await loadAndRender(currentTicker, dir, { resetSelection: false });
         // Restore selections if still available in the new dataset
         const orbEl = document.getElementById('eqOrbSelect');
         const rEl = document.getElementById('eqRSelect');
@@ -689,13 +734,13 @@
           const bg = hl.get(`${c.orb}|${c.r}`) || '';
           const isActive = (activeOrb === c.orb && activeR === c.r);
           const activeCls = isActive ? 'outline-gold' : '';
-          const isSelected = selectedCombos.has(comboKey(c.orb, c.r));
-          const selectedCls = isSelected ? 'ring-2 ring-emerald-500' : '';
+          const isSelectedThisView = hasSelectionFor(c.orb, c.r, currentDirection, currentTicker);
+          const selectedCls = isSelectedThisView ? 'ring-2 ring-emerald-500' : '';
           // Keep 6 columns but reduce text size and padding to fit portrait mobile
           return `<button type="button" class="relative rounded-2xl border border-slate-200 p-2 sm:p-3 ${bg} ${activeCls} ${selectedCls} min-w-[120px] text-left hover:bg-slate-50 focus:outline-none cursor-pointer" data-orb="${c.orb}" data-r="${c.r}">
             <div class="text-[11px] sm:text-xs text-slate-500 truncate">orb_m ${c.orb} · R ${c.r}</div>
             <div class="text-lg sm:text-2xl font-semibold ${cls}">${val}</div>
-            ${isSelected ? '<span class="absolute top-1 right-1 inline-flex items-center justify-center h-5 w-5 rounded-full bg-emerald-600 text-white text-[10px]">✓</span>' : ''}
+            ${isSelectedThisView ? '<span class="absolute top-1 right-1 inline-flex items-center justify-center h-5 w-5 rounded-full bg-emerald-600 text-white text-[10px]">✓</span>' : ''}
           </button>`;
         }).join('');
       };
@@ -748,7 +793,9 @@
         if (!card) return;
         const orb = String(card.getAttribute('data-orb'));
         const r = String(card.getAttribute('data-r'));
-    const key = comboKey(orb, r);
+  const defaultDir = currentDirection || 'BOTH';
+  const defaultSym = currentTicker || '';
+  const key = comboKey(orb, r, defaultDir, defaultSym);
     // Toggle selection
         if (selectedCombos.has(key)) {
           selectedCombos.delete(key);
@@ -756,14 +803,14 @@
           comboAllocationOverrides.delete(key);
         } else {
           selectedCombos.add(key);
-          if (!comboDirectionOverrides.has(key)) comboDirectionOverrides.set(key, currentDirection || 'BOTH');
+          if (!comboDirectionOverrides.has(key)) comboDirectionOverrides.set(key, defaultDir);
           // Allocation default will be set in table draw when we know selection size
         }
-    // Equal-weight all selected strategies when selection changes (ensures e.g., 2 => 50/50)
+  // Equal-weight all selected strategies when selection changes (ensures e.g., 2 => 50/50)
     const selList = Array.from(selectedCombos).map(parseComboKey).filter(Boolean);
     if (selList.length) {
       const eq = 100 / selList.length;
-      selList.forEach(({orb: o, r: rr}) => comboAllocationOverrides.set(comboKey(o, rr), eq));
+      selList.forEach(({orb: o, r: rr, dir: dd, sym: ss}) => comboAllocationOverrides.set(comboKey(o, rr, dd, ss), eq));
     }
     // Rebuild cards to reflect selection state
     rebuildSummaryCards();
@@ -952,11 +999,14 @@
           return { x: [], y: [] };
         }
         // Build merged date map across involved directions
-        const involvedDirs = new Set(sel.map(({orb,r}) => comboDirectionOverrides.get(comboKey(orb,r)) || currentDirection || 'BOTH'));
-        const dirList = Array.from(involvedDirs);
-        const dirModelsList = dirList.map(d => dirModels[d] || model).filter(Boolean);
         const dateMap = new Map(); // iso -> array of {mdl,row}
-        for (const mdl of dirModelsList) {
+        const mdlSet = new Set();
+        for (const { orb, r, dir: preDir, sym: preSym } of sel) {
+          const d = comboDirectionOverrides.get(comboKey(orb, r, preDir, preSym)) || preDir || currentDirection || 'BOTH';
+          const s = (preSym || currentTicker || '').toUpperCase();
+          const mdl = getModelCache(s, d) || model;
+          if (!mdl || mdlSet.has(mdl)) continue;
+          mdlSet.add(mdl);
           const rowsSorted = [...mdl.data].sort((a,b)=> a.date - b.date);
           for (const r of rowsSorted) {
             const iso = r.date.toISOString().slice(0,10);
@@ -986,10 +1036,11 @@
         const x = [];
         const y = [];
         const start = 100000;
-        const subs = sel.map(({orb,r}) => {
-          const k = comboKey(orb, r);
-          const dir = comboDirectionOverrides.get(k) || currentDirection || 'BOTH';
-          const mdl = dirModels[dir] || model;
+        const subs = sel.map(({orb,r,dir: preDir, sym: preSym}) => {
+          const k = comboKey(orb, r, preDir, preSym);
+          const dir = comboDirectionOverrides.get(k) || preDir || currentDirection || 'BOTH';
+          const sym = (preSym || currentTicker || '').toUpperCase();
+          const mdl = getModelCache(sym, dir) || model;
           const allocPct = (comboAllocationOverrides.get(k) ?? 0) / 100;
           return { orb, r, k, dir, mdl, allocPct, equity: start * allocPct };
         });
@@ -1184,6 +1235,7 @@
     <div class="overflow-auto rounded-xl border border-slate-200 mb-4">
           <table class="min-w-full text-sm">
             <thead class="bg-slate-50"><tr>
+              <th class="sticky-th text-left font-semibold px-3 py-2 border-b border-slate-200">Symbol</th>
               <th class="sticky-th text-left font-semibold px-3 py-2 border-b border-slate-200">orb_m</th>
               <th class="sticky-th text-left font-semibold px-3 py-2 border-b border-slate-200">target_R</th>
       <th class="sticky-th text-left font-semibold px-3 py-2 border-b border-slate-200">Direction</th>
@@ -1206,14 +1258,9 @@
       const emitSelectionChanged = () => { try { mountAfterEl && mountAfterEl.dispatchEvent(new CustomEvent('selection-changed', { bubbles: false })); } catch {} };
 
       function getValidSelection(){
-        // Validate against current combosByOrb
+        // Allow selections from any direction; defer availability to per-row direction/model
         const res = [];
-        selectedCombos.forEach(k => {
-          const pr = parseComboKey(k);
-          if (!pr) return;
-          const arr = combosByOrb.get(Number(pr.orb)) || [];
-          if (arr.some(o => Number(o.target_R) === Number(pr.r))) res.push(pr);
-        });
+        selectedCombos.forEach(k => { const pr = parseComboKey(k); if (pr) res.push(pr); });
         return res;
       }
 
@@ -1225,13 +1272,13 @@
         const getFilters = (mountAfterEl && typeof mountAfterEl.getCurrentFilters === 'function') ? mountAfterEl.getCurrentFilters : null;
         const { daysSel, selectedDOW, selectedMonths } = getFilters ? getFilters() : { daysSel: 'ALL', selectedDOW: new Set([1,2,3,4,5]), selectedMonths: new Set() };
         // Ensure allocations: if any newly added selection has no allocation, equal-weight ALL selections
-        const missing = sel.filter(({orb,r}) => !comboAllocationOverrides.has(comboKey(orb,r)));
+        const missing = sel.filter(({orb,r,dir,sym}) => !comboAllocationOverrides.has(comboKey(orb,r,dir,sym)));
         if (missing.length) {
           const eq = (sel.length > 0) ? (100 / sel.length) : 0;
-          sel.forEach(({orb,r}) => comboAllocationOverrides.set(comboKey(orb,r), eq));
+          sel.forEach(({orb,r,dir,sym}) => comboAllocationOverrides.set(comboKey(orb,r,dir,sym), eq));
         } else if (sel.length) {
           // No missing; normalize only if total exceeds 100% (preserve proportions)
-          const keys = sel.map(({orb,r}) => comboKey(orb,r));
+          const keys = sel.map(({orb,r,dir,sym}) => comboKey(orb,r,dir,sym));
           let total = keys.reduce((acc, k) => acc + (Number(comboAllocationOverrides.get(k)) || 0), 0);
           if (total > 100.0001) {
             const factor = 100 / total;
@@ -1242,16 +1289,17 @@
           }
         }
         // Compute totals per selection respecting per-row direction
-        const rows = sel.map(({orb, r}) => {
-          const key = comboKey(orb, r);
-          const dir = comboDirectionOverrides.get(key) || currentDirection || 'BOTH';
-          const mdl = dirModels[dir] || model;
-          const cByOrb = dirCombosByOrb[dir] || combosByOrb;
+        const rows = sel.map(({orb, r, dir: preDir, sym: preSym}) => {
+          const k0 = comboKey(orb, r, preDir, preSym);
+          const dir = comboDirectionOverrides.get(k0) || preDir || currentDirection || 'BOTH';
+          const sym = (preSym || currentTicker || '').toUpperCase();
+          const mdl = getModelCache(sym, dir) || model;
+          const cByOrb = getCombosByOrbCache(sym, dir) || combosByOrb;
           const totals = computeTotalsByDays(mdl, cByOrb, daysSel, naMode, selectedDOW, selectedMonths);
           const rmap = totals.get(Number(orb)) || new Map();
           const total = rmap.has(Number(r)) ? rmap.get(Number(r)) : null;
-          const alloc = comboAllocationOverrides.get(key) ?? 0;
-          return { orb, r, total, dir, alloc };
+          const alloc = comboAllocationOverrides.get(k0) ?? 0;
+          return { sym, orb, r, total, dir, alloc, key: k0 };
         }).sort((a,b) => (b.total ?? -Infinity) - (a.total ?? -Infinity));
 
         // Update allocation total display
@@ -1259,10 +1307,11 @@
         if (allocTotalEl) allocTotalEl.textContent = `Alloc: ${Math.round(totalAlloc)}%`;
 
         tbody.innerHTML = rows.map(row => {
-          const k = comboKey(row.orb, row.r);
+          const k = row.key;
           const val = row.total === null ? '—' : fmt(row.total);
           const cls = row.total === null ? '' : (row.total >= 0 ? 'num-pos' : 'num-neg');
           return `<tr class="odd:bg-white even:bg-slate-50/50">
+            <td class="px-3 py-2">${row.sym || ''}</td>
             <td class="px-3 py-2">${row.orb}</td>
             <td class="px-3 py-2">${row.r}</td>
             <td class="px-3 py-2">
@@ -1291,7 +1340,7 @@
         }).join('');
 
         // Wire remove buttons
-        tbody.querySelectorAll('button[data-k]').forEach(btn => {
+  tbody.querySelectorAll('button[data-k]').forEach(btn => {
           btn.addEventListener('click', () => {
             const k = btn.getAttribute('data-k');
             if (selectedCombos.has(k)) selectedCombos.delete(k);
@@ -1310,6 +1359,22 @@
             const k = selEl.getAttribute('data-k');
             const dir = selEl.value || 'BOTH';
             comboDirectionOverrides.set(k, dir);
+            // If the key encoded old dir, update selection key to track new direction
+            const parsed = parseComboKey(k);
+            if (parsed) {
+              const newKey = comboKey(parsed.orb, parsed.r, dir, parsed.sym);
+              if (newKey !== k) {
+                if (selectedCombos.has(k)) selectedCombos.delete(k);
+                selectedCombos.add(newKey);
+                // migrate allocation override if present
+                if (comboAllocationOverrides.has(k)) {
+                  comboAllocationOverrides.set(newKey, comboAllocationOverrides.get(k));
+                  comboAllocationOverrides.delete(k);
+                }
+                comboDirectionOverrides.delete(k);
+                comboDirectionOverrides.set(newKey, dir);
+              }
+            }
             // Ensure the required model is loaded/cached
             if (!dirModels[dir] && currentTicker) {
               try { await preloadOtherDirections(currentTicker, currentDirection); } catch {}
@@ -1331,7 +1396,7 @@
             inp.value = num.toFixed(1);
             // Re-normalize total to 100 if needed
             const selNow = getValidSelection();
-            const keys = selNow.map(({orb,r}) => comboKey(orb,r));
+            const keys = selNow.map(({orb,r,dir,sym}) => comboKey(orb,r,dir,sym));
             let total = keys.reduce((acc, kk) => acc + (Number(comboAllocationOverrides.get(kk)) || 0), 0);
             if (total > 100.0001) {
               const factor = 100 / total;
@@ -1351,7 +1416,7 @@
             comboAllocationOverrides.set(k, num);
             if (allocTotalEl) {
               const sel2 = getValidSelection();
-              const sum = sel2.reduce((acc, {orb,r}) => acc + (comboAllocationOverrides.get(comboKey(orb,r))||0), 0);
+              const sum = sel2.reduce((acc, {orb,r,dir,sym}) => acc + (comboAllocationOverrides.get(comboKey(orb,r,dir,sym))||0), 0);
               allocTotalEl.textContent = `Alloc: ${Math.round(sum)}%`;
             }
             emitSelectionChanged();
