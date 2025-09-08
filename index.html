@@ -145,6 +145,32 @@
     let currentTicker = '';
   // NEW: track selected direction (UI only for now; wiring next)
   let currentDirection = 'BOTH';
+  // NEW: global selection state for summary cards (orb_m × target_R combos)
+  // Keys are in the form `m{orb}_r{R}`
+  const selectedCombos = new Set();
+  function comboKey(orb, r){ return `m${Number(orb)}_r${Number(r)}`; }
+  function parseComboKey(key){
+    const m = String(key||'').match(/^m(\d+(?:\.\d+)?)_r(\d+(?:\.\d+)?)$/);
+    if (!m) return null;
+    return { orb: Number(m[1]), r: Number(m[2]) };
+  }
+  // NEW: per-combo direction overrides (BOTH/LONG/SHORT); defaults to currentDirection when first selected
+  const comboDirectionOverrides = new Map(); // key -> 'BOTH'|'LONG'|'SHORT'
+  // NEW: per-combo allocation overrides (percentage of starting equity 0..100)
+  const comboAllocationOverrides = new Map(); // key -> number (%) 
+  // NEW: cache models per direction for current ticker
+  let currentModel = null; // last rendered model
+  const dirModels = { BOTH: null, LONG: null, SHORT: null };
+  const dirCombosByOrb = { BOTH: null, LONG: null, SHORT: null };
+  function combosByOrbFromModel(model){
+    const orbMap = new Map();
+    for (const { orb_m, target_R, key } of model.combos) {
+      if (!orbMap.has(orb_m)) orbMap.set(orb_m, []);
+      orbMap.get(orb_m).push({ target_R, key });
+    }
+    for (const [orb, arr] of orbMap) arr.sort((a,b) => a.target_R - b.target_R);
+    return orbMap;
+  }
     function setTickerFromFilename(name) {
       const m = name && name.match(/^([A-Za-z][A-Za-z0-9-]*)_backtest_results\.csv$/i);
       const t = m ? m[1] : (name ? (name.split('_')[0] || '') : '');
@@ -159,8 +185,16 @@
     function processCsvAndRender(text) {
       const trimmed = (text || '').trim();
       if (!trimmed) return;
+  // Reset multi-selection when new data is processed
+  selectedCombos.clear();
+  comboDirectionOverrides.clear();
+  comboAllocationOverrides.clear();
       const parsed = parseCSV(trimmed);
       const model = toModel(parsed);
+  currentModel = model;
+  // Cache under currentDirection for cross-direction combined calculations
+  dirModels[currentDirection] = model;
+  dirCombosByOrb[currentDirection] = combosByOrbFromModel(model);
       const { byOrb, monthsSorted, combosByOrb } = aggregateMonthly(model, {
         naMode: document.getElementById('naSelect').value
       });
@@ -224,6 +258,8 @@
         setTickerFromFilename(file);
         csvText.value = text.trim();
         processCsvAndRender(text);
+  // Preload other directions in the background for combined equity with per-row directions
+  try { preloadOtherDirections(sym, dir); } catch {}
         return true;
       } catch (err) {
         console.warn(`Data not found for ${sym} ${dir}: ${file}`, err);
@@ -235,6 +271,24 @@
         setTickerFromFilename(`${sym}_backtest_results.csv`);
         return false;
       }
+    }
+
+    // NEW: Preload models for the other directions (BOTH/LONG/SHORT) without re-rendering
+    async function preloadOtherDirections(sym, loadedDir){
+      const dirs = ['BOTH','LONG','SHORT'].filter(d => d !== loadedDir);
+      await Promise.all(dirs.map(async d => {
+        if (dirModels[d]) return; // already cached
+        const { url } = buildDataUrl(sym, d);
+        try {
+          const res = await fetch(url, { cache: 'no-cache' });
+          if (!res.ok) return;
+          const text = await res.text();
+          const parsed = parseCSV(text.trim());
+          const mdl = toModel(parsed);
+          dirModels[d] = mdl;
+          dirCombosByOrb[d] = combosByOrbFromModel(mdl);
+        } catch { /* ignore */ }
+      }));
     }
 
     // Expose direction segment and a setter to reset from outside
@@ -451,6 +505,7 @@
       summaryEl.innerHTML = `
         <div class="mb-2">
           <h2 class="text-lg font-semibold">${prefix}Totals (sum of daily R) by combo</h2>
+          <p class="text-xs text-slate-500 mt-1">Click cards to select multiple strategies; click again to remove. Selected strategies will appear below with a combined equity curve.</p>
         </div>
         <div class="flex items-center gap-4 flex-wrap mb-3">
           <div class="flex items-center gap-2">
@@ -494,7 +549,7 @@
           </div>
         </div>
         <!-- keep 6 columns but allow horizontal scrolling if necessary; make cards more compact -->
-        <div id="summaryCards" class="overflow-x-auto px-[1px] py-[1px]"><div class="grid grid-cols-6 gap-2 min-w-max" id="summaryCardsGrid"></div></div>
+  <div id="summaryCards" class="overflow-x-auto px-[1px] py-[1px]"><div class="grid grid-cols-6 gap-2 min-w-max" id="summaryCardsGrid"></div></div>
       `;
       output.appendChild(summaryEl);
 
@@ -634,13 +689,19 @@
           const bg = hl.get(`${c.orb}|${c.r}`) || '';
           const isActive = (activeOrb === c.orb && activeR === c.r);
           const activeCls = isActive ? 'outline-gold' : '';
+          const isSelected = selectedCombos.has(comboKey(c.orb, c.r));
+          const selectedCls = isSelected ? 'ring-2 ring-emerald-500' : '';
           // Keep 6 columns but reduce text size and padding to fit portrait mobile
-          return `<button type="button" class="rounded-2xl border border-slate-200 p-2 sm:p-3 ${bg} ${activeCls} min-w-[120px] text-left hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-300 cursor-pointer" data-orb="${c.orb}" data-r="${c.r}">
+          return `<button type="button" class="relative rounded-2xl border border-slate-200 p-2 sm:p-3 ${bg} ${activeCls} ${selectedCls} min-w-[120px] text-left hover:bg-slate-50 focus:outline-none cursor-pointer" data-orb="${c.orb}" data-r="${c.r}">
             <div class="text-[11px] sm:text-xs text-slate-500 truncate">orb_m ${c.orb} · R ${c.r}</div>
             <div class="text-lg sm:text-2xl font-semibold ${cls}">${val}</div>
+            ${isSelected ? '<span class="absolute top-1 right-1 inline-flex items-center justify-center h-5 w-5 rounded-full bg-emerald-600 text-white text-[10px]">✓</span>' : ''}
           </button>`;
         }).join('');
       };
+
+  // Expose a refresher to allow other sections to update card highlights after selection changes
+  summaryEl.refreshCards = rebuildSummaryCards;
 
       // Expose current filter state for sibling sections (e.g., Equity curve)
       function getCurrentFilters() {
@@ -681,12 +742,29 @@
         });
       }
 
-      // Click a summary tile to update the equity curve selectors
+  // Click a summary tile to toggle selection and update the equity curve selectors
       cardsContainer.addEventListener('click', (e) => {
         const card = e.target.closest('button[data-orb][data-r]');
         if (!card) return;
         const orb = String(card.getAttribute('data-orb'));
         const r = String(card.getAttribute('data-r'));
+    const key = comboKey(orb, r);
+    // Toggle selection
+        if (selectedCombos.has(key)) {
+          selectedCombos.delete(key);
+          comboDirectionOverrides.delete(key);
+          comboAllocationOverrides.delete(key);
+        } else {
+          selectedCombos.add(key);
+          if (!comboDirectionOverrides.has(key)) comboDirectionOverrides.set(key, currentDirection || 'BOTH');
+          // Allocation default will be set in table draw when we know selection size
+        }
+    // Rebuild cards to reflect selection state
+    rebuildSummaryCards();
+    // Update selected section, if present
+    if (typeof summaryEl.refreshSelected === 'function') summaryEl.refreshSelected();
+  // Notify equity section
+  try { summaryEl.dispatchEvent(new CustomEvent('selection-changed', { bubbles: false })); } catch {}
         const orbSel = document.getElementById('eqOrbSelect');
         const rSel = document.getElementById('eqRSelect');
         if (!orbSel || !rSel) return;
@@ -705,6 +783,11 @@
   // --- NEW: Equity curve section (below Totals summary) ---
   renderEquitySection(model, combosByOrb, summaryEl);
 
+  // --- NEW: Selected strategies with combined equity ---
+  const selectedUI = renderSelectedSection(model, combosByOrb, summaryEl);
+  // Expose refresher so card clicks and other events can trigger redraw
+  summaryEl.refreshSelected = selectedUI && selectedUI.refresh ? selectedUI.refresh : () => {};
+
   // Monthly total returns section removed as requested
 
       // Single monthly detail table for the currently selected orb_m
@@ -716,7 +799,11 @@
         const table = byOrb.get(Number(orb));
         if (!table) { monthlySection.innerHTML = ''; return; }
         const eqRSel = document.getElementById('eqRSelect');
-        const activeR = eqRSel ? Number(eqRSel.value) : undefined;
+        let activeR = undefined;
+        if (eqRSel && eqRSel.value !== '') {
+          const v = Number(eqRSel.value);
+          if (Number.isFinite(v) && table.targets.includes(v)) activeR = v;
+        }
         const headerHTML = `<div class="flex items-center justify-between mb-4">
             <div>
               <h2 class="text-xl font-semibold">orb_m = ${orb}</h2>
@@ -745,7 +832,15 @@
 
       // Initial render for the active orb (from equity selector or the first orb)
       const eqOrbSelForMonthly = document.getElementById('eqOrbSelect');
-      const initialOrb = eqOrbSelForMonthly ? Number(eqOrbSelForMonthly.value) : (Array.from(byOrb.keys()).sort((a,b)=>a-b)[0]);
+      let initialOrb;
+      if (eqOrbSelForMonthly && eqOrbSelForMonthly.value !== '') {
+        const v = Number(eqOrbSelForMonthly.value);
+        initialOrb = Number.isFinite(v) ? v : undefined;
+      }
+      if (!Number.isFinite(initialOrb)) {
+        const firstOrb = Array.from(byOrb.keys()).sort((a,b)=>a-b)[0];
+        initialOrb = firstOrb;
+      }
       renderMonthlyDetail(initialOrb);
 
       // Update when equity orb or R selection changes
@@ -815,8 +910,8 @@
   section.className = 'bg-white rounded-2xl shadow-soft p-4 md:p-6 mt-4 overflow-hidden';
       section.innerHTML = `
         <div class="flex items-center justify-between gap-3 flex-wrap mb-3">
-          <h2 class="text-lg font-semibold">Equity curve (daily compounding)</h2>
-          <div class="flex items-center gap-3">
+          <h2 class="text-lg font-semibold">Combined equity curve (daily compounding)</h2>
+          <div class="hidden items-center gap-3">
             <label class="text-sm text-slate-600">orb_m:</label>
             <div class="relative inline-block">
               <select id="eqOrbSelect" class="appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 pr-9 text-sm"></select>
@@ -832,87 +927,92 @@
               </span>
             </div>
           </div>
-  </div>
-  <div id="equityAssumption" class="text-xs text-slate-500 mb-2">Assumes starting balance of $100,000 and treats daily R value as percentage return (1R = 1%).</div>
-  <div id="equityChart" class="w-full min-h-[320px]"></div>
+        </div>
+        <div id="equityAssumption" class="text-xs text-slate-500 mb-2">Assumes starting balance of $100,000 and uses selected strategies (Direction and Allocation) with 1R = 1% when Risk=2% and stop=2R.</div>
+        <div id="equityChart" class="w-full min-h-[320px]"></div>
         <div class="mt-6">
-          <h3 class="text-base font-semibold mb-2">Win/Loss streaks (by day)</h3>
+          <h3 class="text-base font-semibold mb-2">Combined win/loss streaks (by day)</h3>
           <div id="streakChart" class="w-full min-h-[260px]"></div>
         </div>
       `;
   // Insert right after the provided element (summary section)
   mountAfterEl.parentNode.insertBefore(section, mountAfterEl.nextSibling);
 
-      // Populate orb and R selects
-      const orbSelect = section.querySelector('#eqOrbSelect');
-      const rSelect = section.querySelector('#eqRSelect');
-      const orbs = Array.from(combosByOrb.keys()).sort((a,b)=>a-b);
-      orbs.forEach(o => {
-        const opt = document.createElement('option');
-        opt.value = String(o);
-        opt.textContent = o;
-        orbSelect.appendChild(opt);
-      });
-      function populateRSelect(orb){
-        rSelect.innerHTML = '';
-        const arr = (combosByOrb.get(Number(orb)) || []).slice().sort((a,b)=>a.target_R - b.target_R);
-        for (const { target_R } of arr) {
-          const opt = document.createElement('option');
-          opt.value = String(target_R);
-          opt.textContent = target_R;
-          rSelect.appendChild(opt);
+      // Compute combined equity from current selection (allocations + per-row direction)
+      function computeCombinedEquity(){
+        const sel = Array.from(selectedCombos).map(parseComboKey).filter(Boolean);
+        const chartEl = section.querySelector('#equityChart');
+        if (!sel.length) {
+          return { x: [], y: [] };
         }
-      }
-      populateRSelect(orbs[0]);
-
-      // Default selections: first orb and first R
-      orbSelect.value = String(orbs[0]);
-      rSelect.value = rSelect.options.length ? rSelect.options[0].value : '';
-
-      // Compute and plot
-    function computeEquity(orb, r){
-        const key = `m${orb}_r${r}`;
-        const rows = [...model.data].sort((a,b)=> a.date - b.date);
-        const x = [];
-        const y = [];
-        const start = 100000;
-        let equity = start;
+        // Build merged date map across involved directions
+        const involvedDirs = new Set(sel.map(({orb,r}) => comboDirectionOverrides.get(comboKey(orb,r)) || currentDirection || 'BOTH'));
+        const dirList = Array.from(involvedDirs);
+        const dirModelsList = dirList.map(d => dirModels[d] || model).filter(Boolean);
+        const dateMap = new Map(); // iso -> array of {mdl,row}
+        for (const mdl of dirModelsList) {
+          const rowsSorted = [...mdl.data].sort((a,b)=> a.date - b.date);
+          for (const r of rowsSorted) {
+            const iso = r.date.toISOString().slice(0,10);
+            if (!dateMap.has(iso)) dateMap.set(iso, []);
+            dateMap.get(iso).push({ row: r, mdl });
+          }
+        }
+        const allDates = Array.from(dateMap.keys()).sort();
         const naMode = document.getElementById('naSelect').value;
         const rToPct = getRiskPct();
-        // Read filters from the Totals section
         const getFilters = (mountAfterEl && typeof mountAfterEl.getCurrentFilters === 'function') ? mountAfterEl.getCurrentFilters : null;
         const { daysSel, selectedDOW, selectedMonths } = getFilters ? getFilters() : { daysSel: 'ALL', selectedDOW: new Set([1,2,3,4,5]), selectedMonths: new Set() };
-        // Build allowed date set by Days filter
-        const timesAsc = Array.from(new Set(rows.map(d => d.date.getTime()))).sort((a,b)=>a-b);
-        const allowedTimes = (daysSel === 'ALL') ? timesAsc : timesAsc.slice(-Math.max(0, parseInt(daysSel,10)));
-        const allowed = new Set(allowedTimes);
-        // Weekday filter
+        const allowedDates = (daysSel === 'ALL') ? allDates : allDates.slice(-Math.max(0, parseInt(daysSel,10)));
+        const allowed = new Set(allowedDates);
         const hasDowFilter = selectedDOW instanceof Set;
         const selectedNone = hasDowFilter && selectedDOW.size === 0;
-        const isAllowedDow = (dateObj) => {
+        const isAllowedDow = (isoStr) => {
           if (!hasDowFilter) return true;
           if (selectedNone) return false;
-          const jsDay = dateObj.getDay(); // 0..6
-          const mapped = jsDay === 0 ? 7 : jsDay; // 1..7
+          const d = new Date(isoStr);
+          const jsDay = d.getDay();
+          const mapped = jsDay === 0 ? 7 : jsDay;
           if (mapped === 6 || mapped === 7) return false;
           return selectedDOW.has(mapped);
         };
-        // Month filter
         const hasMonthFilter = selectedMonths instanceof Set && selectedMonths.size > 0;
-        for (const row of rows) {
-          const t = row.date.getTime();
-          if (!allowed.has(t)) continue;
-          if (!isAllowedDow(row.date)) continue;
-          if (hasMonthFilter && !selectedMonths.has(row.yyyymm)) continue;
-          let v = row[key];
-          if ((v === null || !Number.isFinite(v))) {
-            if (naMode === 'zero') v = 0; else continue;
+        const x = [];
+        const y = [];
+        const start = 100000;
+        const subs = sel.map(({orb,r}) => {
+          const k = comboKey(orb, r);
+          const dir = comboDirectionOverrides.get(k) || currentDirection || 'BOTH';
+          const mdl = dirModels[dir] || model;
+          const allocPct = (comboAllocationOverrides.get(k) ?? 0) / 100;
+          return { orb, r, k, dir, mdl, allocPct, equity: start * allocPct };
+        });
+        const idleAlloc = Math.max(0, 1 - subs.reduce((a,s) => a + s.allocPct, 0));
+        let cash = start * idleAlloc;
+        for (const iso of allDates) {
+          if (!allowed.has(iso)) continue;
+          if (!isAllowedDow(iso)) continue;
+          const yyyymm = iso.slice(0,7);
+          if (hasMonthFilter && !selectedMonths.has(yyyymm)) continue;
+          const perDayRows = dateMap.get(iso) || [];
+          let anyUsed = false;
+          for (const s of subs) {
+            if (s.allocPct <= 0) continue;
+            const rowEntry = perDayRows.find(rr => rr.mdl === s.mdl);
+            const row = rowEntry ? rowEntry.row : null;
+            if (!row) continue;
+            let v = row[`m${s.orb}_r${s.r}`];
+            if (v === null || !Number.isFinite(v)) {
+              if (naMode === 'zero') { v = 0; } else { continue; }
+            }
+            const pct = v * rToPct;
+            s.equity = s.equity * (1 + pct);
+            anyUsed = true;
           }
-          const pct = v * rToPct; // Treat 1R as Risk% of equity
-          equity = equity * (1 + pct);
-      // Use ISO date string to allow Plotly 'date' axis to auto-manage ticks
-      x.push(row.date.toISOString().slice(0,10));
-          y.push(equity);
+          if (!anyUsed) continue;
+          const totalEq = cash + subs.reduce((acc, s) => acc + s.equity, 0);
+          x.push(iso);
+          y.push(totalEq);
         }
         return { x, y };
       }
@@ -953,92 +1053,53 @@
         return { cagr, maxDD, winPct, winsCount: wins, lossesCount: losses };
       }
 
-      // Compute win/loss streak bars only at the maximum point of each streak run
-      function computeStreakSeries(orb, r){
-        const key = `m${orb}_r${r}`;
-        const rows = [...model.data].sort((a,b)=> a.date - b.date);
-        const naMode = document.getElementById('naSelect').value;
-        const getFilters = (mountAfterEl && typeof mountAfterEl.getCurrentFilters === 'function') ? mountAfterEl.getCurrentFilters : null;
-        const { daysSel, selectedDOW, selectedMonths } = getFilters ? getFilters() : { daysSel: 'ALL', selectedDOW: new Set([1,2,3,4,5]), selectedMonths: new Set() };
-        const timesAsc = Array.from(new Set(rows.map(d => d.date.getTime()))).sort((a,b)=>a-b);
-        const allowedTimes = (daysSel === 'ALL') ? timesAsc : timesAsc.slice(-Math.max(0, parseInt(daysSel,10)));
-        const allowed = new Set(allowedTimes);
-        const hasDowFilter = selectedDOW instanceof Set;
-        const selectedNone = hasDowFilter && selectedDOW.size === 0;
-        const isAllowedDow = (dateObj) => {
-          if (!hasDowFilter) return true;
-          if (selectedNone) return false;
-          const jsDay = dateObj.getDay();
-          const mapped = jsDay === 0 ? 7 : jsDay;
-          if (mapped === 6 || mapped === 7) return false;
-          return selectedDOW.has(mapped);
-        };
-        const hasMonthFilter = selectedMonths instanceof Set && selectedMonths.size > 0;
-
-        const x = []; // dates only when a streak run reaches its max (end of run)
-        const y = []; // signed streak magnitude (+win, -loss)
+      // Compute combined win/loss streaks from equity series returns
+      function computeCombinedStreakSeries(xDates, yEq){
+        const x = [];
+        const y = [];
         const colors = [];
         const texts = [];
-
-        let streak = 0;      // signed ongoing streak
-        let runSign = 0;     // 1 for wins, -1 for losses, 0 none
-        let runBest = 0;     // best magnitude within current run
-        let runBestDate = null; // date when best was reached
-
+        if (!yEq || yEq.length < 2) return { x, y, colors, texts };
+        let streak = 0; // signed
+        let runSign = 0;
+        let runBest = 0;
+        let runBestIdx = -1;
         const flushRun = () => {
-          if (runSign !== 0 && runBest > 0 && runBestDate) {
-            const iso = runBestDate.toISOString().slice(0,10);
+          if (runSign !== 0 && runBest > 0 && runBestIdx >= 0) {
+            const iso = xDates[runBestIdx];
             x.push(iso);
             const val = runSign > 0 ? runBest : -runBest;
             y.push(val);
             if (val > 0) { colors.push('#10b981'); texts.push(`Win streak: ${val}`); }
             else { colors.push('#f43f5e'); texts.push(`Loss streak: ${Math.abs(val)}`); }
           }
-          runSign = 0; runBest = 0; runBestDate = null; streak = 0;
+          runSign = 0; runBest = 0; runBestIdx = -1; streak = 0;
         };
-
-        for (const row of rows) {
-          const t = row.date.getTime();
-          if (!allowed.has(t)) continue;
-          if (!isAllowedDow(row.date)) continue;
-          if (hasMonthFilter && !selectedMonths.has(row.yyyymm)) continue;
-          let v = row[key];
-          if ((v === null || !Number.isFinite(v))) { if (naMode === 'zero') v = 0; else continue; }
-
-          // Update streak
-          if (v > 0) streak = streak > 0 ? streak + 1 : 1;
-          else if (v < 0) streak = streak < 0 ? streak - 1 : -1;
-          else streak = 0; // flat resets
-
-          const sgn = Math.sign(streak);
-          if (sgn === 0) {
-            // flat day ends any prior run
-            flushRun();
-            continue;
-          }
-
+        for (let i = 1; i < yEq.length; i++) {
+          const prev = yEq[i-1];
+          const curr = yEq[i];
+          if (!Number.isFinite(prev) || !Number.isFinite(curr) || prev <= 0) { flushRun(); continue; }
+          const r = curr / prev - 1;
+          let sgn = 0;
+          if (r > 0) sgn = 1; else if (r < 0) sgn = -1; else sgn = 0;
+          if (sgn === 0) { flushRun(); continue; }
           if (runSign === 0 || sgn !== runSign) {
-            // sign changed -> flush previous and start new run
             flushRun();
             runSign = sgn;
-            runBest = Math.abs(streak);
-            runBestDate = row.date;
+            streak = 1;
+            runBest = 1;
+            runBestIdx = i;
           } else {
-            // same sign; update best if improved (max at that point)
-            const mag = Math.abs(streak);
-            if (mag >= runBest) { runBest = mag; runBestDate = row.date; }
+            streak += 1;
+            if (streak >= runBest) { runBest = streak; runBestIdx = i; }
           }
         }
-
-        // Flush the final run at the end
         flushRun();
         return { x, y, colors, texts };
       }
 
   function draw(){
-        const orb = Number(orbSelect.value);
-        const r = Number(rSelect.value);
-        const { x, y } = computeEquity(orb, r);
+        const { x, y } = computeCombinedEquity();
   const { cagr, maxDD, winPct, winsCount, lossesCount } = computeStatsFromSeries(x, y);
   const annText = `CAGR ${fmtPct(cagr)}<br>MaxDD ${fmtPct(maxDD)}<br>Win% ${fmtPct(winPct)}<br>Win/Loss: ${winsCount}/${lossesCount}`;
         const blurb = section.querySelector('#equityAssumption');
@@ -1068,7 +1129,7 @@
   Plotly.react(section.querySelector('#equityChart'), data, layout, { responsive: true, displaylogo: false });
 
         // Draw streak chart
-        const { x: sx, y: sy, colors: sc, texts: st } = computeStreakSeries(orb, r);
+  const { x: sx, y: sy, colors: sc, texts: st } = computeCombinedStreakSeries(x, y);
         const sLayout = {
           height: 280,
           margin: { l: 50, r: 20, t: 10, b: 40 },
@@ -1085,35 +1146,6 @@
           hovertemplate: '%{x|%Y-%m-%d}<br>%{text}<extra></extra>'
         }];
         Plotly.react(section.querySelector('#streakChart'), sData, sLayout, { responsive: true, displaylogo: false });
-        // After drawing, update active highlight on summary cards
-        updateActiveHighlight();
-      }
-
-      // Wire change handlers
-      orbSelect.addEventListener('change', () => {
-        // Preserve current target_R if possible
-        const prevR = rSelect.value;
-        populateRSelect(Number(orbSelect.value));
-        if (prevR && Array.from(rSelect.options).some(o => o.value === String(prevR))) {
-          rSelect.value = String(prevR);
-        }
-        draw();
-      });
-      rSelect.addEventListener('change', draw);
-
-      // Helper to highlight the active summary tile matching current orb/R
-      function updateActiveHighlight(){
-        try {
-          const orbVal = orbSelect.value;
-          const rVal = rSelect.value;
-          if (!mountAfterEl) return;
-          const grid = mountAfterEl.querySelector('#summaryCardsGrid');
-          if (!grid) return;
-          grid.querySelectorAll('button[data-orb][data-r]').forEach(btn => {
-            const isActive = btn.getAttribute('data-orb') === String(orbVal) && btn.getAttribute('data-r') === String(rVal);
-            btn.classList.toggle('outline-gold', isActive);
-          });
-        } catch {}
       }
 
       // Initial draw
@@ -1122,7 +1154,204 @@
       // Redraw when Totals filters change
       if (mountAfterEl) {
         mountAfterEl.addEventListener('filters-changed', draw);
+        // Redraw on selection changes
+        mountAfterEl.addEventListener('selection-changed', draw);
       }
+      // Redraw when risk percent changes
+      const riskEl = document.getElementById('riskInput');
+      if (riskEl) riskEl.addEventListener('input', draw);
+    }
+
+    // --- NEW: Selected strategies table + Combined equity curve ---
+  function renderSelectedSection(model, combosByOrb, mountAfterEl){
+      const section = document.createElement('section');
+      section.className = 'bg-white rounded-2xl shadow-soft p-4 md:p-6 mt-4 overflow-hidden';
+      section.innerHTML = `
+        <div class="flex items-center justify-between gap-3 flex-wrap mb-3">
+          <h2 class="text-lg font-semibold">Selected strategies</h2>
+          <div class="flex items-center gap-3 text-sm">
+            <span id="selCount" class="text-slate-600">0 selected</span>
+            <span id="allocTotal" class="text-slate-600">Alloc: 0%</span>
+            <button id="selClearBtn" type="button" class="inline-flex items-center rounded-xl px-3 py-1.5 text-sm font-medium bg-slate-100 hover:bg-slate-200">Clear</button>
+          </div>
+        </div>
+    <div class="overflow-auto rounded-xl border border-slate-200 mb-4">
+          <table class="min-w-full text-sm">
+            <thead class="bg-slate-50"><tr>
+              <th class="sticky-th text-left font-semibold px-3 py-2 border-b border-slate-200">orb_m</th>
+              <th class="sticky-th text-left font-semibold px-3 py-2 border-b border-slate-200">target_R</th>
+      <th class="sticky-th text-left font-semibold px-3 py-2 border-b border-slate-200">Direction</th>
+              <th class="sticky-th text-left font-semibold px-3 py-2 border-b border-slate-200">Allocation</th>
+              <th class="sticky-th text-right font-semibold px-3 py-2 border-b border-slate-200">Total (R)</th>
+              <th class="sticky-th text-right font-semibold px-3 py-2 border-b border-slate-200">Actions</th>
+            </tr></thead>
+            <tbody id="selTBody"></tbody>
+          </table>
+  </div>
+  <div class="mb-2 text-xs text-slate-500">Combined equity (above) uses the selected strategies, their Directions, and Allocations. Adjust rows here to update the chart.</div>
+      `;
+      // Insert after mountAfterEl (summary)
+      mountAfterEl.parentNode.insertBefore(section, mountAfterEl.nextSibling);
+
+      const tbody = section.querySelector('#selTBody');
+      const countEl = section.querySelector('#selCount');
+  const clearBtn = section.querySelector('#selClearBtn');
+  const allocTotalEl = section.querySelector('#allocTotal');
+      const emitSelectionChanged = () => { try { mountAfterEl && mountAfterEl.dispatchEvent(new CustomEvent('selection-changed', { bubbles: false })); } catch {} };
+
+      function getValidSelection(){
+        // Validate against current combosByOrb
+        const res = [];
+        selectedCombos.forEach(k => {
+          const pr = parseComboKey(k);
+          if (!pr) return;
+          const arr = combosByOrb.get(Number(pr.orb)) || [];
+          if (arr.some(o => Number(o.target_R) === Number(pr.r))) res.push(pr);
+        });
+        return res;
+      }
+
+      function drawTable(){
+        const sel = getValidSelection();
+        if (countEl) countEl.textContent = `${sel.length} selected`;
+        const naMode = document.getElementById('naSelect').value;
+        // Read filters from Totals
+        const getFilters = (mountAfterEl && typeof mountAfterEl.getCurrentFilters === 'function') ? mountAfterEl.getCurrentFilters : null;
+        const { daysSel, selectedDOW, selectedMonths } = getFilters ? getFilters() : { daysSel: 'ALL', selectedDOW: new Set([1,2,3,4,5]), selectedMonths: new Set() };
+        // Ensure allocation defaults for newly added selections (equal weight for missing only)
+        const missing = sel.filter(({orb,r}) => !comboAllocationOverrides.has(comboKey(orb,r)));
+        if (missing.length) {
+          const def = (sel.length > 0) ? (100 / sel.length) : 0;
+          missing.forEach(({orb,r}) => comboAllocationOverrides.set(comboKey(orb,r), def));
+        }
+        // Compute totals per selection respecting per-row direction
+        const rows = sel.map(({orb, r}) => {
+          const key = comboKey(orb, r);
+          const dir = comboDirectionOverrides.get(key) || currentDirection || 'BOTH';
+          const mdl = dirModels[dir] || model;
+          const cByOrb = dirCombosByOrb[dir] || combosByOrb;
+          const totals = computeTotalsByDays(mdl, cByOrb, daysSel, naMode, selectedDOW, selectedMonths);
+          const rmap = totals.get(Number(orb)) || new Map();
+          const total = rmap.has(Number(r)) ? rmap.get(Number(r)) : null;
+          const alloc = comboAllocationOverrides.get(key) ?? 0;
+          return { orb, r, total, dir, alloc };
+        }).sort((a,b) => (b.total ?? -Infinity) - (a.total ?? -Infinity));
+
+        // Update allocation total display
+        const totalAlloc = rows.reduce((acc, row) => acc + (Number(row.alloc)||0), 0);
+        if (allocTotalEl) allocTotalEl.textContent = `Alloc: ${Math.round(totalAlloc)}%`;
+
+        tbody.innerHTML = rows.map(row => {
+          const k = comboKey(row.orb, row.r);
+          const val = row.total === null ? '—' : fmt(row.total);
+          const cls = row.total === null ? '' : (row.total >= 0 ? 'num-pos' : 'num-neg');
+          return `<tr class="odd:bg-white even:bg-slate-50/50">
+            <td class="px-3 py-2">${row.orb}</td>
+            <td class="px-3 py-2">${row.r}</td>
+            <td class="px-3 py-2">
+              <div class="relative inline-block">
+                <select data-k="${k}" class="sel-dir appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-lg px-2 py-1 text-xs pr-7">
+                  <option value="BOTH" ${row.dir==='BOTH'?'selected':''}>BOTH</option>
+                  <option value="LONG" ${row.dir==='LONG'?'selected':''}>LONG</option>
+                  <option value="SHORT" ${row.dir==='SHORT'?'selected':''}>SHORT</option>
+                </select>
+                <span class="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-500">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
+                </span>
+              </div>
+            </td>
+            <td class="px-3 py-2">
+              <div class="relative inline-flex items-center gap-1">
+                <input type="number" min="0" max="100" step="0.1" data-k="${k}" class="sel-alloc appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-lg px-2 py-1 text-xs w-20 text-right" value="${Number(row.alloc).toFixed(1)}" />
+                <span class="text-xs text-slate-500">%</span>
+              </div>
+            </td>
+            <td class="px-3 py-2 text-right ${cls}">${val}</td>
+            <td class="px-3 py-2 text-right">
+              <button type="button" data-k="${k}" class="inline-flex items-center rounded-lg px-2 py-1 text-xs bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100">Remove</button>
+            </td>
+          </tr>`;
+        }).join('');
+
+        // Wire remove buttons
+        tbody.querySelectorAll('button[data-k]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const k = btn.getAttribute('data-k');
+            if (selectedCombos.has(k)) selectedCombos.delete(k);
+            drawTable();
+            // Also refresh cards highlight
+            if (mountAfterEl && typeof mountAfterEl.refreshCards === 'function') {
+              try { mountAfterEl.refreshCards(); } catch {}
+            }
+            emitSelectionChanged();
+          });
+        });
+
+        // Wire direction change handlers
+        tbody.querySelectorAll('select.sel-dir[data-k]').forEach(selEl => {
+          selEl.addEventListener('change', async () => {
+            const k = selEl.getAttribute('data-k');
+            const dir = selEl.value || 'BOTH';
+            comboDirectionOverrides.set(k, dir);
+            // Ensure the required model is loaded/cached
+            if (!dirModels[dir] && currentTicker) {
+              try { await preloadOtherDirections(currentTicker, currentDirection); } catch {}
+            }
+            // Refresh totals and notify equity to update
+            drawTable();
+            emitSelectionChanged();
+          });
+        });
+
+        // Wire allocation change handlers
+        tbody.querySelectorAll('input.sel-alloc[data-k]').forEach(inp => {
+          const clamp = (v) => Math.max(0, Math.min(100, v));
+          inp.addEventListener('change', () => {
+            const k = inp.getAttribute('data-k');
+            const v = parseFloat(inp.value);
+            const num = Number.isFinite(v) ? clamp(v) : 0;
+            comboAllocationOverrides.set(k, num);
+            inp.value = num.toFixed(1);
+            drawTable();
+            emitSelectionChanged();
+          });
+          inp.addEventListener('input', () => {
+            // live update totals display
+            const k = inp.getAttribute('data-k');
+            const v = parseFloat(inp.value);
+            const num = Number.isFinite(v) ? clamp(v) : 0;
+            comboAllocationOverrides.set(k, num);
+            if (allocTotalEl) {
+              const sel2 = getValidSelection();
+              const sum = sel2.reduce((acc, {orb,r}) => acc + (comboAllocationOverrides.get(comboKey(orb,r))||0), 0);
+              allocTotalEl.textContent = `Alloc: ${Math.round(sum)}%`;
+            }
+            emitSelectionChanged();
+          });
+        });
+      }
+      function refresh(){ drawTable(); emitSelectionChanged(); }
+
+      // Wire clear button
+      if (clearBtn) clearBtn.addEventListener('click', () => {
+        selectedCombos.clear();
+        comboDirectionOverrides.clear();
+        comboAllocationOverrides.clear();
+        refresh();
+        if (mountAfterEl && typeof mountAfterEl.refreshCards === 'function') {
+          try { mountAfterEl.refreshCards(); } catch {}
+        }
+        emitSelectionChanged();
+      });
+
+      // Redraw on Totals filter changes and risk changes
+  if (mountAfterEl) mountAfterEl.addEventListener('filters-changed', refresh);
+      const riskEl = document.getElementById('riskInput');
+  if (riskEl) riskEl.addEventListener('input', refresh);
+
+      // Initial draw
+      refresh();
+      return { refresh };
     }
 
     function cardHTML(c) {
@@ -1134,7 +1363,7 @@
       </div>`;
     }
 
-  function buildTableHTML(tbl, months, activeR) {
+    function buildTableHTML(tbl, months, activeR) {
       const cols = tbl.targets;
 
       // --- Column-wise extremes for independent scaling per target_R ---
@@ -1205,7 +1434,7 @@
           const aCls = (activeR !== undefined && Number(activeR) === Number(r)) ? ' col-active-cell' : '';
           html += `<td class="px-3 py-2 text-right ${textCls} ${bgCls}${aCls}">${v === null ? '—' : fmt(v)}</td>`;
         }
-  html += '</tr>';
+        html += '</tr>';
       }
 
       // Totals row
