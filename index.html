@@ -335,6 +335,25 @@
       }));
     }
 
+    // Ensure a specific symbol+direction model is cached (no UI re-render)
+    async function ensureModelFor(sym, dir){
+      const s = String(sym||'').toUpperCase();
+      const d = String(dir||'BOTH').toUpperCase();
+      if (getModelCache(s, d)) return true;
+      const { url } = buildDataUrl(s, d);
+      try {
+        const res = await fetch(url, { cache: 'no-cache' });
+        if (!res.ok) return false;
+        const text = await res.text();
+        const parsed = parseCSV(text.trim());
+        const mdl = toModel(parsed);
+        setModelCache(s, d, mdl);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
     // Expose direction segment and a setter to reset from outside
     const directionSegment = document.getElementById('directionSegment');
     const riskInput = document.getElementById('riskInput');
@@ -760,6 +779,9 @@
       // Attach to summary element
       summaryEl.getCurrentFilters = getCurrentFilters;
 
+  // Make monthly section reference available before selection handler so we can refresh it on card click
+  let monthlySection; // assigned later when building the monthly detail table
+
       // init to ALL
       const initBtn = seg.querySelector('button[data-days="ALL"]');
       setActive(initBtn);
@@ -796,22 +818,20 @@
   const defaultDir = currentDirection || 'BOTH';
   const defaultSym = currentTicker || '';
   const key = comboKey(orb, r, defaultDir, defaultSym);
-    // Toggle selection
-        if (selectedCombos.has(key)) {
+    // Toggle selection WITHOUT auto rebalancing; allow allocations >100
+        const wasSelected = selectedCombos.has(key);
+        if (wasSelected) {
           selectedCombos.delete(key);
           comboDirectionOverrides.delete(key);
           comboAllocationOverrides.delete(key);
         } else {
           selectedCombos.add(key);
           if (!comboDirectionOverrides.has(key)) comboDirectionOverrides.set(key, defaultDir);
-          // Allocation default will be set in table draw when we know selection size
+          // Allocation default policy: every newly added strategy starts at 100% (can exceed 100 total for leverage)
+          if (!comboAllocationOverrides.has(key)) {
+            comboAllocationOverrides.set(key, 100);
+          }
         }
-  // Equal-weight all selected strategies when selection changes (ensures e.g., 2 => 50/50)
-    const selList = Array.from(selectedCombos).map(parseComboKey).filter(Boolean);
-    if (selList.length) {
-      const eq = 100 / selList.length;
-      selList.forEach(({orb: o, r: rr, dir: dd, sym: ss}) => comboAllocationOverrides.set(comboKey(o, rr, dd, ss), eq));
-    }
     // Rebuild cards to reflect selection state
     rebuildSummaryCards();
     // Update selected section, if present
@@ -831,6 +851,10 @@
           rSel.value = r;
           rSel.dispatchEvent(new Event('change', { bubbles: true }));
         }
+        // Also force monthly detail table to switch to this orb immediately
+        if (monthlySection && typeof renderMonthlyDetail === 'function') {
+          try { renderMonthlyDetail(Number(orb)); } catch {}
+        }
       });
 
   // --- NEW: Equity curve section (below Totals summary) ---
@@ -843,10 +867,10 @@
 
   // Monthly total returns section removed as requested
 
-      // Single monthly detail table for the currently selected orb_m
-      const monthlySection = document.createElement('section');
-      monthlySection.className = 'bg-white rounded-2xl shadow-soft p-4 md:p-6';
-      output.appendChild(monthlySection);
+  // Single monthly detail table for the currently selected orb_m
+  monthlySection = document.createElement('section');
+  monthlySection.className = 'bg-white rounded-2xl shadow-soft p-4 md:p-6';
+  output.appendChild(monthlySection);
 
       function renderMonthlyDetail(orb) {
         const table = byOrb.get(Number(orb));
@@ -1160,7 +1184,7 @@
   const { cagr, maxDD, winPct, winsCount, lossesCount } = computeStatsFromSeries(x, y);
   const annText = `CAGR ${fmtPct(cagr)}<br>MaxDD ${fmtPct(maxDD)}<br>Win% ${fmtPct(winPct)}<br>Win/Loss: ${winsCount}/${lossesCount}`;
         const blurb = section.querySelector('#equityAssumption');
-        if (blurb) blurb.textContent = `Assumes starting balance of $100,000 and treats daily R value as percentage return (1R = ${(getRiskPct()*100).toFixed(1)}%).`;
+  if (blurb) blurb.textContent = `Assumes starting balance of $100,000 and treats daily R value as percentage return (1R = ${(getRiskPct()*100).toFixed(1)}%). Allocation total may exceed 100% (leveraged notional).`;
         const layout = {
           height: 340,
           margin: { l: 50, r: 20, t: 10, b: 40 },
@@ -1229,6 +1253,7 @@
           <div class="flex items-center gap-3 text-sm">
             <span id="selCount" class="text-slate-600">0 selected</span>
             <span id="allocTotal" class="text-slate-600">Alloc: 0%</span>
+            <button id="selExportBtn" type="button" class="inline-flex items-center rounded-xl px-3 py-1.5 text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-700">Export</button>
             <button id="selClearBtn" type="button" class="inline-flex items-center rounded-xl px-3 py-1.5 text-sm font-medium bg-slate-100 hover:bg-slate-200">Clear</button>
           </div>
         </div>
@@ -1251,9 +1276,10 @@
       // Insert after mountAfterEl (summary)
       mountAfterEl.parentNode.insertBefore(section, mountAfterEl.nextSibling);
 
-      const tbody = section.querySelector('#selTBody');
-      const countEl = section.querySelector('#selCount');
+    const tbody = section.querySelector('#selTBody');
+    const countEl = section.querySelector('#selCount');
   const clearBtn = section.querySelector('#selClearBtn');
+  const exportBtn = section.querySelector('#selExportBtn');
   const allocTotalEl = section.querySelector('#allocTotal');
       const emitSelectionChanged = () => { try { mountAfterEl && mountAfterEl.dispatchEvent(new CustomEvent('selection-changed', { bubbles: false })); } catch {} };
 
@@ -1271,22 +1297,12 @@
         // Read filters from Totals
         const getFilters = (mountAfterEl && typeof mountAfterEl.getCurrentFilters === 'function') ? mountAfterEl.getCurrentFilters : null;
         const { daysSel, selectedDOW, selectedMonths } = getFilters ? getFilters() : { daysSel: 'ALL', selectedDOW: new Set([1,2,3,4,5]), selectedMonths: new Set() };
-        // Ensure allocations: if any newly added selection has no allocation, equal-weight ALL selections
+        // Ensure any new selection gets a default allocation (100 if only one total selection, else 0). No normalization.
         const missing = sel.filter(({orb,r,dir,sym}) => !comboAllocationOverrides.has(comboKey(orb,r,dir,sym)));
         if (missing.length) {
-          const eq = (sel.length > 0) ? (100 / sel.length) : 0;
-          sel.forEach(({orb,r,dir,sym}) => comboAllocationOverrides.set(comboKey(orb,r,dir,sym), eq));
-        } else if (sel.length) {
-          // No missing; normalize only if total exceeds 100% (preserve proportions)
-          const keys = sel.map(({orb,r,dir,sym}) => comboKey(orb,r,dir,sym));
-          let total = keys.reduce((acc, k) => acc + (Number(comboAllocationOverrides.get(k)) || 0), 0);
-          if (total > 100.0001) {
-            const factor = 100 / total;
-            keys.forEach(k => {
-              const v = Number(comboAllocationOverrides.get(k)) || 0;
-              comboAllocationOverrides.set(k, +(v * factor).toFixed(4));
-            });
-          }
+          missing.forEach(({orb,r,dir,sym}) => {
+            comboAllocationOverrides.set(comboKey(orb,r,dir,sym), 100);
+          });
         }
         // Compute totals per selection respecting per-row direction
         const rows = sel.map(({orb, r, dir: preDir, sym: preSym}) => {
@@ -1354,7 +1370,7 @@
         });
 
         // Wire direction change handlers
-        tbody.querySelectorAll('select.sel-dir[data-k]').forEach(selEl => {
+    tbody.querySelectorAll('select.sel-dir[data-k]').forEach(selEl => {
           selEl.addEventListener('change', async () => {
             const k = selEl.getAttribute('data-k');
             const dir = selEl.value || 'BOTH';
@@ -1375,13 +1391,12 @@
                 comboDirectionOverrides.set(newKey, dir);
               }
             }
-            // Ensure the required model is loaded/cached
-            if (!dirModels[dir] && currentTicker) {
-              try { await preloadOtherDirections(currentTicker, currentDirection); } catch {}
-            }
-            // Refresh totals and notify equity to update
-            drawTable();
-            emitSelectionChanged();
+      // Ensure the required model is loaded/cached for this row's symbol+direction
+      const rowSym = (parsed && parsed.sym) ? parsed.sym : currentTicker;
+      try { await ensureModelFor(rowSym, dir); } catch {}
+      // Refresh totals and notify equity to update
+      drawTable();
+      emitSelectionChanged();
           });
         });
 
@@ -1394,17 +1409,6 @@
             const num = Number.isFinite(v) ? clamp(v) : 0;
             comboAllocationOverrides.set(k, num);
             inp.value = num.toFixed(1);
-            // Re-normalize total to 100 if needed
-            const selNow = getValidSelection();
-            const keys = selNow.map(({orb,r,dir,sym}) => comboKey(orb,r,dir,sym));
-            let total = keys.reduce((acc, kk) => acc + (Number(comboAllocationOverrides.get(kk)) || 0), 0);
-            if (total > 100.0001) {
-              const factor = 100 / total;
-              keys.forEach(kk => {
-                const vv = Number(comboAllocationOverrides.get(kk)) || 0;
-                comboAllocationOverrides.set(kk, +(vv * factor).toFixed(4));
-              });
-            }
             drawTable();
             emitSelectionChanged();
           });
@@ -1435,6 +1439,49 @@
           try { mountAfterEl.refreshCards(); } catch {}
         }
         emitSelectionChanged();
+      });
+
+      // Export CSV: Date,Strategy,Return (ascending date)
+      if (exportBtn) exportBtn.addEventListener('click', async () => {
+        const rowsOut = [];
+        // Collect per-selection data
+        for (const key of selectedCombos) {
+          const parsed = parseComboKey(key);
+            if (!parsed) continue;
+          const { orb, r, dir, sym } = parsed;
+          const symU = (sym || currentTicker || '').toUpperCase();
+          const dUse = dir || 'BOTH';
+          // Ensure model cached
+          await ensureModelFor(symU, dUse);
+          const mdl = getModelCache(symU, dUse);
+          if (!mdl) continue;
+          const stratLabel = `${symU}_${orb}_${r}_${dUse}`;
+          // Ascending dates
+          const dataAsc = [...mdl.data].sort((a,b)=> a.date - b.date);
+          const colKey = `m${orb}_r${r}`;
+          for (const rec of dataAsc) {
+            const v = rec[colKey];
+            if (v === null || !Number.isFinite(v)) continue; // skip NAs
+            const iso = rec.date.toISOString().slice(0,10);
+            rowsOut.push({ date: iso, strat: stratLabel, ret: v });
+          }
+        }
+        if (!rowsOut.length) {
+          alert('No data to export.');
+          return;
+        }
+        // Sort by date ascending then strategy
+        rowsOut.sort((a,b)=> a.date.localeCompare(b.date) || a.strat.localeCompare(b.strat));
+        const header = 'Date,Strategy,Return';
+        const lines = rowsOut.map(r => `${r.date},${r.strat},${r.ret}`);
+        const csv = [header, ...lines].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'selected_strategies.csv';
+        a.click();
+        URL.revokeObjectURL(url);
       });
 
       // Redraw on Totals filter changes and risk changes
