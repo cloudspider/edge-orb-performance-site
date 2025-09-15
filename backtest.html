@@ -100,22 +100,33 @@
     <!-- Filters -->
     <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
       <h2 class="font-semibold mb-3">Filters</h2>
-      <div class="flex items-center gap-3 mb-3">
-        <span class="text-sm text-slate-600">Direction:</span>
-        <div id="dirSegment" class="inline-flex rounded-xl border border-slate-200 overflow-hidden">
+      <div class="flex flex-wrap items-center gap-3">
+        <div id="dirSegment" class="inline-flex rounded-xl border border-slate-200 overflow-hidden" aria-label="Direction">
           <button type="button" class="px-3 py-1.5 text-sm font-medium bg-slate-800 text-white" data-dir="both">Both</button>
           <button type="button" class="px-3 py-1.5 text-sm font-medium bg-white hover:bg-slate-100 border-l border-slate-200" data-dir="long">Long</button>
           <button type="button" class="px-3 py-1.5 text-sm font-medium bg-white hover:bg-slate-100 border-l border-slate-200" data-dir="short">Short</button>
         </div>
-      </div>
-    <div class="flex items-center gap-3">
-        <span class="text-sm text-slate-600">Weekdays:</span>
-        <div id="dowSegment" class="inline-flex rounded-xl border border-slate-200 overflow-hidden">
-      <button type="button" class="px-3 py-1.5 text-sm font-medium bg-slate-800 text-white" data-dow="1">Mon</button>
+
+        <div id="dowSegment" class="inline-flex rounded-xl border border-slate-200 overflow-hidden" aria-label="Weekdays">
+          <button type="button" class="px-3 py-1.5 text-sm font-medium bg-slate-800 text-white" data-dow="1">Mon</button>
           <button type="button" class="px-3 py-1.5 text-sm font-medium bg-slate-800 text-white border-l border-slate-200" data-dow="2">Tue</button>
           <button type="button" class="px-3 py-1.5 text-sm font-medium bg-slate-800 text-white border-l border-slate-200" data-dow="3">Wed</button>
           <button type="button" class="px-3 py-1.5 text-sm font-medium bg-slate-800 text-white border-l border-slate-200" data-dow="4">Thu</button>
           <button type="button" class="px-3 py-1.5 text-sm font-medium bg-slate-800 text-white border-l border-slate-200" data-dow="5">Fri</button>
+        </div>
+
+        <div class="relative inline-block" aria-label="Months">
+          <button id="sumMonthMultiBtn" type="button" class="inline-flex items-center justify-between gap-2 bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm min-w-[160px]">
+            <span id="sumMonthMultiLabel" class="truncate">All months</span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
+          </button>
+          <div id="sumMonthMultiMenu" class="absolute z-30 mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-soft p-2 hidden">
+            <div class="sticky top-0 bg-white z-10 px-2 pb-2 border-b border-slate-200 flex items-center justify-between gap-2">
+              <button id="sumMonthSelectAll" type="button" class="text-xs font-medium text-emerald-700 hover:text-emerald-900 hover:underline">Select all</button>
+              <button id="sumMonthClearAll" type="button" class="text-xs text-slate-600 hover:text-slate-800 hover:underline">Clear</button>
+            </div>
+            <div id="sumMonthMultiList" class="max-h-64 overflow-auto"></div>
+          </div>
         </div>
       </div>
     </section>
@@ -190,6 +201,8 @@
   let VIEW_DIR = 'both';
   let LAST_OUT = null;
   let VIEW_DOW = new Set([1,2,3,4,5]); // 1=Mon ... 5=Fri
+  let VIEW_MONTHS = new Set(); // empty => all
+  let AVAILABLE_MONTHS = [];
 
     function setTicker(sym){
       currentTicker = (sym||'').toUpperCase();
@@ -447,7 +460,10 @@
         if (!arr || !arr.length) continue;
         const dow = arr[0].caldt.getDay(); // 0=Sun..6=Sat
         const mapDow = dow===0 ? 7 : dow; // 1..7 with 7=Sun
-        if (VIEW_DOW.has(mapDow) || (mapDow===7 && VIEW_DOW.has(7))) out.push(dayKey);
+  const monthKey = `${dayKey.slice(5,7)}/${dayKey.slice(0,4)}`; // MM/YYYY
+  const dowOk = VIEW_DOW.has(mapDow) || (mapDow===7 && VIEW_DOW.has(7));
+  const monOk = (VIEW_MONTHS.size===0) || VIEW_MONTHS.has(monthKey);
+  if (dowOk && monOk) out.push(dayKey);
       }
       return out;
     }
@@ -501,7 +517,7 @@
     async function loadAndRunForCurrent(){
       if (!currentTicker) return;
       const ok = await loadSymbolData(currentTicker);
-      if (ok) runBacktestIfReady();
+  if (ok) { buildMonthOptions(); runBacktestIfReady(); }
     }
 
     // -----------------------------
@@ -553,7 +569,7 @@
       seg.querySelectorAll('button').forEach(b => { b.classList.remove('bg-slate-800','text-white','focus:outline-none'); if (!b.classList.contains('bg-white')) b.classList.add('bg-white'); if (!b.classList.contains('hover:bg-slate-100')) b.classList.add('hover:bg-slate-100'); });
       btn.classList.add('bg-slate-800','text-white','focus:outline-none'); btn.classList.remove('bg-white','hover:bg-slate-100');
       setTicker(btn.getAttribute('data-symbol'));
-      loadAndRunForCurrent();
+  loadAndRunForCurrent();
     });
 
     // Direction filter segment handlers
@@ -587,6 +603,78 @@
       if (VIEW_DOW.has(n)) VIEW_DOW.delete(n); else VIEW_DOW.add(n);
       // Allow empty selection so user can see zero-trade results
       syncDowUI();
+      scheduleRun();
+    });
+
+    // -----------------------------
+    // Month multi-select helpers
+    // -----------------------------
+    function monthChoicesFromDays() {
+      const set = new Set();
+      for (const dayKey of DAYS) {
+        const mk = `${dayKey.slice(5,7)}/${dayKey.slice(0,4)}`;
+        set.add(mk);
+      }
+      // Sort descending by year-month
+      return Array.from(set).sort((a,b)=>{
+        const [am,ay] = a.split('/').map(Number);
+        const [bm,by] = b.split('/').map(Number);
+        if (ay!==by) return by-ay; // year desc
+        return bm-am; // month desc
+      });
+    }
+
+    function buildMonthOptions() {
+      AVAILABLE_MONTHS = monthChoicesFromDays();
+      const list = document.getElementById('sumMonthMultiList');
+      if (!list) return;
+      list.innerHTML = AVAILABLE_MONTHS.map(m => `
+        <label class="flex items-center gap-2 px-2 py-1 rounded hover:bg-slate-50 cursor-pointer">
+          <input type="checkbox" class="h-4 w-4 rounded border-slate-300" data-month="${m}" ${VIEW_MONTHS.has(m)?'checked':''} />
+          <span class="text-sm text-slate-800">${m}</span>
+        </label>
+      `).join('');
+      updateMonthLabel();
+    }
+
+    function updateMonthLabel(){
+      const lbl = document.getElementById('sumMonthMultiLabel'); if (!lbl) return;
+      if (VIEW_MONTHS.size===0 || VIEW_MONTHS.size===AVAILABLE_MONTHS.length) { lbl.textContent = 'All months'; return; }
+      if (VIEW_MONTHS.size<=2) { lbl.textContent = Array.from(VIEW_MONTHS).sort().join(', '); return; }
+      lbl.textContent = `${VIEW_MONTHS.size} selected`;
+    }
+
+    // Toggle dropdown open/close
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('#sumMonthMultiBtn');
+      const menu = document.getElementById('sumMonthMultiMenu');
+      if (btn && menu) { menu.classList.toggle('hidden'); return; }
+      // Close when clicking outside
+      if (menu && !menu.contains(e.target) && !e.target.closest('#sumMonthMultiBtn')) {
+        menu.classList.add('hidden');
+      }
+    });
+
+    // Select all / Clear
+    document.addEventListener('click', (e) => {
+      const selAll = e.target.closest('#sumMonthSelectAll');
+      const clrAll = e.target.closest('#sumMonthClearAll');
+      if (!selAll && !clrAll) return;
+      if (selAll) VIEW_MONTHS = new Set(AVAILABLE_MONTHS);
+      if (clrAll) VIEW_MONTHS = new Set();
+      // sync checkboxes
+      document.querySelectorAll('#sumMonthMultiList input[type="checkbox"]').forEach(cb => { const m = cb.getAttribute('data-month'); cb.checked = VIEW_MONTHS.has(m); });
+      updateMonthLabel();
+      scheduleRun();
+    });
+
+    // Checkbox toggles
+    document.addEventListener('change', (e) => {
+      const cb = e.target.closest('#sumMonthMultiList input[type="checkbox"]');
+      if (!cb) return;
+      const m = cb.getAttribute('data-month');
+      if (cb.checked) VIEW_MONTHS.add(m); else VIEW_MONTHS.delete(m);
+      updateMonthLabel();
       scheduleRun();
     });
 
