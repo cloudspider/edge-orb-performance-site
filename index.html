@@ -1020,7 +1020,7 @@
         const sel = Array.from(selectedCombos).map(parseComboKey).filter(Boolean);
         const chartEl = section.querySelector('#equityChart');
         if (!sel.length) {
-          return { x: [], y: [] };
+          return { x: [], y: [], trades: 0 };
         }
         // Build merged date map across involved directions
         const dateMap = new Map(); // iso -> array of {mdl,row}
@@ -1060,13 +1060,16 @@
         const x = [];
         const y = [];
         const start = 100000;
+  let trades = 0; // total trades across all selected strategies after filters
+  let winsTrades = 0; // trades with raw R > 0
+  let lossesTrades = 0; // trades with raw R < 0
         const subs = sel.map(({orb,r,dir: preDir, sym: preSym}) => {
           const k = comboKey(orb, r, preDir, preSym);
           const dir = comboDirectionOverrides.get(k) || preDir || currentDirection || 'BOTH';
           const sym = (preSym || currentTicker || '').toUpperCase();
           const mdl = getModelCache(sym, dir) || model;
           const allocPct = (comboAllocationOverrides.get(k) ?? 0) / 100;
-          return { orb, r, k, dir, mdl, allocPct, equity: start * allocPct };
+          return { orb, r, k, dir, mdl, allocPct, equity: start * allocPct, colKey: `m${orb}_r${r}` };
         });
         const idleAlloc = Math.max(0, 1 - subs.reduce((a,s) => a + s.allocPct, 0));
         let cash = start * idleAlloc;
@@ -1082,12 +1085,18 @@
             const rowEntry = perDayRows.find(rr => rr.mdl === s.mdl);
             const row = rowEntry ? rowEntry.row : null;
             if (!row) continue;
-            let v = row[`m${s.orb}_r${s.r}`];
-            if (v === null || !Number.isFinite(v)) {
+            const rawVal = row[s.colKey];
+            let v = rawVal;
+            const hasTrade = rawVal !== null && Number.isFinite(rawVal);
+            if (!hasTrade) {
               if (naMode === 'zero') { v = 0; } else { continue; }
             }
             const pct = v * rToPct;
             s.equity = s.equity * (1 + pct);
+            if (hasTrade) {
+              trades += 1; // count non-null entries as trades
+              if (rawVal > 0) winsTrades += 1; else if (rawVal < 0) lossesTrades += 1;
+            }
             anyUsed = true;
           }
           if (!anyUsed) continue;
@@ -1095,7 +1104,7 @@
           x.push(iso);
           y.push(totalEq);
         }
-        return { x, y };
+  return { x, y, trades, winsTrades, lossesTrades };
       }
 
       function fmtPct(p){
@@ -1180,9 +1189,11 @@
       }
 
   function draw(){
-        const { x, y } = computeCombinedEquity();
-  const { cagr, maxDD, winPct, winsCount, lossesCount } = computeStatsFromSeries(x, y);
-  const annText = `CAGR ${fmtPct(cagr)}<br>MaxDD ${fmtPct(maxDD)}<br>Win% ${fmtPct(winPct)}<br>Win/Loss: ${winsCount}/${lossesCount}`;
+    const { x, y, trades, winsTrades, lossesTrades } = computeCombinedEquity();
+  const { cagr, maxDD } = computeStatsFromSeries(x, y);
+  const tradeTotal = winsTrades + lossesTrades;
+  const winPctTrades = tradeTotal > 0 ? winsTrades / tradeTotal : null;
+  const annText = `CAGR ${fmtPct(cagr)}<br>MaxDD ${fmtPct(maxDD)}<br>Win% ${fmtPct(winPctTrades)}<br>Win/Loss: ${winsTrades}/${lossesTrades}<br>Trades ${trades}`;
         const blurb = section.querySelector('#equityAssumption');
   if (blurb) blurb.textContent = `Assumes starting balance of $100,000 and treats daily R value as percentage return (1R = ${(getRiskPct()*100).toFixed(1)}%). Allocation total may exceed 100% (leveraged notional).`;
         const layout = {
