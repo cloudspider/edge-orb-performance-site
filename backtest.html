@@ -52,7 +52,7 @@
   <div class="max-w-screen-2xl mx-auto p-6 space-y-6">
     <header class="mb-2">
       <h1 id="mainTitle" class="text-2xl md:text-3xl font-semibold">ORB Backtest</h1>
-      <p class="text-slate-600 mt-1">Pick a symbol and tweak parameters — results auto-update.</p>
+      <p class="text-slate-600 mt-1">Pick a symbol and tweak settings.</p>
     </header>
 
     <!-- Symbol segmented control + Params -->
@@ -140,7 +140,7 @@
     
     <!-- Equity Chart -->
     <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
-      <h2 class="font-semibold mb-3">Equity</h2>
+      <h2 class="font-semibold mb-3">Equity Curve</h2>
       <div id="equityChart" class="w-full h-[360px]"></div>
     </section>
     
@@ -150,9 +150,24 @@
       <div id="streakChart" class="w-full h-[280px]"></div>
     </section>
 
+    <!-- Monthly Performance -->
+    <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-semibold">Monthly Performance</h2>
+        <div class="inline-flex items-center gap-0.5 rounded-xl bg-slate-100 p-0.5" aria-label="Monthly performance mode">
+          <button id="mpBtnPct" type="button" class="px-2 py-1 text-xs rounded-lg">%</button>
+          <button id="mpBtnUsd" type="button" class="px-2 py-1 text-xs rounded-lg">$</button>
+        </div>
+      </div>
+      <div id="monthlyPerf"></div>
+    </section>
+
     <!-- Trades Table -->
     <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
-      <h2 class="font-semibold mb-3">Trades</h2>
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-semibold">Trades</h2>
+        <button id="btnExportCSV" type="button" class="px-3 py-1.5 text-sm rounded-lg bg-white ring-1 ring-slate-300 hover:bg-slate-100">Export CSV</button>
+      </div>
       <div class="overflow-auto max-h-[65vh] border rounded-xl">
         <table class="min-w-full text-sm">
           <thead>
@@ -462,7 +477,14 @@
     function renderTable(out){
       const tb = document.getElementById('tbody');
       tb.innerHTML='';
-  const rows = Array.isArray(out) ? (VIEW_DIR==='both' ? out : out.filter(r => (r.Shares>0) && ((VIEW_DIR==='long' && r.Side==='Long') || (VIEW_DIR==='short' && r.Side==='Short')))) : [];
+  let rows = Array.isArray(out) ? (VIEW_DIR==='both' ? out.slice() : out.filter(r => (r.Shares>0) && ((VIEW_DIR==='long' && r.Side==='Long') || (VIEW_DIR==='short' && r.Side==='Short')))) : [];
+      // Sort by date descending (YYYY-MM-DD strings sort lexicographically)
+      rows.sort((a,b)=>{
+        const da = a && a.Date ? a.Date : '';
+        const db = b && b.Date ? b.Date : '';
+        if (da===db) return 0;
+        return da < db ? 1 : -1;
+      });
       const frag = document.createDocumentFragment();
   for (const r of rows) {
         const tr = document.createElement('tr');
@@ -558,6 +580,159 @@
   try { Plotly.newPlot(el, traces, layout, { displayModeBar:false, responsive:true }); } catch {}
     }
 
+    // -------- CSV Export (Trades) --------
+    function getVisibleRowsForExport() {
+      if (!Array.isArray(LAST_OUT)) return [];
+      let rows = (VIEW_DIR === 'both') ? LAST_OUT.slice() : LAST_OUT.filter(r => (r.Shares>0) && ((VIEW_DIR==='long' && r.Side==='Long') || (VIEW_DIR==='short' && r.Side==='Short')));
+      rows.sort((a,b)=>{
+        const da = a && a.Date ? a.Date : '';
+        const db = b && b.Date ? b.Date : '';
+        if (da===db) return 0;
+        return da < db ? 1 : -1;
+      });
+      return rows;
+    }
+
+    function buildAoaFromRows(rows) {
+      const headers = ['Date','ORH','ORL','Side','EntryTime','Entry','ExitTime','Exit','LossPrice','TPPrice','HitType','Shares','PnL','pnl_R','AUM','DailyReturn %'];
+      const aoa = [headers];
+      for (const r of rows) {
+        aoa.push([
+          r.Date,
+          Number.isFinite(r.ORH) ? Number(r.ORH) : '',
+          Number.isFinite(r.ORL) ? Number(r.ORL) : '',
+          r.Side || '',
+          (r.EntryTime ? fmtTime(r.EntryTime) : ''),
+          Number.isFinite(r.Entry) ? Number(r.Entry) : '',
+          (r.ExitTime ? fmtTime(r.ExitTime) : ''),
+          Number.isFinite(r.Exit) ? Number(r.Exit) : '',
+          Number.isFinite(r.StopPrice) ? Number(r.StopPrice) : '',
+          Number.isFinite(r.TPPrice) ? Number(r.TPPrice) : '',
+          (r.HitType === 'Stop' ? 'Loss' : (r.HitType || '')),
+          Number.isFinite(r.Shares) ? Number(r.Shares) : '',
+          Number.isFinite(r.PnL) ? Number(r.PnL) : '',
+          Number.isFinite(r.pnl_R) ? Number(r.pnl_R) : '',
+          Number.isFinite(r.AUM) ? Number(r.AUM) : '',
+          Number.isFinite(r.DailyReturn) ? Number(r.DailyReturn) : ''
+        ]);
+      }
+      return aoa;
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 0);
+    }
+
+    function exportTradesCSV() {
+      const rows = getVisibleRowsForExport();
+      if (!rows.length) { alert('No rows to export.'); return; }
+      const aoa = buildAoaFromRows(rows);
+      const csv = aoa.map(row => row.map(cell => {
+        const s = (cell === null || cell === undefined) ? '' : String(cell);
+        if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+        return s;
+      }).join(',')).join('\n');
+      downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `trades_${currentTicker || 'SYMBOL'}.csv`);
+    }
+
+    // Bind Export CSV button
+    (function(){
+      const btn = document.getElementById('btnExportCSV');
+      if (btn) btn.addEventListener('click', exportTradesCSV);
+    })();
+
+    let MONTHLY_PERF_MODE = 'pct'; // 'pct' | 'usd'
+
+    function computeMonthlyPerf(out){
+      // Aggregate by YYYY and month index 1..12: both $ PnL and % return per month
+      const agg = new Map(); // year -> { pnl:[12], ret:[12] }
+      const monthlyAUM = new Map(); // key YYYY-MM -> {startAUM, endAUM}
+      let prevAUM = null;
+      for (let i=0;i<(out||[]).length;i++){
+        const r = out[i];
+        if (!r.Date) continue;
+        const [y,m] = r.Date.split('-');
+        const key = `${y}-${m}`;
+        if (!monthlyAUM.has(key)) monthlyAUM.set(key, { startAUM: (prevAUM ?? r.AUM - (Number.isFinite(r.PnL)?r.PnL:0)), endAUM: r.AUM });
+        const rec = monthlyAUM.get(key);
+        rec.endAUM = r.AUM;
+        prevAUM = r.AUM;
+      }
+      for (const r of (out||[])){
+        if (!r.Date) continue;
+        const [y,m] = r.Date.split('-');
+        const year = y;
+        const monthIdx = parseInt(m,10);
+        if (!agg.has(year)) agg.set(year, { pnl: Array(12).fill(0), ret: Array(12).fill(0) });
+        const a = agg.get(year);
+        a.pnl[monthIdx-1] += (Number.isFinite(r.PnL) ? r.PnL : 0);
+      }
+      // compute % returns per month from monthlyAUM map
+      for (const [ym, v] of monthlyAUM.entries()){
+        const [yy,mm] = ym.split('-');
+        const year = yy; const idx = parseInt(mm,10)-1;
+        if (!agg.has(year)) agg.set(year, { pnl: Array(12).fill(0), ret: Array(12).fill(0) });
+        const a = agg.get(year);
+        const start = v.startAUM; const end = v.endAUM;
+        const ret = (Number.isFinite(start) && start!==0 && Number.isFinite(end)) ? ((end-start)/start)*100 : 0;
+        a.ret[idx] = ret;
+      }
+      const years = Array.from(agg.keys()).sort();
+      return { years, data: agg };
+    }
+
+    function renderMonthlyPerf(out){
+      const host = document.getElementById('monthlyPerf');
+      if (!host) return;
+      if (!out || !out.length){ host.innerHTML = '<div class="text-sm text-slate-500">No data</div>'; return; }
+      const { years, data } = computeMonthlyPerf(out);
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const shadeGreen = (ratio) => {
+        if (ratio > 0.8) return 'bg-emerald-400';
+        if (ratio > 0.6) return 'bg-emerald-300';
+        if (ratio > 0.4) return 'bg-emerald-200';
+        if (ratio > 0.2) return 'bg-emerald-100';
+        return 'bg-emerald-50';
+      };
+      const shadeRed = (ratio) => {
+        // Increase minimum shade to >= 150 by flooring at rose-200
+        if (ratio > 0.8) return 'bg-rose-400';
+        if (ratio > 0.5) return 'bg-rose-300';
+        return 'bg-rose-200';
+      };
+      // compute normalization based on selected mode across all months
+      let maxAbs = 0;
+      for (const y of years){
+        const rec = data.get(y) || { pnl: Array(12).fill(0), ret: Array(12).fill(0) };
+        for (let i=0;i<12;i++){
+          const v = (MONTHLY_PERF_MODE==='pct') ? rec.ret[i] : rec.pnl[i];
+          if (Number.isFinite(v)) maxAbs = Math.max(maxAbs, Math.abs(v));
+        }
+      }
+      const cell = (pnl, ret)=>{
+        const v = (MONTHLY_PERF_MODE==='pct') ? ret : pnl;
+        if (!Number.isFinite(v) || Math.abs(v) < 1e-9) return '<td class="px-2 py-1 text-right text-slate-500">-</td>';
+        const pos = v>0;
+        const ratio = maxAbs>0 ? Math.min(Math.abs(v)/maxAbs, 1) : 0;
+        const bgCls = pos ? shadeGreen(ratio) : shadeRed(ratio);
+        const txtCls = pos ? 'text-emerald-900' : 'text-rose-900';
+        const val = (MONTHLY_PERF_MODE==='pct') ? `${fmtPct(v)}%` : `$${fmtInt(v)}`;
+        return `<td class="px-2 py-1 text-right tabular-nums font-mono ${bgCls} ${txtCls}">${val}</td>`;
+      };
+      let html = '<div class="overflow-auto"><table class="min-w-full text-sm"><thead><tr><th class="px-2 py-1 text-left">Year</th>' + months.map(m=>`<th class="px-2 py-1 text-right">${m}</th>`).join('') + '</tr></thead><tbody>';
+      for (const y of years){
+        const rec = data.get(y) || { pnl: Array(12).fill(0), ret: Array(12).fill(0) };
+        html += `<tr class="border-t"><td class="px-2 py-1 font-medium">${y}</td>` + rec.pnl.map((pv, i)=>cell(pv, rec.ret[i])).join('') + '</tr>';
+      }
+      html += '</tbody></table></div>';
+      host.innerHTML = html;
+    }
+
     // -----------------------------
     // Param handling + run
     // -----------------------------
@@ -626,6 +801,7 @@
   renderTable(LAST_OUT);
   renderEquityChart(LAST_OUT);
   renderStreakChart(LAST_OUT);
+  renderMonthlyPerf(LAST_OUT);
     }
 
     async function loadAndRunForCurrent(){
@@ -807,6 +983,24 @@
   if (tStart) ['input','change'].forEach(evt=> tStart.addEventListener(evt, scheduleRun));
   if (tEnd) ['input','change'].forEach(evt=> tEnd.addEventListener(evt, scheduleRun));
   if (tCut) ['input','change'].forEach(evt=> tCut.addEventListener(evt, scheduleRun));
+    })();
+
+    // Monthly performance toggle handlers
+    (function(){
+      const btnPct = document.getElementById('mpBtnPct');
+      const btnUsd = document.getElementById('mpBtnUsd');
+      function syncUI(){
+        if (!btnPct || !btnUsd) return;
+        btnPct.classList.toggle('bg-white', MONTHLY_PERF_MODE==='pct');
+        btnPct.classList.toggle('ring-1', MONTHLY_PERF_MODE==='pct');
+        btnPct.classList.toggle('ring-slate-300', MONTHLY_PERF_MODE==='pct');
+        btnUsd.classList.toggle('bg-white', MONTHLY_PERF_MODE==='usd');
+        btnUsd.classList.toggle('ring-1', MONTHLY_PERF_MODE==='usd');
+        btnUsd.classList.toggle('ring-slate-300', MONTHLY_PERF_MODE==='usd');
+      }
+      if (btnPct) btnPct.addEventListener('click', ()=>{ MONTHLY_PERF_MODE='pct'; syncUI(); renderMonthlyPerf(LAST_OUT||[]); });
+      if (btnUsd) btnUsd.addEventListener('click', ()=>{ MONTHLY_PERF_MODE='usd'; syncUI(); renderMonthlyPerf(LAST_OUT||[]); });
+      syncUI();
     })();
 
     // init
