@@ -12,7 +12,7 @@
   <style>
   .num-pos { color: #119d6e !important; }
   .num-neg { color: #ff0000 !important; }
-  .pnl-strong { font-size: 2rem !important; }
+  .pnl-strong { font-size: 1.8rem !important; }
     .sticky-th { position: sticky; top: 0; background: white; z-index: 1; }
     .shadow-soft { box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
     thead th { position: sticky; top: 0; background: white; z-index: 1; }
@@ -378,14 +378,40 @@
   const totalPnL = out.reduce((s,r)=> s + (Number.isFinite(r.PnL)?r.PnL:0), 0);
   const avgDailyRet = out.reduce((s,r)=> s + (Number.isFinite(r.DailyReturn)?r.DailyReturn:0), 0) / out.length;
 
+      // CAGR and Max Drawdown based on filtered equity curve
+      let cagrPct = 0;
+      let maxDDPct = 0; // negative value e.g., -12.34
+      if (out.length > 1) {
+        const startAUM = out[0].AUM;
+        const endAUM = out[out.length-1].AUM;
+        const firstDate = new Date(out[0].Date);
+        const lastDate = new Date(out[out.length-1].Date);
+        const days = (lastDate - firstDate) / (1000*60*60*24);
+        const years = days / 365.25;
+        if (years > 0 && startAUM > 0 && endAUM > 0) {
+          cagrPct = (Math.pow(endAUM/startAUM, 1/years) - 1) * 100;
+        }
+        let peak = out[0].AUM;
+        let mdd = 0; // negative percent
+        for (const r of out) {
+          const a = r.AUM;
+          if (a > peak) peak = a;
+          const dd = ((a/peak) - 1) * 100; // <= 0
+          if (dd < mdd) mdd = dd;
+        }
+        maxDDPct = mdd;
+      }
+
       const cards = [
         { label: 'Days Backtested', value: fmtInt(out.length) },
-        { label: 'Final AUM', value: `$${fmtMoney(lastAUM)}` },
-        { label: 'Total PnL', value: `$${fmtMoney(totalPnL)}`, cls: ((totalPnL > 0) ? 'num-pos' : 'num-neg') + ' text-3xl' },
+        { label: 'Final AUM', value: `$${fmtInt(lastAUM)}` },
+        { label: 'CAGR', value: `${fmtPct(cagrPct)}%` },
         { label: 'Avg Daily Return', value: `${fmtPct(avgDailyRet)}%` },
+        { label: 'Total PnL', value: `$${fmtInt(totalPnL)}`, cls: ((totalPnL > 0) ? 'num-pos' : 'num-neg') + ' text-3xl' },
+        { label: 'Max DD', value: `${fmtPct(maxDDPct)}%` },
       ];
 
-      const gridHtml = `<div class="grid sm:grid-cols-2 lg:grid-cols-2 gap-4 mb-4">${
+      const gridHtml = `<div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">${
         cards.map(c=>{
           const baseValCls = 'text-xl font-semibold tabular-nums font-mono text-right';
           const valCls = (c.label === 'Total PnL') ? `${baseValCls} text-3xl pnl-strong` : baseValCls;
