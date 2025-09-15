@@ -10,8 +10,9 @@
   <!-- PapaParse for CSV parsing -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <style>
-  .num-pos { color: #10b981 !important; }
-  .num-neg { color: #9f1239 !important; }
+  .num-pos { color: #119d6e !important; }
+  .num-neg { color: #ff0000 !important; }
+  .pnl-strong { font-size: 2rem !important; }
     .sticky-th { position: sticky; top: 0; background: white; z-index: 1; }
     .shadow-soft { box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
     thead th { position: sticky; top: 0; background: white; z-index: 1; }
@@ -75,11 +76,11 @@
           </label>
           <label class="block">
             <span class="text-sm text-slate-600">target_R</span>
-            <input id="inp_target_R" type="number" min="0" max="100" step="0.1" value="2" class="mt-1 w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm" />
+            <input id="inp_target_R" type="number" min="0" max="100" step="0.5" value="2" class="mt-1 w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm" />
           </label>
           <label class="block">
-            <span class="text-sm text-slate-600">loss_R</span>
-            <input id="inp_stop_R" type="number" min="0" max="100" step="0.1" value="2" class="mt-1 w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm" />
+            <span class="text-sm text-slate-600">stop_R</span>
+            <input id="inp_stop_R" type="number" min="0" max="100" step="0.5" value="2" class="mt-1 w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm" />
           </label>
           <label class="block">
             <span class="text-sm text-slate-600">ORB Start</span>
@@ -136,18 +137,18 @@
       <h2 class="font-semibold mb-3">Summary</h2>
       <div id="summary" class="grid sm:grid-cols-2 lg:grid-cols-2 gap-4"></div>
     </section>
-
+    
     <!-- Equity Chart -->
-      <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
-        <h2 class="font-semibold mb-3">Equity</h2>
-        <div id="equityChart" class="w-full h-[360px]"></div>
-      </section>
-
-      <!-- Win/Loss Streaks Chart -->
-      <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
-        <h2 class="font-semibold mb-3">Win/Loss Streaks</h2>
-        <div id="streakChart" class="w-full h-[280px]"></div>
-      </section>
+    <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
+      <h2 class="font-semibold mb-3">Equity</h2>
+      <div id="equityChart" class="w-full h-[360px]"></div>
+    </section>
+    
+    <!-- Win/Loss Streaks Chart -->
+    <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
+      <h2 class="font-semibold mb-3">Win/Loss Streaks</h2>
+      <div id="streakChart" class="w-full h-[280px]"></div>
+    </section>
 
     <!-- Trades Table -->
     <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
@@ -193,14 +194,14 @@
       }
       const d = new Date(val);
       if (isNaN(d)) return null;
-      return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; // local date key
+      return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; // local date key
     };
-    const parseTimeHHMM = (hhmm) => { const [h,m] = (hhmm||'').split(':').map(Number); return h*60 + (m||0); };
-    const minutesOfDay = (d) => d.getHours()*60 + d.getMinutes();
-  const fmtNum = (x, digits=2) => (x==null || isNaN(x) ? '' : Number(x).toFixed(digits));
-  const fmtMoney = (x) => (x==null || isNaN(x) ? '' : Number(x).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-  const fmtInt = (x) => (x==null || isNaN(x) ? '0' : Math.round(Number(x)).toLocaleString());
-    const fmtPct = (x) => (x==null || isNaN(x) ? '' : Number(x).toFixed(2));
+    const parseTimeHHMM = (hhmm) => { const [h, m] = (hhmm || '').split(':').map(Number); return h * 60 + (m || 0); };
+    const minutesOfDay = (d) => d.getHours() * 60 + d.getMinutes();
+    const fmtNum = (x, digits = 2) => (x == null || isNaN(x) ? '' : Number(x).toFixed(digits));
+    const fmtMoney = (x) => (x == null || isNaN(x) ? '' : Number(x).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    const fmtInt = (x) => (x == null || isNaN(x) ? '0' : Math.round(Number(x)).toLocaleString());
+    const fmtPct = (x) => (x == null || isNaN(x) ? '' : Number(x).toFixed(2));
     const fmtTime = (d) => d instanceof Date && !isNaN(d) ? `${pad2(d.getHours())}:${pad2(d.getMinutes())}` : '';
 
     // -----------------------------
@@ -210,14 +211,14 @@
     let ROWS = [];        // current symbol rows
     let DAY_GROUPS = new Map();
     let DAYS = [];
-  let VIEW_DIR = 'both';
-  let LAST_OUT = null;
-  let VIEW_DOW = new Set([1,2,3,4,5]); // 1=Mon ... 5=Fri
-  let VIEW_MONTHS = new Set(); // empty => all
-  let AVAILABLE_MONTHS = [];
+    let VIEW_DIR = 'both';
+    let LAST_OUT = null;
+    let VIEW_DOW = new Set([1, 2, 3, 4, 5]); // 1=Mon ... 5=Fri
+    let VIEW_MONTHS = new Set(); // empty => all
+    let AVAILABLE_MONTHS = [];
 
-    function setTicker(sym){
-      currentTicker = (sym||'').toUpperCase();
+    function setTicker(sym) {
+      currentTicker = (sym || '').toUpperCase();
       const titleEl = document.getElementById('mainTitle');
       if (titleEl) {
         const prefix = currentTicker ? currentTicker + ' - ' : '';
@@ -227,11 +228,11 @@
       }
     }
 
-    function setStatus(msg){ const el = document.getElementById('status'); if (el) el.textContent = msg || ''; }
+    function setStatus(msg) { const el = document.getElementById('status'); if (el) el.textContent = msg || ''; }
 
-    function normalizeAndIndex(rows){
+    function normalizeAndIndex(rows) {
       if (!rows || !rows.length) throw new Error('No rows parsed');
-      const required = ['caldt','day','open','high','low','close'];
+      const required = ['caldt', 'day', 'open', 'high', 'low', 'close'];
       const missing = required.filter(c => !(c in rows[0]));
       if (missing.length) throw new Error('Missing columns: ' + missing.join(', '));
 
@@ -240,7 +241,7 @@
         const dayKey = dateKeyFromStr(r.day);
         const open = Number(r.open), high = Number(r.high), low = Number(r.low), close = Number(r.close);
         if (!dayKey || isNaN(caldt)) return null;
-        if ([open,high,low,close].some(v => !Number.isFinite(v))) return null;
+        if ([open, high, low, close].some(v => !Number.isFinite(v))) return null;
         return { caldt, dayKey, open, high, low, close };
       }).filter(Boolean);
 
@@ -249,11 +250,11 @@
         if (!DAY_GROUPS.has(row.dayKey)) DAY_GROUPS.set(row.dayKey, []);
         DAY_GROUPS.get(row.dayKey).push(row);
       }
-      for (const [k, arr] of DAY_GROUPS.entries()) arr.sort((a,b)=>a.caldt-b.caldt);
+      for (const [k, arr] of DAY_GROUPS.entries()) arr.sort((a, b) => a.caldt - b.caldt);
       DAYS = Array.from(DAY_GROUPS.keys()).sort();
     }
 
-    async function loadSymbolData(sym){
+    async function loadSymbolData(sym) {
       if (!sym) return false;
       setStatus(`Loading data for ${sym}…`);
       try {
@@ -261,9 +262,9 @@
         const res = await fetch(path, { cache: 'no-cache' });
         if (!res.ok) throw new Error(`HTTP ${res.status} loading ${path}`);
         const text = await res.text();
-        const parsed = Papa.parse(text, { header:true, dynamicTyping:true, skipEmptyLines:true });
+        const parsed = Papa.parse(text, { header: true, dynamicTyping: true, skipEmptyLines: true });
         if (parsed.errors && parsed.errors.length) {
-          console.warn('CSV parse warnings:', parsed.errors.slice(0,3));
+          console.warn('CSV parse warnings:', parsed.errors.slice(0, 3));
         }
         normalizeAndIndex(parsed.data);
         setStatus(`Loaded ${ROWS.length} rows across ${DAYS.length} day(s).`);
@@ -380,12 +381,16 @@
       const cards = [
         { label: 'Days Backtested', value: fmtInt(out.length) },
         { label: 'Final AUM', value: `$${fmtMoney(lastAUM)}` },
-        { label: 'Total PnL', value: `$${fmtMoney(totalPnL)}`, cls: (totalPnL > 0) ? 'num-pos' : 'num-neg' },
+        { label: 'Total PnL', value: `$${fmtMoney(totalPnL)}`, cls: ((totalPnL > 0) ? 'num-pos' : 'num-neg') + ' text-3xl' },
         { label: 'Avg Daily Return', value: `${fmtPct(avgDailyRet)}%` },
       ];
 
       const gridHtml = `<div class="grid sm:grid-cols-2 lg:grid-cols-2 gap-4 mb-4">${
-        cards.map(c=>`<div class=\"rounded-2xl border p-4\"><div class=\"text-xs text-slate-500\">${c.label}</div><div class=\"text-xl font-semibold tabular-nums font-mono text-right ${c.cls||''}\">${c.value}</div></div>`).join('')
+        cards.map(c=>{
+          const baseValCls = 'text-xl font-semibold tabular-nums font-mono text-right';
+          const valCls = (c.label === 'Total PnL') ? `${baseValCls} text-3xl pnl-strong` : baseValCls;
+          return `<div class=\"rounded-2xl border p-4\"><div class=\"text-xs text-slate-500\">${c.label}</div><div class=\"${valCls} ${c.cls||''}\">${c.value}</div></div>`;
+        }).join('')
       }</div>`;
 
       const pct = (n) => total>0 ? `${((n/total)*100).toFixed(1)}%` : '0.0%';
@@ -435,7 +440,14 @@
       const frag = document.createDocumentFragment();
   for (const r of rows) {
         const tr = document.createElement('tr');
-        tr.className='border-b hover:bg-slate-50';
+        // Highlight rows based on HitType and pnl_R
+        let highlight = '';
+        if (r.HitType === 'TP') {
+          highlight = ' bg-emerald-300';
+        } else if (r.HitType === 'EOD' && Number(r.pnl_R) > 0) {
+          highlight = ' bg-emerald-100';
+        }
+        tr.className = ('border-b' + (highlight ? highlight : ' hover:bg-slate-50'));
         tr.innerHTML = `
           <td class="px-3 py-2">${r.Date}</td>
           <td class="px-3 py-2 text-right">${fmtNum(r.ORH)}</td>
