@@ -7,12 +7,14 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.tailframes.com/releases/latest/tailframes.min.js" defer></script>
   <script src="https://cdn.plot.ly/plotly-2.31.1.min.js"></script>
-  
+  <!-- PapaParse for CSV parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <style>
     .num-pos { color: #065f46; }
     .num-neg { color: #9f1239; }
     .sticky-th { position: sticky; top: 0; background: white; z-index: 1; }
     .shadow-soft { box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
+    thead th { position: sticky; top: 0; background: white; z-index: 1; }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800">
@@ -46,46 +48,109 @@
     })();
   </script>
 
-  <div class="max-w-7xl mx-auto p-6">
-    <header class="mb-6">
+  <div class="max-w-7xl mx-auto p-6 space-y-6">
+    <header class="mb-2">
       <h1 id="mainTitle" class="text-2xl md:text-3xl font-semibold">ORB Backtest</h1>
-      <p class="text-slate-600 mt-1">This page will host backtest tooling. We will develop this further later on.</p>
+      <p class="text-slate-600 mt-1">Pick a symbol and tweak parameters — results auto-update.</p>
     </header>
 
-    <!-- Symbol segmented control (like index.html) -->
-    <section id="symbolPicker" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 mb-6">
-      <div class="flex items-center gap-2">
-        <span class="text-sm text-slate-600">Symbol:</span>
-        <div class="flex-1 min-w-0 overflow-x-auto">
-          <div id="tickerSegment" class="inline-flex min-w-max rounded-xl border border-slate-200 overflow-hidden whitespace-nowrap">
-            <span class="px-3 py-1.5 text-sm text-slate-500">Loading…</span>
+    <!-- Symbol segmented control + Params -->
+    <section id="symbolPicker" class="bg-white rounded-2xl shadow-soft p-3 md:p-4">
+      <div class="flex items-start gap-4 flex-col md:flex-row">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-sm text-slate-600">Symbol:</span>
+            <div class="flex-1 min-w-0 overflow-x-auto">
+              <div id="tickerSegment" class="inline-flex min-w-max rounded-xl border border-slate-200 overflow-hidden whitespace-nowrap">
+                <span class="px-3 py-1.5 text-sm text-slate-500">Loading…</span>
+              </div>
+            </div>
           </div>
+          <div id="status" class="text-xs text-slate-500"></div>
         </div>
-      </div>
-      <!-- Parameters -->
-      <div class="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <label class="block">
-          <span class="text-sm text-slate-600">orb_m</span>
-          <input id="inp_orb_m" type="number" min="1" max="120" step="1" value="25" class="mt-1 w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm" />
-        </label>
-        <label class="block">
-          <span class="text-sm text-slate-600">target_R</span>
-          <input id="inp_target_R" type="number" min="0" max="100" step="0.1" value="2" class="mt-1 w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm" />
-        </label>
-        <label class="block">
-          <span class="text-sm text-slate-600">stop_R</span>
-          <input id="inp_stop_R" type="number" min="0" max="100" step="0.1" value="2" class="mt-1 w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm" />
-        </label>
+        <div class="w-full md:w-[520px] grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <label class="block">
+            <span class="text-sm text-slate-600">orb_m</span>
+            <input id="inp_orb_m" type="number" min="1" max="120" step="1" value="25" class="mt-1 w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm" />
+          </label>
+          <label class="block">
+            <span class="text-sm text-slate-600">target_R</span>
+            <input id="inp_target_R" type="number" min="0" max="100" step="0.1" value="2" class="mt-1 w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm" />
+          </label>
+          <label class="block">
+            <span class="text-sm text-slate-600">stop_R</span>
+            <input id="inp_stop_R" type="number" min="0" max="100" step="0.1" value="2" class="mt-1 w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm" />
+          </label>
+        </div>
       </div>
     </section>
 
+    <!-- Summary -->
     <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
-      <p class="text-slate-600 text-sm">Placeholder content. Navigation at the top lets you switch between Performance and Backtest.</p>
+      <h2 class="font-semibold mb-3">Summary</h2>
+      <div id="summary" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4"></div>
+    </section>
+
+    <!-- Trades Table -->
+    <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
+      <h2 class="font-semibold mb-3">Trades</h2>
+      <div class="overflow-auto max-h-[65vh] border rounded-xl">
+        <table class="min-w-full text-sm">
+          <thead>
+            <tr class="border-b">
+              <th class="px-3 py-2 text-left">Date</th>
+              <th class="px-3 py-2 text-right">ORH</th>
+              <th class="px-3 py-2 text-right">ORL</th>
+              <th class="px-3 py-2">Side</th>
+              <th class="px-3 py-2">EntryTime</th>
+              <th class="px-3 py-2 text-right">Entry</th>
+              <th class="px-3 py-2">ExitTime</th>
+              <th class="px-3 py-2 text-right">Exit</th>
+              <th class="px-3 py-2 text-right">StopPrice</th>
+              <th class="px-3 py-2 text-right">TPPrice</th>
+              <th class="px-3 py-2">HitType</th>
+              <th class="px-3 py-2 text-right">Shares</th>
+              <th class="px-3 py-2 text-right">PnL</th>
+              <th class="px-3 py-2 text-right">pnl_R</th>
+              <th class="px-3 py-2 text-right">AUM</th>
+              <th class="px-3 py-2 text-right">DailyReturn %</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
     </section>
   </div>
+
   <script>
-    // Backtest page: symbol picker using data/index.json
+    // -----------------------------
+    // Utilities
+    // -----------------------------
+    const pad2 = (n) => String(n).padStart(2, '0');
+    const dateKeyFromStr = (val) => {
+      if (val == null) return null;
+      if (typeof val === 'string') {
+        const m = val.trim().match(/^(\d{4}-\d{2}-\d{2})/);
+        if (m) return m[1];
+      }
+      const d = new Date(val);
+      if (isNaN(d)) return null;
+      return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; // local date key
+    };
+    const parseTimeHHMM = (hhmm) => { const [h,m] = (hhmm||'').split(':').map(Number); return h*60 + (m||0); };
+    const minutesOfDay = (d) => d.getHours()*60 + d.getMinutes();
+    const fmtNum = (x, digits=2) => (x==null || isNaN(x) ? '' : Number(x).toFixed(digits));
+    const fmtPct = (x) => (x==null || isNaN(x) ? '' : Number(x).toFixed(2));
+    const fmtTime = (d) => d instanceof Date && !isNaN(d) ? `${pad2(d.getHours())}:${pad2(d.getMinutes())}` : '';
+
+    // -----------------------------
+    // Global state
+    // -----------------------------
     let currentTicker = '';
+    let ROWS = [];        // current symbol rows
+    let DAY_GROUPS = new Map();
+    let DAYS = [];
+
     function setTicker(sym){
       currentTicker = (sym||'').toUpperCase();
       const titleEl = document.getElementById('mainTitle');
@@ -97,6 +162,243 @@
       }
     }
 
+    function setStatus(msg){ const el = document.getElementById('status'); if (el) el.textContent = msg || ''; }
+
+    function normalizeAndIndex(rows){
+      if (!rows || !rows.length) throw new Error('No rows parsed');
+      const required = ['caldt','day','open','high','low','close'];
+      const missing = required.filter(c => !(c in rows[0]));
+      if (missing.length) throw new Error('Missing columns: ' + missing.join(', '));
+
+      ROWS = rows.map(r => {
+        const caldt = new Date(r.caldt);
+        const dayKey = dateKeyFromStr(r.day);
+        const open = Number(r.open), high = Number(r.high), low = Number(r.low), close = Number(r.close);
+        if (!dayKey || isNaN(caldt)) return null;
+        if ([open,high,low,close].some(v => !Number.isFinite(v))) return null;
+        return { caldt, dayKey, open, high, low, close };
+      }).filter(Boolean);
+
+      DAY_GROUPS = new Map();
+      for (const row of ROWS) {
+        if (!DAY_GROUPS.has(row.dayKey)) DAY_GROUPS.set(row.dayKey, []);
+        DAY_GROUPS.get(row.dayKey).push(row);
+      }
+      for (const [k, arr] of DAY_GROUPS.entries()) arr.sort((a,b)=>a.caldt-b.caldt);
+      DAYS = Array.from(DAY_GROUPS.keys()).sort();
+    }
+
+    async function loadSymbolData(sym){
+      if (!sym) return false;
+      setStatus(`Loading data for ${sym}…`);
+      try {
+        const path = `data/${sym}_1m.csv`;
+        const res = await fetch(path, { cache: 'no-cache' });
+        if (!res.ok) throw new Error(`HTTP ${res.status} loading ${path}`);
+        const text = await res.text();
+        const parsed = Papa.parse(text, { header:true, dynamicTyping:true, skipEmptyLines:true });
+        if (parsed.errors && parsed.errors.length) {
+          console.warn('CSV parse warnings:', parsed.errors.slice(0,3));
+        }
+        normalizeAndIndex(parsed.data);
+        setStatus(`Loaded ${ROWS.length} rows across ${DAYS.length} day(s).`);
+        return true;
+      } catch (err) {
+        console.error(err);
+        setStatus(`Error loading ${sym}: ${err.message}`);
+        ROWS = []; DAY_GROUPS = new Map(); DAYS = [];
+        return false;
+      }
+    }
+
+    // -----------------------------
+    // Backtest (JS port)
+    // -----------------------------
+    function backtest({ days, dayGroups, orb_m, target_R, stop_R, risk, max_Lev, AUM_0, commission, direction='both', orb_start_time='9:30', orb_end_time='15:30', entry_cutoff_time='12:00', breakout_buffer=0.01 }) {
+      const out = [];
+      const orbStartMin = parseTimeHHMM(orb_start_time);
+      const orbEndMin = parseTimeHHMM(orb_end_time);
+      const entryCutoffMin = parseTimeHHMM(entry_cutoff_time);
+
+      for (let t = 0; t < days.length; t++) {
+        const dayKey = days[t];
+        const prev_AUM = (t>0 && out[t-1]?.AUM != null) ? out[t-1].AUM : AUM_0;
+        const rowOut = { Date: dayKey, ORH: NaN, ORL: NaN, Side: '', EntryTime: null, Entry: NaN, ExitTime: null, Exit: NaN, StopPrice: NaN, TPPrice: NaN, HitType: '', Shares: NaN, PnL: NaN, pnl_R: 0, AUM: prev_AUM, DailyReturn: 0 };
+
+        const df_day = dayGroups.get(dayKey);
+        if (!df_day || df_day.length === 0) { rowOut.HitType='NotEnoughBars'; rowOut.Shares=0; out.push(rowOut); continue; }
+
+        const startIdx = df_day.findIndex(r => minutesOfDay(r.caldt) >= orbStartMin);
+        if (startIdx < 0 || (startIdx + orb_m) > df_day.length) { rowOut.HitType='NotEnoughBars'; rowOut.Shares=0; out.push(rowOut); continue; }
+
+        let ORH = -Infinity, ORL = Infinity;
+        for (let k = startIdx; k < startIdx + orb_m; k++) { const r = df_day[k]; if (r.high>ORH) ORH=r.high; if (r.low<ORL) ORL=r.low; }
+        rowOut.ORH = ORH; rowOut.ORL = ORL;
+
+        let entryIdx=null, entry_side=0, entry_price=NaN, entry_time=null;
+        for (let i = startIdx + orb_m; i < df_day.length; i++) {
+          const r = df_day[i];
+          if (minutesOfDay(r.caldt) >= entryCutoffMin) break;
+          const long_hit = r.high > (ORH + breakout_buffer);
+          const short_hit = r.low < (ORL - breakout_buffer);
+          if (direction==='long' && !long_hit) continue;
+          if (direction==='short' && !short_hit) continue;
+          if (direction==='both' && !(long_hit||short_hit)) continue;
+          if (long_hit && !short_hit) entry_side = 1; else if (short_hit && !long_hit) entry_side = -1; else if (direction==='long') entry_side = 1; else if (direction==='short') entry_side = -1; else entry_side = 1;
+          entry_price = (entry_side===1) ? (ORH + breakout_buffer) : (ORL - breakout_buffer);
+          entryIdx = i; entry_time = new Date(r.caldt);
+          rowOut.Side = (entry_side===1) ? 'Long' : 'Short'; rowOut.EntryTime = entry_time; rowOut.Entry = entry_price; break;
+        }
+        if (entryIdx==null) { rowOut.HitType='NoBreak'; rowOut.Shares=0; out.push(rowOut); continue; }
+
+        const R_price = (ORH - ORL)/2.0;
+        const stop_price   = (entry_side===1) ? (entry_price - stop_R*R_price) : (entry_price + stop_R*R_price);
+        const target_price = (entry_side===1) ? (entry_price + target_R*R_price) : (entry_price - target_R*R_price);
+        rowOut.StopPrice = stop_price; rowOut.TPPrice = target_price;
+
+        const stop_frac = (stop_R * R_price) / entry_price;
+        const max_risk_sh = stop_frac > 0 ? (prev_AUM * risk) / (entry_price * stop_frac) : 0;
+        const max_lev_sh  = (max_Lev * prev_AUM) / entry_price;
+        const shares = Math.floor(Math.min(max_risk_sh, max_lev_sh));
+        rowOut.Shares = shares;
+        if (!(shares>0)) { rowOut.HitType='NoSize'; rowOut.AUM=prev_AUM; out.push(rowOut); continue; }
+
+        let exitIdx=null, hit='EOD', exit_time=null, exit_price=NaN;
+        for (let j = entryIdx + 1; j < df_day.length; j++) {
+          const r2 = df_day[j];
+          const tp_hit = (entry_side===1) ? (r2.high >= target_price) : (r2.low <= target_price);
+          const st_hit = (entry_side===1) ? (r2.low  <= stop_price)   : (r2.high >= stop_price);
+          if (tp_hit && !st_hit) { exitIdx=j; hit='TP'; break; }
+          if (st_hit && !tp_hit) { exitIdx=j; hit='Stop'; break; }
+          if (tp_hit && st_hit)  { exitIdx=j; hit='TP'; break; }
+        }
+        if (exitIdx==null) {
+          let eodIdx = -1;
+          for (let idx = df_day.length - 1; idx >= 0; idx--) { if (minutesOfDay(df_day[idx].caldt) === orbEndMin) { eodIdx = idx; break; } }
+          exitIdx = (eodIdx>=0) ? eodIdx : (df_day.length-1);
+          exit_time = new Date(df_day[exitIdx].caldt);
+          exit_price = df_day[exitIdx].close;
+        } else {
+          exit_time = new Date(df_day[exitIdx].caldt);
+          const o_exit = df_day[exitIdx].open;
+          exit_price = (hit==='TP') ? ((entry_side===1) ? Math.max(target_price, o_exit) : Math.min(target_price, o_exit))
+                                    : ((entry_side===1) ? Math.min(stop_price, o_exit)   : Math.max(stop_price, o_exit));
+        }
+        rowOut.ExitTime = exit_time; rowOut.Exit = exit_price; rowOut.HitType = hit;
+
+        const pnl = (entry_side===1) ? ((exit_price - entry_price) * shares) : ((entry_price - exit_price) * shares);
+        const new_AUM = prev_AUM + pnl - (shares * commission * 2);
+        rowOut.PnL = pnl; rowOut.AUM = new_AUM; rowOut.pnl_R = (risk*prev_AUM)!==0 ? Number((pnl/(risk*prev_AUM)).toFixed(2)) : 0; rowOut.DailyReturn = (prev_AUM!==0) ? Number(((pnl/prev_AUM)*100).toFixed(2)) : 0;
+
+        out.push(rowOut);
+      }
+      return out;
+    }
+
+    function renderSummary(out){
+      const summary = document.getElementById('summary');
+      if (!out || !out.length) { summary.innerHTML=''; return; }
+      const trades = out.filter(r => r.Shares>0 && !['NotEnoughBars','NoBreak','NoSize'].includes(r.HitType));
+      const wins = trades.filter(r => r.HitType==='TP').length;
+      const stops = trades.filter(r => r.HitType==='Stop').length;
+      const eods = trades.filter(r => r.HitType==='EOD').length;
+      const lastAUM = out[out.length-1].AUM;
+      const totalPnL = out.reduce((s,r)=> s + (Number.isFinite(r.PnL)?r.PnL:0), 0);
+      const avgDailyRet = out.reduce((s,r)=> s + (Number.isFinite(r.DailyReturn)?r.DailyReturn:0), 0) / out.length;
+      const cards = [
+        { label: 'Days Backtested', value: out.length },
+        { label: 'Final AUM', value: `$${fmtNum(lastAUM,2)}` },
+        { label: 'Total PnL', value: `$${fmtNum(totalPnL,2)}` },
+        { label: 'Win / Stop / EOD', value: `${wins} / ${stops} / ${eods}` },
+        { label: 'Avg Daily Return', value: `${fmtPct(avgDailyRet)}%` },
+      ];
+      summary.innerHTML = cards.map(c=>`<div class="rounded-2xl border p-4"><div class="text-xs text-slate-500">${c.label}</div><div class="text-xl font-semibold">${c.value}</div></div>`).join('');
+    }
+
+    function renderTable(out){
+      const tb = document.getElementById('tbody');
+      tb.innerHTML='';
+      const frag = document.createDocumentFragment();
+      for (const r of out) {
+        const tr = document.createElement('tr');
+        tr.className='border-b hover:bg-slate-50';
+        tr.innerHTML = `
+          <td class="px-3 py-2">${r.Date}</td>
+          <td class="px-3 py-2 text-right">${fmtNum(r.ORH)}</td>
+          <td class="px-3 py-2 text-right">${fmtNum(r.ORL)}</td>
+          <td class="px-3 py-2">${r.Side||''}</td>
+          <td class="px-3 py-2">${fmtTime(r.EntryTime)}</td>
+          <td class="px-3 py-2 text-right">${fmtNum(r.Entry)}</td>
+          <td class="px-3 py-2">${fmtTime(r.ExitTime)}</td>
+          <td class="px-3 py-2 text-right">${fmtNum(r.Exit)}</td>
+          <td class="px-3 py-2 text-right">${fmtNum(r.StopPrice)}</td>
+          <td class="px-3 py-2 text-right">${fmtNum(r.TPPrice)}</td>
+          <td class="px-3 py-2">${r.HitType}</td>
+          <td class="px-3 py-2 text-right">${Number.isFinite(r.Shares)?r.Shares:''}</td>
+          <td class="px-3 py-2 text-right">${fmtNum(r.PnL)}</td>
+          <td class="px-3 py-2 text-right">${fmtNum(r.pnl_R)}</td>
+          <td class="px-3 py-2 text-right">${fmtNum(r.AUM)}</td>
+          <td class="px-3 py-2 text-right">${fmtPct(r.DailyReturn)}</td>`;
+        frag.appendChild(tr);
+      }
+      tb.appendChild(frag);
+    }
+
+    // -----------------------------
+    // Param handling + run
+    // -----------------------------
+    const riskConst = 0.02, maxLevConst = 4, AUM0Const = 100000, commissionConst = 0, directionConst = 'both', breakoutBufferConst = 0.01, orbStartConst = '9:30', orbEndConst = '15:30', entryCutoffConst = '12:00';
+
+    function getBacktestParams(){
+      const orb = document.getElementById('inp_orb_m');
+      const trg = document.getElementById('inp_target_R');
+      const stp = document.getElementById('inp_stop_R');
+      return {
+        symbol: currentTicker,
+        days: DAYS,
+        dayGroups: DAY_GROUPS,
+        orb_m: orb ? parseInt(orb.value,10) : 25,
+        target_R: trg ? parseFloat(trg.value) : 2,
+        stop_R: stp ? parseFloat(stp.value) : 2,
+        risk: riskConst,
+        max_Lev: maxLevConst,
+        AUM_0: AUM0Const,
+        commission: commissionConst,
+        direction: directionConst,
+        orb_start_time: orbStartConst,
+        orb_end_time: orbEndConst,
+        entry_cutoff_time: entryCutoffConst,
+        breakout_buffer: breakoutBufferConst,
+      };
+    }
+
+    let runTimer = null;
+    function scheduleRun(){
+      if (runTimer) clearTimeout(runTimer);
+      runTimer = setTimeout(runBacktestIfReady, 150);
+    }
+
+    function runBacktestIfReady(){
+      if (!currentTicker) { setStatus('Pick a symbol.'); return; }
+      if (!DAYS.length) { setStatus('No data loaded.'); return; }
+      const params = getBacktestParams();
+      const t0 = performance.now();
+      const out = backtest(params);
+      const t1 = performance.now();
+      setStatus(`Ran ${out.length} day(s) in ${(t1-t0).toFixed(0)} ms.`);
+      renderSummary(out);
+      renderTable(out);
+    }
+
+    async function loadAndRunForCurrent(){
+      if (!currentTicker) return;
+      const ok = await loadSymbolData(currentTicker);
+      if (ok) runBacktestIfReady();
+    }
+
+    // -----------------------------
+    // Symbol segment (existing code with auto-run hook)
+    // -----------------------------
     async function populateTickerSegment(){
       const container = document.getElementById('tickerSegment');
       if (!container) return;
@@ -107,27 +409,16 @@
           const btn = document.createElement('button');
           btn.type = 'button';
           const cls = 'px-3 py-1.5 text-sm font-medium bg-white hover:bg-slate-100' + (i < symbols.length - 1 ? ' border-r border-slate-200' : '');
-          btn.className = cls;
-          btn.setAttribute('data-symbol', s);
-          btn.textContent = s;
-          container.appendChild(btn);
+          btn.className = cls; btn.setAttribute('data-symbol', s); btn.textContent = s; container.appendChild(btn);
         });
       };
-
-      // Primary: index.json (array of symbols)
       try {
         const res = await fetch('data/index.json', { cache: 'no-cache' });
         if (res.ok) {
           const list = await res.json();
-          if (Array.isArray(list) && list.length) {
-            const syms = list.map(s => String(s).toUpperCase());
-            render(syms);
-            return;
-          }
+          if (Array.isArray(list) && list.length) { render(list.map(s=>String(s).toUpperCase())); return; }
         }
       } catch {}
-
-      // Fallback: probe directory listing for *_1m.csv
       try {
         const res = await fetch('data/', { cache: 'no-cache' });
         if (res.ok) {
@@ -136,63 +427,40 @@
           let files = [];
           if (ct.includes('text/html')) {
             const doc = new DOMParser().parseFromString(text, 'text/html');
-            files = Array.from(doc.querySelectorAll('a')).map(a => a.getAttribute('href')).filter(Boolean);
-          } else {
-            files = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-          }
+            files = Array.from(doc.querySelectorAll('a')).map(a=>a.getAttribute('href')).filter(Boolean);
+          } else { files = text.split(/\r?\n/).map(s=>s.trim()).filter(Boolean); }
           const regex = /^([A-Za-z0-9-]+)_1m\.csv$/i;
           const syms = [];
-          for (const f of files) {
-            const name = (f||'').split('/').pop();
-            const m = name.match(regex);
-            if (m) syms.push(m[1].toUpperCase());
-          }
-          const uniq = Array.from(new Set(syms));
-          if (uniq.length) { render(uniq); return; }
+          for (const f of files) { const name = (f||'').split('/').pop(); const m = name.match(regex); if (m) syms.push(m[1].toUpperCase()); }
+          const uniq = Array.from(new Set(syms)); if (uniq.length) { render(uniq); return; }
         }
       } catch {}
-
-      // Default
       render(['TQQQ','TSLA','PLTR','UVXY']);
     }
 
-    // Click handler: set active button + update title
     document.addEventListener('click', (e) => {
       const btn = e.target.closest('#tickerSegment button[data-symbol]');
       if (!btn) return;
-      const seg = document.getElementById('tickerSegment');
-      if (!seg) return;
-      seg.querySelectorAll('button').forEach(b => {
-        b.classList.remove('bg-slate-800','text-white','focus:outline-none');
-        if (!b.classList.contains('bg-white')) b.classList.add('bg-white');
-        if (!b.classList.contains('hover:bg-slate-100')) b.classList.add('hover:bg-slate-100');
-      });
-      btn.classList.add('bg-slate-800','text-white','focus:outline-none');
-      btn.classList.remove('bg-white','hover:bg-slate-100');
+      const seg = document.getElementById('tickerSegment'); if (!seg) return;
+      seg.querySelectorAll('button').forEach(b => { b.classList.remove('bg-slate-800','text-white','focus:outline-none'); if (!b.classList.contains('bg-white')) b.classList.add('bg-white'); if (!b.classList.contains('hover:bg-slate-100')) b.classList.add('hover:bg-slate-100'); });
+      btn.classList.add('bg-slate-800','text-white','focus:outline-none'); btn.classList.remove('bg-white','hover:bg-slate-100');
       setTicker(btn.getAttribute('data-symbol'));
+      loadAndRunForCurrent();
     });
 
-    // init
-    populateTickerSegment().catch(()=>{});
-
-    // Inputs: basic clamping and a getter for future use
+    // Param input clamping + auto-run
     (function(){
       const orb = document.getElementById('inp_orb_m');
       const trg = document.getElementById('inp_target_R');
       const stp = document.getElementById('inp_stop_R');
       const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
-      if (orb) orb.addEventListener('change', ()=> { const v = parseInt(orb.value,10); orb.value = String(clamp(Number.isFinite(v)?v:25, 1, 120)); });
-      if (trg) trg.addEventListener('change', ()=> { const v = parseFloat(trg.value); trg.value = String(clamp(Number.isFinite(v)?v:2, 0, 100)); });
-      if (stp) stp.addEventListener('change', ()=> { const v = parseFloat(stp.value); stp.value = String(clamp(Number.isFinite(v)?v:2, 0, 100)); });
-      window.getBacktestParams = function(){
-        return {
-          symbol: currentTicker,
-          orb_m: orb ? parseInt(orb.value,10) : 25,
-          target_R: trg ? parseFloat(trg.value) : 2,
-          stop_R: stp ? parseFloat(stp.value) : 2,
-        };
-      };
+      if (orb) ['input','change'].forEach(evt=> orb.addEventListener(evt, ()=> { const v = parseInt(orb.value,10); orb.value = String(clamp(Number.isFinite(v)?v:25, 1, 120)); scheduleRun(); }));
+      if (trg) ['input','change'].forEach(evt=> trg.addEventListener(evt, ()=> { const v = parseFloat(trg.value); trg.value = String(clamp(Number.isFinite(v)?v:2, 0, 100)); scheduleRun(); }));
+      if (stp) ['input','change'].forEach(evt=> stp.addEventListener(evt, ()=> { const v = parseFloat(stp.value); stp.value = String(clamp(Number.isFinite(v)?v:2, 0, 100)); scheduleRun(); }));
     })();
+
+    // init
+    populateTickerSegment().catch(()=>{});
   </script>
 </body>
 </html>
