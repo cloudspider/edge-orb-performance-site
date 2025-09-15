@@ -10,8 +10,8 @@
   <!-- PapaParse for CSV parsing -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <style>
-    .num-pos { color: #065f46; }
-    .num-neg { color: #9f1239; }
+  .num-pos { color: #10b981 !important; }
+  .num-neg { color: #9f1239 !important; }
     .sticky-th { position: sticky; top: 0; background: white; z-index: 1; }
     .shadow-soft { box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
     thead th { position: sticky; top: 0; background: white; z-index: 1; }
@@ -100,12 +100,22 @@
     <!-- Filters -->
     <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
       <h2 class="font-semibold mb-3">Filters</h2>
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-3 mb-3">
         <span class="text-sm text-slate-600">Direction:</span>
         <div id="dirSegment" class="inline-flex rounded-xl border border-slate-200 overflow-hidden">
           <button type="button" class="px-3 py-1.5 text-sm font-medium bg-slate-800 text-white" data-dir="both">Both</button>
           <button type="button" class="px-3 py-1.5 text-sm font-medium bg-white hover:bg-slate-100 border-l border-slate-200" data-dir="long">Long</button>
           <button type="button" class="px-3 py-1.5 text-sm font-medium bg-white hover:bg-slate-100 border-l border-slate-200" data-dir="short">Short</button>
+        </div>
+      </div>
+    <div class="flex items-center gap-3">
+        <span class="text-sm text-slate-600">Weekdays:</span>
+        <div id="dowSegment" class="inline-flex rounded-xl border border-slate-200 overflow-hidden">
+      <button type="button" class="px-3 py-1.5 text-sm font-medium bg-slate-800 text-white" data-dow="1">Mon</button>
+          <button type="button" class="px-3 py-1.5 text-sm font-medium bg-slate-800 text-white border-l border-slate-200" data-dow="2">Tue</button>
+          <button type="button" class="px-3 py-1.5 text-sm font-medium bg-slate-800 text-white border-l border-slate-200" data-dow="3">Wed</button>
+          <button type="button" class="px-3 py-1.5 text-sm font-medium bg-slate-800 text-white border-l border-slate-200" data-dow="4">Thu</button>
+          <button type="button" class="px-3 py-1.5 text-sm font-medium bg-slate-800 text-white border-l border-slate-200" data-dow="5">Fri</button>
         </div>
       </div>
     </section>
@@ -179,6 +189,7 @@
     let DAYS = [];
   let VIEW_DIR = 'both';
   let LAST_OUT = null;
+  let VIEW_DOW = new Set([1,2,3,4,5]); // 1=Mon ... 5=Fri
 
     function setTicker(sym){
       currentTicker = (sym||'').toUpperCase();
@@ -344,12 +355,12 @@
       const cards = [
         { label: 'Days Backtested', value: fmtInt(out.length) },
         { label: 'Final AUM', value: `$${fmtMoney(lastAUM)}` },
-        { label: 'Total PnL', value: `$${fmtMoney(totalPnL)}` },
+        { label: 'Total PnL', value: `$${fmtMoney(totalPnL)}`, cls: (totalPnL > 0) ? 'num-pos' : 'num-neg' },
         { label: 'Avg Daily Return', value: `${fmtPct(avgDailyRet)}%` },
       ];
 
       const gridHtml = `<div class="grid sm:grid-cols-2 lg:grid-cols-2 gap-4 mb-4">${
-        cards.map(c=>`<div class=\"rounded-2xl border p-4\"><div class=\"text-xs text-slate-500\">${c.label}</div><div class=\"text-xl font-semibold tabular-nums font-mono text-right\">${c.value}</div></div>`).join('')
+        cards.map(c=>`<div class=\"rounded-2xl border p-4\"><div class=\"text-xs text-slate-500\">${c.label}</div><div class=\"text-xl font-semibold tabular-nums font-mono text-right ${c.cls||''}\">${c.value}</div></div>`).join('')
       }</div>`;
 
       const pct = (n) => total>0 ? `${((n/total)*100).toFixed(1)}%` : '0.0%';
@@ -427,6 +438,20 @@
     // -----------------------------
     const riskConst = 0.02, maxLevConst = 4, AUM0Const = 100000, commissionConst = 0, directionConst = 'both', breakoutBufferConst = 0.01, orbStartConst = '9:30', orbEndConst = '15:30', entryCutoffConst = '12:00';
 
+    function computeFilteredDays() {
+      if (!Array.isArray(DAYS) || DAYS.length===0) return [];
+      // DAYS are keys like YYYY-MM-DD, map to weekday via first row in group
+      const out = [];
+      for (const dayKey of DAYS) {
+        const arr = DAY_GROUPS.get(dayKey);
+        if (!arr || !arr.length) continue;
+        const dow = arr[0].caldt.getDay(); // 0=Sun..6=Sat
+        const mapDow = dow===0 ? 7 : dow; // 1..7 with 7=Sun
+        if (VIEW_DOW.has(mapDow) || (mapDow===7 && VIEW_DOW.has(7))) out.push(dayKey);
+      }
+      return out;
+    }
+
     function getBacktestParams(){
       const orb = document.getElementById('inp_orb_m');
       const trg = document.getElementById('inp_target_R');
@@ -434,9 +459,10 @@
       const tStart = document.getElementById('inp_orb_start');
       const tEnd = document.getElementById('inp_orb_end');
       const tCut = document.getElementById('inp_entry_cutoff');
+      const filteredDays = computeFilteredDays();
       return {
         symbol: currentTicker,
-        days: DAYS,
+        days: filteredDays,
         dayGroups: DAY_GROUPS,
         orb_m: orb ? parseInt(orb.value,10) : 25,
         target_R: trg ? parseFloat(trg.value) : 2,
@@ -461,7 +487,7 @@
 
     function runBacktestIfReady(){
       if (!currentTicker) { setStatus('Pick a symbol.'); return; }
-      if (!DAYS.length) { setStatus('No data loaded.'); return; }
+  if (!DAYS.length) { setStatus('No data loaded.'); return; }
       const params = getBacktestParams();
       const t0 = performance.now();
       const out = backtest(params);
@@ -539,6 +565,28 @@
       btn.classList.add('bg-slate-800','text-white','focus:outline-none'); btn.classList.remove('bg-white','hover:bg-slate-100');
       VIEW_DIR = (btn.getAttribute('data-dir') || 'both');
       // Re-run so summary and trades reflect the selected direction
+      scheduleRun();
+    });
+
+    function syncDowUI() {
+      const seg = document.getElementById('dowSegment'); if (!seg) return;
+      seg.querySelectorAll('button[data-dow]').forEach(b => {
+        const n = Number(b.getAttribute('data-dow'));
+        const active = VIEW_DOW.has(n);
+        b.classList.toggle('bg-slate-800', active);
+        b.classList.toggle('text-white', active);
+        b.classList.toggle('bg-white', !active);
+        b.classList.toggle('hover:bg-slate-100', !active);
+      });
+    }
+
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('#dowSegment button[data-dow]');
+      if (!btn) return;
+      const n = Number(btn.getAttribute('data-dow'));
+      if (VIEW_DOW.has(n)) VIEW_DOW.delete(n); else VIEW_DOW.add(n);
+      // Allow empty selection so user can see zero-trade results
+      syncDowUI();
       scheduleRun();
     });
 
