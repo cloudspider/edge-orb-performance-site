@@ -56,10 +56,10 @@
 
     <!-- Symbol segmented control + Params -->
     <section id="symbolPicker" class="bg-white rounded-2xl shadow-soft p-3 md:p-4">
+      <h2 class="font-semibold mb-3">ORB Settings</h2>
       <div class="flex items-start gap-4 flex-col md:flex-row">
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 mb-2">
-            <span class="text-sm text-slate-600">Symbol:</span>
             <div class="flex-1 min-w-0 overflow-x-auto">
               <div id="tickerSegment" class="inline-flex min-w-max rounded-xl border border-slate-200 overflow-hidden whitespace-nowrap">
                 <span class="px-3 py-1.5 text-sm text-slate-500">Loading…</span>
@@ -93,6 +93,19 @@
             <span class="text-sm text-slate-600">Entry Cutoff</span>
             <input id="inp_entry_cutoff" type="time" step="60" value="12:00" class="mt-1 w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm" />
           </label>
+        </div>
+      </div>
+    </section>
+
+    <!-- Filters -->
+    <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
+      <h2 class="font-semibold mb-3">Filters</h2>
+      <div class="flex items-center gap-3">
+        <span class="text-sm text-slate-600">Direction:</span>
+        <div id="dirSegment" class="inline-flex rounded-xl border border-slate-200 overflow-hidden">
+          <button type="button" class="px-3 py-1.5 text-sm font-medium bg-slate-800 text-white" data-dir="both">Both</button>
+          <button type="button" class="px-3 py-1.5 text-sm font-medium bg-white hover:bg-slate-100 border-l border-slate-200" data-dir="long">Long</button>
+          <button type="button" class="px-3 py-1.5 text-sm font-medium bg-white hover:bg-slate-100 border-l border-slate-200" data-dir="short">Short</button>
         </div>
       </div>
     </section>
@@ -164,6 +177,8 @@
     let ROWS = [];        // current symbol rows
     let DAY_GROUPS = new Map();
     let DAYS = [];
+  let VIEW_DIR = 'both';
+  let LAST_OUT = null;
 
     function setTicker(sym){
       currentTicker = (sym||'').toUpperCase();
@@ -380,8 +395,9 @@
     function renderTable(out){
       const tb = document.getElementById('tbody');
       tb.innerHTML='';
+  const rows = Array.isArray(out) ? (VIEW_DIR==='both' ? out : out.filter(r => (r.Shares>0) && ((VIEW_DIR==='long' && r.Side==='Long') || (VIEW_DIR==='short' && r.Side==='Short')))) : [];
       const frag = document.createDocumentFragment();
-      for (const r of out) {
+  for (const r of rows) {
         const tr = document.createElement('tr');
         tr.className='border-b hover:bg-slate-50';
         tr.innerHTML = `
@@ -429,7 +445,7 @@
         max_Lev: maxLevConst,
         AUM_0: AUM0Const,
         commission: commissionConst,
-        direction: directionConst,
+  direction: VIEW_DIR || directionConst,
         orb_start_time: (tStart && tStart.value) ? tStart.value : orbStartConst,
         orb_end_time: (tEnd && tEnd.value) ? tEnd.value : orbEndConst,
         entry_cutoff_time: (tCut && tCut.value) ? tCut.value : entryCutoffConst,
@@ -452,7 +468,8 @@
       const t1 = performance.now();
       setStatus(`Ran ${out.length} day(s) in ${(t1-t0).toFixed(0)} ms.`);
       renderSummary(out);
-      renderTable(out);
+  LAST_OUT = out;
+  renderTable(LAST_OUT);
     }
 
     async function loadAndRunForCurrent(){
@@ -511,6 +528,18 @@
       btn.classList.add('bg-slate-800','text-white','focus:outline-none'); btn.classList.remove('bg-white','hover:bg-slate-100');
       setTicker(btn.getAttribute('data-symbol'));
       loadAndRunForCurrent();
+    });
+
+    // Direction filter segment handlers
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('#dirSegment button[data-dir]');
+      if (!btn) return;
+      const seg = document.getElementById('dirSegment'); if (!seg) return;
+      seg.querySelectorAll('button').forEach(b => { b.classList.remove('bg-slate-800','text-white','focus:outline-none'); if (!b.classList.contains('bg-white')) b.classList.add('bg-white'); if (!b.classList.contains('hover:bg-slate-100')) b.classList.add('hover:bg-slate-100'); });
+      btn.classList.add('bg-slate-800','text-white','focus:outline-none'); btn.classList.remove('bg-white','hover:bg-slate-100');
+      VIEW_DIR = (btn.getAttribute('data-dir') || 'both');
+      // Re-run so summary and trades reflect the selected direction
+      scheduleRun();
     });
 
     // Param input clamping + auto-run
