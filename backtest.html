@@ -137,6 +137,12 @@
       <div id="summary" class="grid sm:grid-cols-2 lg:grid-cols-2 gap-4"></div>
     </section>
 
+    <!-- Equity Chart -->
+    <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
+      <h2 class="font-semibold mb-3">Equity Curve</h2>
+      <div id="equityChart" class="w-full h-[360px]"></div>
+    </section>
+
     <!-- Trades Table -->
     <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
       <h2 class="font-semibold mb-3">Trades</h2>
@@ -446,6 +452,34 @@
       tb.appendChild(frag);
     }
 
+    function renderEquityChart(out){
+      const el = document.getElementById('equityChart');
+      if (!el) return;
+      if (!out || !out.length) {
+        try { Plotly.purge(el); } catch {}
+        el.innerHTML = '<div class="text-sm text-slate-500">No data</div>';
+        return;
+      }
+      const x = out.map(r => r.Date);
+      const y = out.map(r => (Number.isFinite(r.AUM) ? r.AUM : null));
+      const trace = {
+        x, y, type: 'scatter', mode: 'lines',
+        line: { color: '#10b981', width: 2 },
+        hovertemplate: '%{x}<br>AUM: %{y:$,.2f}<extra></extra>'
+      };
+      const layout = {
+        margin: { l: 56, r: 16, t: 8, b: 40 },
+        xaxis: { title: 'Date', type: 'date' },
+        yaxis: { title: 'AUM', tickformat: '~s' },
+        showlegend: false,
+        paper_bgcolor: 'white',
+        plot_bgcolor: 'white'
+      };
+      try {
+        Plotly.newPlot(el, [trace], layout, { displayModeBar: false, responsive: true });
+      } catch {}
+    }
+
     // -----------------------------
     // Param handling + run
     // -----------------------------
@@ -512,6 +546,7 @@
       renderSummary(out);
   LAST_OUT = out;
   renderTable(LAST_OUT);
+  renderEquityChart(LAST_OUT);
     }
 
     async function loadAndRunForCurrent(){
