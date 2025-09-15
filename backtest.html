@@ -138,10 +138,16 @@
     </section>
 
     <!-- Equity Chart -->
-    <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
-      <h2 class="font-semibold mb-3">Equity Curve</h2>
-      <div id="equityChart" class="w-full h-[360px]"></div>
-    </section>
+      <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
+        <h2 class="font-semibold mb-3">Equity</h2>
+        <div id="equityChart" class="w-full h-[360px]"></div>
+      </section>
+
+      <!-- Win/Loss Streaks Chart -->
+      <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
+        <h2 class="font-semibold mb-3">Win/Loss Streaks</h2>
+        <div id="streakChart" class="w-full h-[280px]"></div>
+      </section>
 
     <!-- Trades Table -->
     <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
@@ -480,6 +486,40 @@
       } catch {}
     }
 
+    function computeWinLossStreaks(out){
+      const trades = (out||[]).filter(r => r.Shares>0 && !['NotEnoughBars','NoBreak','NoSize'].includes(r.HitType));
+      const winsX=[], winsY=[], lossX=[], lossY=[];
+      let curType=null; let curLen=0;
+      for (let i=0; i<trades.length; i++){
+        const r = trades[i];
+        const isWin = Number(r.PnL) > 0;
+        const isLoss = Number(r.PnL) < 0;
+        const type = isWin ? 'win' : (isLoss ? 'loss' : null);
+        if (!type){
+          if (curType && curLen>0){ const endDate = trades[i-1].Date; if (curType==='win'){ winsX.push(endDate); winsY.push(curLen); } else { lossX.push(endDate); lossY.push(curLen); } }
+          curType=null; curLen=0; continue;
+        }
+        if (curType===null){ curType=type; curLen=1; continue; }
+        if (type===curType){ curLen++; }
+        else { const endDate = trades[i-1].Date; if (curType==='win'){ winsX.push(endDate); winsY.push(curLen); } else { lossX.push(endDate); lossY.push(curLen); } curType=type; curLen=1; }
+      }
+      if (curType && curLen>0 && trades.length>0){ const endDate = trades[trades.length-1].Date; if (curType==='win'){ winsX.push(endDate); winsY.push(curLen); } else { lossX.push(endDate); lossY.push(curLen); } }
+      return { winsX, winsY, lossX, lossY };
+    }
+
+    function renderStreakChart(out){
+      const el = document.getElementById('streakChart');
+      if (!el) return;
+      const { winsX, winsY, lossX, lossY } = computeWinLossStreaks(out);
+  if ((winsX.length + lossX.length) === 0){ try { Plotly.purge(el); } catch {}; el.innerHTML = '<div class="text-sm text-slate-500">No data</div>'; return; }
+  const traces = [];
+  const lossYNeg = lossY.map(v => -Math.abs(v));
+  if (winsX.length) traces.push({ x:winsX, y:winsY, type:'bar', name:'Win streak', marker:{ color:'#10b981' }, hoverinfo:'skip' });
+  if (lossX.length) traces.push({ x:lossX, y:lossYNeg, type:'bar', name:'Loss streak', marker:{ color:'#ef4444' }, hoverinfo:'skip' });
+  const layout = { barmode:'group', margin:{ l:56, r:16, t:8, b:40 }, xaxis:{ title:'Date', type:'date' }, yaxis:{ title:'Consecutive count', zeroline:true }, paper_bgcolor:'white', plot_bgcolor:'white', showlegend:false, hovermode:false };
+  try { Plotly.newPlot(el, traces, layout, { displayModeBar:false, responsive:true }); } catch {}
+    }
+
     // -----------------------------
     // Param handling + run
     // -----------------------------
@@ -547,6 +587,7 @@
   LAST_OUT = out;
   renderTable(LAST_OUT);
   renderEquityChart(LAST_OUT);
+  renderStreakChart(LAST_OUT);
     }
 
     async function loadAndRunForCurrent(){
