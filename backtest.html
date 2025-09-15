@@ -376,42 +376,42 @@
       return out;
     }
 
-    function renderSummary(out){
+    function renderSummary(out) {
       const summary = document.getElementById('summary');
-      if (!out || !out.length) { summary.innerHTML=''; return; }
-      const trades = out.filter(r => r.Shares>0 && !['NotEnoughBars','NoBreak','NoSize'].includes(r.HitType));
+      if (!out || !out.length) { summary.innerHTML = ''; return; }
+      const trades = out.filter(r => r.Shares > 0 && !['NotEnoughBars', 'NoBreak', 'NoSize'].includes(r.HitType));
       const total = trades.length;
-      const tpWins = trades.filter(r => r.HitType==='TP').length;
-      const eodAll = trades.filter(r => r.HitType==='EOD');
+      const tpWins = trades.filter(r => r.HitType === 'TP').length;
+      const eodAll = trades.filter(r => r.HitType === 'EOD');
       const eodWin = eodAll.filter(r => Number(r.PnL) > 0).length;
       const eodLoss = eodAll.filter(r => Number(r.PnL) < 0).length;
-      const stops = trades.filter(r => r.HitType==='Stop').length;
+      const stops = trades.filter(r => r.HitType === 'Stop').length;
       const wins = tpWins + eodWin;
       const losses = stops + eodLoss;
 
-  const lastAUM = out[out.length-1].AUM;
-  const totalPnL = out.reduce((s,r)=> s + (Number.isFinite(r.PnL)?r.PnL:0), 0);
-  const avgDailyRet = out.reduce((s,r)=> s + (Number.isFinite(r.DailyReturn)?r.DailyReturn:0), 0) / out.length;
+      const lastAUM = out[out.length - 1].AUM;
+      const totalPnL = out.reduce((s, r) => s + (Number.isFinite(r.PnL) ? r.PnL : 0), 0);
+      const avgDailyRet = out.reduce((s, r) => s + (Number.isFinite(r.DailyReturn) ? r.DailyReturn : 0), 0) / out.length;
 
       // CAGR and Max Drawdown based on filtered equity curve
       let cagrPct = 0;
       let maxDDPct = 0; // negative value e.g., -12.34
       if (out.length > 1) {
         const startAUM = out[0].AUM;
-        const endAUM = out[out.length-1].AUM;
+        const endAUM = out[out.length - 1].AUM;
         const firstDate = new Date(out[0].Date);
-        const lastDate = new Date(out[out.length-1].Date);
-        const days = (lastDate - firstDate) / (1000*60*60*24);
+        const lastDate = new Date(out[out.length - 1].Date);
+        const days = (lastDate - firstDate) / (1000 * 60 * 60 * 24);
         const years = days / 365.25;
         if (years > 0 && startAUM > 0 && endAUM > 0) {
-          cagrPct = (Math.pow(endAUM/startAUM, 1/years) - 1) * 100;
+          cagrPct = (Math.pow(endAUM / startAUM, 1 / years) - 1) * 100;
         }
         let peak = out[0].AUM;
         let mdd = 0; // negative percent
         for (const r of out) {
           const a = r.AUM;
           if (a > peak) peak = a;
-          const dd = ((a/peak) - 1) * 100; // <= 0
+          const dd = ((a / peak) - 1) * 100; // <= 0
           if (dd < mdd) mdd = dd;
         }
         maxDDPct = mdd;
@@ -426,67 +426,66 @@
         { label: 'Max DD', value: `${fmtPct(maxDDPct)}%` },
       ];
 
-      const gridHtml = `<div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">${
-        cards.map(c=>{
-          const baseValCls = 'text-xl font-semibold tabular-nums font-mono text-right';
-          const valCls = (c.label === 'Total PnL') ? `${baseValCls} text-3xl pnl-strong` : baseValCls;
-          return `<div class=\"rounded-2xl border p-4\"><div class=\"text-xs text-slate-500\">${c.label}</div><div class=\"${valCls} ${c.cls||''}\">${c.value}</div></div>`;
-        }).join('')
-      }</div>`;
+      const gridHtml = `<div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">${cards.map(c => {
+        const baseValCls = 'text-xl font-semibold tabular-nums font-mono text-right';
+        const valCls = (c.label === 'Total PnL') ? `${baseValCls} text-3xl pnl-strong` : baseValCls;
+        return `<div class=\"rounded-2xl border p-4\"><div class=\"text-xs text-slate-500\">${c.label}</div><div class=\"${valCls} ${c.cls || ''}\">${c.value}</div></div>`;
+      }).join('')
+        }</div>`;
 
-      const pct = (n) => total>0 ? `${((n/total)*100).toFixed(1)}%` : '0.0%';
-  const tableHtml = `
-        <div class="rounded-2xl border p-3 overflow-auto">
-          <div class="text-xs text-slate-500 mb-2">Trades breakdown</div>
-          <table class="min-w-full text-sm">
-            <thead class="bg-slate-50">
-              <tr>
-        <th class="px-3 py-2 text-left">Total</th>
-        <th class="px-3 py-2 text-right">Win</th>
-        <th class="px-3 py-2 text-right">Loss</th>
-        <th class="px-3 py-2 text-right">EOD</th>
-        <th class="px-3 py-2 text-right">EOD Win</th>
-        <th class="px-3 py-2 text-right">EOD Loss</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr class="border-b">
-        <td class="px-3 py-2">${fmtInt(total)}</td>
-        <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(wins)}</td>
-        <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(losses)}</td>
-        <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(eodAll.length)}</td>
-        <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(eodWin)}</td>
-        <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(eodLoss)}</td>
-              </tr>
-              <tr>
-        <td class="px-3 py-2 text-slate-600">100.0%</td>
-        <td class="px-3 py-2 text-right text-slate-600 tabular-nums font-mono">${pct(wins)}</td>
-        <td class="px-3 py-2 text-right text-slate-600 tabular-nums font-mono">${pct(losses)}</td>
-        <td class="px-3 py-2 text-right text-slate-600 tabular-nums font-mono">${pct(eodAll.length)}</td>
-        <td class="px-3 py-2 text-right text-slate-600 tabular-nums font-mono">${pct(eodWin)}</td>
-        <td class="px-3 py-2 text-right text-slate-600 tabular-nums font-mono">${pct(eodLoss)}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      `;
+      const pct = (n) => total > 0 ? `${((n / total) * 100).toFixed(1)}%` : '0.0%';
+      const tableHtml = `
+      <div class="rounded-2xl border p-3 overflow-auto">
+        <div class="text-xs text-slate-500 mb-2">Trades breakdown</div>
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-50">
+            <tr>
+      <th class="px-3 py-2 text-left">Total</th>
+      <th class="px-3 py-2 text-right">Win</th>
+      <th class="px-3 py-2 text-right">Loss</th>
+      <th class="px-3 py-2 text-right">EOD</th>
+      <th class="px-3 py-2 text-right">EOD Win</th>
+      <th class="px-3 py-2 text-right">EOD Loss</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="border-b">
+      <td class="px-3 py-2">${fmtInt(total)}</td>
+      <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(wins)}</td>
+      <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(losses)}</td>
+      <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(eodAll.length)}</td>
+      <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(eodWin)}</td>
+      <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(eodLoss)}</td>
+            </tr>
+            <tr>
+      <td class="px-3 py-2 text-slate-600">100.0%</td>
+      <td class="px-3 py-2 text-right text-slate-600 tabular-nums font-mono">${pct(wins)}</td>
+      <td class="px-3 py-2 text-right text-slate-600 tabular-nums font-mono">${pct(losses)}</td>
+      <td class="px-3 py-2 text-right text-slate-600 tabular-nums font-mono">${pct(eodAll.length)}</td>
+      <td class="px-3 py-2 text-right text-slate-600 tabular-nums font-mono">${pct(eodWin)}</td>
+      <td class="px-3 py-2 text-right text-slate-600 tabular-nums font-mono">${pct(eodLoss)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `;
 
       summary.innerHTML = gridHtml + tableHtml;
     }
 
-    function renderTable(out){
+    function renderTable(out) {
       const tb = document.getElementById('tbody');
-      tb.innerHTML='';
-  let rows = Array.isArray(out) ? (VIEW_DIR==='both' ? out.slice() : out.filter(r => (r.Shares>0) && ((VIEW_DIR==='long' && r.Side==='Long') || (VIEW_DIR==='short' && r.Side==='Short')))) : [];
+      tb.innerHTML = '';
+      let rows = Array.isArray(out) ? (VIEW_DIR === 'both' ? out.slice() : out.filter(r => (r.Shares > 0) && ((VIEW_DIR === 'long' && r.Side === 'Long') || (VIEW_DIR === 'short' && r.Side === 'Short')))) : [];
       // Sort by date descending (YYYY-MM-DD strings sort lexicographically)
-      rows.sort((a,b)=>{
+      rows.sort((a, b) => {
         const da = a && a.Date ? a.Date : '';
         const db = b && b.Date ? b.Date : '';
-        if (da===db) return 0;
+        if (da === db) return 0;
         return da < db ? 1 : -1;
       });
       const frag = document.createDocumentFragment();
-  for (const r of rows) {
+      for (const r of rows) {
         const tr = document.createElement('tr');
         // Highlight rows based on HitType and pnl_R
         let highlight = '';
@@ -497,22 +496,22 @@
         }
         tr.className = ('border-b' + (highlight ? highlight : ' hover:bg-slate-50'));
         tr.innerHTML = `
-          <td class="px-3 py-2">${r.Date}</td>
-          <td class="px-3 py-2 text-right">${fmtNum(r.ORH)}</td>
-          <td class="px-3 py-2 text-right">${fmtNum(r.ORL)}</td>
-          <td class="px-3 py-2">${r.Side||''}</td>
-          <td class="px-3 py-2">${fmtTime(r.EntryTime)}</td>
-          <td class="px-3 py-2 text-right">${fmtNum(r.Entry)}</td>
-          <td class="px-3 py-2">${fmtTime(r.ExitTime)}</td>
-          <td class="px-3 py-2 text-right">${fmtNum(r.Exit)}</td>
-          <td class="px-3 py-2 text-right">${fmtNum(r.StopPrice)}</td>
-          <td class="px-3 py-2 text-right">${fmtNum(r.TPPrice)}</td>
-          <td class="px-3 py-2">${r.HitType==='Stop' ? 'Loss' : r.HitType}</td>
-          <td class="px-3 py-2 text-right">${Number.isFinite(r.Shares)?r.Shares:''}</td>
-          <td class="px-3 py-2 text-right">${fmtNum(r.PnL)}</td>
-          <td class="px-3 py-2 text-right">${fmtNum(r.pnl_R)}</td>
-          <td class="px-3 py-2 text-right">${fmtNum(r.AUM)}</td>
-          <td class="px-3 py-2 text-right">${fmtPct(r.DailyReturn)}</td>`;
+        <td class="px-3 py-2">${r.Date}</td>
+        <td class="px-3 py-2 text-right">${fmtNum(r.ORH)}</td>
+        <td class="px-3 py-2 text-right">${fmtNum(r.ORL)}</td>
+        <td class="px-3 py-2">${r.Side || ''}</td>
+        <td class="px-3 py-2">${fmtTime(r.EntryTime)}</td>
+        <td class="px-3 py-2 text-right">${fmtNum(r.Entry)}</td>
+        <td class="px-3 py-2">${fmtTime(r.ExitTime)}</td>
+        <td class="px-3 py-2 text-right">${fmtNum(r.Exit)}</td>
+        <td class="px-3 py-2 text-right">${fmtNum(r.StopPrice)}</td>
+        <td class="px-3 py-2 text-right">${fmtNum(r.TPPrice)}</td>
+        <td class="px-3 py-2">${r.HitType === 'Stop' ? 'Loss' : r.HitType}</td>
+        <td class="px-3 py-2 text-right">${Number.isFinite(r.Shares) ? r.Shares : ''}</td>
+        <td class="px-3 py-2 text-right">${fmtNum(r.PnL)}</td>
+        <td class="px-3 py-2 text-right">${fmtNum(r.pnl_R)}</td>
+        <td class="px-3 py-2 text-right">${fmtNum(r.AUM)}</td>
+        <td class="px-3 py-2 text-right">${fmtPct(r.DailyReturn)}</td>`;
         frag.appendChild(tr);
       }
       tb.appendChild(frag);
@@ -546,38 +545,38 @@
       } catch {}
     }
 
-    function computeWinLossStreaks(out){
-      const trades = (out||[]).filter(r => r.Shares>0 && !['NotEnoughBars','NoBreak','NoSize'].includes(r.HitType));
-      const winsX=[], winsY=[], lossX=[], lossY=[];
-      let curType=null; let curLen=0;
-      for (let i=0; i<trades.length; i++){
+    function computeWinLossStreaks(out) {
+      const trades = (out || []).filter(r => r.Shares > 0 && !['NotEnoughBars', 'NoBreak', 'NoSize'].includes(r.HitType));
+      const winsX = [], winsY = [], lossX = [], lossY = [];
+      let curType = null; let curLen = 0;
+      for (let i = 0; i < trades.length; i++) {
         const r = trades[i];
         const isWin = Number(r.PnL) > 0;
         const isLoss = Number(r.PnL) < 0;
         const type = isWin ? 'win' : (isLoss ? 'loss' : null);
-        if (!type){
-          if (curType && curLen>0){ const endDate = trades[i-1].Date; if (curType==='win'){ winsX.push(endDate); winsY.push(curLen); } else { lossX.push(endDate); lossY.push(curLen); } }
-          curType=null; curLen=0; continue;
+        if (!type) {
+          if (curType && curLen > 0) { const endDate = trades[i - 1].Date; if (curType === 'win') { winsX.push(endDate); winsY.push(curLen); } else { lossX.push(endDate); lossY.push(curLen); } }
+          curType = null; curLen = 0; continue;
         }
-        if (curType===null){ curType=type; curLen=1; continue; }
-        if (type===curType){ curLen++; }
-        else { const endDate = trades[i-1].Date; if (curType==='win'){ winsX.push(endDate); winsY.push(curLen); } else { lossX.push(endDate); lossY.push(curLen); } curType=type; curLen=1; }
+        if (curType === null) { curType = type; curLen = 1; continue; }
+        if (type === curType) { curLen++; }
+        else { const endDate = trades[i - 1].Date; if (curType === 'win') { winsX.push(endDate); winsY.push(curLen); } else { lossX.push(endDate); lossY.push(curLen); } curType = type; curLen = 1; }
       }
-      if (curType && curLen>0 && trades.length>0){ const endDate = trades[trades.length-1].Date; if (curType==='win'){ winsX.push(endDate); winsY.push(curLen); } else { lossX.push(endDate); lossY.push(curLen); } }
+      if (curType && curLen > 0 && trades.length > 0) { const endDate = trades[trades.length - 1].Date; if (curType === 'win') { winsX.push(endDate); winsY.push(curLen); } else { lossX.push(endDate); lossY.push(curLen); } }
       return { winsX, winsY, lossX, lossY };
     }
 
-    function renderStreakChart(out){
+    function renderStreakChart(out) {
       const el = document.getElementById('streakChart');
       if (!el) return;
       const { winsX, winsY, lossX, lossY } = computeWinLossStreaks(out);
-  if ((winsX.length + lossX.length) === 0){ try { Plotly.purge(el); } catch {}; el.innerHTML = '<div class="text-sm text-slate-500">No data</div>'; return; }
-  const traces = [];
-  const lossYNeg = lossY.map(v => -Math.abs(v));
-  if (winsX.length) traces.push({ x:winsX, y:winsY, type:'bar', name:'Win streak', marker:{ color:'#10b981' }, hoverinfo:'skip' });
-  if (lossX.length) traces.push({ x:lossX, y:lossYNeg, type:'bar', name:'Loss streak', marker:{ color:'#ef4444' }, hoverinfo:'skip' });
-  const layout = { barmode:'group', margin:{ l:56, r:16, t:8, b:40 }, xaxis:{ title:'Date', type:'date' }, yaxis:{ title:'Consecutive count', zeroline:true }, paper_bgcolor:'white', plot_bgcolor:'white', showlegend:false, hovermode:false };
-  try { Plotly.newPlot(el, traces, layout, { displayModeBar:false, responsive:true }); } catch {}
+      if ((winsX.length + lossX.length) === 0) { try { Plotly.purge(el); } catch { }; el.innerHTML = '<div class="text-sm text-slate-500">No data</div>'; return; }
+      const traces = [];
+      const lossYNeg = lossY.map(v => -Math.abs(v));
+      if (winsX.length) traces.push({ x: winsX, y: winsY, type: 'bar', name: 'Win streak', marker: { color: '#10b981' }, hoverinfo: 'skip' });
+      if (lossX.length) traces.push({ x: lossX, y: lossYNeg, type: 'bar', name: 'Loss streak', marker: { color: '#ef4444' }, hoverinfo: 'skip' });
+      const layout = { barmode: 'group', margin: { l: 56, r: 16, t: 8, b: 40 }, xaxis: { title: 'Date', type: 'date' }, yaxis: { title: 'Consecutive count', zeroline: true }, paper_bgcolor: 'white', plot_bgcolor: 'white', showlegend: false, hovermode: false };
+      try { Plotly.newPlot(el, traces, layout, { displayModeBar: false, responsive: true }); } catch { }
     }
 
     // -------- CSV Export (Trades) --------
@@ -739,23 +738,23 @@
     const riskConst = 0.02, maxLevConst = 4, AUM0Const = 100000, commissionConst = 0, directionConst = 'both', breakoutBufferConst = 0.01, orbStartConst = '9:30', orbEndConst = '15:30', entryCutoffConst = '12:00';
 
     function computeFilteredDays() {
-      if (!Array.isArray(DAYS) || DAYS.length===0) return [];
+      if (!Array.isArray(DAYS) || DAYS.length === 0) return [];
       // DAYS are keys like YYYY-MM-DD, map to weekday via first row in group
       const out = [];
       for (const dayKey of DAYS) {
         const arr = DAY_GROUPS.get(dayKey);
         if (!arr || !arr.length) continue;
         const dow = arr[0].caldt.getDay(); // 0=Sun..6=Sat
-        const mapDow = dow===0 ? 7 : dow; // 1..7 with 7=Sun
-  const monthKey = `${dayKey.slice(5,7)}/${dayKey.slice(0,4)}`; // MM/YYYY
-  const dowOk = VIEW_DOW.has(mapDow) || (mapDow===7 && VIEW_DOW.has(7));
-  const monOk = (VIEW_MONTHS.size===0) || VIEW_MONTHS.has(monthKey);
-  if (dowOk && monOk) out.push(dayKey);
+        const mapDow = dow === 0 ? 7 : dow; // 1..7 with 7=Sun
+        const monthKey = `${dayKey.slice(5, 7)}/${dayKey.slice(0, 4)}`; // MM/YYYY
+        const dowOk = VIEW_DOW.has(mapDow) || (mapDow === 7 && VIEW_DOW.has(7));
+        const monOk = (VIEW_MONTHS.size === 0) || VIEW_MONTHS.has(monthKey);
+        if (dowOk && monOk) out.push(dayKey);
       }
       return out;
     }
 
-    function getBacktestParams(){
+    function getBacktestParams() {
       const orb = document.getElementById('inp_orb_m');
       const trg = document.getElementById('inp_target_R');
       const stp = document.getElementById('inp_stop_R');
@@ -767,14 +766,14 @@
         symbol: currentTicker,
         days: filteredDays,
         dayGroups: DAY_GROUPS,
-        orb_m: orb ? parseInt(orb.value,10) : 25,
+        orb_m: orb ? parseInt(orb.value, 10) : 25,
         target_R: trg ? parseFloat(trg.value) : 2,
         stop_R: stp ? parseFloat(stp.value) : 2,
         risk: riskConst,
         max_Lev: maxLevConst,
         AUM_0: AUM0Const,
         commission: commissionConst,
-  direction: VIEW_DIR || directionConst,
+        direction: VIEW_DIR || directionConst,
         orb_start_time: (tStart && tStart.value) ? tStart.value : orbStartConst,
         orb_end_time: (tEnd && tEnd.value) ? tEnd.value : orbEndConst,
         entry_cutoff_time: (tCut && tCut.value) ? tCut.value : entryCutoffConst,
@@ -783,43 +782,43 @@
     }
 
     let runTimer = null;
-    function scheduleRun(){
+    function scheduleRun() {
       if (runTimer) clearTimeout(runTimer);
       runTimer = setTimeout(runBacktestIfReady, 150);
     }
 
-    function runBacktestIfReady(){
+    function runBacktestIfReady() {
       if (!currentTicker) { setStatus('Pick a symbol.'); return; }
-  if (!DAYS.length) { setStatus('No data loaded.'); return; }
+      if (!DAYS.length) { setStatus('No data loaded.'); return; }
       const params = getBacktestParams();
       const t0 = performance.now();
       const out = backtest(params);
       const t1 = performance.now();
-      setStatus(`Ran ${out.length} day(s) in ${(t1-t0).toFixed(0)} ms.`);
+      setStatus(`Ran ${out.length} day(s) in ${(t1 - t0).toFixed(0)} ms.`);
       renderSummary(out);
-  LAST_OUT = out;
-  renderTable(LAST_OUT);
-  renderEquityChart(LAST_OUT);
-  renderStreakChart(LAST_OUT);
-  renderMonthlyPerf(LAST_OUT);
+      LAST_OUT = out;
+      renderTable(LAST_OUT);
+      renderEquityChart(LAST_OUT);
+      renderStreakChart(LAST_OUT);
+      renderMonthlyPerf(LAST_OUT);
     }
 
-    async function loadAndRunForCurrent(){
+    async function loadAndRunForCurrent() {
       if (!currentTicker) return;
       const ok = await loadSymbolData(currentTicker);
-  if (ok) { buildMonthOptions(); runBacktestIfReady(); }
+      if (ok) { buildMonthOptions(); runBacktestIfReady(); }
     }
 
     // -----------------------------
     // Symbol segment (existing code with auto-run hook)
     // -----------------------------
-    async function populateTickerSegment(){
+    async function populateTickerSegment() {
       const container = document.getElementById('tickerSegment');
       if (!container) return;
       container.innerHTML = '<span class="px-3 py-1.5 text-sm text-slate-500">Loading…</span>';
-      const render = (symbols)=>{
+      const render = (symbols) => {
         container.innerHTML = '';
-        symbols.forEach((s,i)=>{
+        symbols.forEach((s, i) => {
           const btn = document.createElement('button');
           btn.type = 'button';
           const cls = 'px-3 py-1.5 text-sm font-medium bg-white hover:bg-slate-100' + (i < symbols.length - 1 ? ' border-r border-slate-200' : '');
@@ -830,36 +829,36 @@
         const res = await fetch('data/index.json', { cache: 'no-cache' });
         if (res.ok) {
           const list = await res.json();
-          if (Array.isArray(list) && list.length) { render(list.map(s=>String(s).toUpperCase())); return; }
+          if (Array.isArray(list) && list.length) { render(list.map(s => String(s).toUpperCase())); return; }
         }
-      } catch {}
+      } catch { }
       try {
         const res = await fetch('data/', { cache: 'no-cache' });
         if (res.ok) {
           const text = await res.text();
-          const ct = (res.headers.get('content-type')||'').toLowerCase();
+          const ct = (res.headers.get('content-type') || '').toLowerCase();
           let files = [];
           if (ct.includes('text/html')) {
             const doc = new DOMParser().parseFromString(text, 'text/html');
-            files = Array.from(doc.querySelectorAll('a')).map(a=>a.getAttribute('href')).filter(Boolean);
-          } else { files = text.split(/\r?\n/).map(s=>s.trim()).filter(Boolean); }
+            files = Array.from(doc.querySelectorAll('a')).map(a => a.getAttribute('href')).filter(Boolean);
+          } else { files = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean); }
           const regex = /^([A-Za-z0-9-]+)_1m\.csv$/i;
           const syms = [];
-          for (const f of files) { const name = (f||'').split('/').pop(); const m = name.match(regex); if (m) syms.push(m[1].toUpperCase()); }
+          for (const f of files) { const name = (f || '').split('/').pop(); const m = name.match(regex); if (m) syms.push(m[1].toUpperCase()); }
           const uniq = Array.from(new Set(syms)); if (uniq.length) { render(uniq); return; }
         }
-      } catch {}
-      render(['TQQQ','TSLA','PLTR','UVXY']);
+      } catch { }
+      render(['TQQQ', 'TSLA', 'PLTR', 'UVXY']);
     }
 
     document.addEventListener('click', (e) => {
       const btn = e.target.closest('#tickerSegment button[data-symbol]');
       if (!btn) return;
       const seg = document.getElementById('tickerSegment'); if (!seg) return;
-      seg.querySelectorAll('button').forEach(b => { b.classList.remove('bg-slate-800','text-white','focus:outline-none'); if (!b.classList.contains('bg-white')) b.classList.add('bg-white'); if (!b.classList.contains('hover:bg-slate-100')) b.classList.add('hover:bg-slate-100'); });
-      btn.classList.add('bg-slate-800','text-white','focus:outline-none'); btn.classList.remove('bg-white','hover:bg-slate-100');
+      seg.querySelectorAll('button').forEach(b => { b.classList.remove('bg-slate-800', 'text-white', 'focus:outline-none'); if (!b.classList.contains('bg-white')) b.classList.add('bg-white'); if (!b.classList.contains('hover:bg-slate-100')) b.classList.add('hover:bg-slate-100'); });
+      btn.classList.add('bg-slate-800', 'text-white', 'focus:outline-none'); btn.classList.remove('bg-white', 'hover:bg-slate-100');
       setTicker(btn.getAttribute('data-symbol'));
-  loadAndRunForCurrent();
+      loadAndRunForCurrent();
     });
 
     // Direction filter segment handlers
@@ -867,8 +866,8 @@
       const btn = e.target.closest('#dirSegment button[data-dir]');
       if (!btn) return;
       const seg = document.getElementById('dirSegment'); if (!seg) return;
-      seg.querySelectorAll('button').forEach(b => { b.classList.remove('bg-slate-800','text-white','focus:outline-none'); if (!b.classList.contains('bg-white')) b.classList.add('bg-white'); if (!b.classList.contains('hover:bg-slate-100')) b.classList.add('hover:bg-slate-100'); });
-      btn.classList.add('bg-slate-800','text-white','focus:outline-none'); btn.classList.remove('bg-white','hover:bg-slate-100');
+      seg.querySelectorAll('button').forEach(b => { b.classList.remove('bg-slate-800', 'text-white', 'focus:outline-none'); if (!b.classList.contains('bg-white')) b.classList.add('bg-white'); if (!b.classList.contains('hover:bg-slate-100')) b.classList.add('hover:bg-slate-100'); });
+      btn.classList.add('bg-slate-800', 'text-white', 'focus:outline-none'); btn.classList.remove('bg-white', 'hover:bg-slate-100');
       VIEW_DIR = (btn.getAttribute('data-dir') || 'both');
       // Re-run so summary and trades reflect the selected direction
       scheduleRun();
@@ -969,20 +968,20 @@
     });
 
     // Param input clamping + auto-run
-    (function(){
+    (function () {
       const orb = document.getElementById('inp_orb_m');
       const trg = document.getElementById('inp_target_R');
       const stp = document.getElementById('inp_stop_R');
-  const tStart = document.getElementById('inp_orb_start');
-  const tEnd = document.getElementById('inp_orb_end');
-  const tCut = document.getElementById('inp_entry_cutoff');
+      const tStart = document.getElementById('inp_orb_start');
+      const tEnd = document.getElementById('inp_orb_end');
+      const tCut = document.getElementById('inp_entry_cutoff');
       const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
-      if (orb) ['input','change'].forEach(evt=> orb.addEventListener(evt, ()=> { const v = parseInt(orb.value,10); orb.value = String(clamp(Number.isFinite(v)?v:25, 1, 120)); scheduleRun(); }));
-      if (trg) ['input','change'].forEach(evt=> trg.addEventListener(evt, ()=> { const v = parseFloat(trg.value); trg.value = String(clamp(Number.isFinite(v)?v:2, 0, 100)); scheduleRun(); }));
-      if (stp) ['input','change'].forEach(evt=> stp.addEventListener(evt, ()=> { const v = parseFloat(stp.value); stp.value = String(clamp(Number.isFinite(v)?v:2, 0, 100)); scheduleRun(); }));
-  if (tStart) ['input','change'].forEach(evt=> tStart.addEventListener(evt, scheduleRun));
-  if (tEnd) ['input','change'].forEach(evt=> tEnd.addEventListener(evt, scheduleRun));
-  if (tCut) ['input','change'].forEach(evt=> tCut.addEventListener(evt, scheduleRun));
+      if (orb) ['input', 'change'].forEach(evt => orb.addEventListener(evt, () => { const v = parseInt(orb.value, 10); orb.value = String(clamp(Number.isFinite(v) ? v : 25, 1, 120)); scheduleRun(); }));
+      if (trg) ['input', 'change'].forEach(evt => trg.addEventListener(evt, () => { const v = parseFloat(trg.value); trg.value = String(clamp(Number.isFinite(v) ? v : 2, 0, 100)); scheduleRun(); }));
+      if (stp) ['input', 'change'].forEach(evt => stp.addEventListener(evt, () => { const v = parseFloat(stp.value); stp.value = String(clamp(Number.isFinite(v) ? v : 2, 0, 100)); scheduleRun(); }));
+      if (tStart) ['input', 'change'].forEach(evt => tStart.addEventListener(evt, scheduleRun));
+      if (tEnd) ['input', 'change'].forEach(evt => tEnd.addEventListener(evt, scheduleRun));
+      if (tCut) ['input', 'change'].forEach(evt => tCut.addEventListener(evt, scheduleRun));
     })();
 
     // Monthly performance toggle handlers
