@@ -315,7 +315,7 @@
     function buildDataUrl(sym, dir) {
       const suffix = dir === 'LONG' ? '_LONG' : dir === 'SHORT' ? '_SHORT' : '';
       const file = `${sym}${suffix}_backtest_results.csv`;
-      return { file, url: new URL(`data/${file}`, window.location.href).toString() };
+      return { file, url: new URL(`data/results/${file}`, window.location.href).toString() };
     }
 
     // Helper: load and render for a given symbol + direction; clears output if missing
@@ -1964,7 +1964,7 @@
     })();
   </script>
   <script>
-      // Populate the ticker segmented control by listing files in ./data/
+  // Populate the ticker segmented control by listing files in ./data/results/
       async function populateTickerSegment(){
         const container = document.getElementById('tickerSegment');
         if (!container) return;
@@ -1985,9 +1985,9 @@
           });
         }
 
-        // 1) Try a simple manifest at data/index.json containing ["SYM","SYM2",...]
+        // 1) Try a simple manifest at data/results/index.json containing ["SYM","SYM2",...]
         try {
-          const mres = await fetch('data/index.json', { cache: 'no-cache' });
+          const mres = await fetch('data/results/index.json', { cache: 'no-cache' });
           if (mres.ok) {
             const list = await mres.json();
             if (Array.isArray(list) && list.length) {
@@ -2000,9 +2000,9 @@
           // ignore and fall back to directory listing
         }
 
-        // 2) Fallback: try to parse a directory index (works only on some servers)
+        // 2) Fallback: try to parse a directory index under data/results/ (works only on some servers)
         try {
-          const res = await fetch('data/', { cache: 'no-cache' });
+          const res = await fetch('data/results/', { cache: 'no-cache' });
           if (!res.ok) throw new Error('HTTP ' + res.status);
           const text = await res.text();
           const ct = (res.headers.get('content-type') || '').toLowerCase();
