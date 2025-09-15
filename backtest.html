@@ -20,7 +20,7 @@
 <body class="bg-slate-50 text-slate-800">
   <!-- Site navigation -->
   <nav class="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
-    <div class="max-w-7xl mx-auto px-6 py-3 flex items-center gap-3">
+  <div class="max-w-screen-2xl mx-auto px-6 py-3 flex items-center gap-3">
       <div class="flex items-center gap-2 font-semibold text-slate-800">
         <svg class="h-5 w-5 text-emerald-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M192 384L88.5 384C63.6 384 48.3 356.9 61.1 335.5L114 247.3C122.7 232.8 138.3 224 155.2 224L250.2 224C326.3 95.1 439.8 88.6 515.7 99.7C528.5 101.6 538.5 111.6 540.3 124.3C551.4 200.2 544.9 313.7 416 389.8L416 484.8C416 501.7 407.2 517.3 392.7 526L304.5 578.9C283.2 591.7 256 576.3 256 551.5L256 448C256 412.7 227.3 384 192 384L191.9 384zM464 224C464 197.5 442.5 176 416 176C389.5 176 368 197.5 368 224C368 250.5 389.5 272 416 272C442.5 272 464 250.5 464 224z"/></svg>
         <span>ORB</span>
@@ -48,7 +48,7 @@
     })();
   </script>
 
-  <div class="max-w-7xl mx-auto p-6 space-y-6">
+  <div class="max-w-screen-2xl mx-auto p-6 space-y-6">
     <header class="mb-2">
       <h1 id="mainTitle" class="text-2xl md:text-3xl font-semibold">ORB Backtest</h1>
       <p class="text-slate-600 mt-1">Pick a symbol and tweak parameters — results auto-update.</p>
@@ -68,7 +68,7 @@
           </div>
           <div id="status" class="text-xs text-slate-500"></div>
         </div>
-        <div class="w-full md:w-[520px] grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div class="w-full md:w-[860px] grid grid-cols-1 sm:grid-cols-3 md:grid-cols-6 gap-3">
           <label class="block">
             <span class="text-sm text-slate-600">orb_m</span>
             <input id="inp_orb_m" type="number" min="1" max="120" step="1" value="25" class="mt-1 w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm" />
@@ -80,6 +80,18 @@
           <label class="block">
             <span class="text-sm text-slate-600">loss_R</span>
             <input id="inp_stop_R" type="number" min="0" max="100" step="0.1" value="2" class="mt-1 w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm" />
+          </label>
+          <label class="block">
+            <span class="text-sm text-slate-600">ORB Start</span>
+            <input id="inp_orb_start" type="time" step="60" value="09:30" class="mt-1 w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm" />
+          </label>
+          <label class="block">
+            <span class="text-sm text-slate-600">ORB End</span>
+            <input id="inp_orb_end" type="time" step="60" value="15:30" class="mt-1 w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm" />
+          </label>
+          <label class="block">
+            <span class="text-sm text-slate-600">Entry Cutoff</span>
+            <input id="inp_entry_cutoff" type="time" step="60" value="12:00" class="mt-1 w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm" />
           </label>
         </div>
       </div>
@@ -403,6 +415,9 @@
       const orb = document.getElementById('inp_orb_m');
       const trg = document.getElementById('inp_target_R');
       const stp = document.getElementById('inp_stop_R');
+      const tStart = document.getElementById('inp_orb_start');
+      const tEnd = document.getElementById('inp_orb_end');
+      const tCut = document.getElementById('inp_entry_cutoff');
       return {
         symbol: currentTicker,
         days: DAYS,
@@ -415,9 +430,9 @@
         AUM_0: AUM0Const,
         commission: commissionConst,
         direction: directionConst,
-        orb_start_time: orbStartConst,
-        orb_end_time: orbEndConst,
-        entry_cutoff_time: entryCutoffConst,
+        orb_start_time: (tStart && tStart.value) ? tStart.value : orbStartConst,
+        orb_end_time: (tEnd && tEnd.value) ? tEnd.value : orbEndConst,
+        entry_cutoff_time: (tCut && tCut.value) ? tCut.value : entryCutoffConst,
         breakout_buffer: breakoutBufferConst,
       };
     }
@@ -503,10 +518,16 @@
       const orb = document.getElementById('inp_orb_m');
       const trg = document.getElementById('inp_target_R');
       const stp = document.getElementById('inp_stop_R');
+  const tStart = document.getElementById('inp_orb_start');
+  const tEnd = document.getElementById('inp_orb_end');
+  const tCut = document.getElementById('inp_entry_cutoff');
       const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
       if (orb) ['input','change'].forEach(evt=> orb.addEventListener(evt, ()=> { const v = parseInt(orb.value,10); orb.value = String(clamp(Number.isFinite(v)?v:25, 1, 120)); scheduleRun(); }));
       if (trg) ['input','change'].forEach(evt=> trg.addEventListener(evt, ()=> { const v = parseFloat(trg.value); trg.value = String(clamp(Number.isFinite(v)?v:2, 0, 100)); scheduleRun(); }));
       if (stp) ['input','change'].forEach(evt=> stp.addEventListener(evt, ()=> { const v = parseFloat(stp.value); stp.value = String(clamp(Number.isFinite(v)?v:2, 0, 100)); scheduleRun(); }));
+  if (tStart) ['input','change'].forEach(evt=> tStart.addEventListener(evt, scheduleRun));
+  if (tEnd) ['input','change'].forEach(evt=> tEnd.addEventListener(evt, scheduleRun));
+  if (tCut) ['input','change'].forEach(evt=> tCut.addEventListener(evt, scheduleRun));
     })();
 
     // init
