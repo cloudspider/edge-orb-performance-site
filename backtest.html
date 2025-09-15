@@ -78,7 +78,7 @@
             <input id="inp_target_R" type="number" min="0" max="100" step="0.1" value="2" class="mt-1 w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm" />
           </label>
           <label class="block">
-            <span class="text-sm text-slate-600">stop_R</span>
+            <span class="text-sm text-slate-600">loss_R</span>
             <input id="inp_stop_R" type="number" min="0" max="100" step="0.1" value="2" class="mt-1 w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm" />
           </label>
         </div>
@@ -88,7 +88,7 @@
     <!-- Summary -->
     <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
       <h2 class="font-semibold mb-3">Summary</h2>
-      <div id="summary" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4"></div>
+      <div id="summary" class="grid sm:grid-cols-2 lg:grid-cols-2 gap-4"></div>
     </section>
 
     <!-- Trades Table -->
@@ -106,7 +106,7 @@
               <th class="px-3 py-2 text-right">Entry</th>
               <th class="px-3 py-2">ExitTime</th>
               <th class="px-3 py-2 text-right">Exit</th>
-              <th class="px-3 py-2 text-right">StopPrice</th>
+              <th class="px-3 py-2 text-right">LossPrice</th>
               <th class="px-3 py-2 text-right">TPPrice</th>
               <th class="px-3 py-2">HitType</th>
               <th class="px-3 py-2 text-right">Shares</th>
@@ -139,7 +139,9 @@
     };
     const parseTimeHHMM = (hhmm) => { const [h,m] = (hhmm||'').split(':').map(Number); return h*60 + (m||0); };
     const minutesOfDay = (d) => d.getHours()*60 + d.getMinutes();
-    const fmtNum = (x, digits=2) => (x==null || isNaN(x) ? '' : Number(x).toFixed(digits));
+  const fmtNum = (x, digits=2) => (x==null || isNaN(x) ? '' : Number(x).toFixed(digits));
+  const fmtMoney = (x) => (x==null || isNaN(x) ? '' : Number(x).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+  const fmtInt = (x) => (x==null || isNaN(x) ? '0' : Math.round(Number(x)).toLocaleString());
     const fmtPct = (x) => (x==null || isNaN(x) ? '' : Number(x).toFixed(2));
     const fmtTime = (d) => d instanceof Date && !isNaN(d) ? `${pad2(d.getHours())}:${pad2(d.getMinutes())}` : '';
 
@@ -299,20 +301,68 @@
       const summary = document.getElementById('summary');
       if (!out || !out.length) { summary.innerHTML=''; return; }
       const trades = out.filter(r => r.Shares>0 && !['NotEnoughBars','NoBreak','NoSize'].includes(r.HitType));
-      const wins = trades.filter(r => r.HitType==='TP').length;
+      const total = trades.length;
+      const tpWins = trades.filter(r => r.HitType==='TP').length;
+      const eodAll = trades.filter(r => r.HitType==='EOD');
+      const eodWin = eodAll.filter(r => Number(r.PnL) > 0).length;
+      const eodLoss = eodAll.filter(r => Number(r.PnL) < 0).length;
       const stops = trades.filter(r => r.HitType==='Stop').length;
-      const eods = trades.filter(r => r.HitType==='EOD').length;
-      const lastAUM = out[out.length-1].AUM;
-      const totalPnL = out.reduce((s,r)=> s + (Number.isFinite(r.PnL)?r.PnL:0), 0);
-      const avgDailyRet = out.reduce((s,r)=> s + (Number.isFinite(r.DailyReturn)?r.DailyReturn:0), 0) / out.length;
+      const wins = tpWins + eodWin;
+      const losses = stops + eodLoss;
+
+  const lastAUM = out[out.length-1].AUM;
+  const totalPnL = out.reduce((s,r)=> s + (Number.isFinite(r.PnL)?r.PnL:0), 0);
+  const avgDailyRet = out.reduce((s,r)=> s + (Number.isFinite(r.DailyReturn)?r.DailyReturn:0), 0) / out.length;
+
       const cards = [
-        { label: 'Days Backtested', value: out.length },
-        { label: 'Final AUM', value: `$${fmtNum(lastAUM,2)}` },
-        { label: 'Total PnL', value: `$${fmtNum(totalPnL,2)}` },
-        { label: 'Win / Stop / EOD', value: `${wins} / ${stops} / ${eods}` },
+        { label: 'Days Backtested', value: fmtInt(out.length) },
+        { label: 'Final AUM', value: `$${fmtMoney(lastAUM)}` },
+        { label: 'Total PnL', value: `$${fmtMoney(totalPnL)}` },
         { label: 'Avg Daily Return', value: `${fmtPct(avgDailyRet)}%` },
       ];
-      summary.innerHTML = cards.map(c=>`<div class="rounded-2xl border p-4"><div class="text-xs text-slate-500">${c.label}</div><div class="text-xl font-semibold">${c.value}</div></div>`).join('');
+
+      const gridHtml = `<div class="grid sm:grid-cols-2 lg:grid-cols-2 gap-4 mb-4">${
+        cards.map(c=>`<div class=\"rounded-2xl border p-4\"><div class=\"text-xs text-slate-500\">${c.label}</div><div class=\"text-xl font-semibold tabular-nums font-mono text-right\">${c.value}</div></div>`).join('')
+      }</div>`;
+
+      const pct = (n) => total>0 ? `${((n/total)*100).toFixed(1)}%` : '0.0%';
+  const tableHtml = `
+        <div class="rounded-2xl border p-3 overflow-auto">
+          <div class="text-xs text-slate-500 mb-2">Trades breakdown</div>
+          <table class="min-w-full text-sm">
+            <thead class="bg-slate-50">
+              <tr>
+        <th class="px-3 py-2 text-left">Total</th>
+        <th class="px-3 py-2 text-right">Win</th>
+        <th class="px-3 py-2 text-right">Loss</th>
+        <th class="px-3 py-2 text-right">EOD</th>
+        <th class="px-3 py-2 text-right">EOD Win</th>
+        <th class="px-3 py-2 text-right">EOD Loss</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="border-b">
+        <td class="px-3 py-2">${fmtInt(total)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(wins)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(losses)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(eodAll.length)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(eodWin)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(eodLoss)}</td>
+              </tr>
+              <tr>
+        <td class="px-3 py-2 text-slate-600">100.0%</td>
+        <td class="px-3 py-2 text-right text-slate-600 tabular-nums font-mono">${pct(wins)}</td>
+        <td class="px-3 py-2 text-right text-slate-600 tabular-nums font-mono">${pct(losses)}</td>
+        <td class="px-3 py-2 text-right text-slate-600 tabular-nums font-mono">${pct(eodAll.length)}</td>
+        <td class="px-3 py-2 text-right text-slate-600 tabular-nums font-mono">${pct(eodWin)}</td>
+        <td class="px-3 py-2 text-right text-slate-600 tabular-nums font-mono">${pct(eodLoss)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      summary.innerHTML = gridHtml + tableHtml;
     }
 
     function renderTable(out){
@@ -333,7 +383,7 @@
           <td class="px-3 py-2 text-right">${fmtNum(r.Exit)}</td>
           <td class="px-3 py-2 text-right">${fmtNum(r.StopPrice)}</td>
           <td class="px-3 py-2 text-right">${fmtNum(r.TPPrice)}</td>
-          <td class="px-3 py-2">${r.HitType}</td>
+          <td class="px-3 py-2">${r.HitType==='Stop' ? 'Loss' : r.HitType}</td>
           <td class="px-3 py-2 text-right">${Number.isFinite(r.Shares)?r.Shares:''}</td>
           <td class="px-3 py-2 text-right">${fmtNum(r.PnL)}</td>
           <td class="px-3 py-2 text-right">${fmtNum(r.pnl_R)}</td>
