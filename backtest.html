@@ -85,15 +85,45 @@
           </label>
           <label class="block">
             <span class="text-sm text-slate-600">ORB Start</span>
-            <input id="inp_orb_start" type="time" step="60" value="09:30" class="mt-1 w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm" />
+            <div class="mt-1 relative">
+              <input id="inp_orb_start" type="time" step="60" value="09:30" class="w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm" />
+              <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
+                <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase start time" data-time-target="inp_orb_start" data-time-step="1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd"/></svg>
+                </button>
+                <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease start time" data-time-target="inp_orb_start" data-time-step="-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd"/></svg>
+                </button>
+              </div>
+            </div>
           </label>
           <label class="block">
             <span class="text-sm text-slate-600">ORB End</span>
-            <input id="inp_orb_end" type="time" step="60" value="15:30" class="mt-1 w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm" />
+            <div class="mt-1 relative">
+              <input id="inp_orb_end" type="time" step="60" value="15:30" class="w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm" />
+              <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
+                <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase end time" data-time-target="inp_orb_end" data-time-step="1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd"/></svg>
+                </button>
+                <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease end time" data-time-target="inp_orb_end" data-time-step="-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd"/></svg>
+                </button>
+              </div>
+            </div>
           </label>
           <label class="block">
             <span class="text-sm text-slate-600">Entry Cutoff</span>
-            <input id="inp_entry_cutoff" type="time" step="60" value="12:00" class="mt-1 w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm" />
+            <div class="mt-1 relative">
+              <input id="inp_entry_cutoff" type="time" step="60" value="12:00" class="w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm" />
+              <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
+                <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase entry cutoff" data-time-target="inp_entry_cutoff" data-time-step="1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd"/></svg>
+                </button>
+                <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease entry cutoff" data-time-target="inp_entry_cutoff" data-time-step="-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd"/></svg>
+                </button>
+              </div>
+            </div>
           </label>
         </div>
       </div>
@@ -213,6 +243,7 @@
       return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; // local date key
     };
     const parseTimeHHMM = (hhmm) => { const [h, m] = (hhmm || '').split(':').map(Number); return h * 60 + (m || 0); };
+  const toHHMM = (mins) => { const h = Math.floor((mins % (24*60) + 24*60) % (24*60) / 60); const m = ((mins % 60) + 60) % 60; return `${pad2(h)}:${pad2(m)}`; };
     const minutesOfDay = (d) => d.getHours() * 60 + d.getMinutes();
     const fmtNum = (x, digits = 2) => (x == null || isNaN(x) ? '' : Number(x).toFixed(digits));
     const fmtMoney = (x) => (x == null || isNaN(x) ? '' : Number(x).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
@@ -833,6 +864,28 @@
       if (runTimer) clearTimeout(runTimer);
       runTimer = setTimeout(runBacktestIfReady, 150);
     }
+
+    // Time steppers for ORB Start / End / Entry Cutoff
+    (function(){
+      function adjustTimeInput(id, deltaMin){
+        const el = document.getElementById(id);
+        if (!el) return;
+        const [hh, mm] = (el.value || '00:00').split(':').map(Number);
+        const cur = (Number.isFinite(hh) ? hh : 0) * 60 + (Number.isFinite(mm) ? mm : 0);
+        const next = cur + (Number(deltaMin) || 0);
+        // wrap within 0..1439
+        const wrapped = ((next % (24*60)) + (24*60)) % (24*60);
+        el.value = toHHMM(wrapped);
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      document.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-time-target][data-time-step]');
+        if (!btn) return;
+        const id = btn.getAttribute('data-time-target');
+        const delta = parseInt(btn.getAttribute('data-time-step'), 10) || 0;
+        adjustTimeInput(id, delta);
+      });
+    })();
 
     function runBacktestIfReady() {
       if (!currentTicker) { setStatus('Pick a symbol.'); return; }
