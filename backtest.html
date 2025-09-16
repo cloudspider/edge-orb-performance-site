@@ -6,7 +6,8 @@
   <title>ORB Backtest</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.tailframes.com/releases/latest/tailframes.min.js" defer></script>
-  <script src="https://cdn.plot.ly/plotly-2.31.1.min.js"></script>
+  <!-- Apache ECharts for interactive charts (mobile pinch-zoom supported) -->
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
   <!-- PapaParse for CSV parsing -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <style>
@@ -231,6 +232,9 @@
     let VIEW_DOW = new Set([1, 2, 3, 4, 5]); // 1=Mon ... 5=Fri
     let VIEW_MONTHS = new Set(); // empty => all
     let AVAILABLE_MONTHS = [];
+  // ECharts instances
+  let equityChartInst = null;
+  let streakChartInst = null;
 
     function setTicker(sym) {
       currentTicker = (sym || '').toUpperCase();
@@ -521,28 +525,45 @@
       const el = document.getElementById('equityChart');
       if (!el) return;
       if (!out || !out.length) {
-        try { Plotly.purge(el); } catch {}
+        try { if (equityChartInst) { equityChartInst.dispose(); equityChartInst = null; } } catch {}
         el.innerHTML = '<div class="text-sm text-slate-500">No data</div>';
         return;
       }
-      const x = out.map(r => r.Date);
-      const y = out.map(r => (Number.isFinite(r.AUM) ? r.AUM : null));
-      const trace = {
-        x, y, type: 'scatter', mode: 'lines',
-        line: { color: '#10b981', width: 2 },
-        hovertemplate: '%{x}<br>AUM: %{y:$,.2f}<extra></extra>'
+      // Prepare data as [time,value]
+      const data = out.map(r => [r.Date, Number.isFinite(r.AUM) ? r.AUM : null]).filter(p => p[1] !== null);
+      if (!equityChartInst) equityChartInst = echarts.init(el);
+      const option = {
+        animation: false,
+        grid: { left: 56, right: 16, top: 8, bottom: 40 },
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: { type: 'cross' },
+          valueFormatter: (v) => (v == null ? '' : `$${Number(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`)
+        },
+        xAxis: { type: 'time', name: 'Date' },
+        yAxis: {
+          type: 'value', name: 'AUM',
+          axisLabel: { formatter: (v) => `$${Math.round(v).toLocaleString()}` }
+        },
+        dataZoom: [ 
+          { type: 'inside', throttle: 50 }, 
+          { 
+            type: 'slider', 
+            fillerColor: 'rgba(0, 0, 0, 0)', 
+            height: 40,
+            dataBackground: {
+              lineStyle: { color: '#50C878' },
+              areaStyle: { color: 'rgba(80, 200, 120, 0.2)' }
+            }
+          },
+        ],
+        series: [{
+          type: 'line', showSymbol: false, smooth: false,
+          lineStyle: { width: 2, color: '#10b981' },
+          data
+        }]
       };
-      const layout = {
-        margin: { l: 56, r: 16, t: 8, b: 40 },
-        xaxis: { title: 'Date', type: 'date' },
-        yaxis: { title: 'AUM', tickformat: '~s' },
-        showlegend: false,
-        paper_bgcolor: 'white',
-        plot_bgcolor: 'white'
-      };
-      try {
-        Plotly.newPlot(el, [trace], layout, { displayModeBar: false, responsive: true });
-      } catch {}
+      equityChartInst.setOption(option, true);
     }
 
     function computeWinLossStreaks(out) {
@@ -570,13 +591,39 @@
       const el = document.getElementById('streakChart');
       if (!el) return;
       const { winsX, winsY, lossX, lossY } = computeWinLossStreaks(out);
-      if ((winsX.length + lossX.length) === 0) { try { Plotly.purge(el); } catch { }; el.innerHTML = '<div class="text-sm text-slate-500">No data</div>'; return; }
-      const traces = [];
-      const lossYNeg = lossY.map(v => -Math.abs(v));
-      if (winsX.length) traces.push({ x: winsX, y: winsY, type: 'bar', name: 'Win streak', marker: { color: '#10b981' }, hoverinfo: 'skip' });
-      if (lossX.length) traces.push({ x: lossX, y: lossYNeg, type: 'bar', name: 'Loss streak', marker: { color: '#ef4444' }, hoverinfo: 'skip' });
-      const layout = { barmode: 'group', margin: { l: 56, r: 16, t: 8, b: 40 }, xaxis: { title: 'Date', type: 'date' }, yaxis: { title: 'Consecutive count', zeroline: true }, paper_bgcolor: 'white', plot_bgcolor: 'white', showlegend: false, hovermode: false };
-      try { Plotly.newPlot(el, traces, layout, { displayModeBar: false, responsive: true }); } catch { }
+      if ((winsX.length + lossX.length) === 0) {
+        try { if (streakChartInst) { streakChartInst.dispose(); streakChartInst = null; } } catch {}
+        el.innerHTML = '<div class="text-sm text-slate-500">No data</div>';
+        return;
+      }
+      if (!streakChartInst) streakChartInst = echarts.init(el);
+      const winData = winsX.map((d,i)=>[d, winsY[i]]);
+      const lossData = lossX.map((d,i)=>[d, -Math.abs(lossY[i])]);
+      const option = {
+        animation: false,
+        grid: { left: 56, right: 16, top: 8, bottom: 40 },
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+        xAxis: { type: 'time', name: 'Date' },
+        yAxis: { type: 'value', name: 'Consecutive count' },
+        dataZoom: [ 
+          { type: 'inside', throttle: 50 }, 
+          { 
+            type: 'slider',
+            fillerColor: 'rgba(0, 0, 0, 0)', 
+            height: 40,
+            dataBackground: {
+              lineStyle: { color: '#50C878' },
+              areaStyle: { color: 'rgba(80, 200, 120, 0.2)' }
+            }
+          } 
+        ],
+        legend: { show: false },
+        series: [
+          { name: 'Win streak', type: 'bar', itemStyle: { color: '#10b981' }, data: winData },
+          { name: 'Loss streak', type: 'bar', itemStyle: { color: '#ef4444' }, data: lossData }
+        ]
+      };
+      streakChartInst.setOption(option, true);
     }
 
     // -------- CSV Export (Trades) --------
@@ -808,6 +855,12 @@
       const ok = await loadSymbolData(currentTicker);
       if (ok) { buildMonthOptions(); runBacktestIfReady(); }
     }
+
+    // Responsive charts: resize on window changes
+    window.addEventListener('resize', () => {
+      try { if (equityChartInst) equityChartInst.resize(); } catch {}
+      try { if (streakChartInst) streakChartInst.resize(); } catch {}
+    });
 
     // -----------------------------
     // Symbol segment (existing code with auto-run hook)
