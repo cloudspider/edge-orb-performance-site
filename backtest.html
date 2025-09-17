@@ -17,6 +17,22 @@
     .sticky-th { position: sticky; top: 0; background: white; z-index: 1; }
     .shadow-soft { box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
     thead th { position: sticky; top: 0; background: white; z-index: 1; }
+    /* Hide native spin buttons for our numeric inputs (Safari/Chrome/Firefox) */
+    #inp_orb_m::-webkit-outer-spin-button,
+    #inp_orb_m::-webkit-inner-spin-button,
+    #inp_target_R::-webkit-outer-spin-button,
+    #inp_target_R::-webkit-inner-spin-button,
+    #inp_stop_R::-webkit-outer-spin-button,
+    #inp_stop_R::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    #inp_orb_m,
+    #inp_target_R,
+    #inp_stop_R {
+      -moz-appearance: textfield;
+      appearance: textfield;
+    }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800">
@@ -73,15 +89,45 @@
         <div class="w-full md:w-[860px] grid grid-cols-1 sm:grid-cols-3 md:grid-cols-6 gap-3">
           <label class="block">
             <span class="text-sm text-slate-600">orb_m</span>
-            <input id="inp_orb_m" type="number" min="1" max="120" step="1" value="25" class="mt-1 w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm" />
+            <div class="mt-1 relative">
+              <input id="inp_orb_m" data-default="25" type="number" min="1" max="120" step="1" value="25" class="w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm" />
+              <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
+                <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase orb_m" data-num-target="inp_orb_m" data-num-step="1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd"/></svg>
+                </button>
+                <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease orb_m" data-num-target="inp_orb_m" data-num-step="-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd"/></svg>
+                </button>
+              </div>
+            </div>
           </label>
           <label class="block">
             <span class="text-sm text-slate-600">target_R</span>
-            <input id="inp_target_R" type="number" min="0" max="100" step="0.5" value="2" class="mt-1 w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm" />
+            <div class="mt-1 relative">
+              <input id="inp_target_R" data-default="2" type="number" min="0" max="100" step="0.5" value="2" class="w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm" />
+              <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
+                <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase target_R" data-num-target="inp_target_R" data-num-step="1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd"/></svg>
+                </button>
+                <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease target_R" data-num-target="inp_target_R" data-num-step="-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd"/></svg>
+                </button>
+              </div>
+            </div>
           </label>
           <label class="block">
             <span class="text-sm text-slate-600">stop_R</span>
-            <input id="inp_stop_R" type="number" min="0" max="100" step="0.5" value="2" class="mt-1 w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm" />
+            <div class="mt-1 relative">
+              <input id="inp_stop_R" data-default="2" type="number" min="0" max="100" step="0.5" value="2" class="w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm" />
+              <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
+                <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase stop_R" data-num-target="inp_stop_R" data-num-step="1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd"/></svg>
+                </button>
+                <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease stop_R" data-num-target="inp_stop_R" data-num-step="-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd"/></svg>
+                </button>
+              </div>
+            </div>
           </label>
           <label class="block">
             <span class="text-sm text-slate-600">ORB Start</span>
@@ -844,9 +890,9 @@
         symbol: currentTicker,
         days: filteredDays,
         dayGroups: DAY_GROUPS,
-        orb_m: orb ? parseInt(orb.value, 10) : 25,
-        target_R: trg ? parseFloat(trg.value) : 2,
-        stop_R: stp ? parseFloat(stp.value) : 2,
+        orb_m: (()=>{ const v = orb ? parseInt(orb.value, 10) : NaN; return Number.isFinite(v) ? v : 25; })(),
+        target_R: (()=>{ const v = trg ? parseFloat(trg.value) : NaN; return Number.isFinite(v) ? v : 2; })(),
+        stop_R: (()=>{ const v = stp ? parseFloat(stp.value) : NaN; return Number.isFinite(v) ? v : 2; })(),
         risk: riskConst,
         max_Lev: maxLevConst,
         AUM_0: AUM0Const,
@@ -884,6 +930,43 @@
         const id = btn.getAttribute('data-time-target');
         const delta = parseInt(btn.getAttribute('data-time-step'), 10) || 0;
         adjustTimeInput(id, delta);
+      });
+    })();
+
+    // Numeric steppers for orb_m / target_R / stop_R
+    (function(){
+      function decimals(stepStr){
+        if (!stepStr) return 0;
+        const s = String(stepStr);
+        const idx = s.indexOf('.');
+        return idx === -1 ? 0 : (s.length - idx - 1);
+      }
+      function roundTo(value, step){
+        const d = decimals(step);
+        return Number(value.toFixed(d));
+      }
+      function adjustNumberInput(id, deltaUnits){
+        const el = document.getElementById(id);
+        if (!el) return;
+        const stepAttr = parseFloat(el.getAttribute('step') || '1');
+        const step = Number.isFinite(stepAttr) && stepAttr > 0 ? stepAttr : 1;
+        const minAttr = parseFloat(el.getAttribute('min'));
+        const maxAttr = parseFloat(el.getAttribute('max'));
+        const defAttr = parseFloat(el.getAttribute('data-default'));
+        const curVal = parseFloat(el.value);
+        const base = Number.isFinite(curVal) ? curVal : (Number.isFinite(defAttr) ? defAttr : 0);
+        const next = base + (Number(deltaUnits) || 0) * step;
+        const clamped = Math.min(Number.isFinite(maxAttr) ? maxAttr : Infinity, Math.max(Number.isFinite(minAttr) ? minAttr : -Infinity, next));
+        const rounded = roundTo(clamped, step);
+        el.value = String(rounded);
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      document.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-num-target][data-num-step]');
+        if (!btn) return;
+        const id = btn.getAttribute('data-num-target');
+        const delta = parseFloat(btn.getAttribute('data-num-step')) || 0;
+        adjustNumberInput(id, delta);
       });
     })();
 
@@ -1073,7 +1156,7 @@
       scheduleRun();
     });
 
-    // Param input clamping + auto-run
+    // Param input handling: allow clearing on input; clamp on change
     (function () {
       const orb = document.getElementById('inp_orb_m');
       const trg = document.getElementById('inp_target_R');
@@ -1082,9 +1165,29 @@
       const tEnd = document.getElementById('inp_orb_end');
       const tCut = document.getElementById('inp_entry_cutoff');
       const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
-      if (orb) ['input', 'change'].forEach(evt => orb.addEventListener(evt, () => { const v = parseInt(orb.value, 10); orb.value = String(clamp(Number.isFinite(v) ? v : 25, 1, 120)); scheduleRun(); }));
-      if (trg) ['input', 'change'].forEach(evt => trg.addEventListener(evt, () => { const v = parseFloat(trg.value); trg.value = String(clamp(Number.isFinite(v) ? v : 2, 0, 100)); scheduleRun(); }));
-      if (stp) ['input', 'change'].forEach(evt => stp.addEventListener(evt, () => { const v = parseFloat(stp.value); stp.value = String(clamp(Number.isFinite(v) ? v : 2, 0, 100)); scheduleRun(); }));
+      function onInputNumber(el, def, min, max){
+        const v = parseFloat(el.value);
+        if (el.value === '' || !Number.isFinite(v)) return; // allow clearing; skip run until change/valid
+        el.value = String(clamp(v, min, max));
+        scheduleRun();
+      }
+      function onChangeNumber(el, def, min, max){
+        const v = parseFloat(el.value);
+        el.value = String(clamp(Number.isFinite(v) ? v : def, min, max));
+        scheduleRun();
+      }
+      if (orb) {
+        orb.addEventListener('input', () => onInputNumber(orb, 25, 1, 120));
+        orb.addEventListener('change', () => onChangeNumber(orb, 25, 1, 120));
+      }
+      if (trg) {
+        trg.addEventListener('input', () => onInputNumber(trg, 2, 0, 100));
+        trg.addEventListener('change', () => onChangeNumber(trg, 2, 0, 100));
+      }
+      if (stp) {
+        stp.addEventListener('input', () => onInputNumber(stp, 2, 0, 100));
+        stp.addEventListener('change', () => onChangeNumber(stp, 2, 0, 100));
+      }
       if (tStart) ['input', 'change'].forEach(evt => tStart.addEventListener(evt, scheduleRun));
       if (tEnd) ['input', 'change'].forEach(evt => tEnd.addEventListener(evt, scheduleRun));
       if (tCut) ['input', 'change'].forEach(evt => tCut.addEventListener(evt, scheduleRun));
