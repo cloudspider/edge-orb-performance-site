@@ -248,14 +248,16 @@
       <div class="overflow-auto max-h-[65vh] border rounded-xl">
         <table class="min-w-full text-sm">
           <thead>
-            <tr class="border-b">
+              <tr class="border-b">
               <th class="px-3 py-2 text-left">Date</th>
               <th class="px-3 py-2 text-right">ORH</th>
               <th class="px-3 py-2 text-right">ORL</th>
+              <th class="px-3 py-2 text-right">OR</th>
+              <th class="px-3 py-2 text-right">OR%</th>
               <th class="px-3 py-2">Side</th>
               <th class="px-3 py-2">EntryTime</th>
-              <th class="px-3 py-2 text-right">Entry</th>
               <th class="px-3 py-2">ExitTime</th>
+              <th class="px-3 py-2 text-right">Entry</th>
               <th class="px-3 py-2 text-right">Exit</th>
               <th class="px-3 py-2 text-right">LossPrice</th>
               <th class="px-3 py-2 text-right">TPPrice</th>
@@ -576,15 +578,19 @@
           highlight = ' bg-emerald-100';
         }
         tr.className = ('border-b' + (highlight ? highlight : ' hover:bg-slate-50'));
-        tr.innerHTML = `
-        <td class="px-3 py-2">${r.Date}</td>
-        <td class="px-3 py-2 text-right">${fmtNum(r.ORH)}</td>
-        <td class="px-3 py-2 text-right">${fmtNum(r.ORL)}</td>
-        <td class="px-3 py-2">${r.Side || ''}</td>
-        <td class="px-3 py-2">${fmtTime(r.EntryTime)}</td>
-        <td class="px-3 py-2 text-right">${fmtNum(r.Entry)}</td>
-        <td class="px-3 py-2">${fmtTime(r.ExitTime)}</td>
-        <td class="px-3 py-2 text-right">${fmtNum(r.Exit)}</td>
+  const OR_val = (Number.isFinite(r.ORH) && Number.isFinite(r.ORL)) ? (r.ORH - r.ORL) : NaN;
+  const OR_pct = (Number.isFinite(OR_val) && Number.isFinite(r.ORL) && r.ORL !== 0) ? ((OR_val / r.ORL) * 100) : NaN;
+  tr.innerHTML = `
+  <td class="px-3 py-2">${r.Date}</td>
+  <td class="px-3 py-2 text-right">${fmtNum(r.ORH)}</td>
+  <td class="px-3 py-2 text-right">${fmtNum(r.ORL)}</td>
+  <td class="px-3 py-2 text-right">${fmtNum(OR_val)}</td>
+  <td class="px-3 py-2 text-right">${fmtPct(OR_pct)}</td>
+  <td class="px-3 py-2">${r.Side || ''}</td>
+  <td class="px-3 py-2">${fmtTime(r.EntryTime)}</td>
+  <td class="px-3 py-2">${fmtTime(r.ExitTime)}</td>
+  <td class="px-3 py-2 text-right">${fmtNum(r.Entry)}</td>
+  <td class="px-3 py-2 text-right">${fmtNum(r.Exit)}</td>
         <td class="px-3 py-2 text-right">${fmtNum(r.StopPrice)}</td>
         <td class="px-3 py-2 text-right">${fmtNum(r.TPPrice)}</td>
         <td class="px-3 py-2">${r.HitType === 'Stop' ? 'Loss' : r.HitType}</td>
@@ -717,17 +723,21 @@
     }
 
     function buildAoaFromRows(rows) {
-      const headers = ['Date','ORH','ORL','Side','EntryTime','Entry','ExitTime','Exit','LossPrice','TPPrice','HitType','Shares','PnL','pnl_R','AUM','DailyReturn %'];
+  const headers = ['Date','ORH','ORL','OR','OR%','Side','EntryTime','ExitTime','Entry','Exit','LossPrice','TPPrice','HitType','Shares','PnL','pnl_R','AUM','DailyReturn %'];
       const aoa = [headers];
       for (const r of rows) {
+        const OR_val = (Number.isFinite(r.ORH) && Number.isFinite(r.ORL)) ? (r.ORH - r.ORL) : NaN;
+        const OR_pct = (Number.isFinite(OR_val) && Number.isFinite(r.ORL) && r.ORL !== 0) ? Number(((OR_val / r.ORL) * 100).toFixed(2)) : '';
         aoa.push([
           r.Date,
           Number.isFinite(r.ORH) ? Number(r.ORH) : '',
           Number.isFinite(r.ORL) ? Number(r.ORL) : '',
+          Number.isFinite(OR_val) ? Number(OR_val) : '',
+          OR_pct,
           r.Side || '',
           (r.EntryTime ? fmtTime(r.EntryTime) : ''),
-          Number.isFinite(r.Entry) ? Number(r.Entry) : '',
           (r.ExitTime ? fmtTime(r.ExitTime) : ''),
+          Number.isFinite(r.Entry) ? Number(r.Entry) : '',
           Number.isFinite(r.Exit) ? Number(r.Exit) : '',
           Number.isFinite(r.StopPrice) ? Number(r.StopPrice) : '',
           Number.isFinite(r.TPPrice) ? Number(r.TPPrice) : '',
