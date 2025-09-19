@@ -1227,9 +1227,14 @@
       const tCut = document.getElementById('inp_entry_cutoff');
       const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
       function onInputNumber(el, def, min, max){
-        const v = parseFloat(el.value);
-        if (el.value === '' || !Number.isFinite(v)) return; // allow clearing; skip run until change/valid
-        el.value = String(clamp(v, min, max));
+        const raw = el.value;
+        if (raw === '') return; // allow clearing; skip run until change/valid
+        const v = parseFloat(raw);
+        if (!Number.isFinite(v)) return; // ignore partial strings like '-' or '.'
+        const clamped = clamp(v, min, max);
+        if (clamped !== v) {
+          el.value = String(clamped);
+        }
         scheduleRun();
       }
       function onChangeNumber(el, def, min, max){
