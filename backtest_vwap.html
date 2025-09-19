@@ -1,0 +1,1356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VWAP Backtest</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailframes.com/releases/latest/tailframes.min.js" defer></script>
+  <!-- Apache ECharts for interactive charts (mobile pinch-zoom supported) -->
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <!-- PapaParse for CSV parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+  .num-pos { color: #119d6e !important; }
+  .num-neg { color: #ff0000 !important; }
+  .pnl-strong { font-size: 1.8rem !important; }
+    .sticky-th { position: sticky; top: 0; background: white; z-index: 1; }
+    .shadow-soft { box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
+    thead th { position: sticky; top: 0; background: white; z-index: 1; }
+    /* Hide native spin buttons for our numeric inputs (Safari/Chrome/Firefox) */
+    #inp_period::-webkit-outer-spin-button,
+    #inp_period::-webkit-inner-spin-button,
+    #inp_risk_pct::-webkit-outer-spin-button,
+    #inp_risk_pct::-webkit-inner-spin-button,
+    #inp_aum0::-webkit-outer-spin-button,
+    #inp_aum0::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    #inp_period,
+    #inp_risk_pct,
+    #inp_aum0 {
+      -moz-appearance: textfield;
+      appearance: textfield;
+    }
+
+    /* Generic: hide spinners for any number input (fallback and future fields) */
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type="number"] {
+      -moz-appearance: textfield;
+      appearance: textfield;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+  <!-- Site navigation -->
+  <nav class="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+  <div class="max-w-screen-2xl mx-auto px-6 py-3 flex items-center gap-3">
+      <div class="flex items-center gap-2 font-semibold text-slate-800">
+        <svg class="h-5 w-5 text-emerald-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M192 384L88.5 384C63.6 384 48.3 356.9 61.1 335.5L114 247.3C122.7 232.8 138.3 224 155.2 224L250.2 224C326.3 95.1 439.8 88.6 515.7 99.7C528.5 101.6 538.5 111.6 540.3 124.3C551.4 200.2 544.9 313.7 416 389.8L416 484.8C416 501.7 407.2 517.3 392.7 526L304.5 578.9C283.2 591.7 256 576.3 256 551.5L256 448C256 412.7 227.3 384 192 384L191.9 384zM464 224C464 197.5 442.5 176 416 176C389.5 176 368 197.5 368 224C368 250.5 389.5 272 416 272C442.5 272 464 250.5 464 224z"/></svg>
+        <span>VWAP</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <a data-nav href="index.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Performance</a>
+        <a data-nav href="backtest.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Backtest</a>
+      </div>
+    </div>
+  </nav>
+  <script>
+    // Activate nav item for current page
+    (function(){
+      try {
+        const file = (location.pathname.split('/').pop() || 'backtest.html').toLowerCase();
+        document.querySelectorAll('a[data-nav]').forEach(a => {
+          const href = (a.getAttribute('href') || '').toLowerCase();
+          const active = href === file || (file === '' && href.endsWith('index.html'));
+          a.classList.toggle('bg-slate-800', active);
+          a.classList.toggle('text-white', active);
+          a.classList.toggle('hover:bg-slate-100', !active);
+          if (active) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current');
+        });
+      } catch {}
+    })();
+  </script>
+
+  <div class="max-w-screen-2xl mx-auto p-6 space-y-6">
+    <header class="mb-2">
+      <h1 id="mainTitle" class="text-2xl md:text-3xl font-semibold">VWAP Backtest</h1>
+      <p class="text-slate-600 mt-1">Pick a symbol and tweak settings.</p>
+    </header>
+
+    <!-- Symbol segmented control + Params -->
+    <section id="symbolPicker" class="bg-white rounded-2xl shadow-soft p-3 md:p-4">
+      <h2 class="font-semibold mb-3">VWAP Settings</h2>
+      <div class="flex items-start gap-4 flex-col md:flex-row">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-2">
+            <div class="flex-1 min-w-0 overflow-x-auto">
+              <div id="tickerSegment" class="inline-flex min-w-max rounded-xl border border-slate-200 overflow-hidden whitespace-nowrap">
+                <span class="px-3 py-1.5 text-sm text-slate-500">Loading…</span>
+              </div>
+            </div>
+          </div>
+          <div id="status" class="text-xs text-slate-500"></div>
+        </div>
+        <div class="w-full md:w-[860px] grid grid-cols-2 md:grid-cols-5 gap-3">
+          <label class="block">
+            <span class="text-sm text-slate-600">Start</span>
+            <div class="mt-1 relative">
+              <input id="inp_start" type="time" step="60" value="09:30" class="w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm" />
+              <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
+                <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase start time" data-time-target="inp_start" data-time-step="1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd"/></svg>
+                </button>
+                <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease start time" data-time-target="inp_start" data-time-step="-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l-4.24 4.24a.75.75 0 00-1.06 0l-4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd"/></svg>
+                </button>
+              </div>
+            </div>
+          </label>
+          <label class="block">
+            <span class="text-sm text-slate-600">End</span>
+            <div class="mt-1 relative">
+              <input id="inp_end" type="time" step="60" value="15:30" class="w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm" />
+              <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
+                <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase end time" data-time-target="inp_end" data-time-step="1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd"/></svg>
+                </button>
+                <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease end time" data-time-target="inp_end" data-time-step="-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l-4.24 4.24a.75.75 0 00-1.06 0l-4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd"/></svg>
+                </button>
+              </div>
+            </div>
+          </label>
+          <label class="block">
+            <span class="text-sm text-slate-600">Period (min)</span>
+            <div class="mt-1 relative">
+              <input id="inp_period" data-default="1" type="number" min="1" max="60" step="1" value="1" class="w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm" />
+              <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
+                <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase period" data-num-target="inp_period" data-num-step="1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd"/></svg>
+                </button>
+                <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease period" data-num-target="inp_period" data-num-step="-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd"/></svg>
+                </button>
+              </div>
+            </div>
+          </label>
+          <label class="block col-span-2 md:col-span-2">
+            <span class="text-sm text-slate-600">AUM</span>
+            <div class="mt-1 relative">
+              <input id="inp_aum0" data-default="100000" type="number" min="0" max="1000000000" step="1000" value="100000" class="w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm" />
+              <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
+                <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase AUM" data-num-target="inp_aum0" data-num-step="1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd"/></svg>
+                </button>
+                <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease AUM" data-num-target="inp_aum0" data-num-step="-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l-4.24 4.24a.75.75 0 001.06 0l-4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd"/></svg>
+                </button>
+              </div>
+            </div>
+          </label>
+          <label class="block col-span-2 md:col-span-2">
+            <span class="text-sm text-slate-600">At Risk % (Per Trade)</span>
+            <div class="mt-1 relative">
+              <input id="inp_risk_pct" data-default="2" type="number" min="0" max="100" step="0.5" value="2" class="w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm" />
+              <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
+                <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase risk %" data-num-target="inp_risk_pct" data-num-step="1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd"/></svg>
+                </button>
+                <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease risk %" data-num-target="inp_risk_pct" data-num-step="-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l-4.24 4.24a.75.75 0 00-1.06 0l-4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd"/></svg>
+                </button>
+              </div>
+            </div>
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <!-- Filters -->
+    <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
+      <h2 class="font-semibold mb-3">Filters</h2>
+      <div class="flex flex-wrap items-center gap-3">
+        <div id="dirSegment" class="inline-flex rounded-xl border border-slate-200 overflow-hidden" aria-label="Direction">
+          <button type="button" class="px-3 py-1.5 text-sm font-medium bg-slate-800 text-white" data-dir="both">Both</button>
+          <button type="button" class="px-3 py-1.5 text-sm font-medium bg-white hover:bg-slate-100 border-l border-slate-200" data-dir="long">Long</button>
+          <button type="button" class="px-3 py-1.5 text-sm font-medium bg-white hover:bg-slate-100 border-l border-slate-200" data-dir="short">Short</button>
+        </div>
+
+        <div id="dowSegment" class="inline-flex rounded-xl border border-slate-200 overflow-hidden" aria-label="Weekdays">
+          <button type="button" class="px-3 py-1.5 text-sm font-medium bg-slate-800 text-white" data-dow="1">Mon</button>
+          <button type="button" class="px-3 py-1.5 text-sm font-medium bg-slate-800 text-white border-l border-slate-200" data-dow="2">Tue</button>
+          <button type="button" class="px-3 py-1.5 text-sm font-medium bg-slate-800 text-white border-l border-slate-200" data-dow="3">Wed</button>
+          <button type="button" class="px-3 py-1.5 text-sm font-medium bg-slate-800 text-white border-l border-slate-200" data-dow="4">Thu</button>
+          <button type="button" class="px-3 py-1.5 text-sm font-medium bg-slate-800 text-white border-l border-slate-200" data-dow="5">Fri</button>
+        </div>
+
+        <div class="relative inline-block" aria-label="Months">
+          <button id="sumMonthMultiBtn" type="button" class="inline-flex items-center justify-between gap-2 bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm min-w-[160px]">
+            <span id="sumMonthMultiLabel" class="truncate">All months</span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
+          </button>
+          <div id="sumMonthMultiMenu" class="absolute z-30 mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-soft p-2 hidden">
+            <div class="sticky top-0 bg-white z-10 px-2 pb-2 border-b border-slate-200 flex items-center justify-between gap-2">
+              <button id="sumMonthSelectAll" type="button" class="text-xs font-medium text-emerald-700 hover:text-emerald-900 hover:underline">Select all</button>
+              <button id="sumMonthClearAll" type="button" class="text-xs text-slate-600 hover:text-slate-800 hover:underline">Clear</button>
+            </div>
+            <div id="sumMonthMultiList" class="max-h-64 overflow-auto"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Summary -->
+    <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
+      <h2 class="font-semibold mb-3">Summary</h2>
+      <div id="summary" class="grid sm:grid-cols-2 lg:grid-cols-2 gap-4"></div>
+    </section>
+    
+    <!-- Equity Chart -->
+    <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
+      <h2 class="font-semibold mb-3">Equity Curve</h2>
+      <div id="equityChart" class="w-full h-[360px]"></div>
+    </section>
+    
+    <!-- Win/Loss Streaks Chart -->
+    <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
+      <h2 class="font-semibold mb-3">Win/Loss Streaks</h2>
+      <div id="streakChart" class="w-full h-[280px]"></div>
+    </section>
+
+    <!-- Monthly Performance -->
+    <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-semibold">Monthly Performance</h2>
+        <div class="inline-flex items-center gap-0.5 rounded-xl bg-slate-100 p-0.5" aria-label="Monthly performance mode">
+          <button id="mpBtnPct" type="button" class="px-2 py-1 text-xs rounded-lg">%</button>
+          <button id="mpBtnUsd" type="button" class="px-2 py-1 text-xs rounded-lg">$</button>
+        </div>
+      </div>
+      <div id="monthlyPerf"></div>
+    </section>
+
+    <!-- Trades Table -->
+    <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-semibold">Trades</h2>
+        <button id="btnExportCSV" type="button" class="px-3 py-1.5 text-sm rounded-lg bg-white ring-1 ring-slate-300 hover:bg-slate-100">Export CSV</button>
+      </div>
+      <div class="overflow-auto max-h-[65vh] border rounded-xl">
+        <table class="min-w-full text-sm">
+          <thead>
+            <tr class="border-b">
+              <th class="px-3 py-2 text-left">Date</th>
+              <th class="px-3 py-2">Side</th>
+              <th class="px-3 py-2">Entry Time</th>
+              <th class="px-3 py-2">Exit Time</th>
+              <th class="px-3 py-2 text-right">Entry Price</th>
+              <th class="px-3 py-2 text-right">Exit Price</th>
+              <th class="px-3 py-2 text-right">Shares</th>
+              <th class="px-3 py-2 text-right">VWAP</th>
+              <th class="px-3 py-2 text-right">PnL</th>
+              <th class="px-3 py-2 text-right">AUM</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // -----------------------------
+    // Utilities
+    // -----------------------------
+    const pad2 = (n) => String(n).padStart(2, '0');
+    const dateKeyFromStr = (val) => {
+      if (val == null) return null;
+      if (typeof val === 'string') {
+        const m = val.trim().match(/^(\d{4}-\d{2}-\d{2})/);
+        if (m) return m[1];
+      }
+      const d = new Date(val);
+      if (isNaN(d)) return null;
+      return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; // local date key
+    };
+    const parseTimeHHMM = (hhmm) => { const [h, m] = (hhmm || '').split(':').map(Number); return h * 60 + (m || 0); };
+  const toHHMM = (mins) => { const h = Math.floor((mins % (24*60) + 24*60) % (24*60) / 60); const m = ((mins % 60) + 60) % 60; return `${pad2(h)}:${pad2(m)}`; };
+    const minutesOfDay = (d) => d.getHours() * 60 + d.getMinutes();
+    const fmtNum = (x, digits = 2) => (x == null || isNaN(x) ? '' : Number(x).toFixed(digits));
+    const fmtMoney = (x) => (x == null || isNaN(x) ? '' : Number(x).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    const fmtInt = (x) => (x == null || isNaN(x) ? '0' : Math.round(Number(x)).toLocaleString());
+    const fmtPct = (x) => (x == null || isNaN(x) ? '' : Number(x).toFixed(2));
+    const fmtTime = (d) => d instanceof Date && !isNaN(d) ? `${pad2(d.getHours())}:${pad2(d.getMinutes())}` : '';
+
+    // -----------------------------
+    // Global state
+    // -----------------------------
+    let currentTicker = '';
+    let ROWS = [];        // current symbol rows
+    let DAY_GROUPS = new Map();
+    let DAYS = [];
+    let VIEW_DIR = 'both';
+    let LAST_TRADES = [];
+    let LAST_DAILY = [];
+    let VIEW_DOW = new Set([1, 2, 3, 4, 5]); // 1=Mon ... 5=Fri
+    let VIEW_MONTHS = new Set(); // empty => all
+    let AVAILABLE_MONTHS = [];
+  // ECharts instances
+  let equityChartInst = null;
+  let streakChartInst = null;
+
+    function setTicker(sym) {
+      currentTicker = (sym || '').toUpperCase();
+      const titleEl = document.getElementById('mainTitle');
+      if (titleEl) {
+        const prefix = currentTicker ? currentTicker + ' - ' : '';
+        const full = prefix + 'VWAP Backtest';
+        titleEl.textContent = full;
+        document.title = full;
+      }
+    }
+
+    function setStatus(msg) { const el = document.getElementById('status'); if (el) el.textContent = msg || ''; }
+
+    function normalizeAndIndex(rows) {
+      if (!rows || !rows.length) throw new Error('No rows parsed');
+      const required = ['caldt', 'day', 'open', 'high', 'low', 'close', 'volume'];
+      const missing = required.filter(c => !(c in rows[0]));
+      if (missing.length) throw new Error('Missing columns: ' + missing.join(', '));
+
+      ROWS = rows.map(r => {
+        const caldt = new Date(r.caldt);
+        const dayKey = dateKeyFromStr(r.day);
+        const open = Number(r.open), high = Number(r.high), low = Number(r.low), close = Number(r.close);
+        const volume = Number(r.volume);
+        const vwap = ('vwap' in r) ? Number(r.vwap) : NaN;
+        if (!dayKey || isNaN(caldt)) return null;
+        if ([open, high, low, close].some(v => !Number.isFinite(v))) return null;
+        if (!Number.isFinite(volume)) return null;
+        const rowOut = { caldt, dayKey, open, high, low, close, volume };
+        if (Number.isFinite(vwap)) rowOut.vwap = vwap;
+        return rowOut;
+      }).filter(Boolean);
+
+      DAY_GROUPS = new Map();
+      for (const row of ROWS) {
+        if (!DAY_GROUPS.has(row.dayKey)) DAY_GROUPS.set(row.dayKey, []);
+        DAY_GROUPS.get(row.dayKey).push(row);
+      }
+      for (const [k, arr] of DAY_GROUPS.entries()) arr.sort((a, b) => a.caldt - b.caldt);
+      DAYS = Array.from(DAY_GROUPS.keys()).sort();
+    }
+
+    async function loadSymbolData(sym) {
+      if (!sym) return false;
+      setStatus(`Loading data for ${sym}…`);
+      try {
+        const path = `data/${sym}_1m.csv`;
+        const res = await fetch(path, { cache: 'no-cache' });
+        if (!res.ok) throw new Error(`HTTP ${res.status} loading ${path}`);
+        const text = await res.text();
+        const parsed = Papa.parse(text, { header: true, dynamicTyping: true, skipEmptyLines: true });
+        if (parsed.errors && parsed.errors.length) {
+          console.warn('CSV parse warnings:', parsed.errors.slice(0, 3));
+        }
+        normalizeAndIndex(parsed.data);
+        setStatus(`Loaded ${ROWS.length} rows across ${DAYS.length} day(s).`);
+        return true;
+      } catch (err) {
+        console.error(err);
+        setStatus(`Error loading ${sym}: ${err.message}`);
+        ROWS = []; DAY_GROUPS = new Map(); DAYS = [];
+        return false;
+      }
+    }
+
+    // -----------------------------
+    // Backtest (JS port)
+    // -----------------------------
+    function backtest({ days, dayGroups, risk, max_Lev, AUM_0, commission, direction = 'both', start_time = '9:30', end_time = '15:30', period = 1 }) {
+      const trades = [];
+      const daily = [];
+      const parseOrDefault = (val, fallback) => {
+        const mins = parseTimeHHMM(val);
+        if (Number.isFinite(mins)) return mins;
+        const fb = parseTimeHHMM(fallback);
+        return Number.isFinite(fb) ? fb : 0;
+      };
+      const startMin = parseOrDefault(start_time, '9:30');
+      const endMin = parseOrDefault(end_time, '15:30');
+      if (!Array.isArray(days) || !dayGroups || startMin >= endMin) {
+        return { trades, daily };
+      }
+
+      const periodInt = Math.min(60, Math.max(1, Math.floor(Number(period) || 1)));
+
+      let runningAUM = AUM_0;
+
+      const computeShares = (price, curAUM) => {
+        if (!Number.isFinite(curAUM) || curAUM <= 0) return 0;
+        if (!Number.isFinite(price) || price <= 0) return 0;
+        const capitalShares = risk > 0 ? Math.floor((curAUM * risk) / price) : 0;
+        const levShares = Math.floor((curAUM * max_Lev) / price);
+        const shares = Math.min(capitalShares > 0 ? capitalShares : 0, levShares > 0 ? levShares : 0);
+        return shares > 0 ? shares : 0;
+      };
+
+      for (let t = 0; t < days.length; t++) {
+        const dayKey = days[t];
+        const df_day = dayGroups.get(dayKey);
+        if (!Array.isArray(df_day) || df_day.length === 0) {
+          daily.push({ Date: dayKey, AUM: runningAUM, PnL: 0, Trades: 0, StartAUM: runningAUM });
+          continue;
+        }
+
+        let cumVol = 0;
+        let cumTPVol = 0;
+        const dayBars = [];
+        const filtered = [];
+        for (const bar of df_day) {
+          const mins = minutesOfDay(bar.caldt);
+          if (mins < startMin || mins > endMin) continue;
+          const volume = Number(bar.volume);
+          const high = Number(bar.high);
+          const low = Number(bar.low);
+          const close = Number(bar.close);
+          if (!(Number.isFinite(volume) && Number.isFinite(high) && Number.isFinite(low) && Number.isFinite(close))) continue;
+          const typical = (high + low + close) / 3;
+          filtered.push({
+            caldt: bar.caldt,
+            close,
+            volume,
+            tpVol: typical * volume,
+          });
+        }
+
+        if (filtered.length === 0) {
+          daily.push({ Date: dayKey, AUM: runningAUM, PnL: 0, Trades: 0, StartAUM: runningAUM });
+          continue;
+        }
+
+        for (let i = 0; i < filtered.length; ) {
+          let bucketVol = 0;
+          let bucketTPVol = 0;
+          let bucketClose = filtered[i].close;
+          let bucketEndTime = filtered[i].caldt;
+          let count = 0;
+          while (i < filtered.length && count < periodInt) {
+            const bar = filtered[i];
+            bucketVol += bar.volume;
+            bucketTPVol += bar.tpVol;
+            bucketClose = bar.close;
+            bucketEndTime = bar.caldt;
+            count++; i++;
+          }
+          if (bucketVol <= 0) continue;
+          cumVol += bucketVol;
+          cumTPVol += bucketTPVol;
+          const avwap = cumVol > 0 ? cumTPVol / cumVol : bucketClose;
+          dayBars.push({
+            caldt: bucketEndTime,
+            close: bucketClose,
+            volume: bucketVol,
+            tpVol: bucketTPVol,
+            avwap,
+          });
+        }
+        if (dayBars.length === 0) {
+          daily.push({ Date: dayKey, AUM: runningAUM, PnL: 0, Trades: 0, StartAUM: runningAUM });
+          continue;
+        }
+
+        const dayStartAUM = runningAUM;
+        let position = null; // { side, entryPrice, entryTime, shares, entryVWAP }
+        let dayPnL = 0;
+        let tradesCount = 0;
+
+        const closeTrade = (exitPrice) => {
+          if (!position) return;
+          const rawPnl = (exitPrice - position.entryPrice) * position.side * position.shares;
+          let netPnl = Number.isFinite(rawPnl) ? rawPnl : 0;
+          if (Number.isFinite(rawPnl)) {
+            dayPnL += rawPnl;
+            runningAUM += rawPnl;
+          }
+          if (commission > 0 && position.shares > 0) {
+            const fee = commission * position.shares * 2; // round-trip assumption
+            runningAUM -= fee;
+            dayPnL -= fee;
+            netPnl -= fee;
+          }
+          const exitDt = position.exitTime instanceof Date ? position.exitTime : position.entryTime;
+          trades.push({
+            Date: dayKey,
+            EntryTime: fmtTime(position.entryTime),
+            ExitTime: fmtTime(exitDt),
+            Side: position.side === 1 ? 'Long' : 'Short',
+            EntryPrice: position.entryPrice,
+            ExitPrice: exitPrice,
+            Shares: position.shares,
+            VWAP: position.entryVWAP,
+            PnL: netPnl,
+            AUM: runningAUM
+          });
+          tradesCount++;
+          position = null;
+        };
+
+        const openPosition = (side, price, vwapValue, timestamp) => {
+          const shares = computeShares(price, runningAUM);
+          if (!(shares > 0)) return false;
+          position = {
+            side,
+            entryPrice: price,
+            entryTime: new Date(timestamp),
+            exitTime: null,
+            shares,
+            entryVWAP: vwapValue
+          };
+          return true;
+        };
+
+        const allowLong = direction !== 'short';
+        const allowShort = direction !== 'long';
+
+        for (let i = 1; i < dayBars.length; i++) {
+          const prev = dayBars[i - 1];
+          const bar = dayBars[i];
+          const prevClose = prev.close;
+          const prevVwap = prev.avwap;
+          const currClose = bar.close;
+          const currVwap = bar.avwap;
+          const crossUp = prevClose < prevVwap && currClose > currVwap;
+          const crossDown = prevClose > prevVwap && currClose < currVwap;
+
+          if (!position) {
+            if (crossUp && allowLong) {
+              openPosition(1, currClose, currVwap, bar.caldt);
+            } else if (crossDown && allowShort) {
+              openPosition(-1, currClose, currVwap, bar.caldt);
+            }
+            continue;
+          }
+
+          if (position.side === 1 && crossDown) {
+            position.exitTime = new Date(bar.caldt);
+            closeTrade(currClose);
+            if (!position && allowShort) {
+              openPosition(-1, currClose, currVwap, bar.caldt);
+            }
+          } else if (position.side === -1 && crossUp) {
+            position.exitTime = new Date(bar.caldt);
+            closeTrade(currClose);
+            if (!position && allowLong) {
+              openPosition(1, currClose, currVwap, bar.caldt);
+            }
+          }
+        }
+
+        const lastBar = dayBars[dayBars.length - 1];
+        if (position && lastBar) {
+          position.exitTime = new Date(lastBar.caldt);
+          closeTrade(Number(lastBar.close));
+        }
+
+        daily.push({
+          Date: dayKey,
+          AUM: runningAUM,
+          PnL: dayPnL,
+          Trades: tradesCount,
+          StartAUM: dayStartAUM
+        });
+      }
+
+      return { trades, daily };
+    }
+
+    function renderSummary(daily, trades) {
+      const summary = document.getElementById('summary');
+      if (!summary) return;
+      if (!Array.isArray(daily) || daily.length === 0) {
+        summary.innerHTML = '';
+        return;
+      }
+
+      const totalDays = daily.length;
+      const tradeDayCount = daily.filter(d => Number(d.Trades) > 0).length;
+      const totalPnL = daily.reduce((s, d) => s + (Number.isFinite(d.PnL) ? d.PnL : 0), 0);
+      const lastAUM = Number(daily[daily.length - 1]?.AUM) || 0;
+      const startAUM = Number(daily[0]?.StartAUM) || (Number(daily[0]?.AUM) - Number(daily[0]?.PnL) || 0);
+
+      let dailyRetSum = 0;
+      let maxDDPct = 0;
+      let peak = startAUM;
+      let prevStart = startAUM;
+
+      for (const day of daily) {
+        const start = Number(day.StartAUM ?? prevStart);
+        const end = Number(day.AUM ?? start);
+        const ret = (Number.isFinite(start) && start > 0 && Number.isFinite(end)) ? ((end - start) / start) : 0;
+        dailyRetSum += ret * 100;
+        if (Number.isFinite(end) && end > peak) peak = end;
+        if (Number.isFinite(end) && peak > 0) {
+          const dd = ((end / peak) - 1) * 100;
+          if (dd < maxDDPct) maxDDPct = dd;
+        }
+        prevStart = Number.isFinite(end) ? end : prevStart;
+      }
+
+      const avgDailyRet = totalDays > 0 ? dailyRetSum / totalDays : 0;
+
+      let cagrPct = 0;
+      if (totalDays > 1) {
+        const firstDate = new Date(daily[0].Date);
+        const lastDate = new Date(daily[daily.length - 1].Date);
+        const days = (lastDate - firstDate) / (1000 * 60 * 60 * 24);
+        const years = days / 365.25;
+        if (years > 0 && startAUM > 0 && lastAUM > 0) {
+          cagrPct = (Math.pow(lastAUM / startAUM, 1 / years) - 1) * 100;
+        }
+      }
+
+      const winTrades = (trades || []).filter(r => Number(r.PnL) > 0);
+      const lossTrades = (trades || []).filter(r => Number(r.PnL) < 0);
+      const flatTrades = (trades || []).length - winTrades.length - lossTrades.length;
+      const cards = [
+        { label: 'Days Backtested', value: fmtInt(totalDays) },
+        { label: 'Final AUM', value: `$${fmtInt(lastAUM)}` },
+        { label: 'CAGR', value: `${fmtPct(cagrPct)}%` },
+        { label: 'Avg Daily Return', value: `${fmtPct(avgDailyRet)}%` },
+        { label: 'Total PnL', value: `$${fmtInt(totalPnL)}`, cls: ((totalPnL > 0) ? 'num-pos' : 'num-neg') + ' text-3xl' },
+        { label: 'Max DD', value: `${fmtPct(maxDDPct)}%` },
+      ];
+
+      const gridHtml = `<div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">${cards.map(c => {
+        const baseValCls = 'text-xl font-semibold tabular-nums font-mono text-right';
+        const valCls = (c.label === 'Total PnL') ? `${baseValCls} text-3xl pnl-strong` : baseValCls;
+        return `<div class="rounded-2xl border p-4"><div class="text-xs text-slate-500">${c.label}</div><div class="${valCls} ${c.cls || ''}">${c.value}</div></div>`;
+      }).join('')}</div>`;
+
+      const totalTrades = (trades || []).length;
+      const pct = (n) => totalTrades > 0 ? `${((n / totalTrades) * 100).toFixed(1)}%` : '0.0%';
+      const tableHtml = `
+      <div class="rounded-2xl border p-3 overflow-auto">
+        <div class="text-xs text-slate-500 mb-2">Trade breakdown</div>
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-50">
+            <tr>
+              <th class="px-3 py-2 text-left">Total</th>
+              <th class="px-3 py-2 text-right">Winning</th>
+              <th class="px-3 py-2 text-right">Losing</th>
+              <th class="px-3 py-2 text-right">Flat</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="border-b">
+              <td class="px-3 py-2">${fmtInt(totalTrades)}</td>
+              <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(winTrades.length)}</td>
+              <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(lossTrades.length)}</td>
+              <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(flatTrades)}</td>
+            </tr>
+            <tr>
+              <td class="px-3 py-2 text-slate-600">100.0%</td>
+              <td class="px-3 py-2 text-right text-slate-600 tabular-nums font-mono">${pct(winTrades.length)}</td>
+              <td class="px-3 py-2 text-right text-slate-600 tabular-nums font-mono">${pct(lossTrades.length)}</td>
+              <td class="px-3 py-2 text-right text-slate-600 tabular-nums font-mono">${pct(flatTrades)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>`;
+
+      summary.innerHTML = gridHtml + tableHtml;
+    }
+
+
+    function renderTable(trades) {
+      const tb = document.getElementById('tbody');
+      if (!tb) return;
+      tb.innerHTML = '';
+      let rows = Array.isArray(trades)
+        ? (VIEW_DIR === 'both'
+            ? trades.slice()
+            : trades.filter(r => VIEW_DIR === 'long' ? r.Side === 'Long' : r.Side === 'Short'))
+        : [];
+      rows.sort((a, b) => {
+        const da = a && a.Date ? `${a.Date} ${a.EntryTime || ''}` : '';
+        const db = b && b.Date ? `${b.Date} ${b.EntryTime || ''}` : '';
+        if (da === db) return 0;
+        return da < db ? 1 : -1;
+      });
+      const frag = document.createDocumentFragment();
+      for (const r of rows) {
+        const tr = document.createElement('tr');
+        let rowCls = 'border-b hover:bg-slate-50';
+        if (Number(r.PnL) > 0) rowCls += ' bg-emerald-50';
+        else if (Number(r.PnL) < 0) rowCls += ' bg-rose-50';
+        tr.className = rowCls;
+        tr.innerHTML = `
+          <td class="px-3 py-2">${r.Date || ''}</td>
+          <td class="px-3 py-2">${r.Side || ''}</td>
+          <td class="px-3 py-2">${r.EntryTime || ''}</td>
+          <td class="px-3 py-2">${r.ExitTime || ''}</td>
+          <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtNum(r.EntryPrice)}</td>
+          <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtNum(r.ExitPrice)}</td>
+          <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(r.Shares)}</td>
+          <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtNum(r.VWAP)}</td>
+          <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtNum(r.PnL)}</td>
+          <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtNum(r.AUM)}</td>`;
+        frag.appendChild(tr);
+      }
+      tb.appendChild(frag);
+    }
+
+    function renderEquityChart(out){
+      const el = document.getElementById('equityChart');
+      if (!el) return;
+      if (!out || !out.length) {
+        try { if (equityChartInst) { equityChartInst.dispose(); equityChartInst = null; } } catch {}
+        el.innerHTML = '<div class="text-sm text-slate-500">No data</div>';
+        return;
+      }
+      // Prepare data as [time,value]
+      const data = out.map(r => [r.Date, Number.isFinite(r.AUM) ? r.AUM : null]).filter(p => p[1] !== null);
+      if (!equityChartInst) equityChartInst = echarts.init(el);
+      const option = {
+        animation: false,
+        grid: { left: 56, right: 16, top: 8, bottom: 40 },
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: { type: 'cross' },
+          valueFormatter: (v) => (v == null ? '' : `$${Number(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`)
+        },
+        xAxis: { type: 'time', name: 'Date' },
+        yAxis: {
+          type: 'value', name: 'AUM',
+          axisLabel: { formatter: (v) => `$${Math.round(v).toLocaleString()}` }
+        },
+        dataZoom: [ 
+          { type: 'inside', throttle: 50 }, 
+          { 
+            type: 'slider', 
+            fillerColor: 'rgba(0, 0, 0, 0)', 
+            height: 40,
+            dataBackground: {
+              lineStyle: { color: '#50C878' },
+              areaStyle: { color: 'rgba(80, 200, 120, 0.2)' }
+            }
+          },
+        ],
+        series: [{
+          type: 'line', showSymbol: false, smooth: false,
+          lineStyle: { width: 2, color: '#10b981' },
+          data
+        }]
+      };
+      equityChartInst.setOption(option, true);
+    }
+
+    function computeWinLossStreaks(tradeRows) {
+      const rows = Array.isArray(tradeRows) ? tradeRows.slice().sort((a, b) => {
+        const da = a && a.Date ? `${a.Date} ${a.EntryTime || ''}` : '';
+        const db = b && b.Date ? `${b.Date} ${b.EntryTime || ''}` : '';
+        if (da === db) return 0;
+        return da < db ? -1 : 1;
+      }) : [];
+      const winsX = [], winsY = [], lossX = [], lossY = [];
+      let curType = null;
+      let curLen = 0;
+
+      for (let i = 0; i < rows.length; i++) {
+        const pnl = Number(rows[i].PnL);
+        const type = pnl > 0 ? 'win' : (pnl < 0 ? 'loss' : null);
+        if (!type) {
+          if (curType && curLen > 0) {
+            const endPoint = `${rows[i - 1].Date} ${rows[i - 1].ExitTime || rows[i - 1].EntryTime || ''}`;
+            if (curType === 'win') { winsX.push(endPoint); winsY.push(curLen); }
+            else { lossX.push(endPoint); lossY.push(curLen); }
+          }
+          curType = null;
+          curLen = 0;
+          continue;
+        }
+        if (curType === null) {
+          curType = type;
+          curLen = 1;
+          continue;
+        }
+        if (type === curType) {
+          curLen++;
+        } else {
+          const endPoint = `${rows[i - 1].Date} ${rows[i - 1].ExitTime || rows[i - 1].EntryTime || ''}`;
+          if (curType === 'win') { winsX.push(endPoint); winsY.push(curLen); }
+          else { lossX.push(endPoint); lossY.push(curLen); }
+          curType = type;
+          curLen = 1;
+        }
+      }
+
+      if (curType && curLen > 0 && rows.length > 0) {
+        const last = rows[rows.length - 1];
+        const endPoint = `${last.Date} ${last.ExitTime || last.EntryTime || ''}`;
+        if (curType === 'win') { winsX.push(endPoint); winsY.push(curLen); }
+        else { lossX.push(endPoint); lossY.push(curLen); }
+      }
+      return { winsX, winsY, lossX, lossY };
+    }
+
+    function renderStreakChart(out) {
+      const el = document.getElementById('streakChart');
+      if (!el) return;
+      const { winsX, winsY, lossX, lossY } = computeWinLossStreaks(out);
+      if ((winsX.length + lossX.length) === 0) {
+        try { if (streakChartInst) { streakChartInst.dispose(); streakChartInst = null; } } catch {}
+        el.innerHTML = '<div class="text-sm text-slate-500">No data</div>';
+        return;
+      }
+      if (!streakChartInst) streakChartInst = echarts.init(el);
+      const toDateVal = (s) => {
+        if (!s) return s;
+        const iso = s.replace(' ', 'T');
+        const d = new Date(iso);
+        return isNaN(d) ? s : d;
+      };
+      const winData = winsX.map((d,i)=>[toDateVal(d), winsY[i]]);
+      const lossData = lossX.map((d,i)=>[toDateVal(d), -Math.abs(lossY[i])]);
+      const option = {
+        animation: false,
+        grid: { left: 56, right: 16, top: 8, bottom: 40 },
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+        xAxis: { type: 'time', name: 'Date' },
+        yAxis: { type: 'value', name: 'Consecutive count' },
+        dataZoom: [ 
+          { type: 'inside', throttle: 50 }, 
+          { 
+            type: 'slider',
+            fillerColor: 'rgba(0, 0, 0, 0)', 
+            height: 40,
+            dataBackground: {
+              lineStyle: { color: '#50C878' },
+              areaStyle: { color: 'rgba(80, 200, 120, 0.2)' }
+            }
+          } 
+        ],
+        legend: { show: false },
+        series: [
+          { name: 'Win streak', type: 'bar', itemStyle: { color: '#10b981' }, data: winData },
+          { name: 'Loss streak', type: 'bar', itemStyle: { color: '#ef4444' }, data: lossData }
+        ]
+      };
+      streakChartInst.setOption(option, true);
+    }
+
+    // -------- CSV Export (Trades) --------
+    function getVisibleRowsForExport() {
+      if (!Array.isArray(LAST_TRADES)) return [];
+      const rows = (VIEW_DIR === 'both')
+        ? LAST_TRADES.slice()
+        : LAST_TRADES.filter(r => VIEW_DIR === 'long' ? r.Side === 'Long' : r.Side === 'Short');
+      rows.sort((a, b) => {
+        const da = a && a.Date ? `${a.Date} ${a.EntryTime || ''}` : '';
+        const db = b && b.Date ? `${b.Date} ${b.EntryTime || ''}` : '';
+        if (da === db) return 0;
+        return da < db ? 1 : -1;
+      });
+      return rows;
+    }
+
+    function buildAoaFromRows(rows) {
+      const headers = ['Date','Side','EntryTime','ExitTime','EntryPrice','ExitPrice','Shares','VWAP','PnL','AUM'];
+      const aoa = [headers];
+      for (const r of rows) {
+        aoa.push([
+          r.Date,
+          r.Side || '',
+          r.EntryTime || '',
+          r.ExitTime || '',
+          Number.isFinite(r.EntryPrice) ? Number(r.EntryPrice) : '',
+          Number.isFinite(r.ExitPrice) ? Number(r.ExitPrice) : '',
+          Number.isFinite(r.Shares) ? Number(r.Shares) : '',
+          Number.isFinite(r.VWAP) ? Number(r.VWAP) : '',
+          Number.isFinite(r.PnL) ? Number(r.PnL) : '',
+          Number.isFinite(r.AUM) ? Number(r.AUM) : ''
+        ]);
+      }
+      return aoa;
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 0);
+    }
+
+    function exportTradesCSV() {
+      const rows = getVisibleRowsForExport();
+      if (!rows.length) { alert('No rows to export.'); return; }
+      const aoa = buildAoaFromRows(rows);
+      const csv = aoa.map(row => row.map(cell => {
+        const s = (cell === null || cell === undefined) ? '' : String(cell);
+        if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+        return s;
+      }).join(',')).join('\n');
+      downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `trades_${currentTicker || 'SYMBOL'}.csv`);
+    }
+
+    // Bind Export CSV button
+    (function(){
+      const btn = document.getElementById('btnExportCSV');
+      if (btn) btn.addEventListener('click', exportTradesCSV);
+    })();
+
+    let MONTHLY_PERF_MODE = 'pct'; // 'pct' | 'usd'
+
+    function computeMonthlyPerf(dailyRows){
+      const agg = new Map(); // year -> { pnl:[12], ret:[12] }
+      const monthlyAUM = new Map(); // key YYYY-MM -> { start, end }
+      for (const day of (dailyRows || [])) {
+        if (!day.Date) continue;
+        const [y, m] = day.Date.split('-');
+        const monthIdx = parseInt(m, 10);
+        if (!agg.has(y)) agg.set(y, { pnl: Array(12).fill(0), ret: Array(12).fill(0) });
+        const rec = agg.get(y);
+        rec.pnl[monthIdx - 1] += Number.isFinite(day.PnL) ? day.PnL : 0;
+
+        const key = `${y}-${m}`;
+        if (!monthlyAUM.has(key)) {
+          monthlyAUM.set(key, { start: Number.isFinite(day.StartAUM) ? day.StartAUM : null, end: Number.isFinite(day.AUM) ? day.AUM : null });
+        } else {
+          const mRec = monthlyAUM.get(key);
+          if (Number.isFinite(day.AUM)) mRec.end = day.AUM;
+          if (!Number.isFinite(mRec.start) && Number.isFinite(day.StartAUM)) mRec.start = day.StartAUM;
+        }
+      }
+      for (const [key, val] of monthlyAUM.entries()) {
+        const [yy, mm] = key.split('-');
+        const idx = parseInt(mm, 10) - 1;
+        if (!agg.has(yy)) agg.set(yy, { pnl: Array(12).fill(0), ret: Array(12).fill(0) });
+        const rec = agg.get(yy);
+        const start = Number(val.start);
+        const end = Number(val.end);
+        const ret = (Number.isFinite(start) && start !== 0 && Number.isFinite(end)) ? ((end - start) / start) * 100 : 0;
+        rec.ret[idx] = ret;
+      }
+      const years = Array.from(agg.keys()).sort();
+      return { years, data: agg };
+    }
+
+    function renderMonthlyPerf(out){
+      const host = document.getElementById('monthlyPerf');
+      if (!host) return;
+      if (!out || !out.length){ host.innerHTML = '<div class="text-sm text-slate-500">No data</div>'; return; }
+      const { years, data } = computeMonthlyPerf(out);
+      const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const shadeGreen = (ratio) => {
+        if (ratio > 0.8) return 'bg-emerald-400';
+        if (ratio > 0.6) return 'bg-emerald-300';
+        if (ratio > 0.4) return 'bg-emerald-200';
+        if (ratio > 0.2) return 'bg-emerald-100';
+        return 'bg-emerald-50';
+      };
+      const shadeRed = (ratio) => {
+        // Increase minimum shade to >= 150 by flooring at rose-200
+        if (ratio > 0.8) return 'bg-rose-400';
+        if (ratio > 0.5) return 'bg-rose-300';
+        return 'bg-rose-200';
+      };
+      // compute normalization based on selected mode across all months
+      let maxAbs = 0;
+      for (const y of years){
+        const rec = data.get(y) || { pnl: Array(12).fill(0), ret: Array(12).fill(0) };
+        for (let i=0;i<12;i++){
+          const v = (MONTHLY_PERF_MODE==='pct') ? rec.ret[i] : rec.pnl[i];
+          if (Number.isFinite(v)) maxAbs = Math.max(maxAbs, Math.abs(v));
+        }
+      }
+      const cell = (pnl, ret)=>{
+        const v = (MONTHLY_PERF_MODE==='pct') ? ret : pnl;
+        if (!Number.isFinite(v) || Math.abs(v) < 1e-9) return '<td class="px-2 py-1 text-right text-slate-500">-</td>';
+        const pos = v>0;
+        const ratio = maxAbs>0 ? Math.min(Math.abs(v)/maxAbs, 1) : 0;
+        const bgCls = pos ? shadeGreen(ratio) : shadeRed(ratio);
+        const txtCls = pos ? 'text-emerald-900' : 'text-rose-900';
+        const val = (MONTHLY_PERF_MODE==='pct') ? `${fmtPct(v)}%` : `$${fmtInt(v)}`;
+        return `<td class="px-2 py-1 text-right tabular-nums font-mono ${bgCls} ${txtCls}">${val}</td>`;
+      };
+      let html = '<div class="overflow-auto"><table class="min-w-full text-sm"><thead><tr><th class="px-2 py-1 text-left">Year</th>' + months.map(m=>`<th class="px-2 py-1 text-right">${m}</th>`).join('') + '</tr></thead><tbody>';
+      for (const y of years){
+        const rec = data.get(y) || { pnl: Array(12).fill(0), ret: Array(12).fill(0) };
+        html += `<tr class="border-t"><td class="px-2 py-1 font-medium">${y}</td>` + rec.pnl.map((pv, i)=>cell(pv, rec.ret[i])).join('') + '</tr>';
+      }
+      html += '</tbody></table></div>';
+      host.innerHTML = html;
+    }
+
+    // -----------------------------
+    // Param handling + run
+    // -----------------------------
+    const riskConst = 0.02, maxLevConst = 4, AUM0Const = 100000, commissionConst = 0, directionConst = 'both', startConst = '9:30', endConst = '15:30', periodConst = 1;
+
+    function computeFilteredDays() {
+      if (!Array.isArray(DAYS) || DAYS.length === 0) return [];
+      // DAYS are keys like YYYY-MM-DD, map to weekday via first row in group
+      const out = [];
+      for (const dayKey of DAYS) {
+        const arr = DAY_GROUPS.get(dayKey);
+        if (!arr || !arr.length) continue;
+        const dow = arr[0].caldt.getDay(); // 0=Sun..6=Sat
+        const mapDow = dow === 0 ? 7 : dow; // 1..7 with 7=Sun
+        const monthKey = `${dayKey.slice(5, 7)}/${dayKey.slice(0, 4)}`; // MM/YYYY
+        const dowOk = VIEW_DOW.has(mapDow) || (mapDow === 7 && VIEW_DOW.has(7));
+        const monOk = (VIEW_MONTHS.size === 0) || VIEW_MONTHS.has(monthKey);
+        if (dowOk && monOk) out.push(dayKey);
+      }
+      return out;
+    }
+
+    function getBacktestParams() {
+      const riskPct = document.getElementById('inp_risk_pct');
+      const aum0 = document.getElementById('inp_aum0');
+      const tStart = document.getElementById('inp_start');
+      const tEnd = document.getElementById('inp_end');
+      const periodInput = document.getElementById('inp_period');
+      const filteredDays = computeFilteredDays();
+      return {
+        symbol: currentTicker,
+        days: filteredDays,
+        dayGroups: DAY_GROUPS,
+        risk: (()=>{ const v = riskPct ? parseFloat(riskPct.value) : NaN; return Number.isFinite(v) ? (v/100) : riskConst; })(),
+        max_Lev: maxLevConst,
+        AUM_0: (()=>{ const v = aum0 ? parseFloat(aum0.value) : NaN; return Number.isFinite(v) ? v : AUM0Const; })(),
+        commission: commissionConst,
+        direction: VIEW_DIR || directionConst,
+        start_time: (tStart && tStart.value) ? tStart.value : startConst,
+        end_time: (tEnd && tEnd.value) ? tEnd.value : endConst,
+        period: (() => { const v = periodInput ? parseInt(periodInput.value, 10) : NaN; return Number.isFinite(v) ? Math.min(60, Math.max(1, v)) : periodConst; })(),
+      };
+    }
+
+    let runTimer = null;
+    function scheduleRun() {
+      if (runTimer) clearTimeout(runTimer);
+      runTimer = setTimeout(runBacktestIfReady, 150);
+    }
+
+    // Time steppers for ORB Start / End / Entry Cutoff
+    (function(){
+      function adjustTimeInput(id, deltaMin){
+        const el = document.getElementById(id);
+        if (!el) return;
+        const [hh, mm] = (el.value || '00:00').split(':').map(Number);
+        const cur = (Number.isFinite(hh) ? hh : 0) * 60 + (Number.isFinite(mm) ? mm : 0);
+        const next = cur + (Number(deltaMin) || 0);
+        // wrap within 0..1439
+        const wrapped = ((next % (24*60)) + (24*60)) % (24*60);
+        el.value = toHHMM(wrapped);
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      document.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-time-target][data-time-step]');
+        if (!btn) return;
+        const id = btn.getAttribute('data-time-target');
+        const delta = parseInt(btn.getAttribute('data-time-step'), 10) || 0;
+        adjustTimeInput(id, delta);
+      });
+    })();
+
+    // Numeric steppers for inputs with data-num-target
+    (function(){
+      function decimals(stepStr){
+        if (!stepStr) return 0;
+        const s = String(stepStr);
+        const idx = s.indexOf('.');
+        return idx === -1 ? 0 : (s.length - idx - 1);
+      }
+      function roundTo(value, step){
+        const d = decimals(step);
+        return Number(value.toFixed(d));
+      }
+      function adjustNumberInput(id, deltaUnits){
+        const el = document.getElementById(id);
+        if (!el) return;
+        const stepAttr = parseFloat(el.getAttribute('step') || '1');
+        const step = Number.isFinite(stepAttr) && stepAttr > 0 ? stepAttr : 1;
+        const minAttr = parseFloat(el.getAttribute('min'));
+        const maxAttr = parseFloat(el.getAttribute('max'));
+        const defAttr = parseFloat(el.getAttribute('data-default'));
+        const curVal = parseFloat(el.value);
+        const base = Number.isFinite(curVal) ? curVal : (Number.isFinite(defAttr) ? defAttr : 0);
+        const next = base + (Number(deltaUnits) || 0) * step;
+        const clamped = Math.min(Number.isFinite(maxAttr) ? maxAttr : Infinity, Math.max(Number.isFinite(minAttr) ? minAttr : -Infinity, next));
+        const rounded = roundTo(clamped, step);
+        el.value = String(rounded);
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      document.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-num-target][data-num-step]');
+        if (!btn) return;
+        const id = btn.getAttribute('data-num-target');
+        const delta = parseFloat(btn.getAttribute('data-num-step')) || 0;
+        adjustNumberInput(id, delta);
+      });
+    })();
+
+    function runBacktestIfReady() {
+      if (!currentTicker) { setStatus('Pick a symbol.'); return; }
+      if (!DAYS.length) { setStatus('No data loaded.'); return; }
+      const params = getBacktestParams();
+      const t0 = performance.now();
+      const result = backtest(params);
+      const t1 = performance.now();
+      LAST_TRADES = Array.isArray(result.trades) ? result.trades : [];
+      LAST_DAILY = Array.isArray(result.daily) ? result.daily : [];
+      const days = LAST_DAILY.length;
+      const tradesVisible = (VIEW_DIR === 'both')
+        ? LAST_TRADES.length
+        : LAST_TRADES.filter(r => VIEW_DIR === 'long' ? r.Side === 'Long' : r.Side === 'Short').length;
+      setStatus(`Ran ${fmtInt(days)} day(s) / ${fmtInt(tradesVisible)} trade(s) in ${(t1 - t0).toFixed(0)} ms.`);
+      renderSummary(LAST_DAILY, LAST_TRADES);
+      renderTable(LAST_TRADES);
+      renderEquityChart(LAST_DAILY);
+      renderStreakChart(LAST_TRADES);
+      renderMonthlyPerf(LAST_DAILY);
+    }
+
+    async function loadAndRunForCurrent() {
+      if (!currentTicker) return;
+      const ok = await loadSymbolData(currentTicker);
+      if (ok) { buildMonthOptions(); runBacktestIfReady(); }
+    }
+
+    // Responsive charts: resize on window changes
+    window.addEventListener('resize', () => {
+      try { if (equityChartInst) equityChartInst.resize(); } catch {}
+      try { if (streakChartInst) streakChartInst.resize(); } catch {}
+    });
+
+    // -----------------------------
+    // Symbol segment (existing code with auto-run hook)
+    // -----------------------------
+    async function populateTickerSegment() {
+      const container = document.getElementById('tickerSegment');
+      if (!container) return;
+      container.innerHTML = '<span class="px-3 py-1.5 text-sm text-slate-500">Loading…</span>';
+      const render = (symbols) => {
+        container.innerHTML = '';
+        symbols.forEach((s, i) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          const cls = 'px-3 py-1.5 text-sm font-medium bg-white hover:bg-slate-100' + (i < symbols.length - 1 ? ' border-r border-slate-200' : '');
+          btn.className = cls; btn.setAttribute('data-symbol', s); btn.textContent = s; container.appendChild(btn);
+        });
+      };
+      try {
+        const res = await fetch('data/index.json', { cache: 'no-cache' });
+        if (res.ok) {
+          const list = await res.json();
+          if (Array.isArray(list) && list.length) { render(list.map(s => String(s).toUpperCase())); return; }
+        }
+      } catch { }
+      try {
+        const res = await fetch('data/', { cache: 'no-cache' });
+        if (res.ok) {
+          const text = await res.text();
+          const ct = (res.headers.get('content-type') || '').toLowerCase();
+          let files = [];
+          if (ct.includes('text/html')) {
+            const doc = new DOMParser().parseFromString(text, 'text/html');
+            files = Array.from(doc.querySelectorAll('a')).map(a => a.getAttribute('href')).filter(Boolean);
+          } else { files = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean); }
+          const regex = /^([A-Za-z0-9-]+)_1m\.csv$/i;
+          const syms = [];
+          for (const f of files) { const name = (f || '').split('/').pop(); const m = name.match(regex); if (m) syms.push(m[1].toUpperCase()); }
+          const uniq = Array.from(new Set(syms)); if (uniq.length) { render(uniq); return; }
+        }
+      } catch { }
+      render(['TQQQ', 'TSLA', 'PLTR', 'UVXY']);
+    }
+
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('#tickerSegment button[data-symbol]');
+      if (!btn) return;
+      const seg = document.getElementById('tickerSegment'); if (!seg) return;
+      seg.querySelectorAll('button').forEach(b => { b.classList.remove('bg-slate-800', 'text-white', 'focus:outline-none'); if (!b.classList.contains('bg-white')) b.classList.add('bg-white'); if (!b.classList.contains('hover:bg-slate-100')) b.classList.add('hover:bg-slate-100'); });
+      btn.classList.add('bg-slate-800', 'text-white', 'focus:outline-none'); btn.classList.remove('bg-white', 'hover:bg-slate-100');
+      setTicker(btn.getAttribute('data-symbol'));
+      loadAndRunForCurrent();
+    });
+
+    // Direction filter segment handlers
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('#dirSegment button[data-dir]');
+      if (!btn) return;
+      const seg = document.getElementById('dirSegment'); if (!seg) return;
+      seg.querySelectorAll('button').forEach(b => { b.classList.remove('bg-slate-800', 'text-white', 'focus:outline-none'); if (!b.classList.contains('bg-white')) b.classList.add('bg-white'); if (!b.classList.contains('hover:bg-slate-100')) b.classList.add('hover:bg-slate-100'); });
+      btn.classList.add('bg-slate-800', 'text-white', 'focus:outline-none'); btn.classList.remove('bg-white', 'hover:bg-slate-100');
+      VIEW_DIR = (btn.getAttribute('data-dir') || 'both');
+      // Re-run so summary and trades reflect the selected direction
+      scheduleRun();
+    });
+
+    function syncDowUI() {
+      const seg = document.getElementById('dowSegment'); if (!seg) return;
+      seg.querySelectorAll('button[data-dow]').forEach(b => {
+        const n = Number(b.getAttribute('data-dow'));
+        const active = VIEW_DOW.has(n);
+        b.classList.toggle('bg-slate-800', active);
+        b.classList.toggle('text-white', active);
+        b.classList.toggle('bg-white', !active);
+        b.classList.toggle('hover:bg-slate-100', !active);
+      });
+    }
+
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('#dowSegment button[data-dow]');
+      if (!btn) return;
+      const n = Number(btn.getAttribute('data-dow'));
+      if (VIEW_DOW.has(n)) VIEW_DOW.delete(n); else VIEW_DOW.add(n);
+      // Allow empty selection so user can see zero-trade results
+      syncDowUI();
+      scheduleRun();
+    });
+
+    // -----------------------------
+    // Month multi-select helpers
+    // -----------------------------
+    function monthChoicesFromDays() {
+      const set = new Set();
+      for (const dayKey of DAYS) {
+        const mk = `${dayKey.slice(5,7)}/${dayKey.slice(0,4)}`;
+        set.add(mk);
+      }
+      // Sort descending by year-month
+      return Array.from(set).sort((a,b)=>{
+        const [am,ay] = a.split('/').map(Number);
+        const [bm,by] = b.split('/').map(Number);
+        if (ay!==by) return by-ay; // year desc
+        return bm-am; // month desc
+      });
+    }
+
+    function buildMonthOptions() {
+      AVAILABLE_MONTHS = monthChoicesFromDays();
+      const list = document.getElementById('sumMonthMultiList');
+      if (!list) return;
+      list.innerHTML = AVAILABLE_MONTHS.map(m => `
+        <label class="flex items-center gap-2 px-2 py-1 rounded hover:bg-slate-50 cursor-pointer">
+          <input type="checkbox" class="h-4 w-4 rounded border-slate-300" data-month="${m}" ${VIEW_MONTHS.has(m)?'checked':''} />
+          <span class="text-sm text-slate-800">${m}</span>
+        </label>
+      `).join('');
+      updateMonthLabel();
+    }
+
+    function updateMonthLabel(){
+      const lbl = document.getElementById('sumMonthMultiLabel'); if (!lbl) return;
+      if (VIEW_MONTHS.size===0 || VIEW_MONTHS.size===AVAILABLE_MONTHS.length) { lbl.textContent = 'All months'; return; }
+      if (VIEW_MONTHS.size<=2) { lbl.textContent = Array.from(VIEW_MONTHS).sort().join(', '); return; }
+      lbl.textContent = `${VIEW_MONTHS.size} selected`;
+    }
+
+    // Toggle dropdown open/close
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('#sumMonthMultiBtn');
+      const menu = document.getElementById('sumMonthMultiMenu');
+      if (btn && menu) { menu.classList.toggle('hidden'); return; }
+      // Close when clicking outside
+      if (menu && !menu.contains(e.target) && !e.target.closest('#sumMonthMultiBtn')) {
+        menu.classList.add('hidden');
+      }
+    });
+
+    // Select all / Clear
+    document.addEventListener('click', (e) => {
+      const selAll = e.target.closest('#sumMonthSelectAll');
+      const clrAll = e.target.closest('#sumMonthClearAll');
+      if (!selAll && !clrAll) return;
+      if (selAll) VIEW_MONTHS = new Set(AVAILABLE_MONTHS);
+      if (clrAll) VIEW_MONTHS = new Set();
+      // sync checkboxes
+      document.querySelectorAll('#sumMonthMultiList input[type="checkbox"]').forEach(cb => { const m = cb.getAttribute('data-month'); cb.checked = VIEW_MONTHS.has(m); });
+      updateMonthLabel();
+      scheduleRun();
+    });
+
+    // Checkbox toggles
+    document.addEventListener('change', (e) => {
+      const cb = e.target.closest('#sumMonthMultiList input[type="checkbox"]');
+      if (!cb) return;
+      const m = cb.getAttribute('data-month');
+      if (cb.checked) VIEW_MONTHS.add(m); else VIEW_MONTHS.delete(m);
+      updateMonthLabel();
+      scheduleRun();
+    });
+
+    // Param input handling: allow clearing on input; clamp on change
+    (function () {
+      const riskPct = document.getElementById('inp_risk_pct');
+      const aum0 = document.getElementById('inp_aum0');
+      const tStart = document.getElementById('inp_start');
+      const tEnd = document.getElementById('inp_end');
+      const periodInput = document.getElementById('inp_period');
+      const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
+      function onInputNumber(el, def, min, max){
+        const raw = el.value;
+        if (raw === '') return; // allow clearing; skip run until change/valid
+        const v = parseFloat(raw);
+        if (!Number.isFinite(v)) return; // ignore partial strings like '-' or '.'
+        const clamped = clamp(v, min, max);
+        if (clamped !== v) {
+          el.value = String(clamped);
+        }
+        scheduleRun();
+      }
+      function onChangeNumber(el, def, min, max){
+        const v = parseFloat(el.value);
+        el.value = String(clamp(Number.isFinite(v) ? v : def, min, max));
+        scheduleRun();
+      }
+      if (riskPct) {
+        riskPct.addEventListener('input', () => onInputNumber(riskPct, 2, 0, 100));
+        riskPct.addEventListener('change', () => onChangeNumber(riskPct, 2, 0, 100));
+      }
+      if (aum0) {
+        aum0.addEventListener('input', () => onInputNumber(aum0, 100000, 0, 1000000000));
+        aum0.addEventListener('change', () => onChangeNumber(aum0, 100000, 0, 1000000000));
+      }
+      if (tStart) ['input', 'change'].forEach(evt => tStart.addEventListener(evt, scheduleRun));
+      if (tEnd) ['input', 'change'].forEach(evt => tEnd.addEventListener(evt, scheduleRun));
+      if (periodInput) {
+        periodInput.addEventListener('input', () => onInputNumber(periodInput, 1, 1, 60));
+        periodInput.addEventListener('change', () => onChangeNumber(periodInput, 1, 1, 60));
+      }
+    })();
+
+    // Monthly performance toggle handlers
+    (function(){
+      const btnPct = document.getElementById('mpBtnPct');
+      const btnUsd = document.getElementById('mpBtnUsd');
+      function syncUI(){
+        if (!btnPct || !btnUsd) return;
+        btnPct.classList.toggle('bg-white', MONTHLY_PERF_MODE==='pct');
+        btnPct.classList.toggle('ring-1', MONTHLY_PERF_MODE==='pct');
+        btnPct.classList.toggle('ring-slate-300', MONTHLY_PERF_MODE==='pct');
+        btnUsd.classList.toggle('bg-white', MONTHLY_PERF_MODE==='usd');
+        btnUsd.classList.toggle('ring-1', MONTHLY_PERF_MODE==='usd');
+        btnUsd.classList.toggle('ring-slate-300', MONTHLY_PERF_MODE==='usd');
+      }
+      if (btnPct) btnPct.addEventListener('click', ()=>{ MONTHLY_PERF_MODE='pct'; syncUI(); renderMonthlyPerf(LAST_DAILY||[]); });
+      if (btnUsd) btnUsd.addEventListener('click', ()=>{ MONTHLY_PERF_MODE='usd'; syncUI(); renderMonthlyPerf(LAST_DAILY||[]); });
+      syncUI();
+    })();
+
+    // init
+    populateTickerSegment().catch(()=>{});
+  </script>
+</body>
+</html>
