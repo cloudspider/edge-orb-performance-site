@@ -346,6 +346,16 @@
     const fmtPct = (x) => (x == null || isNaN(x) ? '' : Number(x).toFixed(2));
     const fmtTime = (d) => d instanceof Date && !isNaN(d) ? `${pad2(d.getHours())}:${pad2(d.getMinutes())}` : '';
 
+    const CONTRACT_SPECS = {
+      MNQ: { multiplier: 2, maxLeverage: Infinity },
+      NQ: { multiplier: 20, maxLeverage: Infinity },
+    };
+
+    const getContractSpec = (symbol) => {
+      const sym = (symbol || '').toUpperCase();
+      return CONTRACT_SPECS[sym] || { multiplier: 1, maxLeverage: null };
+    };
+
     // -----------------------------
     // Global state
     // -----------------------------
@@ -425,11 +435,13 @@
     // -----------------------------
     // Backtest (JS port)
     // -----------------------------
-    function backtest({ days, dayGroups, orb_m, target_R, stop_R, risk, max_Lev, AUM_0, commission, direction='both', orb_start_time='9:30', orb_end_time='15:30', entry_cutoff_time='12:00', breakout_buffer=0.01 }) {
+    function backtest({ symbol='', days, dayGroups, orb_m, target_R, stop_R, risk, max_Lev, AUM_0, commission, direction='both', orb_start_time='9:30', orb_end_time='15:30', entry_cutoff_time='12:00', breakout_buffer=0.01 }) {
       const out = [];
       const orbStartMin = parseTimeHHMM(orb_start_time);
       const orbEndMin = parseTimeHHMM(orb_end_time);
       const entryCutoffMin = parseTimeHHMM(entry_cutoff_time);
+      const { multiplier: contractMultiplier, maxLeverage: contractMaxLev } = getContractSpec(symbol);
+      const effectiveMaxLev = contractMaxLev != null ? contractMaxLev : max_Lev;
 
       for (let t = 0; t < days.length; t++) {
         const dayKey = days[t];
@@ -468,9 +480,9 @@
         rowOut.StopPrice = stop_price; rowOut.TPPrice = target_price;
 
         const stop_frac = (stop_R * R_price) / entry_price;
-        const max_risk_sh = stop_frac > 0 ? (prev_AUM * risk) / (entry_price * stop_frac) : 0;
-        const max_lev_sh  = (max_Lev * prev_AUM) / entry_price;
-        const shares = Math.floor(Math.min(max_risk_sh, max_lev_sh));
+        const max_risk_contracts = stop_frac > 0 ? (prev_AUM * risk) / (entry_price * stop_frac * contractMultiplier) : 0;
+        const max_lev_contracts  = (effectiveMaxLev * prev_AUM) / (entry_price * contractMultiplier);
+        const shares = Math.floor(Math.min(max_risk_contracts, max_lev_contracts));
         rowOut.Shares = shares;
         if (!(shares>0)) { rowOut.HitType='NoSize'; rowOut.AUM=prev_AUM; out.push(rowOut); continue; }
 
@@ -510,7 +522,9 @@
         }
         rowOut.ExitTime = exit_time; rowOut.Exit = exit_price; rowOut.HitType = hit;
 
-        const pnl = (entry_side===1) ? ((exit_price - entry_price) * shares) : ((entry_price - exit_price) * shares);
+        const pnl = (entry_side===1)
+          ? ((exit_price - entry_price) * shares * contractMultiplier)
+          : ((entry_price - exit_price) * shares * contractMultiplier);
         const new_AUM = prev_AUM + pnl - (shares * commission * 2);
         rowOut.PnL = pnl; rowOut.AUM = new_AUM; rowOut.pnl_R = (risk*prev_AUM)!==0 ? Number((pnl/(risk*prev_AUM)).toFixed(2)) : 0; rowOut.DailyReturn = (prev_AUM!==0) ? Number(((pnl/prev_AUM)*100).toFixed(2)) : 0;
 
