@@ -475,13 +475,26 @@
         if (!(shares>0)) { rowOut.HitType='NoSize'; rowOut.AUM=prev_AUM; out.push(rowOut); continue; }
 
         let exitIdx=null, hit='EOD', exit_time=null, exit_price=NaN;
+        let indeterminate=false;
         for (let j = entryIdx + 1; j < df_day.length; j++) {
           const r2 = df_day[j];
           const tp_hit = (entry_side===1) ? (r2.high >= target_price) : (r2.low <= target_price);
           const st_hit = (entry_side===1) ? (r2.low  <= stop_price)   : (r2.high >= stop_price);
-          if (tp_hit && !st_hit) { exitIdx=j; hit='TP'; break; }
-          if (st_hit && !tp_hit) { exitIdx=j; hit='Stop'; break; }
-          if (tp_hit && st_hit)  { exitIdx=j; hit='TP'; break; }
+          if (tp_hit && st_hit)  { exitIdx=j; hit='Indeterminate'; indeterminate=true; break; }
+          if (tp_hit) { exitIdx=j; hit='TP'; break; }
+          if (st_hit) { exitIdx=j; hit='Stop'; break; }
+        }
+        if (indeterminate) {
+          const bar = df_day[exitIdx];
+          rowOut.ExitTime = bar ? new Date(bar.caldt) : null;
+          rowOut.HitType = 'Indeterminate';
+          rowOut.Exit = NaN;
+          rowOut.PnL = NaN;
+          rowOut.AUM = prev_AUM;
+          rowOut.pnl_R = NaN;
+          rowOut.DailyReturn = 0;
+          out.push(rowOut);
+          continue;
         }
         if (exitIdx==null) {
           let eodIdx = -1;
@@ -516,6 +529,7 @@
       const eodWin = eodAll.filter(r => Number(r.PnL) > 0).length;
       const eodLoss = eodAll.filter(r => Number(r.PnL) < 0).length;
       const stops = trades.filter(r => r.HitType === 'Stop').length;
+      const indeterminate = trades.filter(r => r.HitType === 'Indeterminate').length;
       const wins = tpWins + eodWin;
       const losses = stops + eodLoss;
 
@@ -597,6 +611,7 @@
             </tr>
           </tbody>
         </table>
+        ${indeterminate > 0 ? `<p class="text-xs text-slate-500 mt-2">${fmtInt(indeterminate)} (${pct(indeterminate)}) Indeterminate trades: bar range touched both target and stop within the same minute, so the outcome is unknowable at 1-min resolution.</p>` : ''}
       </div>
     `;
 
@@ -621,6 +636,8 @@
         let highlight = '';
         if (r.HitType === 'TP') {
           highlight = ' bg-emerald-300';
+        } else if (r.HitType === 'Indeterminate') {
+          highlight = ' bg-amber-100';
         } else if (r.HitType === 'EOD' && Number(r.pnl_R) > 0) {
           highlight = ' bg-emerald-100';
         }
