@@ -681,6 +681,8 @@
         maxDDPct = mdd;
       }
 
+      const mar = (maxDDPct < 0) ? cagrPct / Math.abs(maxDDPct) : null;
+
       const cards = [
         { label: 'Days Backtested', value: fmtInt(out.length) },
         { label: 'Final AUM', value: `$${fmtInt(lastAUM)}` },
@@ -688,6 +690,9 @@
         { label: 'Avg Daily Return', value: `${fmtPct(avgDailyRet)}%` },
         { label: 'Total PnL', value: `$${fmtInt(totalPnL)}`, cls: ((totalPnL > 0) ? 'num-pos' : 'num-neg') + ' text-3xl' },
         { label: 'Max DD', value: `${fmtPct(maxDDPct)}%` },
+        { label: '', value: '' },
+        { label: '', value: '' },
+        { label: 'MAR', value: mar == null ? '—' : `${fmtNum(mar, 2)}x` },
       ];
 
       const gridHtml = `<div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">${cards.map(c => {
