@@ -277,7 +277,13 @@
       <h2 class="font-semibold mb-3">Equity Curve</h2>
       <div id="equityChart" class="w-full h-[360px]"></div>
     </section>
-    
+
+    <!-- Drawdown Chart -->
+    <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
+      <h2 class="font-semibold mb-3">Drawdown</h2>
+      <div id="drawdownChart" class="w-full h-[320px]"></div>
+    </section>
+
     <!-- Win/Loss Streaks Chart -->
     <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
       <h2 class="font-semibold mb-3">Win/Loss Streaks</h2>
@@ -380,6 +386,7 @@
     let AVAILABLE_MONTHS = [];
   // ECharts instances
   let equityChartInst = null;
+  let drawdownChartInst = null;
   let streakChartInst = null;
 
     function setTicker(sym) {
@@ -838,6 +845,81 @@
       equityChartInst.setOption(option, true);
     }
 
+    function renderDrawdownChart(out) {
+      const el = document.getElementById('drawdownChart');
+      if (!el) return;
+      if (!out || !out.length) {
+        try { if (drawdownChartInst) { drawdownChartInst.dispose(); drawdownChartInst = null; } } catch {}
+        el.innerHTML = '<div class="text-sm text-slate-500">No data</div>';
+        return;
+      }
+
+      const seriesData = [];
+      let peak = -Infinity;
+      for (const row of out) {
+        if (!row || !row.Date) continue;
+        const aum = Number(row.AUM);
+        if (!Number.isFinite(aum)) continue;
+        if (!Number.isFinite(peak) || aum > peak) peak = aum;
+        if (!Number.isFinite(peak) || peak <= 0) {
+          seriesData.push([row.Date, 0]);
+          continue;
+        }
+        const ddPct = Math.min(((aum / peak) - 1) * 100, 0);
+        seriesData.push([row.Date, ddPct]);
+      }
+
+      const validVals = seriesData.map(p => p[1]).filter(v => Number.isFinite(v));
+      if (!validVals.length) {
+        try { if (drawdownChartInst) { drawdownChartInst.dispose(); drawdownChartInst = null; } } catch {}
+        el.innerHTML = '<div class="text-sm text-slate-500">No data</div>';
+        return;
+      }
+
+      if (!drawdownChartInst) {
+        el.innerHTML = '';
+        drawdownChartInst = echarts.init(el);
+      }
+      const minDD = Math.min(...validVals, -1);
+      const option = {
+        animation: false,
+        grid: { left: 56, right: 16, top: 8, bottom: 40 },
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: { type: 'cross' },
+          valueFormatter: (v) => (v == null ? '' : `${Number(v).toFixed(2)}%`)
+        },
+        xAxis: { type: 'time', name: 'Date' },
+        yAxis: {
+          type: 'value', name: 'Drawdown %',
+          max: 0,
+          min: Math.min(minDD, -1),
+          axisLabel: { formatter: (v) => `${Number(v).toFixed(0)}%` }
+        },
+        dataZoom: [
+          { type: 'inside', throttle: 50 },
+          {
+            type: 'slider',
+            fillerColor: 'rgba(0, 0, 0, 0)',
+            height: 40,
+            dataBackground: {
+              lineStyle: { color: '#f97316' },
+              areaStyle: { color: 'rgba(249, 115, 22, 0.2)' }
+            }
+          }
+        ],
+        series: [{
+          type: 'line',
+          showSymbol: false,
+          smooth: false,
+          lineStyle: { width: 2, color: '#ef4444' },
+          areaStyle: { color: 'rgba(239, 68, 68, 0.15)' },
+          data: seriesData
+        }]
+      };
+      drawdownChartInst.setOption(option, true);
+    }
+
     function computeWinLossStreaks(out) {
       const trades = (out || []).filter(r => r.Shares > 0 && !['NotEnoughBars', 'NoBreak', 'NoSize'].includes(r.HitType));
       const winsX = [], winsY = [], lossX = [], lossY = [];
@@ -1183,6 +1265,7 @@
       LAST_OUT = out;
       renderTable(LAST_OUT);
       renderEquityChart(LAST_OUT);
+      renderDrawdownChart(LAST_OUT);
       renderStreakChart(LAST_OUT);
       renderMonthlyPerf(LAST_OUT);
     }
@@ -1196,6 +1279,7 @@
     // Responsive charts: resize on window changes
     window.addEventListener('resize', () => {
       try { if (equityChartInst) equityChartInst.resize(); } catch {}
+      try { if (drawdownChartInst) drawdownChartInst.resize(); } catch {}
       try { if (streakChartInst) streakChartInst.resize(); } catch {}
     });
 
