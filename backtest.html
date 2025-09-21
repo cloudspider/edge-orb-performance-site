@@ -280,7 +280,13 @@
 
     <!-- Drawdown Chart -->
     <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
-      <h2 class="font-semibold mb-3">Drawdown</h2>
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-semibold">Drawdown</h2>
+        <div class="inline-flex items-center gap-0.5 rounded-xl bg-slate-100 p-0.5" aria-label="Drawdown mode">
+          <button id="ddBtnPct" type="button" class="px-2 py-1 text-xs rounded-lg">%</button>
+          <button id="ddBtnUsd" type="button" class="px-2 py-1 text-xs rounded-lg">$</button>
+        </div>
+      </div>
       <div id="drawdownChart" class="w-full h-[320px]"></div>
     </section>
 
@@ -854,7 +860,8 @@
         return;
       }
 
-      const seriesData = [];
+      const pctData = [];
+      const usdData = [];
       let peak = -Infinity;
       for (const row of out) {
         if (!row || !row.Date) continue;
@@ -862,13 +869,18 @@
         if (!Number.isFinite(aum)) continue;
         if (!Number.isFinite(peak) || aum > peak) peak = aum;
         if (!Number.isFinite(peak) || peak <= 0) {
-          seriesData.push([row.Date, 0]);
+          pctData.push([row.Date, 0]);
+          usdData.push([row.Date, 0]);
           continue;
         }
         const ddPct = Math.min(((aum / peak) - 1) * 100, 0);
-        seriesData.push([row.Date, ddPct]);
+        const ddUsd = Math.min(aum - peak, 0);
+        pctData.push([row.Date, ddPct]);
+        usdData.push([row.Date, ddUsd]);
       }
 
+      const mode = (DRAWDOWN_MODE === 'usd') ? 'usd' : 'pct';
+      const seriesData = mode === 'usd' ? usdData : pctData;
       const validVals = seriesData.map(p => p[1]).filter(v => Number.isFinite(v));
       if (!validVals.length) {
         try { if (drawdownChartInst) { drawdownChartInst.dispose(); drawdownChartInst = null; } } catch {}
@@ -880,21 +892,41 @@
         el.innerHTML = '';
         drawdownChartInst = echarts.init(el);
       }
-      const minDD = Math.min(...validVals, -1);
+
+      const formatCurrency = (val, fractionDigits = 0) => {
+        if (!Number.isFinite(val)) return '';
+        const abs = Math.abs(val);
+        const formatted = abs.toLocaleString(undefined, { minimumFractionDigits: fractionDigits, maximumFractionDigits: fractionDigits });
+        return `${val < 0 ? '-' : ''}$${formatted}`;
+      };
+
       const option = {
         animation: false,
         grid: { left: 56, right: 16, top: 8, bottom: 40 },
         tooltip: {
           trigger: 'axis',
           axisPointer: { type: 'cross' },
-          valueFormatter: (v) => (v == null ? '' : `${Number(v).toFixed(2)}%`)
+          valueFormatter: (v) => {
+            if (v == null) return '';
+            return mode === 'usd' ? formatCurrency(Number(v), 2) : `${Number(v).toFixed(2)}%`;
+          }
         },
         xAxis: { type: 'time', name: 'Date' },
         yAxis: {
-          type: 'value', name: 'Drawdown %',
+          type: 'value',
+          name: mode === 'usd' ? 'Drawdown $' : 'Drawdown %',
           max: 0,
-          min: Math.min(minDD, -1),
-          axisLabel: { formatter: (v) => `${Number(v).toFixed(0)}%` }
+          min: 'dataMin',
+          axisLabel: {
+            formatter: (v) => {
+              if (mode === 'usd') {
+                const val = Number(v);
+                const digits = Math.abs(val) < 1 ? 2 : 0;
+                return formatCurrency(val, digits);
+              }
+              return `${Number(v).toFixed(0)}%`;
+            }
+          }
         },
         dataZoom: [
           { type: 'inside', throttle: 50 },
@@ -909,6 +941,7 @@
           }
         ],
         series: [{
+          name: mode === 'usd' ? 'Drawdown ($)' : 'Drawdown (%)',
           type: 'line',
           showSymbol: false,
           smooth: false,
@@ -1051,6 +1084,7 @@
     })();
 
     let MONTHLY_PERF_MODE = 'pct'; // 'pct' | 'usd'
+    let DRAWDOWN_MODE = 'pct'; // 'pct' | 'usd'
 
     function computeMonthlyPerf(out){
       // Aggregate by YYYY and month index 1..12: both $ PnL and % return per month
@@ -1491,6 +1525,32 @@
       if (tStart) ['input', 'change'].forEach(evt => tStart.addEventListener(evt, scheduleRun));
       if (tEnd) ['input', 'change'].forEach(evt => tEnd.addEventListener(evt, scheduleRun));
       if (tCut) ['input', 'change'].forEach(evt => tCut.addEventListener(evt, scheduleRun));
+    })();
+
+    // Drawdown toggle handlers
+    (function(){
+      const btnPct = document.getElementById('ddBtnPct');
+      const btnUsd = document.getElementById('ddBtnUsd');
+      function syncUI(){
+        if (!btnPct || !btnUsd) return;
+        btnPct.classList.toggle('bg-white', DRAWDOWN_MODE === 'pct');
+        btnPct.classList.toggle('ring-1', DRAWDOWN_MODE === 'pct');
+        btnPct.classList.toggle('ring-slate-300', DRAWDOWN_MODE === 'pct');
+        btnUsd.classList.toggle('bg-white', DRAWDOWN_MODE === 'usd');
+        btnUsd.classList.toggle('ring-1', DRAWDOWN_MODE === 'usd');
+        btnUsd.classList.toggle('ring-slate-300', DRAWDOWN_MODE === 'usd');
+      }
+      if (btnPct) btnPct.addEventListener('click', () => {
+        DRAWDOWN_MODE = 'pct';
+        syncUI();
+        renderDrawdownChart(LAST_OUT || []);
+      });
+      if (btnUsd) btnUsd.addEventListener('click', () => {
+        DRAWDOWN_MODE = 'usd';
+        syncUI();
+        renderDrawdownChart(LAST_OUT || []);
+      });
+      syncUI();
     })();
 
     // Monthly performance toggle handlers
