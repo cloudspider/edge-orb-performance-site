@@ -466,7 +466,6 @@
       target_R,
       stop_R,
       risk,
-      max_Lev,
       AUM_0,
       commission,
       direction = 'both',
@@ -482,8 +481,7 @@
       const orbEndMin = parseTimeHHMM(orb_end_time);
       const entryCutoffMin = parseTimeHHMM(entry_cutoff_time);
 
-      const { multiplier: contractMultiplier, maxLeverage: contractMaxLev } = getContractSpec(symbol);
-      const effectiveMaxLev = contractMaxLev != null ? contractMaxLev : max_Lev;
+      const { multiplier: contractMultiplier } = getContractSpec(symbol);
 
       for (let t = 0; t < days.length; t++) {
         const dayKey = days[t];
@@ -576,8 +574,7 @@
           ? (prev_AUM * risk) / (entry_price * stop_frac * contractMultiplier)
           : 0;
 
-        const max_lev_contracts = (effectiveMaxLev * prev_AUM) / (entry_price * contractMultiplier);
-        const shares = Math.floor(Math.min(max_risk_contracts, max_lev_contracts));
+        const shares = Math.floor(max_risk_contracts);
 
         rowOut.Shares = shares;
         if (!(shares > 0)) {
@@ -1174,7 +1171,7 @@
     // -----------------------------
     // Param handling + run
     // -----------------------------
-    const riskConst = 0.02, maxLevConst = 4, AUM0Const = 100000, commissionConst = 0, directionConst = 'both', breakoutBufferConst = 0.01, orbStartConst = '9:30', orbEndConst = '15:30', entryCutoffConst = '12:00';
+    const riskConst = 0.02, AUM0Const = 100000, commissionConst = 0, directionConst = 'both', breakoutBufferConst = 0.01, orbStartConst = '9:30', orbEndConst = '15:30', entryCutoffConst = '12:00';
 
     function computeFilteredDays() {
       if (!Array.isArray(DAYS) || DAYS.length === 0) return [];
@@ -1211,7 +1208,6 @@
         target_R: (()=>{ const v = trg ? parseFloat(trg.value) : NaN; return Number.isFinite(v) ? v : 2; })(),
         stop_R: (()=>{ const v = stp ? parseFloat(stp.value) : NaN; return Number.isFinite(v) ? v : 2; })(),
         risk: (()=>{ const v = riskPct ? parseFloat(riskPct.value) : NaN; return Number.isFinite(v) ? (v/100) : riskConst; })(),
-        max_Lev: maxLevConst,
         AUM_0: (()=>{ const v = aum0 ? parseFloat(aum0.value) : NaN; return Number.isFinite(v) ? v : AUM0Const; })(),
         commission: commissionConst,
         direction: VIEW_DIR || directionConst,
