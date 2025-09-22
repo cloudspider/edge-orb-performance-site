@@ -38,6 +38,8 @@ else:
     utc_tz = ZoneInfo('UTC')
     nyc_tz = ZoneInfo('America/New_York')
 
+POLYGON_MARKET_TZ = nyc_tz  # Polygon US equity aggregates use the exchange's Eastern Time calendar
+
 
 def is_capitalized_one_minute_file(path: Path) -> bool:
     if not path.is_file():
@@ -56,7 +58,7 @@ def find_existing_capitalized_files(data_dir: Path) -> list[Path]:
     return sorted(path for path in data_dir.iterdir() if is_capitalized_one_minute_file(path))
 
 
-def get_last_data_date(path: Path) -> date:
+def get_last_data_date(path: Path) -> Optional[date]:
     last_row: Optional[dict[str, str]] = None
     with path.open("r", newline="") as csv_file:
         reader = csv.DictReader(csv_file)
@@ -64,7 +66,7 @@ def get_last_data_date(path: Path) -> date:
             last_row = row
 
     if not last_row:
-        raise RuntimeError(f"No data rows found in {path}")
+        return None
 
     day_value = last_row.get("day")
     if day_value:
@@ -201,16 +203,19 @@ def download_and_merge_data(
 ) -> Optional[pd.DataFrame]:
     """Download intraday data, process it, and append to the CSV file."""
 
+    now_market = datetime.now(POLYGON_MARKET_TZ)
+    today_market = now_market.date()
+
     if not PAID_POLYGON_SUBSCRIPTION:
-        two_years_ago = datetime.now() - timedelta(days=730)
-        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+        two_years_ago = today_market - timedelta(days=730)
+        start_dt = datetime.strptime(start_date, "%Y-%m-%d").date()
         if start_dt < two_years_ago:
             print("ERROR: For free Polygon subscriptions, start_date must be within the past 2 years.")
             return None
 
     try:
-        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
-        if end_dt > datetime.now():
+        end_dt = datetime.strptime(end_date, "%Y-%m-%d").date()
+        if end_dt > today_market:
             print("WARNING: end_date is in the future. You may get empty/partial data.")
     except Exception:
         pass
@@ -273,13 +278,18 @@ def main() -> None:
         raise RuntimeError(f"Expected data directory at {data_dir}")
 
     existing_files = find_existing_capitalized_files(data_dir)
-    today = datetime.now(nyc_tz).date()
+    today = datetime.now(POLYGON_MARKET_TZ).date()
 
     for file_path in existing_files:
         last_date = get_last_data_date(file_path)
-        start_date = last_date + timedelta(days=1)
+        if last_date is None:
+            start_date = today - timedelta(days=730)
+            last_date_display = "None (empty file)"
+        else:
+            start_date = last_date + timedelta(days=1)
+            last_date_display = str(last_date)
         end_date = today
-        print(f"{file_path}: last_date={last_date}, start_date={start_date}, end_date={end_date}")
+        print(f"{file_path}: last_date={last_date_display}, start_date={start_date}, end_date={end_date}")
 
         if start_date > end_date:
             print("No new data to download (start_date is after end_date).")
