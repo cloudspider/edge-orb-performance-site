@@ -2,7 +2,11 @@ from pathlib import Path
 import csv
 import os
 from datetime import date, datetime, timedelta
-from typing import Optional
+from typing import Any, Dict, List, Optional
+import time as time_module
+
+import pandas as pd
+import requests
 
 try:
     import pytz
@@ -80,6 +84,189 @@ def get_last_data_date(path: Path) -> date:
         raise RuntimeError(f"Unexpected caldt format in {path}: {caldt_value}") from exc
 
 
+def get_polygon_data(
+    url: Optional[str],
+    ticker: str,
+    from_date: str,
+    to_date: str,
+    multiplier: int = 1,
+    timespan: str = "minute",
+    adjusted: bool = False,
+):
+    """Retrieve intraday aggregate data from Polygon.io, handling pagination."""
+
+    try:
+        if url is None:
+            base = f"https://api.polygon.io/v2/aggs/ticker/{ticker}/range/{multiplier}/{timespan}/{from_date}/{to_date}"
+            params = {
+                "adjusted": "true" if adjusted else "false",
+                "sort": "asc",
+                "limit": 50000,
+                "apiKey": API_KEY,
+            }
+            response = requests.get(base, params=params, timeout=30)
+        else:
+            request_url = url
+            if "apiKey=" not in request_url:
+                request_url = f"{request_url}&apiKey={API_KEY}" if "?" in request_url else f"{request_url}?apiKey={API_KEY}"
+            response = requests.get(request_url, timeout=30)
+
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        print(f"HTTP request failed: {exc}")
+        return [], None
+
+    try:
+        data = response.json()
+    except ValueError:
+        print("Error: Response is not valid JSON.")
+        return [], None
+
+    next_url = data.get("next_url")
+    if next_url and "apiKey=" not in next_url:
+        next_url = f"{next_url}&apiKey={API_KEY}" if "?" in next_url else f"{next_url}?apiKey={API_KEY}"
+
+    results = data.get("results", [])
+    if "resultsCount" in data:
+        print(f"Fetched {data.get('resultsCount')} results in this batch.")
+
+    return results, next_url
+
+
+def process_data(results: List[Dict[str, Any]]) -> pd.DataFrame:
+    """Process Polygon aggregate data into a clean DataFrame."""
+
+    if not results:
+        return pd.DataFrame()
+
+    df = pd.DataFrame(results).copy()
+    df["datetime_utc"] = pd.to_datetime(df["t"], unit="ms", errors="coerce")
+    df["datetime_et"] = df["datetime_utc"].dt.tz_localize(utc_tz, nonexistent="shift_forward", ambiguous="NaT").dt.tz_convert(nyc_tz)
+    df["caldt"] = df["datetime_et"].dt.tz_localize(None)
+
+    df = df.set_index("datetime_et").sort_index()
+    try:
+        market_data = df.between_time("04:00", "19:59", inclusive="both").reset_index()
+    except TypeError:
+        market_data = df.between_time("04:00", "19:59").reset_index()
+
+    market_data["date"] = market_data["datetime_et"].dt.date
+    market_data = market_data.rename(
+        columns={
+            "v": "volume",
+            "vw": "vwap",
+            "o": "open",
+            "c": "close",
+            "h": "high",
+            "l": "low",
+            "t": "timestamp_ms",
+            "n": "transactions",
+        },
+        errors="ignore",
+    )
+
+    market_data["day"] = market_data["date"].astype(str)
+    return market_data
+
+
+def append_to_csv(final_df: pd.DataFrame, output_file: Path) -> None:
+    cols = ["caldt", "open", "high", "low", "close", "volume", "vwap", "transactions", "day"]
+    available_cols = [col for col in cols if col in final_df.columns]
+    new_rows = final_df[available_cols].copy()
+
+    if output_file.exists():
+        try:
+            existing_df = pd.read_csv(output_file)
+            combined = pd.concat([existing_df, new_rows], ignore_index=True)
+        except Exception as exc:
+            print(f"Failed to read existing CSV {output_file}: {exc}. Overwriting with new data.")
+            combined = new_rows
+    else:
+        combined = new_rows
+
+    if "caldt" in combined.columns:
+        combined["caldt"] = pd.to_datetime(combined["caldt"], errors="coerce")
+        combined = combined.sort_values("caldt").drop_duplicates(subset=["caldt"], keep="last")
+        combined["caldt"] = combined["caldt"].dt.strftime("%Y-%m-%d %H:%M:%S")
+
+    combined.to_csv(output_file, index=False)
+    print(f"Data saved to {output_file}")
+
+
+def download_and_merge_data(
+    ticker: str,
+    start_date: str,
+    end_date: str,
+    output_file: Path,
+) -> Optional[pd.DataFrame]:
+    """Download intraday data, process it, and append to the CSV file."""
+
+    if not PAID_POLYGON_SUBSCRIPTION:
+        two_years_ago = datetime.now() - timedelta(days=730)
+        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+        if start_dt < two_years_ago:
+            print("ERROR: For free Polygon subscriptions, start_date must be within the past 2 years.")
+            return None
+
+    try:
+        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+        if end_dt > datetime.now():
+            print("WARNING: end_date is in the future. You may get empty/partial data.")
+    except Exception:
+        pass
+
+    all_raw_data: List[Dict[str, Any]] = []
+    next_url: Optional[str] = None
+    batch_count = 0
+    print(f"Downloading intraday data for {ticker} from {start_date} to {end_date}")
+
+    MAX_BATCHES = 500
+
+    while True:
+        batch_count += 1
+        if batch_count > MAX_BATCHES:
+            print("Stopping: reached MAX_BATCHES safety cap.")
+            break
+
+        print(f"Batch {batch_count}...")
+        results, next_url = get_polygon_data(
+            url=next_url,
+            ticker=ticker,
+            adjusted=False,
+            from_date=start_date,
+            to_date=end_date,
+        )
+
+        if not results:
+            print("No more data or empty batch.")
+            break
+
+        all_raw_data.extend(results)
+        print(f"Batch {batch_count}: Retrieved {len(results)} records. Total so far: {len(all_raw_data)}")
+
+        if not next_url:
+            print("Download complete (no next_url).")
+            break
+
+        if not PAID_POLYGON_SUBSCRIPTION:
+            time_module.sleep(12)
+
+    if not all_raw_data:
+        print("No data collected.")
+        return None
+
+    print(f"Processing {len(all_raw_data)} total records...")
+    final_df = process_data(all_raw_data)
+
+    if final_df.empty:
+        print("No data after processing.")
+        return None
+
+    append_to_csv(final_df, output_file)
+    print(f"Total records after processing: {len(final_df)}")
+    return final_df
+
+
 def main() -> None:
     data_dir = Path(__file__).resolve().parents[1] / "data"
     if not data_dir.exists():
@@ -93,6 +280,22 @@ def main() -> None:
         start_date = last_date + timedelta(days=1)
         end_date = today
         print(f"{file_path}: last_date={last_date}, start_date={start_date}, end_date={end_date}")
+
+        if start_date > end_date:
+            print("No new data to download (start_date is after end_date).")
+            continue
+
+        symbol = file_path.stem[:-len("_1m")]
+        if not symbol:
+            print(f"Unable to extract symbol from {file_path.name}; skipping.")
+            continue
+
+        download_and_merge_data(
+            ticker=symbol,
+            start_date=start_date.strftime("%Y-%m-%d"),
+            end_date=end_date.strftime("%Y-%m-%d"),
+            output_file=file_path,
+        )
 
 
 if __name__ == "__main__":
