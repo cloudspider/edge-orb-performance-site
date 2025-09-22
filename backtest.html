@@ -50,6 +50,18 @@
       -moz-appearance: textfield;
       appearance: textfield;
     }
+
+    /* Allow ticker chips to wrap within their container */
+    #tickerSegment {
+      display: flex;
+      flex-wrap: wrap;
+      max-width: 100%;
+      min-width: 0;
+      white-space: normal;
+    }
+    #tickerSegment button {
+      flex: 0 0 auto;
+    }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800">
@@ -371,6 +383,8 @@
     const CONTRACT_SPECS = {
       MNQ: { multiplier: 2, maxLeverage: Infinity },
       NQ: { multiplier: 20, maxLeverage: Infinity },
+      ES: { multiplier: 50, maxLeverage: Infinity },
+      MES: { multiplier: 20, maxLeverage: Infinity },
     };
 
     const getContractSpec = (symbol) => {
