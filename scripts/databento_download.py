@@ -13,9 +13,9 @@ if not API_KEY:
 
 DATASET = "glbx.mdp3"
 SCHEMA = "ohlcv-1m"
-SYMBOL = "MNQ.C.0"
+SYMBOL  = "MNQ.v.0"       # MNQ1! equivalent on TradingView
 START = "2025-09-01"
-END = "2025-09-18"
+END = "2025-09-21"
 OUTPUT_FILE = Path(f"data/mnq_{START}_{END}_1m.csv")
 RAW_OUTPUT_FILE = OUTPUT_FILE.with_name(f"mnq_{START}_{END}_1m_raw.csv")
 
