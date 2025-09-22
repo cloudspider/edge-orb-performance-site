@@ -29,6 +29,28 @@ if not API_KEY:
 PAID_POLYGON_SUBSCRIPTION = False
 
 
+FREE_TIER_REQUEST_INTERVAL = 12.0  # seconds; Polygon free tier allows up to 5 requests/minute
+RATE_LIMIT_INTERVAL = 0.0 if PAID_POLYGON_SUBSCRIPTION else FREE_TIER_REQUEST_INTERVAL
+_LAST_REQUEST_TS = 0.0
+
+
+def respect_polygon_rate_limit() -> None:
+    """Ensure we leave enough time between requests for the free tier."""
+
+    if RATE_LIMIT_INTERVAL <= 0:
+        return
+
+    global _LAST_REQUEST_TS
+    now = time_module.monotonic()
+    elapsed = now - _LAST_REQUEST_TS
+    wait = RATE_LIMIT_INTERVAL - elapsed
+    if wait > 0:
+        print(f"Sleeping {wait:.1f}s to respect Polygon rate limit...")
+        time_module.sleep(wait)
+        now = time_module.monotonic()
+    _LAST_REQUEST_TS = now
+
+
 if pytz is not None:
     utc_tz = pytz.timezone('UTC')
     nyc_tz = pytz.timezone('America/New_York')
@@ -97,42 +119,68 @@ def get_polygon_data(
 ):
     """Retrieve intraday aggregate data from Polygon.io, handling pagination."""
 
-    try:
-        if url is None:
-            base = f"https://api.polygon.io/v2/aggs/ticker/{ticker}/range/{multiplier}/{timespan}/{from_date}/{to_date}"
-            params = {
-                "adjusted": "true" if adjusted else "false",
-                "sort": "asc",
-                "limit": 50000,
-                "apiKey": API_KEY,
-            }
-            response = requests.get(base, params=params, timeout=30)
-        else:
-            request_url = url
-            if "apiKey=" not in request_url:
-                request_url = f"{request_url}&apiKey={API_KEY}" if "?" in request_url else f"{request_url}?apiKey={API_KEY}"
-            response = requests.get(request_url, timeout=30)
+    MAX_RETRIES = 5
+    attempt = 0
 
-        response.raise_for_status()
-    except requests.RequestException as exc:
-        print(f"HTTP request failed: {exc}")
-        return [], None
+    while attempt < MAX_RETRIES:
+        attempt += 1
 
-    try:
-        data = response.json()
-    except ValueError:
-        print("Error: Response is not valid JSON.")
-        return [], None
+        respect_polygon_rate_limit()
 
-    next_url = data.get("next_url")
-    if next_url and "apiKey=" not in next_url:
-        next_url = f"{next_url}&apiKey={API_KEY}" if "?" in next_url else f"{next_url}?apiKey={API_KEY}"
+        try:
+            if url is None:
+                base = f"https://api.polygon.io/v2/aggs/ticker/{ticker}/range/{multiplier}/{timespan}/{from_date}/{to_date}"
+                params = {
+                    "adjusted": "true" if adjusted else "false",
+                    "sort": "asc",
+                    "limit": 50000,
+                    "apiKey": API_KEY,
+                }
+                response = requests.get(base, params=params, timeout=30)
+            else:
+                request_url = url
+                if "apiKey=" not in request_url:
+                    request_url = f"{request_url}&apiKey={API_KEY}" if "?" in request_url else f"{request_url}?apiKey={API_KEY}"
+                response = requests.get(request_url, timeout=30)
+        except requests.RequestException as exc:
+            print(f"HTTP request failed: {exc}")
+            return [], None
 
-    results = data.get("results", [])
-    if "resultsCount" in data:
-        print(f"Fetched {data.get('resultsCount')} results in this batch.")
+        if response.status_code == 429:
+            retry_after_header = response.headers.get("Retry-After")
+            try:
+                retry_after = float(retry_after_header) if retry_after_header is not None else RATE_LIMIT_INTERVAL or FREE_TIER_REQUEST_INTERVAL
+            except ValueError:
+                retry_after = RATE_LIMIT_INTERVAL or FREE_TIER_REQUEST_INTERVAL
+            retry_after = max(retry_after, RATE_LIMIT_INTERVAL or 0, 1.0)
+            print(f"Rate limited (HTTP 429). Waiting {retry_after:.1f}s before retry {attempt}/{MAX_RETRIES}...")
+            time_module.sleep(retry_after)
+            continue
 
-    return results, next_url
+        try:
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            print(f"HTTP request failed: {exc}")
+            return [], None
+
+        try:
+            data = response.json()
+        except ValueError:
+            print("Error: Response is not valid JSON.")
+            return [], None
+
+        next_url = data.get("next_url")
+        if next_url and "apiKey=" not in next_url:
+            next_url = f"{next_url}&apiKey={API_KEY}" if "?" in next_url else f"{next_url}?apiKey={API_KEY}"
+
+        results = data.get("results", [])
+        if "resultsCount" in data:
+            print(f"Fetched {data.get('resultsCount')} results in this batch.")
+
+        return results, next_url
+
+    print("Exceeded maximum retries due to rate limiting. Giving up on this batch.")
+    return [], None
 
 
 def process_data(results: List[Dict[str, Any]]) -> pd.DataFrame:
@@ -252,9 +300,6 @@ def download_and_merge_data(
         if not next_url:
             print("Download complete (no next_url).")
             break
-
-        if not PAID_POLYGON_SUBSCRIPTION:
-            time_module.sleep(12)
 
     if not all_raw_data:
         print("No data collected.")
