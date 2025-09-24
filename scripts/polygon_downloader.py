@@ -324,9 +324,16 @@ def main() -> None:
 
     existing_files = find_existing_capitalized_files(data_dir)
     today = datetime.now(POLYGON_MARKET_TZ).date()
+    yesterday = today - timedelta(days=1)
 
     for file_path in existing_files:
         last_date = get_last_data_date(file_path)
+
+        # Skip retrieval if last_date is yesterday or later
+        if last_date is not None and last_date >= yesterday:
+            print(f"{file_path}: last_date={last_date} >= yesterday={yesterday}; up to date, skipping.")
+            continue
+
         if last_date is None:
             start_date = today - timedelta(days=730)
             last_date_display = "None (empty file)"
