@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ORB Results</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.0.2/styles/ag-grid.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@32.0.2/styles/ag-theme-quartz.css" />
+  <style>
+    .shadow-soft { box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
+    .ag-theme-quartz { border-radius: 1rem; border: 1px solid rgba(148, 163, 184, 0.3); }
+    .ag-theme-quartz .ag-header { background-color: #f8fafc; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+  <nav class="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+    <div class="max-w-screen-2xl mx-auto px-6 py-3 flex items-center gap-3">
+      <div class="flex items-center gap-2 font-semibold text-slate-800">
+        <svg class="h-5 w-5 text-emerald-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M192 384L88.5 384C63.6 384 48.3 356.9 61.1 335.5L114 247.3C122.7 232.8 138.3 224 155.2 224L250.2 224C326.3 95.1 439.8 88.6 515.7 99.7C528.5 101.6 538.5 111.6 540.3 124.3C551.4 200.2 544.9 313.7 416 389.8L416 484.8C416 501.7 407.2 517.3 392.7 526L304.5 578.9C283.2 591.7 256 576.3 256 551.5L256 448C256 412.7 227.3 384 192 384L191.9 384zM464 224C464 197.5 442.5 176 416 176C389.5 176 368 197.5 368 224C368 250.5 389.5 272 416 272C442.5 272 464 250.5 464 224z"/></svg>
+        <span>ORB</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <a data-nav href="index.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Performance</a>
+        <a data-nav href="backtest.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Backtest</a>
+        <a data-nav href="results.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Results</a>
+      </div>
+    </div>
+  </nav>
+  <script>
+    (function(){
+      try {
+        const file = (location.pathname.split('/').pop() || 'results.html').toLowerCase();
+        document.querySelectorAll('a[data-nav]').forEach(a => {
+          const href = (a.getAttribute('href') || '').toLowerCase();
+          const active = href === file || (file === '' && href.endsWith('index.html'));
+          a.classList.toggle('bg-slate-800', active);
+          a.classList.toggle('text-white', active);
+          a.classList.toggle('hover:bg-slate-100', !active);
+          if (active) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current');
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    })();
+  </script>
+
+  <div class="max-w-screen-2xl mx-auto p-6 space-y-6">
+    <header class="mb-2">
+      <h1 class="text-2xl md:text-3xl font-semibold">Saved Backtest Results</h1>
+      <p class="text-slate-600 mt-1">Summaries saved from the backtest page are listed below.</p>
+    </header>
+
+    <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6 space-y-4">
+      <div class="flex flex-wrap items-center gap-3 justify-between">
+        <div class="flex items-center gap-2 text-sm text-slate-600">
+          <span id="status">Loading saved runs…</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="btnRefresh" class="px-3 py-2 rounded-xl text-sm font-medium bg-slate-800 text-white hover:bg-slate-700">Refresh</button>
+          <button id="btnClear" class="px-3 py-2 rounded-xl text-sm font-medium bg-rose-500 text-white hover:bg-rose-600">Clear All</button>
+        </div>
+      </div>
+
+      <div class="ag-theme-quartz w-full border rounded-xl" style="height: 600px;">
+        <div id="resultsGrid" class="w-full h-full"></div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const DB_CONFIG = { name: 'orbBacktestDB', version: 1, store: 'runs' };
+    let dbPromise = null;
+    let gridApi = null;
+    let cachedRuns = [];
+
+    function loadScript(src) {
+      return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.async = true;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error(`Failed to load script ${src}`));
+        document.head.appendChild(script);
+      });
+    }
+
+    function setStatus(msg) {
+      const el = document.getElementById('status');
+      if (el) el.textContent = msg;
+    }
+
+    function formatSavedAt(value) {
+      if (!Number.isFinite(value)) return '';
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return '';
+      return d.toLocaleString();
+    }
+
+    function formatNumber(value, digits = 2) {
+      const num = Number(value);
+      if (!Number.isFinite(num)) return '';
+      return num.toFixed(digits);
+    }
+
+    function formatInteger(value) {
+      const num = Number(value);
+      return Number.isFinite(num) ? num.toLocaleString() : '';
+    }
+
+    function formatMoney(value) {
+      const num = Number(value);
+      if (!Number.isFinite(num)) return '';
+      return `$${num.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+    }
+
+    function formatPercent(value) {
+      const num = Number(value);
+      if (!Number.isFinite(num)) return '';
+      return `${num.toFixed(2)}%`;
+    }
+
+    function formatRisk(value) {
+      const num = Number(value);
+      if (!Number.isFinite(num)) return '';
+      return `${num.toFixed(2)}%`;
+    }
+
+    function toNumber(value) {
+      const num = Number(value);
+      return Number.isFinite(num) ? num : null;
+    }
+
+    function directionLabel(dir) {
+      if (!dir) return 'Both';
+      const norm = String(dir).toLowerCase();
+      if (norm === 'long') return 'Long';
+      if (norm === 'short') return 'Short';
+      return 'Both';
+    }
+
+    function buildRowData(runs) {
+      return runs.map(run => {
+        const params = run.params || {};
+        const summary = run.summary || {};
+        const trades = summary.tradeCounts || {};
+        const pct = trades.pct || {};
+        const savedAt = run.savedAt ? new Date(run.savedAt).getTime() : NaN;
+        return {
+          id: run.id || '',
+          savedAt: Number.isFinite(savedAt) ? savedAt : null,
+          symbol: (params.symbol || '').toUpperCase(),
+          direction: directionLabel(params.direction),
+          orb_m: toNumber(params.orb_m),
+          target_R: toNumber(params.target_R),
+          stop_R: toNumber(params.stop_R),
+          orb_start_time: params.orb_start_time || '',
+          orb_end_time: params.orb_end_time || '',
+          entry_cutoff_time: params.entry_cutoff_time || '',
+          risk_pct: toNumber(params.risk_pct),
+          finalAUM: toNumber(summary.finalAUM),
+          totalPnL: toNumber(summary.totalPnL),
+          cagrPct: toNumber(summary.cagrPct),
+          avgDailyRet: toNumber(summary.avgDailyRet),
+          maxDDPct: toNumber(summary.maxDDPct),
+          mar: toNumber(summary.mar),
+          trades: toNumber(trades.total),
+          wins: toNumber(trades.wins),
+          winsPct: toNumber(pct.wins),
+          losses: toNumber(trades.losses),
+          lossesPct: toNumber(pct.losses),
+          eodCount: toNumber(trades.eodCount),
+          eodPct: toNumber(pct.eod),
+          eodWin: toNumber(trades.eodWin),
+          eodWinPct: toNumber(pct.eodWin),
+          eodLoss: toNumber(trades.eodLoss),
+          eodLossPct: toNumber(pct.eodLoss),
+          indeterminate: toNumber(trades.indeterminate)
+        };
+      });
+    }
+
+    const columnDefs = [
+      {
+        headerName: 'Strategy Key',
+        field: 'id',
+        checkboxSelection: true,
+        headerCheckboxSelection: true,
+        filter: 'agTextColumnFilter',
+        pinned: 'left',
+        minWidth: 200,
+      },
+      {
+        headerName: 'Saved',
+        field: 'savedAt',
+        filter: 'agDateColumnFilter',
+        sort: 'desc',
+        valueFormatter: params => formatSavedAt(params.value),
+        comparator: (a, b) => {
+          if (a == null && b == null) return 0;
+          if (a == null) return -1;
+          if (b == null) return 1;
+          return a - b;
+        },
+        minWidth: 190,
+      },
+      {
+        headerName: 'Symbol',
+        field: 'symbol',
+        filter: 'agTextColumnFilter',
+        minWidth: 120,
+      },
+      {
+        headerName: 'Direction',
+        field: 'direction',
+        filter: 'agSetColumnFilter',
+        minWidth: 130,
+      },
+      { headerName: 'ORB (m)', field: 'orb_m', type: 'numericColumn', valueFormatter: p => formatInteger(p.value) },
+      { headerName: 'Target R', field: 'target_R', type: 'numericColumn', valueFormatter: p => formatNumber(p.value) },
+      { headerName: 'Stop R', field: 'stop_R', type: 'numericColumn', valueFormatter: p => formatNumber(p.value) },
+      { headerName: 'Start', field: 'orb_start_time', minWidth: 120 },
+      { headerName: 'End', field: 'orb_end_time', minWidth: 120 },
+      { headerName: 'Cutoff', field: 'entry_cutoff_time', minWidth: 130 },
+      { headerName: 'Risk %', field: 'risk_pct', type: 'numericColumn', valueFormatter: p => formatRisk(p.value) },
+      { headerName: 'Final AUM', field: 'finalAUM', type: 'numericColumn', valueFormatter: p => formatMoney(p.value) },
+      { headerName: 'Total PnL', field: 'totalPnL', type: 'numericColumn', valueFormatter: p => formatMoney(p.value) },
+      { headerName: 'CAGR %', field: 'cagrPct', type: 'numericColumn', valueFormatter: p => formatPercent(p.value) },
+      { headerName: 'Avg Daily %', field: 'avgDailyRet', type: 'numericColumn', valueFormatter: p => formatPercent(p.value) },
+      { headerName: 'Max DD %', field: 'maxDDPct', type: 'numericColumn', valueFormatter: p => formatPercent(p.value) },
+      { headerName: 'MAR', field: 'mar', type: 'numericColumn', valueFormatter: p => formatNumber(p.value, 2) },
+      { headerName: 'Trades', field: 'trades', type: 'numericColumn', valueFormatter: p => formatInteger(p.value) },
+      { headerName: 'Wins', field: 'wins', type: 'numericColumn', valueFormatter: p => formatInteger(p.value) },
+      { headerName: 'Win %', field: 'winsPct', type: 'numericColumn', valueFormatter: p => formatPercent(p.value) },
+      { headerName: 'Losses', field: 'losses', type: 'numericColumn', valueFormatter: p => formatInteger(p.value) },
+      { headerName: 'Loss %', field: 'lossesPct', type: 'numericColumn', valueFormatter: p => formatPercent(p.value) },
+      { headerName: 'EOD', field: 'eodCount', type: 'numericColumn', valueFormatter: p => formatInteger(p.value) },
+      { headerName: 'EOD %', field: 'eodPct', type: 'numericColumn', valueFormatter: p => formatPercent(p.value) },
+      { headerName: 'EOD Win', field: 'eodWin', type: 'numericColumn', valueFormatter: p => formatInteger(p.value) },
+      { headerName: 'EOD Win %', field: 'eodWinPct', type: 'numericColumn', valueFormatter: p => formatPercent(p.value) },
+      { headerName: 'EOD Loss', field: 'eodLoss', type: 'numericColumn', valueFormatter: p => formatInteger(p.value) },
+      { headerName: 'EOD Loss %', field: 'eodLossPct', type: 'numericColumn', valueFormatter: p => formatPercent(p.value) },
+      { headerName: 'Indeterminate', field: 'indeterminate', type: 'numericColumn', valueFormatter: p => formatInteger(p.value) },
+    ];
+
+    const defaultColDef = {
+      filter: true,
+      sortable: true,
+      resizable: true,
+      floatingFilter: true,
+      minWidth: 120,
+    };
+
+    function getDbInstance() {
+      if (typeof indexedDB === 'undefined') {
+        return Promise.reject(new Error('IndexedDB not available in this environment.'));
+      }
+      if (!dbPromise) {
+        dbPromise = new Promise((resolve, reject) => {
+          const request = indexedDB.open(DB_CONFIG.name, DB_CONFIG.version);
+          request.onerror = () => reject(request.error);
+          request.onupgradeneeded = () => {
+            const db = request.result;
+            if (!db.objectStoreNames.contains(DB_CONFIG.store)) {
+              db.createObjectStore(DB_CONFIG.store, { keyPath: 'id' });
+            }
+          };
+          request.onsuccess = () => resolve(request.result);
+        }).catch(err => {
+          dbPromise = null;
+          throw err;
+        });
+      }
+      return dbPromise;
+    }
+
+    async function fetchRuns() {
+      try {
+        const db = await getDbInstance();
+        return await new Promise((resolve, reject) => {
+          const tx = db.transaction(DB_CONFIG.store, 'readonly');
+          const store = tx.objectStore(DB_CONFIG.store);
+          const req = store.getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => reject(req.error);
+        });
+      } catch (err) {
+        console.error('Failed to read IndexedDB', err);
+        setStatus('Failed to load saved runs.');
+        return [];
+      }
+    }
+
+  async function loadAndRenderRuns() {
+      if (!gridApi) return;
+      setStatus('Loading saved runs…');
+      cachedRuns = await fetchRuns();
+      const rowData = buildRowData(cachedRuns);
+      gridApi.setGridOption('rowData', rowData);
+      setStatus(`${rowData.length} saved run${rowData.length === 1 ? '' : 's'} loaded.`);
+    }
+
+    async function clearAllRuns() {
+      if (!confirm('Delete all saved backtest results?')) return;
+      try {
+        const db = await getDbInstance();
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction(DB_CONFIG.store, 'readwrite');
+          const store = tx.objectStore(DB_CONFIG.store);
+          const req = store.clear();
+          req.onsuccess = () => resolve();
+          req.onerror = () => reject(req.error);
+        });
+        cachedRuns = [];
+        if (gridApi) {
+          gridApi.setGridOption('rowData', []);
+        }
+        setStatus('All saved runs cleared.');
+      } catch (err) {
+        console.error('Failed to clear saved runs', err);
+        setStatus('Failed to clear saved runs.');
+      }
+    }
+
+    document.getElementById('btnRefresh')?.addEventListener('click', () => {
+      loadAndRenderRuns();
+    });
+
+    document.getElementById('btnClear')?.addEventListener('click', () => {
+      clearAllRuns();
+    });
+
+    async function ensureAgGridLoaded() {
+      const getGlobal = () => window.agGrid || window.AGGrid || window['agGrid'];
+      if (getGlobal()) return getGlobal();
+
+      try {
+        await loadScript('vendor/ag-grid-community.min.js');
+      } catch (err) {
+        console.warn('Local AG Grid copy not found, trying CDN.', err);
+      }
+      if (getGlobal()) return getGlobal();
+
+      try {
+        await loadScript('https://cdn.jsdelivr.net/npm/ag-grid-community@32.0.2/dist/ag-grid-community.min.js');
+      } catch (err) {
+        console.error('Failed to load AG Grid from CDN.', err);
+        return null;
+      }
+      return getGlobal();
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      const gridElement = document.getElementById('resultsGrid');
+      if (!gridElement) return;
+
+      const agGridGlobal = await ensureAgGridLoaded();
+      if (!agGridGlobal || typeof agGridGlobal.createGrid !== 'function') {
+        console.error('AG Grid library not found.');
+        setStatus('AG Grid library failed to load.');
+        return;
+      }
+
+      gridApi = agGridGlobal.createGrid(gridElement, {
+        columnDefs,
+        defaultColDef,
+        rowSelection: 'multiple',
+        animateRows: true,
+        pagination: true,
+        paginationPageSize: 100,
+        paginationPageSizeSelector: [25, 50, 100, 250],
+        enableCellTextSelection: true,
+        rowData: [],
+      });
+      loadAndRenderRuns();
+    });
+  </script>
+</body>
+</html>

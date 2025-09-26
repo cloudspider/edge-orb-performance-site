@@ -75,6 +75,7 @@
       <div class="flex items-center gap-2">
         <a data-nav href="index.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Performance</a>
         <a data-nav href="backtest.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Backtest</a>
+        <a data-nav href="results.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Results</a>
       </div>
     </div>
   </nav>
@@ -409,6 +410,88 @@
   let drawdownChartInst = null;
   let streakChartInst = null;
 
+  const DEFAULT_VIEW_DOW = [1, 2, 3, 4, 5];
+  const DB_CONFIG = { name: 'orbBacktestDB', version: 1, store: 'runs' };
+  let dbPromise = null;
+
+  function getDbInstance() {
+    if (typeof indexedDB === 'undefined') {
+      return Promise.reject(new Error('IndexedDB is not available in this environment'));
+    }
+    if (!dbPromise) {
+      dbPromise = new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_CONFIG.name, DB_CONFIG.version);
+        request.onerror = () => reject(request.error);
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          if (!db.objectStoreNames.contains(DB_CONFIG.store)) {
+            db.createObjectStore(DB_CONFIG.store, { keyPath: 'id' });
+          }
+        };
+        request.onsuccess = () => resolve(request.result);
+      }).catch(err => {
+        dbPromise = null;
+        throw err;
+      });
+    }
+    return dbPromise;
+  }
+
+  function isDefaultFilterState() {
+    if (VIEW_MONTHS.size !== 0) return false;
+    if (VIEW_DOW.size !== DEFAULT_VIEW_DOW.length) return false;
+    return DEFAULT_VIEW_DOW.every(d => VIEW_DOW.has(d));
+  }
+
+  function formatNumberForKey(val) {
+    if (val == null || val === '') return '0';
+    const num = Number(val);
+    if (!Number.isFinite(num)) return '0';
+    const str = `${num}`;
+    return str.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+  }
+
+  function formatTimeForKey(timeStr) {
+    if (typeof timeStr !== 'string' || !timeStr.includes(':')) return timeStr || '';
+    return timeStr.replace(':', '.');
+  }
+
+  function buildStrategyKey(params) {
+    if (!params || !params.symbol) return '';
+    const dirLetter = params.direction === 'long' ? 'L' : params.direction === 'short' ? 'S' : 'B';
+    const riskPct = Number.isFinite(params.risk) ? params.risk * 100 : 0;
+    const parts = [
+      (params.symbol || '').toUpperCase(),
+      dirLetter,
+      formatNumberForKey(params.orb_m),
+      formatNumberForKey(params.target_R),
+      formatNumberForKey(params.stop_R),
+      formatTimeForKey(params.orb_start_time),
+      formatTimeForKey(params.orb_end_time),
+      formatTimeForKey(params.entry_cutoff_time),
+      formatNumberForKey(riskPct)
+    ];
+    return parts.join('_');
+  }
+
+  function sanitizeParamsForStorage(params) {
+    if (!params) return null;
+    return {
+      symbol: (params.symbol || '').toUpperCase(),
+      direction: params.direction,
+      orb_m: params.orb_m,
+      target_R: params.target_R,
+      stop_R: params.stop_R,
+      orb_start_time: params.orb_start_time,
+      orb_end_time: params.orb_end_time,
+      entry_cutoff_time: params.entry_cutoff_time,
+      risk_pct: Number.isFinite(params.risk) ? Number((params.risk * 100).toFixed(4)) : null,
+      AUM_0: params.AUM_0,
+      commission: params.commission,
+      breakout_buffer: params.breakout_buffer
+    };
+  }
+
     function setTicker(sym) {
       currentTicker = (sym || '').toUpperCase();
       const titleEl = document.getElementById('mainTitle');
@@ -663,53 +746,121 @@
       return out;
     }
 
-    function renderSummary(out) {
-      const summary = document.getElementById('summary');
-      if (!out || !out.length) { summary.innerHTML = ''; return; }
+    function computeSummaryMetrics(out) {
+      if (!Array.isArray(out) || out.length === 0) return null;
       const trades = out.filter(r => r.Shares > 0 && !['NotEnoughBars', 'NoBreak', 'NoSize'].includes(r.HitType));
-      const total = trades.length;
-      const tpWins = trades.filter(r => r.HitType === 'TP').length;
-      const eodAll = trades.filter(r => r.HitType === 'EOD');
-      const eodWin = eodAll.filter(r => Number(r.PnL) > 0).length;
-      const eodLoss = eodAll.filter(r => Number(r.PnL) < 0).length;
-      const stops = trades.filter(r => r.HitType === 'Stop').length;
-      const indeterminate = trades.filter(r => r.HitType === 'Indeterminate').length;
+      let totalTrades = 0;
+      let tpWins = 0;
+      let stops = 0;
+      let eodCount = 0;
+      let eodWin = 0;
+      let eodLoss = 0;
+      let indeterminate = 0;
+      for (const trade of trades) {
+        totalTrades += 1;
+        const hit = trade.HitType;
+        if (hit === 'TP') tpWins += 1;
+        else if (hit === 'Stop') stops += 1;
+        else if (hit === 'EOD') {
+          eodCount += 1;
+          if (Number(trade.PnL) > 0) eodWin += 1;
+          else if (Number(trade.PnL) < 0) eodLoss += 1;
+        } else if (hit === 'Indeterminate') {
+          indeterminate += 1;
+        }
+      }
       const wins = tpWins + eodWin;
       const losses = stops + eodLoss;
 
-      const lastAUM = out[out.length - 1].AUM;
-      const totalPnL = out.reduce((s, r) => s + (Number.isFinite(r.PnL) ? r.PnL : 0), 0);
-      const avgDailyRet = out.reduce((s, r) => s + (Number.isFinite(r.DailyReturn) ? r.DailyReturn : 0), 0) / out.length;
+      let totalPnL = 0;
+      let totalDailyReturn = 0;
+      for (const row of out) {
+        if (Number.isFinite(row.PnL)) totalPnL += row.PnL;
+        if (Number.isFinite(row.DailyReturn)) totalDailyReturn += row.DailyReturn;
+      }
+      const avgDailyRet = out.length ? totalDailyReturn / out.length : 0;
 
-      // CAGR and Max Drawdown based on filtered equity curve
+      const lastRow = out[out.length - 1] || {};
+      const lastAUM = Number.isFinite(lastRow.AUM) ? lastRow.AUM : null;
+
       let cagrPct = 0;
-      let maxDDPct = 0; // negative value e.g., -12.34
+      let maxDDPct = 0;
       if (out.length > 1) {
-        const startAUM = out[0].AUM;
-        const endAUM = out[out.length - 1].AUM;
-        const firstDate = new Date(out[0].Date);
-        const lastDate = new Date(out[out.length - 1].Date);
-        const days = (lastDate - firstDate) / (1000 * 60 * 60 * 24);
-        const years = days / 365.25;
-        if (years > 0 && startAUM > 0 && endAUM > 0) {
-          cagrPct = (Math.pow(endAUM / startAUM, 1 / years) - 1) * 100;
+        const firstRow = out[0] || {};
+        const startAUM = Number.isFinite(firstRow.AUM) ? firstRow.AUM : null;
+        const endAUM = Number.isFinite(lastRow.AUM) ? lastRow.AUM : null;
+        const firstDate = firstRow.Date ? new Date(firstRow.Date) : null;
+        const lastDate = lastRow.Date ? new Date(lastRow.Date) : null;
+        const firstDateValid = firstDate && !isNaN(firstDate);
+        const lastDateValid = lastDate && !isNaN(lastDate);
+        if (startAUM !== null && endAUM !== null && startAUM > 0 && endAUM > 0 && firstDateValid && lastDateValid) {
+          const days = (lastDate - firstDate) / (1000 * 60 * 60 * 24);
+          const years = days / 365.25;
+          if (years > 0) {
+            cagrPct = (Math.pow(endAUM / startAUM, 1 / years) - 1) * 100;
+          }
         }
-        let peak = out[0].AUM;
-        let mdd = 0; // negative percent
-        for (const r of out) {
-          const a = r.AUM;
-          if (a > peak) peak = a;
-          const dd = ((a / peak) - 1) * 100; // <= 0
-          if (dd < mdd) mdd = dd;
+        let peak = startAUM;
+        let mdd = 0;
+        for (const row of out) {
+          const a = Number(row.AUM);
+          if (!Number.isFinite(a)) continue;
+          if (!Number.isFinite(peak) || a > peak) {
+            peak = a;
+            continue;
+          }
+          if (Number.isFinite(peak) && peak > 0) {
+            const dd = ((a / peak) - 1) * 100;
+            if (dd < mdd) mdd = dd;
+          }
         }
         maxDDPct = mdd;
       }
 
-      const mar = (maxDDPct < 0) ? cagrPct / Math.abs(maxDDPct) : null;
+      const mar = (Number.isFinite(cagrPct) && maxDDPct < 0) ? cagrPct / Math.abs(maxDDPct) : null;
+
+      const pctOrZero = (count) => totalTrades > 0 ? Number(((count / totalTrades) * 100).toFixed(2)) : 0;
+
+      return {
+        totalDays: out.length,
+        finalAUM: lastAUM,
+        totalPnL,
+        avgDailyRet,
+        cagrPct,
+        maxDDPct,
+        mar,
+        tradeCounts: {
+          total: totalTrades,
+          wins,
+          losses,
+          eodCount,
+          eodWin,
+          eodLoss,
+          indeterminate,
+          pct: {
+            wins: pctOrZero(wins),
+            losses: pctOrZero(losses),
+            eod: pctOrZero(eodCount),
+            eodWin: pctOrZero(eodWin),
+            eodLoss: pctOrZero(eodLoss),
+            indeterminate: pctOrZero(indeterminate)
+          }
+        }
+      };
+    }
+
+    function renderSummary(out) {
+      const summary = document.getElementById('summary');
+      if (!summary) return;
+      const metrics = computeSummaryMetrics(out);
+      if (!metrics) { summary.innerHTML = ''; return; }
+
+      const { totalDays, finalAUM, totalPnL, avgDailyRet, cagrPct, maxDDPct, mar, tradeCounts } = metrics;
+      const { total, wins, losses, eodCount, eodWin, eodLoss, indeterminate, pct: tradePct = {} } = tradeCounts;
 
       const cards = [
-        { label: 'Days Backtested', value: fmtInt(out.length) },
-        { label: 'Final AUM', value: `$${fmtInt(lastAUM)}` },
+        { label: 'Days Backtested', value: fmtInt(totalDays) },
+        { label: 'Final AUM', value: `$${fmtInt(finalAUM)}` },
         { label: 'CAGR', value: `${fmtPct(cagrPct)}%` },
         { label: 'Avg Daily Return', value: `${fmtPct(avgDailyRet)}%` },
         { label: 'Total PnL', value: `$${fmtInt(totalPnL)}`, cls: ((totalPnL > 0) ? 'num-pos' : 'num-neg') + ' text-3xl' },
@@ -726,7 +877,11 @@
       }).join('')
         }</div>`;
 
-      const pct = (n) => total > 0 ? `${((n / total) * 100).toFixed(1)}%` : '0.0%';
+      const pct = (val) => {
+        const num = Number(val);
+        if (!Number.isFinite(num)) return '0.00%';
+        return `${fmtPct(num)}%`;
+      };
       const tableHtml = `
       <div class="rounded-2xl border p-3 overflow-auto">
         <div class="text-xs text-slate-500 mb-2">Trades breakdown</div>
@@ -746,25 +901,55 @@
       <td class="px-3 py-2">${fmtInt(total)}</td>
       <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(wins)}</td>
       <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(losses)}</td>
-      <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(eodAll.length)}</td>
+      <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(eodCount)}</td>
       <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(eodWin)}</td>
       <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(eodLoss)}</td>
             </tr>
             <tr>
       <td class="px-3 py-2 text-slate-600">100.0%</td>
-      <td class="px-3 py-2 text-right text-slate-600 tabular-nums font-mono">${pct(wins)}</td>
-      <td class="px-3 py-2 text-right text-slate-600 tabular-nums font-mono">${pct(losses)}</td>
-      <td class="px-3 py-2 text-right text-slate-600 tabular-nums font-mono">${pct(eodAll.length)}</td>
-      <td class="px-3 py-2 text-right text-slate-600 tabular-nums font-mono">${pct(eodWin)}</td>
-      <td class="px-3 py-2 text-right text-slate-600 tabular-nums font-mono">${pct(eodLoss)}</td>
+      <td class="px-3 py-2 text-right text-slate-600 tabular-nums font-mono">${pct(tradePct.wins)}</td>
+      <td class="px-3 py-2 text-right text-slate-600 tabular-nums font-mono">${pct(tradePct.losses)}</td>
+      <td class="px-3 py-2 text-right text-slate-600 tabular-nums font-mono">${pct(tradePct.eod)}</td>
+      <td class="px-3 py-2 text-right text-slate-600 tabular-nums font-mono">${pct(tradePct.eodWin)}</td>
+      <td class="px-3 py-2 text-right text-slate-600 tabular-nums font-mono">${pct(tradePct.eodLoss)}</td>
             </tr>
           </tbody>
         </table>
-        ${indeterminate > 0 ? `<p class="text-xs text-slate-500 mt-2">${fmtInt(indeterminate)} (${pct(indeterminate)}) Indeterminate trades: bar range touched both target and stop within the same minute, so the outcome is unknowable at 1-min resolution.</p>` : ''}
+        ${indeterminate > 0 ? `<p class="text-xs text-slate-500 mt-2">${fmtInt(indeterminate)} (${pct(tradePct.indeterminate)}) Indeterminate trades: bar range touched both target and stop within the same minute, so the outcome is unknowable at 1-min resolution.</p>` : ''}
       </div>
     `;
 
       summary.innerHTML = gridHtml + tableHtml;
+    }
+
+    async function persistStrategyResult(params, out) {
+      if (!params || !Array.isArray(out) || out.length === 0) return;
+      if (!isDefaultFilterState()) return;
+      const key = buildStrategyKey(params);
+      if (!key) return;
+      const summaryMetrics = computeSummaryMetrics(out);
+      if (!summaryMetrics) return;
+
+      const record = {
+        id: key,
+        savedAt: new Date().toISOString(),
+        params: sanitizeParamsForStorage(params),
+        summary: summaryMetrics
+      };
+
+      try {
+        const db = await getDbInstance();
+        if (!db) return;
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction(DB_CONFIG.store, 'readwrite');
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error || new Error('IndexedDB transaction failed'));
+          tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
+          tx.objectStore(DB_CONFIG.store).put(record);
+        });
+      } catch (err) {
+        console.error('Failed to persist backtest result', err);
+      }
     }
 
     function renderTable(out) {
@@ -1312,6 +1497,7 @@
       renderDrawdownChart(LAST_OUT);
       renderStreakChart(LAST_OUT);
       renderMonthlyPerf(LAST_OUT);
+      persistStrategyResult(params, LAST_OUT);
     }
 
     async function loadAndRunForCurrent() {
