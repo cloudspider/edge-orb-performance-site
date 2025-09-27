@@ -56,7 +56,10 @@
         <div class="flex items-center gap-2 text-sm text-slate-600">
           <span id="status">Loading saved runs…</span>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="btnToggleFavorites" type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-emerald-500 hover:text-emerald-600" aria-pressed="false">
+            <span>Show Favorites</span>
+          </button>
           <button id="btnRefresh" class="px-3 py-2 rounded-xl text-sm font-medium bg-slate-800 text-white hover:bg-slate-700">Refresh</button>
           <button id="btnClear" class="px-3 py-2 rounded-xl text-sm font-medium bg-rose-500 text-white hover:bg-rose-600">Clear All</button>
         </div>
@@ -73,6 +76,7 @@
     let dbPromise = null;
     let gridApi = null;
     let cachedRuns = [];
+    let showFavoritesOnly = false;
 
     function loadScript(src) {
       return new Promise((resolve, reject) => {
@@ -88,13 +92,6 @@
     function setStatus(msg) {
       const el = document.getElementById('status');
       if (el) el.textContent = msg;
-    }
-
-    function formatSavedAt(value) {
-      if (!Number.isFinite(value)) return '';
-      const d = new Date(value);
-      if (Number.isNaN(d.getTime())) return '';
-      return d.toLocaleString();
     }
 
     function formatNumber(value, digits = 2) {
@@ -149,6 +146,7 @@
         return {
           id: run.id || '',
           savedAt: Number.isFinite(savedAt) ? savedAt : null,
+          favorite: !!run.favorite,
           symbol: (params.symbol || '').toUpperCase(),
           direction: directionLabel(params.direction),
           orb_m: toNumber(params.orb_m),
@@ -191,18 +189,17 @@
         minWidth: 200,
       },
       {
-        headerName: 'Saved',
-        field: 'savedAt',
-        filter: 'agDateColumnFilter',
-        sort: 'desc',
-        valueFormatter: params => formatSavedAt(params.value),
+        headerName: 'Fav',
+        field: 'favorite',
+        filter: 'agSetColumnFilter',
+        width: 90,
+        minWidth: 90,
+        valueFormatter: params => params.value ? '★' : '',
+        cellClass: params => params.value ? 'text-amber-500 text-center text-lg' : 'text-slate-300 text-center text-lg',
         comparator: (a, b) => {
-          if (a == null && b == null) return 0;
-          if (a == null) return -1;
-          if (b == null) return 1;
-          return a - b;
-        },
-        minWidth: 190,
+          if (!!a === !!b) return 0;
+          return a ? -1 : 1;
+        }
       },
       {
         headerName: 'Symbol',
@@ -274,6 +271,49 @@
       return dbPromise;
     }
 
+    function syncFavoriteFilterButton() {
+      const btn = document.getElementById('btnToggleFavorites');
+      if (!btn) return;
+      btn.setAttribute('aria-pressed', showFavoritesOnly ? 'true' : 'false');
+      btn.classList.remove('bg-emerald-500', 'text-white', 'border-emerald-500');
+      btn.classList.remove('bg-white', 'text-slate-600', 'border-slate-200');
+      const labelEl = btn.querySelector('span') || btn;
+      if (showFavoritesOnly) {
+        btn.classList.add('bg-emerald-500', 'text-white', 'border-emerald-500');
+        labelEl.textContent = 'Show All';
+      } else {
+        btn.classList.add('bg-white', 'text-slate-600', 'border-slate-200');
+        labelEl.textContent = 'Show Favorites';
+      }
+    }
+
+    function refreshGridRows() {
+      syncFavoriteFilterButton();
+      if (!gridApi) return;
+      const runsToShow = showFavoritesOnly ? cachedRuns.filter(run => run.favorite) : cachedRuns.slice();
+      const rowData = buildRowData(runsToShow);
+      gridApi.setGridOption('rowData', rowData);
+      const total = cachedRuns.length;
+      const visible = rowData.length;
+      let msg;
+      if (showFavoritesOnly) {
+        msg = `${visible} favorite run${visible === 1 ? '' : 's'} shown`;
+        if (total && total !== visible) {
+          msg += ` (of ${total}).`;
+        } else {
+          msg += '.';
+        }
+        if (!total) {
+          msg = 'No saved runs yet.';
+        } else if (visible === 0) {
+          msg = `No favorites to show (out of ${total} saved run${total === 1 ? '' : 's'}).`;
+        }
+      } else {
+        msg = `${visible} saved run${visible === 1 ? '' : 's'} loaded.`;
+      }
+      setStatus(msg);
+    }
+
     async function fetchRuns() {
       try {
         const db = await getDbInstance();
@@ -295,9 +335,7 @@
       if (!gridApi) return;
       setStatus('Loading saved runs…');
       cachedRuns = await fetchRuns();
-      const rowData = buildRowData(cachedRuns);
-      gridApi.setGridOption('rowData', rowData);
-      setStatus(`${rowData.length} saved run${rowData.length === 1 ? '' : 's'} loaded.`);
+      refreshGridRows();
     }
 
     async function clearAllRuns() {
@@ -312,15 +350,18 @@
           req.onerror = () => reject(req.error);
         });
         cachedRuns = [];
-        if (gridApi) {
-          gridApi.setGridOption('rowData', []);
-        }
+        refreshGridRows();
         setStatus('All saved runs cleared.');
       } catch (err) {
         console.error('Failed to clear saved runs', err);
         setStatus('Failed to clear saved runs.');
       }
     }
+
+    document.getElementById('btnToggleFavorites')?.addEventListener('click', () => {
+      showFavoritesOnly = !showFavoritesOnly;
+      refreshGridRows();
+    });
 
     document.getElementById('btnRefresh')?.addEventListener('click', () => {
       loadAndRenderRuns();
@@ -374,6 +415,8 @@
       });
       loadAndRenderRuns();
     });
+
+    syncFavoriteFilterButton();
   </script>
 </body>
 </html>
