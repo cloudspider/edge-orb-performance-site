@@ -467,6 +467,7 @@
   let equityChartInst = null;
   let drawdownChartInst = null;
   let streakChartInst = null;
+  let PORTFOLIO_EQUITY_SERIES = null;
 
   const DEFAULT_VIEW_DOW = [1, 2, 3, 4, 5];
   const DB_CONFIG = { name: 'orbBacktestDB', version: 1, store: 'runs' };
@@ -629,12 +630,25 @@
   }
 
   function combinePortfolioTrades(entries) {
-    if (!Array.isArray(entries) || entries.length === 0) return [];
+    if (!Array.isArray(entries) || entries.length === 0) return { trades: [], strategySeries: [] };
     const combined = [];
+    const strategySeries = new Map();
     for (const entry of entries) {
       const strategyId = entry && entry.id ? entry.id : 'UNKNOWN';
-      const trades = Array.isArray(entry && entry.trades) ? entry.trades : [];
+      const trades = Array.isArray(entry && entry.trades) ? entry.trades.slice() : [];
+      trades.sort((a, b) => {
+        const tA = parseDateSafe(a && (a.EntryTime || a.caldt || a.Date));
+        const tB = parseDateSafe(b && (b.EntryTime || b.caldt || b.Date));
+        return (tA ? tA.getTime() : 0) - (tB ? tB.getTime() : 0);
+      });
+      if (!strategySeries.has(strategyId)) strategySeries.set(strategyId, []);
+      const series = strategySeries.get(strategyId);
       for (const trade of trades) {
+        const dateKey = trade && trade.Date ? trade.Date : (trade && trade.EntryTime ? dateKeyFromStr(trade.EntryTime) : null);
+        const aumVal = trade && Number.isFinite(Number(trade.AUM)) ? Number(trade.AUM) : null;
+        if (dateKey) {
+          series.push([dateKey, aumVal]);
+        }
         const hydrated = hydrateTradeRow(trade, strategyId);
         combined.push(hydrated);
       }
@@ -682,7 +696,8 @@
       row.PortfolioAUM = row.AUM;
     }
 
-    return combined;
+    const strategySeriesArr = Array.from(strategySeries.entries()).map(([id, data]) => ({ id, data }));
+    return { trades: combined, strategySeries: strategySeriesArr };
   }
 
     function setTicker(sym) {
@@ -1312,6 +1327,7 @@
     try {
       const entries = await fetchPortfolioEntries();
       if (!entries.length) {
+        PORTFOLIO_EQUITY_SERIES = null;
         setStatus('Portfolio is empty. Nothing to run.');
         if (statusEl) {
           setTimeout(() => {
@@ -1322,8 +1338,9 @@
         }
         return;
       }
-      const combined = combinePortfolioTrades(entries);
+      const { trades: combined, strategySeries } = combinePortfolioTrades(entries);
       if (!combined.length) {
+        PORTFOLIO_EQUITY_SERIES = null;
         setStatus('No trades found across portfolio entries.');
         if (statusEl) {
           setTimeout(() => {
@@ -1335,6 +1352,7 @@
         return;
       }
       LAST_OUT = combined;
+      PORTFOLIO_EQUITY_SERIES = Array.isArray(strategySeries) && strategySeries.length ? strategySeries : null;
       renderSummary(LAST_OUT);
       renderTable(LAST_OUT);
       renderEquityChart(LAST_OUT);
@@ -1352,6 +1370,7 @@
       }
     } catch (err) {
       console.error('Failed to run portfolio', err);
+      PORTFOLIO_EQUITY_SERIES = null;
       setStatus('Failed to run portfolio.');
       if (statusEl) {
         setTimeout(() => {
@@ -1423,8 +1442,38 @@
         return;
       }
       // Prepare data as [time,value]
-      const data = out.map(r => [r.Date, Number.isFinite(r.AUM) ? r.AUM : null]).filter(p => p[1] !== null);
+      const portfolioData = out.map(r => [r.Date, Number.isFinite(r.AUM) ? r.AUM : null]).filter(p => p[1] !== null);
       if (!equityChartInst) equityChartInst = echarts.init(el);
+      const series = [{
+        name: 'Portfolio',
+        type: 'line',
+        showSymbol: false,
+        smooth: false,
+        lineStyle: { width: 2, color: '#10b981' },
+        data: portfolioData
+      }];
+
+      if (Array.isArray(PORTFOLIO_EQUITY_SERIES) && PORTFOLIO_EQUITY_SERIES.length) {
+        for (const item of PORTFOLIO_EQUITY_SERIES) {
+          const id = item && item.id ? item.id : 'Strategy';
+          const dataArr = Array.isArray(item && item.data) ? item.data : [];
+          const seriesData = dataArr.map(d => {
+            const dateVal = d && d[0];
+            const val = d && Number.isFinite(Number(d[1])) ? Number(d[1]) : null;
+            return [dateVal, val];
+          }).filter(p => p[0] != null);
+          series.push({
+            name: id,
+            type: 'line',
+            showSymbol: false,
+            smooth: false,
+            lineStyle: { width: 1.5 },
+            emphasis: { focus: 'series' },
+            data: seriesData
+          });
+        }
+      }
+
       const option = {
         animation: false,
         grid: { left: 56, right: 16, top: 8, bottom: 40 },
@@ -1438,6 +1487,13 @@
           type: 'value', name: 'AUM',
           axisLabel: { formatter: (v) => `$${Math.round(v).toLocaleString()}` }
         },
+        legend: series.length > 1 ? {
+          top: 4,
+          left: 'center',
+          icon: 'line',
+          textStyle: { fontSize: 11 },
+          data: series.map(s => s.name)
+        } : { show: false },
         dataZoom: [ 
           { type: 'inside', throttle: 50 }, 
           { 
@@ -1450,11 +1506,7 @@
             }
           },
         ],
-        series: [{
-          type: 'line', showSymbol: false, smooth: false,
-          lineStyle: { width: 2, color: '#10b981' },
-          data
-        }]
+        series
       };
       equityChartInst.setOption(option, true);
     }
@@ -1905,6 +1957,7 @@
       setStatus(`Ran ${out.length} day(s) in ${(t1 - t0).toFixed(0)} ms.`);
       renderSummary(out);
       LAST_OUT = out;
+      PORTFOLIO_EQUITY_SERIES = null;
       renderTable(LAST_OUT);
       renderEquityChart(LAST_OUT);
       renderDrawdownChart(LAST_OUT);
