@@ -115,9 +115,14 @@
             <i class="fa fa-regular fa-heart"></i>
             <span>Favorite</span>
           </button>
-          <select id="favoriteSelect" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60 min-w-[180px]" disabled>
-            <option value="">Load Favorite…</option>
-          </select>
+          <div class="relative">
+            <select id="favoriteSelect" class="appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-8 py-2 text-sm text-slate-600 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60 min-w-[200px]" disabled>
+              <option value="">Load Favorite…</option>
+            </select>
+            <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.06 1.06l-4.24 4.39a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
+            </span>
+          </div>
           <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-emerald-500 hover:text-emerald-600" id="btnAddPortfolio">
             <i class="fa fa-regular fa-bookmark"></i>
             <span>Add to Portfolio</span>
@@ -814,13 +819,21 @@
       }
     }
 
+    function setFavoriteSelectDisabled(disabled) {
+      const select = document.getElementById('favoriteSelect');
+      if (!select) return;
+      select.disabled = !!disabled;
+      select.classList.toggle('opacity-50', !!disabled);
+      select.classList.toggle('pointer-events-none', !!disabled);
+    }
+
     async function loadFavoritesForSymbol(symbol) {
       const select = document.getElementById('favoriteSelect');
       if (!select) return;
       CURRENT_SYMBOL_FAVORITES = [];
       const placeholder = '<option value="">Load Favorite…</option>';
       select.innerHTML = placeholder;
-      select.disabled = true;
+      setFavoriteSelectDisabled(true);
       if (!symbol) {
         return;
       }
@@ -842,7 +855,7 @@
       });
       select.innerHTML = '';
       select.appendChild(frag);
-      select.disabled = false;
+      setFavoriteSelectDisabled(false);
       if (CURRENT_STRATEGY_ID && favorites.some(f => f.id === CURRENT_STRATEGY_ID)) {
         select.value = CURRENT_STRATEGY_ID;
       } else {
