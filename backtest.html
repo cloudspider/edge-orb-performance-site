@@ -6,6 +6,10 @@
   <title>ORB Backtest</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.tailframes.com/releases/latest/tailframes.min.js" defer></script>
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"
+  />
   <!-- Apache ECharts for interactive charts (mobile pinch-zoom supported) -->
   <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
   <!-- PapaParse for CSV parsing -->
@@ -104,7 +108,19 @@
 
     <!-- Symbol segmented control + Params -->
     <section id="symbolPicker" class="bg-white rounded-2xl shadow-soft p-3 md:p-4">
-      <h2 class="font-semibold mb-3">ORB Settings</h2>
+      <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <h2 class="font-semibold">ORB Settings</h2>
+        <div class="flex flex-wrap items-center gap-2 sm:justify-end">
+          <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-emerald-500 hover:text-emerald-600" id="btnAddFavorite">
+            <i class="fa fa-regular fa-heart"></i>
+            <span>Add to Favorites</span>
+          </button>
+          <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-emerald-500 hover:text-emerald-600" id="btnAddPortfolio">
+            <i class="fa fa-regular fa-bookmark"></i>
+            <span>Add to Portfolio</span>
+          </button>
+        </div>
+      </div>
       <div class="flex items-start gap-4 flex-col md:flex-row">
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 mb-2">
@@ -242,6 +258,47 @@
             </div>
           </label>
         </div>
+      </div>
+    </section>
+
+    <section id="portfolioSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4">
+      <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 class="font-semibold">Portfolio</h2>
+          <p class="text-sm text-slate-500">Saved backtests are stored locally in IndexedDB.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="btnRunPortfolio" type="button" class="inline-flex items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 shadow-sm transition hover:border-emerald-500 hover:text-emerald-600">
+            <i class="fa fa-regular fa-circle-play"></i>
+            <span>Run Portfolio</span>
+          </button>
+          <button id="btnClearPortfolio" type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-rose-500 hover:text-rose-600">
+            <span>Clear All</span>
+          </button>
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-50 text-slate-600">
+            <tr>
+              <th class="px-3 py-2 text-left font-medium">Strategy</th>
+              <th class="px-3 py-2 text-right font-medium">Days</th>
+              <th class="px-3 py-2 text-right font-medium">Trades</th>
+              <th class="px-3 py-2 text-right font-medium">Final AUM</th>
+              <th class="px-3 py-2 text-right font-medium">Total PnL</th>
+              <th class="px-3 py-2 text-right font-medium">Avg Daily %</th>
+              <th class="px-3 py-2 text-right font-medium">CAGR %</th>
+              <th class="px-3 py-2 text-right font-medium">Max DD %</th>
+              <th class="px-3 py-2 text-right font-medium">MAR</th>
+              <th class="px-3 py-2 text-right font-medium">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="portfolioTableBody">
+            <tr>
+              <td colspan="10" class="px-3 py-4 text-center text-sm text-slate-500">No saved strategies yet.</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </section>
 
@@ -412,7 +469,9 @@
 
   const DEFAULT_VIEW_DOW = [1, 2, 3, 4, 5];
   const DB_CONFIG = { name: 'orbBacktestDB', version: 1, store: 'runs' };
+  const PORTFOLIO_DB_CONFIG = { name: 'orb_portfolio', version: 1, store: 'entries' };
   let dbPromise = null;
+  let portfolioDbPromise = null;
 
   function getDbInstance() {
     if (typeof indexedDB === 'undefined') {
@@ -435,6 +494,29 @@
       });
     }
     return dbPromise;
+  }
+
+  function getPortfolioDbInstance() {
+    if (typeof indexedDB === 'undefined') {
+      return Promise.reject(new Error('IndexedDB is not available in this environment'));
+    }
+    if (!portfolioDbPromise) {
+      portfolioDbPromise = new Promise((resolve, reject) => {
+        const request = indexedDB.open(PORTFOLIO_DB_CONFIG.name, PORTFOLIO_DB_CONFIG.version);
+        request.onerror = () => reject(request.error);
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          if (!db.objectStoreNames.contains(PORTFOLIO_DB_CONFIG.store)) {
+            db.createObjectStore(PORTFOLIO_DB_CONFIG.store, { keyPath: 'id' });
+          }
+        };
+        request.onsuccess = () => resolve(request.result);
+      }).catch(err => {
+        portfolioDbPromise = null;
+        throw err;
+      });
+    }
+    return portfolioDbPromise;
   }
 
   function isDefaultFilterState() {
@@ -490,6 +572,37 @@
       commission: params.commission,
       breakout_buffer: params.breakout_buffer
     };
+  }
+
+  function sanitizeTradeValue(value) {
+    if (value instanceof Date) {
+      return isNaN(value.getTime()) ? null : value.toISOString();
+    }
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? value : null;
+    }
+    if (Array.isArray(value)) {
+      return value.map(item => sanitizeTradeValue(item));
+    }
+    if (value && typeof value === 'object') {
+      const obj = {};
+      for (const [key, val] of Object.entries(value)) {
+        obj[key] = sanitizeTradeValue(val);
+      }
+      return obj;
+    }
+    return value == null ? null : value;
+  }
+
+  function sanitizeTradesForStorage(rows) {
+    if (!Array.isArray(rows)) return [];
+    return rows.map((row = {}) => {
+      const clean = {};
+      for (const [key, value] of Object.entries(row)) {
+        clean[key] = sanitizeTradeValue(value);
+      }
+      return clean;
+    });
   }
 
     function setTicker(sym) {
@@ -937,20 +1050,181 @@
         summary: summaryMetrics
       };
 
-      try {
-        const db = await getDbInstance();
-        if (!db) return;
-        await new Promise((resolve, reject) => {
-          const tx = db.transaction(DB_CONFIG.store, 'readwrite');
-          tx.oncomplete = () => resolve();
-          tx.onerror = () => reject(tx.error || new Error('IndexedDB transaction failed'));
-          tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
-          tx.objectStore(DB_CONFIG.store).put(record);
-        });
-      } catch (err) {
-        console.error('Failed to persist backtest result', err);
-      }
+    try {
+      const db = await getDbInstance();
+      if (!db) return;
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(DB_CONFIG.store, 'readwrite');
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error || new Error('IndexedDB transaction failed'));
+        tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
+        tx.objectStore(DB_CONFIG.store).put(record);
+      });
+    } catch (err) {
+      console.error('Failed to persist backtest result', err);
     }
+  }
+
+  async function persistPortfolioEntry(params, trades) {
+    if (!params || !Array.isArray(trades) || trades.length === 0) return;
+    const id = buildStrategyKey(params);
+    if (!id) return;
+    const summary = computeSummaryMetrics(trades);
+    if (!summary) return;
+
+    const record = {
+      id,
+      savedAt: new Date().toISOString(),
+      params: sanitizeParamsForStorage(params),
+      summary,
+      trades: sanitizeTradesForStorage(trades)
+    };
+
+    try {
+      const db = await getPortfolioDbInstance();
+      if (!db) return;
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(PORTFOLIO_DB_CONFIG.store, 'readwrite');
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error || new Error('IndexedDB transaction failed'));
+        tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
+        tx.objectStore(PORTFOLIO_DB_CONFIG.store).put(record);
+      });
+    } catch (err) {
+      console.error('Failed to save portfolio entry', err);
+      throw err;
+    }
+    return record;
+  }
+
+  async function fetchPortfolioEntries() {
+    try {
+      const db = await getPortfolioDbInstance();
+      if (!db) return [];
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction(PORTFOLIO_DB_CONFIG.store, 'readonly');
+        const store = tx.objectStore(PORTFOLIO_DB_CONFIG.store);
+        const req = store.getAll();
+        tx.onerror = () => reject(tx.error || new Error('IndexedDB transaction failed'));
+        tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
+        req.onsuccess = () => resolve(Array.isArray(req.result) ? req.result : []);
+        req.onerror = () => reject(req.error || new Error('IndexedDB request failed'));
+      });
+    } catch (err) {
+      console.error('Failed to load portfolio entries', err);
+      return [];
+    }
+  }
+
+  function renderPortfolioTable(entries) {
+    const tbody = document.getElementById('portfolioTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    const rows = Array.isArray(entries)
+      ? entries.slice().sort((a, b) => {
+          const da = a && a.savedAt ? new Date(a.savedAt).getTime() : 0;
+          const db = b && b.savedAt ? new Date(b.savedAt).getTime() : 0;
+          return db - da;
+        })
+      : [];
+
+    const formatIntDisplay = (val) => {
+      const num = Number(val);
+      return Number.isFinite(num) ? Math.round(num).toLocaleString() : '—';
+    };
+    const formatMoneyDisplay = (val) => {
+      const num = Number(val);
+      return Number.isFinite(num) ? `$${num.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '—';
+    };
+    const formatPercentDisplay = (val) => {
+      const num = Number(val);
+      return Number.isFinite(num) ? `${num.toFixed(2)}%` : '—';
+    };
+    const formatNumberDisplay = (val, digits = 2) => {
+      const num = Number(val);
+      return Number.isFinite(num) ? num.toFixed(digits) : '—';
+    };
+
+    if (!rows.length) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td colspan="10" class="px-3 py-4 text-center text-sm text-slate-500">No saved strategies yet.</td>';
+      tbody.appendChild(tr);
+      return;
+    }
+
+    for (const entry of rows) {
+      const summary = entry && entry.summary ? entry.summary : {};
+      const trades = summary && summary.tradeCounts ? summary.tradeCounts : {};
+      const idValue = entry && entry.id ? String(entry.id) : '';
+      const tr = document.createElement('tr');
+      tr.className = 'border-b last:border-b-0 hover:bg-slate-50';
+      const id = entry && entry.id ? entry.id : '—';
+      tr.innerHTML = `
+        <td class="px-3 py-2 font-mono text-xs md:text-sm break-all">${id}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${formatIntDisplay(summary.totalDays)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${formatIntDisplay(trades.total)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${formatMoneyDisplay(summary.finalAUM)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${formatMoneyDisplay(summary.totalPnL)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${formatPercentDisplay(summary.avgDailyRet)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${formatPercentDisplay(summary.cagrPct)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${formatPercentDisplay(summary.maxDDPct)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${formatNumberDisplay(summary.mar, 2)}</td>
+        <td class="px-3 py-2 text-right">
+          <button type="button" class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600 shadow-sm transition hover:border-rose-500 hover:text-rose-600" ${idValue ? `data-portfolio-delete="${idValue}"` : 'disabled'}>
+            Delete
+          </button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    }
+  }
+
+  async function refreshPortfolioTable() {
+    const entries = await fetchPortfolioEntries();
+    renderPortfolioTable(entries);
+  }
+
+  async function deletePortfolioEntry(id) {
+    if (!id) return false;
+    try {
+      const db = await getPortfolioDbInstance();
+      if (!db) return false;
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(PORTFOLIO_DB_CONFIG.store, 'readwrite');
+        const store = tx.objectStore(PORTFOLIO_DB_CONFIG.store);
+        const req = store.delete(id);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error || new Error('IndexedDB transaction failed'));
+        tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
+        req.onerror = () => reject(req.error || new Error('IndexedDB request failed'));
+      });
+      return true;
+    } catch (err) {
+      console.error('Failed to delete portfolio entry', err);
+      throw err;
+    }
+  }
+
+  async function clearPortfolioEntries() {
+    try {
+      const db = await getPortfolioDbInstance();
+      if (!db) return false;
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(PORTFOLIO_DB_CONFIG.store, 'readwrite');
+        const store = tx.objectStore(PORTFOLIO_DB_CONFIG.store);
+        const req = store.clear();
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error || new Error('IndexedDB transaction failed'));
+        tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
+        req.onerror = () => reject(req.error || new Error('IndexedDB request failed'));
+      });
+      return true;
+    } catch (err) {
+      console.error('Failed to clear portfolio entries', err);
+      throw err;
+    }
+  }
 
     function renderTable(out) {
       const tb = document.getElementById('tbody');
@@ -1599,6 +1873,110 @@
       scheduleRun();
     });
 
+    (function initPortfolioButton(){
+      const btn = document.getElementById('btnAddPortfolio');
+      if (!btn) return;
+      btn.addEventListener('click', async () => {
+        if (!Array.isArray(LAST_OUT) || LAST_OUT.length === 0) {
+          setStatus('Run a backtest before saving to the portfolio.');
+          return;
+        }
+        const params = getBacktestParams();
+        if (!params || !params.symbol) {
+          setStatus('Pick a symbol before saving to the portfolio.');
+          return;
+        }
+        const statusEl = document.getElementById('status');
+        const previousMsg = statusEl ? statusEl.textContent : '';
+        try {
+          await persistPortfolioEntry(params, LAST_OUT);
+          await refreshPortfolioTable();
+          setStatus('Saved to portfolio.');
+          if (statusEl) {
+            setTimeout(() => {
+              if (statusEl.textContent === 'Saved to portfolio.') {
+                statusEl.textContent = previousMsg;
+              }
+            }, 2000);
+          }
+        } catch (err) {
+          setStatus('Failed to save to portfolio.');
+          const errStatusEl = document.getElementById('status');
+          if (errStatusEl) {
+            setTimeout(() => {
+              if (errStatusEl.textContent === 'Failed to save to portfolio.') {
+                errStatusEl.textContent = '';
+              }
+            }, 4000);
+          }
+        }
+      });
+    })();
+
+    document.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-portfolio-delete]');
+      if (!btn) return;
+      const id = btn.getAttribute('data-portfolio-delete');
+      if (!id) return;
+      if (!window.confirm('Remove this strategy from your portfolio?')) return;
+      const statusEl = document.getElementById('status');
+      const previousMsg = statusEl ? statusEl.textContent : '';
+      try {
+        await deletePortfolioEntry(id);
+        await refreshPortfolioTable();
+        setStatus('Removed from portfolio.');
+        if (statusEl) {
+          setTimeout(() => {
+            if (statusEl.textContent === 'Removed from portfolio.') {
+              statusEl.textContent = previousMsg;
+            }
+          }, 2000);
+        }
+      } catch (err) {
+        setStatus('Failed to delete portfolio entry.');
+        const errStatusEl = document.getElementById('status');
+        if (errStatusEl) {
+          setTimeout(() => {
+            if (errStatusEl.textContent === 'Failed to delete portfolio entry.') {
+              errStatusEl.textContent = previousMsg;
+            }
+          }, 4000);
+        }
+      }
+    });
+
+    (function initClearPortfolioButton(){
+      const btn = document.getElementById('btnClearPortfolio');
+      if (!btn) return;
+      btn.addEventListener('click', async () => {
+        if (!window.confirm('Clear all saved strategies from your portfolio?')) return;
+        const statusEl = document.getElementById('status');
+        const previousMsg = statusEl ? statusEl.textContent : '';
+        try {
+          await clearPortfolioEntries();
+          await refreshPortfolioTable();
+          setStatus('Portfolio cleared.');
+          if (statusEl) {
+            setTimeout(() => {
+              if (statusEl.textContent === 'Portfolio cleared.') {
+                statusEl.textContent = previousMsg;
+              }
+            }, 2000);
+          }
+        } catch (err) {
+          setStatus('Failed to clear portfolio.');
+          const errStatusEl = document.getElementById('status');
+          if (errStatusEl) {
+            setTimeout(() => {
+              if (errStatusEl.textContent === 'Failed to clear portfolio.') {
+                errStatusEl.textContent = previousMsg;
+              }
+            }, 4000);
+          }
+        }
+      });
+    })();
+
     // -----------------------------
     // Month multi-select helpers
     // -----------------------------
@@ -1769,6 +2147,7 @@
 
     // init
     populateTickerSegment().catch(()=>{});
+    refreshPortfolioTable().catch(()=>{});
   </script>
 </body>
 </html>
