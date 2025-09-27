@@ -111,10 +111,13 @@
       <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h2 class="font-semibold">ORB Settings</h2>
         <div class="flex flex-wrap items-center gap-2 sm:justify-end">
-          <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-emerald-500 hover:text-emerald-600" id="btnAddFavorite">
+          <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-emerald-500 hover:text-emerald-600" id="btnAddFavorite" aria-pressed="false">
             <i class="fa fa-regular fa-heart"></i>
-            <span>Add to Favorites</span>
+            <span>Favorite</span>
           </button>
+          <select id="favoriteSelect" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60 min-w-[180px]" disabled>
+            <option value="">Load Favorite…</option>
+          </select>
           <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-emerald-500 hover:text-emerald-600" id="btnAddPortfolio">
             <i class="fa fa-regular fa-bookmark"></i>
             <span>Add to Portfolio</span>
@@ -460,6 +463,10 @@
     let DAYS = [];
     let VIEW_DIR = 'both';
     let LAST_OUT = null;
+    let CURRENT_STRATEGY_ID = null;
+    let CURRENT_STRATEGY_PARAMS = null;
+    let CURRENT_STRATEGY_FAVORITE = false;
+    let CURRENT_SYMBOL_FAVORITES = [];
     let VIEW_DOW = new Set([1, 2, 3, 4, 5]); // 1=Mon ... 5=Fri
     let VIEW_MONTHS = new Set(); // empty => all
     let AVAILABLE_MONTHS = [];
@@ -496,6 +503,53 @@
       });
     }
     return dbPromise;
+  }
+
+  async function getStrategyRecord(id) {
+    if (!id) return null;
+    try {
+      const db = await getDbInstance();
+      if (!db) return null;
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction(DB_CONFIG.store, 'readonly');
+        const store = tx.objectStore(DB_CONFIG.store);
+        const req = store.get(id);
+        tx.onerror = () => reject(tx.error || new Error('IndexedDB transaction failed'));
+        tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error || new Error('IndexedDB request failed'));
+      });
+    } catch (err) {
+      console.error('Failed to read strategy record', err);
+      return null;
+    }
+  }
+
+  async function fetchFavoriteRunsForSymbol(symbol) {
+    if (!symbol) return [];
+    try {
+      const db = await getDbInstance();
+      if (!db) return [];
+      const runs = await new Promise((resolve, reject) => {
+        const tx = db.transaction(DB_CONFIG.store, 'readonly');
+        const store = tx.objectStore(DB_CONFIG.store);
+        const req = store.getAll();
+        req.onsuccess = () => resolve(Array.isArray(req.result) ? req.result : []);
+        req.onerror = () => reject(req.error || new Error('IndexedDB request failed'));
+        tx.onerror = () => reject(tx.error || new Error('IndexedDB transaction failed'));
+        tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
+      });
+      const symUpper = String(symbol || '').toUpperCase();
+      return runs.filter(r => {
+        if (!r || !r.favorite) return false;
+        const params = r.params || {};
+        const storedSym = (params.symbol || '').toUpperCase();
+        return storedSym === symUpper;
+      });
+    } catch (err) {
+      console.error('Failed to fetch favorite strategies', err);
+      return [];
+    }
   }
 
   function getPortfolioDbInstance() {
@@ -709,9 +763,136 @@
         titleEl.textContent = full;
         document.title = full;
       }
+      CURRENT_STRATEGY_ID = null;
+      CURRENT_STRATEGY_PARAMS = null;
+      CURRENT_STRATEGY_FAVORITE = false;
+      syncFavoriteButton();
+      loadFavoritesForSymbol(currentTicker).catch(() => {});
     }
 
     function setStatus(msg) { const el = document.getElementById('status'); if (el) el.textContent = msg || ''; }
+
+    function syncFavoriteButton() {
+      const btn = document.getElementById('btnAddFavorite');
+      if (!btn) return;
+      const active = !!CURRENT_STRATEGY_FAVORITE;
+      const hasId = !!CURRENT_STRATEGY_ID;
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+      btn.classList.remove('bg-emerald-500', 'text-white', 'border-emerald-500');
+      btn.classList.remove('opacity-50', 'pointer-events-none');
+      btn.disabled = false;
+      if (active) {
+        btn.classList.remove('border-slate-200', 'bg-white', 'text-slate-600');
+        btn.classList.add('bg-emerald-500', 'text-white', 'border-emerald-500');
+      } else {
+        btn.classList.add('border-slate-200', 'bg-white', 'text-slate-600');
+      }
+      if (!hasId || !Array.isArray(LAST_OUT) || LAST_OUT.length === 0) {
+        btn.disabled = true;
+        btn.classList.add('opacity-50', 'pointer-events-none');
+      }
+    }
+
+    async function refreshFavoriteState(id) {
+      if (!id) {
+        CURRENT_STRATEGY_FAVORITE = false;
+        syncFavoriteButton();
+        const select = document.getElementById('favoriteSelect');
+        if (select) select.value = '';
+        return;
+      }
+      const record = await getStrategyRecord(id);
+      CURRENT_STRATEGY_FAVORITE = !!(record && record.favorite);
+      syncFavoriteButton();
+      const select = document.getElementById('favoriteSelect');
+      if (select) {
+        if (CURRENT_STRATEGY_FAVORITE && Array.from(select.options).some(opt => opt.value === id)) {
+          select.value = id;
+        } else if (!CURRENT_STRATEGY_FAVORITE && select.value === id) {
+          select.value = '';
+        }
+      }
+    }
+
+    async function loadFavoritesForSymbol(symbol) {
+      const select = document.getElementById('favoriteSelect');
+      if (!select) return;
+      CURRENT_SYMBOL_FAVORITES = [];
+      const placeholder = '<option value="">Load Favorite…</option>';
+      select.innerHTML = placeholder;
+      select.disabled = true;
+      if (!symbol) {
+        return;
+      }
+      const favorites = await fetchFavoriteRunsForSymbol(symbol);
+      CURRENT_SYMBOL_FAVORITES = favorites;
+      if (!favorites.length) {
+        return;
+      }
+      const frag = document.createDocumentFragment();
+      const optionDefault = document.createElement('option');
+      optionDefault.value = '';
+      optionDefault.textContent = 'Load Favorite…';
+      frag.appendChild(optionDefault);
+      favorites.forEach(fav => {
+        const opt = document.createElement('option');
+        opt.value = fav.id || '';
+        opt.textContent = fav.id || '(unnamed)';
+        frag.appendChild(opt);
+      });
+      select.innerHTML = '';
+      select.appendChild(frag);
+      select.disabled = false;
+      if (CURRENT_STRATEGY_ID && favorites.some(f => f.id === CURRENT_STRATEGY_ID)) {
+        select.value = CURRENT_STRATEGY_ID;
+      } else {
+        select.value = '';
+      }
+    }
+
+    function setDirectionFromFavorite(dir) {
+      const seg = document.getElementById('dirSegment');
+      const normalized = (dir || 'both').toLowerCase();
+      VIEW_DIR = ['long', 'short'].includes(normalized) ? normalized : 'both';
+      if (!seg) return;
+      seg.querySelectorAll('button[data-dir]').forEach(btn => {
+        const val = (btn.getAttribute('data-dir') || '').toLowerCase();
+        const active = val === VIEW_DIR;
+        btn.classList.toggle('bg-slate-800', active);
+        btn.classList.toggle('text-white', active);
+        btn.classList.toggle('focus:outline-none', active);
+        btn.classList.toggle('bg-white', !active);
+        btn.classList.toggle('hover:bg-slate-100', !active);
+      });
+    }
+
+    function setInputValue(id, value) {
+      const el = document.getElementById(id);
+      if (!el || value === undefined || value === null || value === '') return;
+      el.value = String(value);
+    }
+
+    function applyFavoriteStrategy(record) {
+      if (!record || !record.params) return;
+      const params = record.params;
+      setInputValue('inp_orb_m', params.orb_m);
+      setInputValue('inp_target_R', params.target_R);
+      setInputValue('inp_stop_R', params.stop_R);
+      setInputValue('inp_risk_pct', params.risk_pct);
+      setInputValue('inp_aum0', params.AUM_0);
+      setInputValue('inp_orb_start', params.orb_start_time);
+      setInputValue('inp_orb_end', params.orb_end_time);
+      setInputValue('inp_entry_cutoff', params.entry_cutoff_time);
+      setDirectionFromFavorite(params.direction);
+      CURRENT_STRATEGY_ID = record.id || null;
+      CURRENT_STRATEGY_FAVORITE = !!record.favorite;
+      syncFavoriteButton();
+      const select = document.getElementById('favoriteSelect');
+      if (select && CURRENT_STRATEGY_ID) {
+        select.value = CURRENT_STRATEGY_ID;
+      }
+      runBacktestIfReady().catch(() => {});
+    }
 
     function normalizeAndIndex(rows) {
       if (!rows || !rows.length) throw new Error('No rows parsed');
@@ -1130,35 +1311,42 @@
       summary.innerHTML = gridHtml + tableHtml;
     }
 
-    async function persistStrategyResult(params, out) {
+    async function persistStrategyResult(params, out, opts = {}) {
       if (!params || !Array.isArray(out) || out.length === 0) return;
-      if (!isDefaultFilterState()) return;
+      const { force = false, favoriteOverride } = opts;
+      if (!isDefaultFilterState() && !force) return;
       const key = buildStrategyKey(params);
       if (!key) return;
       const summaryMetrics = computeSummaryMetrics(out);
       if (!summaryMetrics) return;
 
+      const existing = await getStrategyRecord(key);
+      const favoriteFlag = (favoriteOverride != null)
+        ? !!favoriteOverride
+        : !!(existing && existing.favorite);
+
       const record = {
         id: key,
         savedAt: new Date().toISOString(),
         params: sanitizeParamsForStorage(params),
-        summary: summaryMetrics
+        summary: summaryMetrics,
+        favorite: favoriteFlag
       };
 
-    try {
-      const db = await getDbInstance();
-      if (!db) return;
-      await new Promise((resolve, reject) => {
-        const tx = db.transaction(DB_CONFIG.store, 'readwrite');
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error || new Error('IndexedDB transaction failed'));
-        tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
-        tx.objectStore(DB_CONFIG.store).put(record);
-      });
-    } catch (err) {
-      console.error('Failed to persist backtest result', err);
+      try {
+        const db = await getDbInstance();
+        if (!db) return;
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction(DB_CONFIG.store, 'readwrite');
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error || new Error('IndexedDB transaction failed'));
+          tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
+          tx.objectStore(DB_CONFIG.store).put(record);
+        });
+      } catch (err) {
+        console.error('Failed to persist backtest result', err);
+      }
     }
-  }
 
   async function persistPortfolioEntry(params, trades) {
     if (!params || !Array.isArray(trades) || trades.length === 0) return;
@@ -1324,6 +1512,11 @@
   async function runPortfolio() {
     const statusEl = document.getElementById('status');
     const previousMsg = statusEl ? statusEl.textContent : '';
+    CURRENT_STRATEGY_ID = null;
+    CURRENT_STRATEGY_PARAMS = null;
+    CURRENT_STRATEGY_FAVORITE = false;
+    syncFavoriteButton();
+    loadFavoritesForSymbol(currentTicker).catch(() => {});
     try {
       const entries = await fetchPortfolioEntries();
       if (!entries.length) {
@@ -1947,7 +2140,7 @@
       });
     })();
 
-    function runBacktestIfReady() {
+    async function runBacktestIfReady() {
       if (!currentTicker) { setStatus('Pick a symbol.'); return; }
       if (!DAYS.length) { setStatus('No data loaded.'); return; }
       const params = getBacktestParams();
@@ -1958,12 +2151,17 @@
       renderSummary(out);
       LAST_OUT = out;
       PORTFOLIO_EQUITY_SERIES = null;
+      CURRENT_STRATEGY_PARAMS = params;
+      CURRENT_STRATEGY_ID = buildStrategyKey(params);
+      CURRENT_STRATEGY_FAVORITE = false;
+      syncFavoriteButton();
       renderTable(LAST_OUT);
       renderEquityChart(LAST_OUT);
       renderDrawdownChart(LAST_OUT);
       renderStreakChart(LAST_OUT);
       renderMonthlyPerf(LAST_OUT);
-      persistStrategyResult(params, LAST_OUT);
+      await persistStrategyResult(params, LAST_OUT);
+      await refreshFavoriteState(CURRENT_STRATEGY_ID);
     }
 
     async function loadAndRunForCurrent() {
@@ -2065,6 +2263,19 @@
       scheduleRun();
     });
 
+    const favoriteSelectEl = document.getElementById('favoriteSelect');
+    if (favoriteSelectEl) {
+      favoriteSelectEl.addEventListener('change', (e) => {
+        const select = e.target;
+        const id = select.value;
+        if (!id) return;
+        const record = CURRENT_SYMBOL_FAVORITES.find(item => item && item.id === id);
+        if (record) {
+          applyFavoriteStrategy(record);
+        }
+      });
+    }
+
     (function initPortfolioButton(){
       const btn = document.getElementById('btnAddPortfolio');
       if (!btn) return;
@@ -2136,6 +2347,45 @@
         }
       }
     });
+
+    (function initFavoriteButton(){
+      const btn = document.getElementById('btnAddFavorite');
+      if (!btn) return;
+      btn.addEventListener('click', async () => {
+        if (!CURRENT_STRATEGY_ID || !Array.isArray(LAST_OUT) || LAST_OUT.length === 0) return;
+        const params = CURRENT_STRATEGY_PARAMS || getBacktestParams();
+        if (!params) return;
+        const nextFavorite = !CURRENT_STRATEGY_FAVORITE;
+        const statusEl = document.getElementById('status');
+        const previousMsg = statusEl ? statusEl.textContent : '';
+        try {
+          await persistStrategyResult(params, LAST_OUT, { force: true, favoriteOverride: nextFavorite });
+          CURRENT_STRATEGY_FAVORITE = nextFavorite;
+          syncFavoriteButton();
+          const msg = nextFavorite ? 'Marked strategy as favorite.' : 'Removed strategy from favorites.';
+          setStatus(msg);
+          await loadFavoritesForSymbol(currentTicker);
+          if (statusEl) {
+            setTimeout(() => {
+              if (statusEl.textContent === msg) {
+                statusEl.textContent = previousMsg;
+              }
+            }, 2000);
+          }
+        } catch (err) {
+          console.error('Failed to update favorite state', err);
+          setStatus('Failed to update favorite.');
+          await refreshFavoriteState(CURRENT_STRATEGY_ID);
+          if (statusEl) {
+            setTimeout(() => {
+              if (statusEl.textContent === 'Failed to update favorite.') {
+                statusEl.textContent = previousMsg;
+              }
+            }, 3000);
+          }
+        }
+      });
+    })();
 
     (function initRunPortfolioButton(){
       const btn = document.getElementById('btnRunPortfolio');
@@ -2348,6 +2598,8 @@
     // init
     populateTickerSegment().catch(()=>{});
     refreshPortfolioTable().catch(()=>{});
+    syncFavoriteButton();
+    loadFavoritesForSymbol(currentTicker).catch(()=>{});
   </script>
 </body>
 </html>
