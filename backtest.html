@@ -406,6 +406,7 @@
               <th class="px-3 py-2 text-right">pnl_R</th>
               <th class="px-3 py-2 text-right">AUM</th>
               <th class="px-3 py-2 text-right">DailyReturn %</th>
+              <th class="px-3 py-2 text-left">Strategy</th>
             </tr>
           </thead>
           <tbody id="tbody"></tbody>
@@ -603,6 +604,85 @@
       }
       return clean;
     });
+  }
+
+  function parseDateSafe(val) {
+    if (!val) return null;
+    if (val instanceof Date && !isNaN(val)) return val;
+    const parsed = new Date(val);
+    return isNaN(parsed) ? null : parsed;
+  }
+
+  function hydrateTradeRow(row, strategyId) {
+    const clone = { ...(row || {}) };
+    const dateFields = ['EntryTime', 'ExitTime', 'caldt'];
+    for (const field of dateFields) {
+      if (clone[field]) {
+        const parsed = parseDateSafe(clone[field]);
+        if (parsed) clone[field] = parsed;
+      }
+    }
+    clone.StrategyId = strategyId;
+    clone.SourceStrategyId = strategyId;
+    clone.PortfolioRun = true;
+    return clone;
+  }
+
+  function combinePortfolioTrades(entries) {
+    if (!Array.isArray(entries) || entries.length === 0) return [];
+    const combined = [];
+    for (const entry of entries) {
+      const strategyId = entry && entry.id ? entry.id : 'UNKNOWN';
+      const trades = Array.isArray(entry && entry.trades) ? entry.trades : [];
+      for (const trade of trades) {
+        const hydrated = hydrateTradeRow(trade, strategyId);
+        combined.push(hydrated);
+      }
+    }
+
+    const sortKey = (row) => {
+      const entryTime = parseDateSafe(row.EntryTime);
+      if (entryTime) return entryTime.getTime();
+      const caldt = parseDateSafe(row.caldt);
+      if (caldt) return caldt.getTime();
+      if (typeof row.Date === 'string') {
+        const d = Date.parse(row.Date);
+        if (!Number.isNaN(d)) return d;
+      }
+      return 0;
+    };
+
+    combined.sort((a, b) => sortKey(a) - sortKey(b));
+
+    const totalInitialAUM = entries.reduce((sum, entry) => {
+      const params = entry && entry.params;
+      const aum0 = params && Number(params.AUM_0);
+      return sum + (Number.isFinite(aum0) ? aum0 : 0);
+    }, 0);
+
+    let runningAUM = Number.isFinite(totalInitialAUM) && totalInitialAUM > 0 ? totalInitialAUM : 0;
+    for (const row of combined) {
+      const pnl = Number(row.PnL);
+      const prevAUM = Number.isFinite(runningAUM) ? runningAUM : 0;
+      const originalAUM = Number(row.AUM);
+      if (Number.isFinite(originalAUM)) {
+        row.StrategyAUM = originalAUM;
+      }
+      const nextAUM = prevAUM + (Number.isFinite(pnl) ? pnl : 0);
+      runningAUM = nextAUM;
+      row.AUM = Number.isFinite(nextAUM) ? Number(nextAUM.toFixed(2)) : nextAUM;
+      if (!Number.isFinite(row.pnl_R)) {
+        row.pnl_R = Number.isFinite(prevAUM) && prevAUM !== 0
+          ? Number((pnl / prevAUM).toFixed(2))
+          : 0;
+      }
+      row.DailyReturn = Number.isFinite(prevAUM) && prevAUM !== 0
+        ? Number(((pnl / prevAUM) * 100).toFixed(2))
+        : 0;
+      row.PortfolioAUM = row.AUM;
+    }
+
+    return combined;
   }
 
     function setTicker(sym) {
@@ -1226,6 +1306,63 @@
     }
   }
 
+  async function runPortfolio() {
+    const statusEl = document.getElementById('status');
+    const previousMsg = statusEl ? statusEl.textContent : '';
+    try {
+      const entries = await fetchPortfolioEntries();
+      if (!entries.length) {
+        setStatus('Portfolio is empty. Nothing to run.');
+        if (statusEl) {
+          setTimeout(() => {
+            if (statusEl.textContent === 'Portfolio is empty. Nothing to run.') {
+              statusEl.textContent = previousMsg;
+            }
+          }, 3000);
+        }
+        return;
+      }
+      const combined = combinePortfolioTrades(entries);
+      if (!combined.length) {
+        setStatus('No trades found across portfolio entries.');
+        if (statusEl) {
+          setTimeout(() => {
+            if (statusEl.textContent === 'No trades found across portfolio entries.') {
+              statusEl.textContent = previousMsg;
+            }
+          }, 3000);
+        }
+        return;
+      }
+      LAST_OUT = combined;
+      renderSummary(LAST_OUT);
+      renderTable(LAST_OUT);
+      renderEquityChart(LAST_OUT);
+      renderDrawdownChart(LAST_OUT);
+      renderStreakChart(LAST_OUT);
+      renderMonthlyPerf(LAST_OUT);
+      const msg = `Ran portfolio across ${entries.length} strategies (${combined.length} rows).`;
+      setStatus(msg);
+      if (statusEl) {
+        setTimeout(() => {
+          if (statusEl.textContent === msg) {
+            statusEl.textContent = previousMsg;
+          }
+        }, 3000);
+      }
+    } catch (err) {
+      console.error('Failed to run portfolio', err);
+      setStatus('Failed to run portfolio.');
+      if (statusEl) {
+        setTimeout(() => {
+          if (statusEl.textContent === 'Failed to run portfolio.') {
+            statusEl.textContent = previousMsg;
+          }
+        }, 4000);
+      }
+    }
+  }
+
     function renderTable(out) {
       const tb = document.getElementById('tbody');
       tb.innerHTML = '';
@@ -1270,7 +1407,8 @@
         <td class="px-3 py-2 text-right">${fmtNum(r.PnL)}</td>
         <td class="px-3 py-2 text-right">${fmtNum(r.pnl_R)}</td>
         <td class="px-3 py-2 text-right">${fmtNum(r.AUM)}</td>
-        <td class="px-3 py-2 text-right">${fmtPct(r.DailyReturn)}</td>`;
+        <td class="px-3 py-2 text-right">${fmtPct(r.DailyReturn)}</td>
+        <td class="px-3 py-2 text-left text-xs font-mono">${r.SourceStrategyId || r.StrategyId || ''}</td>`;
         frag.appendChild(tr);
       }
       tb.appendChild(frag);
@@ -1497,7 +1635,7 @@
     }
 
     function buildAoaFromRows(rows) {
-  const headers = ['Date','ORH','ORL','OR','OR%','Side','EntryTime','ExitTime','Entry','Exit','LossPrice','TPPrice','HitType','Shares','PnL','pnl_R','AUM','DailyReturn %'];
+  const headers = ['Date','ORH','ORL','OR','OR%','Side','EntryTime','ExitTime','Entry','Exit','LossPrice','TPPrice','HitType','Shares','PnL','pnl_R','AUM','DailyReturn %','Strategy'];
       const aoa = [headers];
       for (const r of rows) {
         const OR_val = (Number.isFinite(r.ORH) && Number.isFinite(r.ORL)) ? (r.ORH - r.ORL) : NaN;
@@ -1520,7 +1658,8 @@
           Number.isFinite(r.PnL) ? Number(r.PnL) : '',
           Number.isFinite(r.pnl_R) ? Number(r.pnl_R) : '',
           Number.isFinite(r.AUM) ? Number(r.AUM) : '',
-          Number.isFinite(r.DailyReturn) ? Number(r.DailyReturn) : ''
+          Number.isFinite(r.DailyReturn) ? Number(r.DailyReturn) : '',
+          r.SourceStrategyId || r.StrategyId || ''
         ]);
       }
       return aoa;
@@ -1944,6 +2083,14 @@
         }
       }
     });
+
+    (function initRunPortfolioButton(){
+      const btn = document.getElementById('btnRunPortfolio');
+      if (!btn) return;
+      btn.addEventListener('click', () => {
+        runPortfolio();
+      });
+    })();
 
     (function initClearPortfolioButton(){
       const btn = document.getElementById('btnClearPortfolio');
