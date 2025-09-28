@@ -111,10 +111,6 @@
       <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h2 class="font-semibold">ORB Settings</h2>
         <div class="flex flex-wrap items-center gap-2 sm:justify-end">
-          <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-indigo-500 hover:text-indigo-600 opacity-50 pointer-events-none" id="btnAutoBacktest" disabled>
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3a7 7 0 00-6.937 6.174 1 1 0 001.981.272A5 5 0 0110 5a5 5 0 11-4.894 6.13 1 1 0 10-1.958.356A7 7 0 1010 3z"/><path d="M9 7a1 1 0 012 0v3.586l1.707 1.707a1 1 0 01-1.414 1.414l-2-2A1 1 0 019 11V7z"/></svg>
-            <span>Auto Backtest</span>
-          </button>
           <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-emerald-500 hover:text-emerald-600" id="btnAddFavorite" aria-pressed="false">
             <i class="fa fa-regular fa-heart"></i>
             <span>Favorite</span>
@@ -273,44 +269,110 @@
       </div>
     </section>
 
-    <section id="portfolioSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4">
-      <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 class="font-semibold">Portfolio</h2>
-          <p class="text-sm text-slate-500">Saved backtests are stored locally in IndexedDB.</p>
+    <section class="bg-white rounded-2xl shadow-soft p-3 md:p-4">
+      <nav class="flex border-b border-slate-200 gap-1" role="tablist">
+        <button type="button" class="inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-700" data-mode-tab="backtest">
+          <span class="inline-flex h-5 w-5 items-center justify-center text-slate-400">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M6 2a1 1 0 00-1 1v1.382a1 1 0 01-.553.894 4 4 0 000 7.448A1 1 0 015 13.618V15a1 1 0 001 1h2.382a1 1 0 01.894.553 4 4 0 007.448 0A1 1 0 0117 16.382V15a1 1 0 00-1-1h-1.382a1 1 0 01-.894-.553 4 4 0 00-7.448 0A1 1 0 015.382 14H6v-1.382a1 1 0 01.553-.894 4 4 0 000-7.448A1 1 0 016 4.382V3a1 1 0 00-1-1h1z"/></svg>
+          </span>
+          <span>Single Backtest</span>
+        </button>
+        <button type="button" class="inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-700" data-mode-tab="auto">
+          <span class="inline-flex h-5 w-5 items-center justify-center text-slate-400">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10.5 2.75a.75.75 0 00-1.5 0V4.6a5.5 5.5 0 00-3.376 9.888l-.955 1.653a.75.75 0 001.302.75l.955-1.653a5.483 5.483 0 002.324.735V17.25a.75.75 0 001.5 0V15.4A5.5 5.5 0 0014.876 5.5l.955-1.653a.75.75 0 00-1.302-.75L13.574 4.6A5.483 5.483 0 0010.5 4.6V2.75z"/></svg>
+          </span>
+          <span>Auto Backtest</span>
+        </button>
+        <button type="button" class="inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-700" data-mode-tab="portfolio">
+          <span class="inline-flex h-5 w-5 items-center justify-center text-slate-400">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M4 5a2 2 0 00-2 2v2a1 1 0 001 1h.382l.894 5.366A2 2 0 006.254 17h7.492a2 2 0 001.978-1.634L16.618 10H17a1 1 0 001-1V7a2 2 0 00-2-2h-2.5a2.5 2.5 0 00-5 0H4zm4.5-2a1.5 1.5 0 013 0h-3z"/></svg>
+          </span>
+          <span>Portfolio</span>
+        </button>
+      </nav>
+      <div class="mt-4 space-y-4">
+        <div data-tab-panel="backtest">
+          <p class="text-sm text-slate-600">Run a single backtest with the parameters above. Results update in the sections below.</p>
         </div>
-        <div class="flex items-center gap-2">
-          <button id="btnRunPortfolio" type="button" class="inline-flex items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 shadow-sm transition hover:border-emerald-500 hover:text-emerald-600">
-            <i class="fa fa-regular fa-circle-play"></i>
-            <span>Run Portfolio</span>
-          </button>
-          <button id="btnClearPortfolio" type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-rose-500 hover:text-rose-600">
-            <span>Clear All</span>
-          </button>
+        <div data-tab-panel="auto" class="hidden space-y-4">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex items-center gap-2">
+              <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-indigo-500 hover:text-indigo-600 opacity-50 pointer-events-none" id="btnAutoBacktest" disabled>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3a7 7 0 00-6.937 6.174 1 1 0 001.981.272A5 5 0 0110 5a5 5 0 11-4.894 6.13 1 1 0 10-1.958.356A7 7 0 1010 3z"/><path d="M9 7a1 1 0 012 0v3.586l1.707 1.707a1 1 0 01-1.414 1.414l-2-2A1 1 0 019 11V7z"/></svg>
+                <span>Auto Backtest</span>
+              </button>
+            </div>
+            <div class="text-sm text-slate-500" id="autoResultsStatus">No auto backtest results yet.</div>
+          </div>
+          <div class="overflow-x-auto border border-slate-200 rounded-xl">
+            <table class="min-w-full text-sm">
+              <thead class="bg-slate-50 text-slate-600">
+                <tr>
+                  <th class="px-3 py-2 text-left font-medium">Strategy</th>
+                  <th class="px-3 py-2 text-right font-medium">MAR</th>
+                  <th class="px-3 py-2 text-right font-medium">Total PnL</th>
+                  <th class="px-3 py-2 text-right font-medium">Avg Daily %</th>
+                  <th class="px-3 py-2 text-right font-medium">CAGR %</th>
+                  <th class="px-3 py-2 text-right font-medium">Max DD %</th>
+                  <th class="px-3 py-2 text-right font-medium">ORB (m)</th>
+                  <th class="px-3 py-2 text-right font-medium">TP R</th>
+                  <th class="px-3 py-2 text-right font-medium">SL R</th>
+                  <th class="px-3 py-2 text-left font-medium">Start</th>
+                  <th class="px-3 py-2 text-left font-medium">End</th>
+                  <th class="px-3 py-2 text-left font-medium">Direction</th>
+                  <th class="px-3 py-2 text-left font-medium">Updated</th>
+                </tr>
+              </thead>
+              <tbody id="autoResultsTableBody">
+                <tr class="border-b last:border-b-0">
+                  <td colspan="9" class="px-3 py-4 text-center text-sm text-slate-500">No auto backtest results yet.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="min-w-full text-sm">
-          <thead class="bg-slate-50 text-slate-600">
-            <tr>
-              <th class="px-3 py-2 text-left font-medium">Strategy</th>
-              <th class="px-3 py-2 text-right font-medium">Days</th>
-              <th class="px-3 py-2 text-right font-medium">Trades</th>
-              <th class="px-3 py-2 text-right font-medium">Final AUM</th>
-              <th class="px-3 py-2 text-right font-medium">Total PnL</th>
-              <th class="px-3 py-2 text-right font-medium">Avg Daily %</th>
-              <th class="px-3 py-2 text-right font-medium">CAGR %</th>
-              <th class="px-3 py-2 text-right font-medium">Max DD %</th>
-              <th class="px-3 py-2 text-right font-medium">MAR</th>
-              <th class="px-3 py-2 text-right font-medium">Actions</th>
-            </tr>
-          </thead>
-          <tbody id="portfolioTableBody">
-            <tr>
-              <td colspan="10" class="px-3 py-4 text-center text-sm text-slate-500">No saved strategies yet.</td>
-            </tr>
-          </tbody>
-        </table>
+        <div data-tab-panel="portfolio" class="hidden">
+          <section id="portfolioSection" class="space-y-4">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 class="font-semibold">Portfolio</h2>
+                <p class="text-sm text-slate-500">Saved backtests are stored locally in IndexedDB.</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <button id="btnRunPortfolio" type="button" class="inline-flex items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 shadow-sm transition hover:border-emerald-500 hover:text-emerald-600">
+                  <i class="fa fa-regular fa-circle-play"></i>
+                  <span>Run Portfolio</span>
+                </button>
+                <button id="btnClearPortfolio" type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-rose-500 hover:text-rose-600">
+                  <span>Clear All</span>
+                </button>
+              </div>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="min-w-full text-sm">
+                <thead class="bg-slate-50 text-slate-600">
+                  <tr>
+                    <th class="px-3 py-2 text-left font-medium">Strategy</th>
+                    <th class="px-3 py-2 text-right font-medium">Days</th>
+                    <th class="px-3 py-2 text-right font-medium">Trades</th>
+                    <th class="px-3 py-2 text-right font-medium">Final AUM</th>
+                    <th class="px-3 py-2 text-right font-medium">Total PnL</th>
+                    <th class="px-3 py-2 text-right font-medium">Avg Daily %</th>
+                    <th class="px-3 py-2 text-right font-medium">CAGR %</th>
+                    <th class="px-3 py-2 text-right font-medium">Max DD %</th>
+                    <th class="px-3 py-2 text-right font-medium">MAR</th>
+                    <th class="px-3 py-2 text-right font-medium">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="portfolioTableBody">
+                  <tr>
+                    <td colspan="10" class="px-3 py-4 text-center text-sm text-slate-500">No saved strategies yet.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
       </div>
     </section>
 
@@ -477,6 +539,9 @@
     let CURRENT_STRATEGY_PARAMS = null;
     let CURRENT_STRATEGY_FAVORITE = false;
     let CURRENT_SYMBOL_FAVORITES = [];
+    let CURRENT_MODE_TAB = 'backtest';
+    let AUTO_RESULTS_CACHE = new Map();
+    let PORTFOLIO_CACHE = new Map();
     const AUTO_BACKTEST_STATE_STORAGE_KEY = 'orbAutoBacktestState_v1';
     let AUTO_BACKTEST_RUNNING = false;
     let AUTO_BACKTEST_STATE_MAP = loadAutoBacktestState();
@@ -634,6 +699,161 @@
       console.error('Failed to update auto results store', err);
       return [];
     }
+  }
+
+  function renderAutoResultsTable(entries) {
+    const tbody = document.getElementById('autoResultsTableBody');
+    const statusEl = document.getElementById('autoResultsStatus');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (!Array.isArray(entries) || entries.length === 0) {
+      if (statusEl) statusEl.textContent = 'No auto backtest results yet.';
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td colspan="13" class="px-3 py-4 text-center text-sm text-slate-500">No auto backtest results yet.</td>';
+      tbody.appendChild(tr);
+      return;
+    }
+
+    if (statusEl) {
+      const symbolLabel = currentTicker ? currentTicker.toUpperCase() : 'current symbol';
+      statusEl.textContent = `Top ${entries.length} result${entries.length === 1 ? '' : 's'} for ${symbolLabel}.`;
+    }
+
+    entries.forEach((entry) => {
+      const params = entry && entry.params ? entry.params : {};
+      const dir = params.direction ? String(params.direction).toUpperCase() : (entry && entry.combo && entry.combo.direction ? String(entry.combo.direction).toUpperCase() : '');
+      const updatedAt = entry && entry.updatedAt ? new Date(entry.updatedAt).toLocaleString() : '';
+      const mar = Number(entry && entry.mar);
+      const orbVal = params.orb_m ?? (entry && entry.combo ? entry.combo.orb_m : null);
+      const tpValRaw = params.target_R ?? params.tp_R ?? (entry && entry.combo ? entry.combo.tp_R : null);
+      const slValRaw = params.stop_R ?? params.sl_R ?? (entry && entry.combo ? entry.combo.sl_R : null);
+      const tpVal = Number(tpValRaw);
+      const slVal = Number(slValRaw);
+      const tr = document.createElement('tr');
+      tr.className = 'border-b last:border-b-0 hover:bg-slate-50';
+      const summary = entry && entry.summary ? entry.summary : {};
+      const totalPnL = Number(summary.totalPnL);
+      const avgDaily = Number(summary.avgDailyRet);
+      const cagr = Number(summary.cagrPct);
+      const maxDD = Number(summary.maxDDPct);
+      tr.innerHTML = `
+        <td class="px-3 py-2 font-mono text-xs break-all"><button type="button" class="text-slate-700 hover:text-indigo-600" data-auto-load="${entry.strategyId || ''}">${entry.strategyId || ''}</button></td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${Number.isFinite(mar) ? mar.toFixed(2) : ''}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${Number.isFinite(totalPnL) ? totalPnL.toLocaleString() : '—'}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${Number.isFinite(avgDaily) ? avgDaily.toFixed(2) + '%' : '—'}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${Number.isFinite(cagr) ? cagr.toFixed(2) + '%' : '—'}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${Number.isFinite(maxDD) ? maxDD.toFixed(2) + '%' : '—'}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${orbVal ?? ''}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${Number.isFinite(tpVal) ? tpVal.toFixed(2) : (tpValRaw ?? '')}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${Number.isFinite(slVal) ? slVal.toFixed(2) : (slValRaw ?? '')}</td>
+        <td class="px-3 py-2 text-sm">${params.orb_start_time || params.start_ny || ''}</td>
+        <td class="px-3 py-2 text-sm">${params.orb_end_time || params.end_ny || ''}</td>
+        <td class="px-3 py-2 text-sm">${dir}</td>
+        <td class="px-3 py-2 text-sm text-slate-500">${updatedAt}</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  async function loadAutoResultsForSymbol(symbol) {
+    const entries = await fetchAutoResults(symbol);
+    AUTO_RESULTS_CACHE = new Map();
+    const sorted = entries.slice().sort((a, b) => Number(b.mar || -Infinity) - Number(a.mar || -Infinity)).slice(0, 20);
+    sorted.forEach(entry => {
+      if (entry && entry.strategyId) AUTO_RESULTS_CACHE.set(entry.strategyId, entry);
+    });
+    renderAutoResultsTable(sorted);
+    return sorted;
+  }
+
+  function highlightTickerButton(symbol) {
+    const seg = document.getElementById('tickerSegment');
+    if (!seg) return;
+    const upper = (symbol || '').toUpperCase();
+    seg.querySelectorAll('button[data-symbol]').forEach(btn => {
+      const active = (btn.getAttribute('data-symbol') || '').toUpperCase() === upper;
+      btn.classList.toggle('bg-slate-800', active);
+      btn.classList.toggle('text-white', active);
+      btn.classList.toggle('focus:outline-none', active);
+      btn.classList.toggle('bg-white', !active);
+      btn.classList.toggle('hover:bg-slate-100', !active);
+    });
+  }
+
+  async function ensureSymbolLoaded(symbol) {
+    if (!symbol) return true;
+    const upper = symbol.toUpperCase();
+    const already = currentTicker === upper;
+    if (!already) {
+      setTicker(upper);
+    }
+    highlightTickerButton(upper);
+    if (!already) {
+      const ok = await loadSymbolData(upper);
+      if (!ok) return false;
+      buildMonthOptions();
+    }
+    return true;
+  }
+
+  function activateModeTab(name) {
+    CURRENT_MODE_TAB = name;
+    document.querySelectorAll('[data-mode-tab]').forEach(btn => {
+      const active = btn.getAttribute('data-mode-tab') === name;
+      btn.classList.toggle('text-slate-900', active);
+      btn.classList.toggle('text-slate-500', !active);
+      btn.classList.toggle('border-blue-500', active);
+      btn.classList.toggle('border-transparent', !active);
+      const icon = btn.querySelector('span > svg');
+      if (icon) {
+        icon.classList.toggle('text-blue-500', active);
+      }
+    });
+    document.querySelectorAll('[data-tab-panel]').forEach(panel => {
+      const active = panel.getAttribute('data-tab-panel') === name;
+      panel.classList.toggle('hidden', !active);
+    });
+  }
+
+  function initModeTabs() {
+    const buttons = document.querySelectorAll('[data-mode-tab]');
+    if (!buttons.length) return;
+    buttons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        activateModeTab(btn.getAttribute('data-mode-tab'));
+      });
+    });
+    activateModeTab(CURRENT_MODE_TAB);
+  }
+
+  async function applyAutoResult(entry) {
+    if (AUTO_BACKTEST_RUNNING) {
+      setStatus('Wait for Auto Backtest to finish before loading a result.');
+      return;
+    }
+    if (!entry || !entry.params) return;
+    const params = entry.params;
+    if (params.symbol) {
+      const ok = await ensureSymbolLoaded(params.symbol);
+      if (!ok) {
+        setStatus(`Failed to load data for ${params.symbol}.`);
+        return;
+      }
+    }
+    setInputValue('inp_orb_m', params.orb_m);
+    setInputValue('inp_target_R', params.target_R ?? params.tp_R);
+    setInputValue('inp_stop_R', params.stop_R ?? params.sl_R);
+    setInputValue('inp_risk_pct', params.risk_pct ?? params.riskPct);
+    setInputValue('inp_aum0', params.AUM_0 ?? params.aum_0);
+    setInputValue('inp_orb_start', params.orb_start_time ?? params.start_ny);
+    setInputValue('inp_orb_end', params.orb_end_time ?? params.end_ny);
+    setInputValue('inp_entry_cutoff', params.entry_cutoff_time ?? params.cutoff_time);
+    setDirectionFromFavorite(params.direction);
+    CURRENT_STRATEGY_ID = entry.strategyId || null;
+    CURRENT_STRATEGY_PARAMS = { ...params };
+    CURRENT_STRATEGY_FAVORITE = false;
+    syncFavoriteButton();
+    await runBacktestIfReady();
   }
 
   async function fetchFavoriteRunsForSymbol(symbol) {
@@ -894,6 +1114,7 @@
       CURRENT_STRATEGY_FAVORITE = false;
       syncFavoriteButton();
       loadFavoritesForSymbol(currentTicker).catch(() => {});
+      loadAutoResultsForSymbol(currentTicker).catch(() => {});
       getAutoBacktestState(currentTicker);
       syncAutoBacktestButton();
     }
@@ -1050,9 +1271,16 @@
       el.value = String(value);
     }
 
-    function applyFavoriteStrategy(record) {
+    async function applyFavoriteStrategy(record) {
       if (!record || !record.params) return;
       const params = record.params;
+      if (params.symbol) {
+        const ok = await ensureSymbolLoaded(params.symbol);
+        if (!ok) {
+          setStatus(`Failed to load data for ${params.symbol}.`);
+          return;
+        }
+      }
       setInputValue('inp_orb_m', params.orb_m);
       setInputValue('inp_target_R', params.target_R);
       setInputValue('inp_stop_R', params.stop_R);
@@ -1061,15 +1289,16 @@
       setInputValue('inp_orb_start', params.orb_start_time);
       setInputValue('inp_orb_end', params.orb_end_time);
       setInputValue('inp_entry_cutoff', params.entry_cutoff_time);
-      setDirectionFromFavorite(params.direction);
-      CURRENT_STRATEGY_ID = record.id || null;
-      CURRENT_STRATEGY_FAVORITE = !!record.favorite;
+    setDirectionFromFavorite(params.direction);
+    CURRENT_STRATEGY_ID = record.id || null;
+    CURRENT_STRATEGY_PARAMS = { ...params };
+    CURRENT_STRATEGY_FAVORITE = !!record.favorite;
       syncFavoriteButton();
       const select = document.getElementById('favoriteSelect');
       if (select && CURRENT_STRATEGY_ID) {
         select.value = CURRENT_STRATEGY_ID;
       }
-      runBacktestIfReady().catch(() => {});
+      await runBacktestIfReady();
     }
 
     async function startAutoBacktest() {
@@ -1190,6 +1419,11 @@
         }
         if (storedTopRecords.length) {
           console.log('Auto backtest stored top results:', storedTopRecords);
+        }
+        try {
+          await loadAutoResultsForSymbol(currentTicker);
+        } catch (err) {
+          console.error('Failed to refresh auto results table', err);
         }
       }
     }
@@ -1705,6 +1939,7 @@
     const tbody = document.getElementById('portfolioTableBody');
     if (!tbody) return;
     tbody.innerHTML = '';
+    PORTFOLIO_CACHE = new Map();
 
     const rows = Array.isArray(entries)
       ? entries.slice().sort((a, b) => {
@@ -1742,11 +1977,12 @@
       const summary = entry && entry.summary ? entry.summary : {};
       const trades = summary && summary.tradeCounts ? summary.tradeCounts : {};
       const idValue = entry && entry.id ? String(entry.id) : '';
+      if (idValue) PORTFOLIO_CACHE.set(idValue, entry);
       const tr = document.createElement('tr');
       tr.className = 'border-b last:border-b-0 hover:bg-slate-50';
       const id = entry && entry.id ? entry.id : '—';
       tr.innerHTML = `
-        <td class="px-3 py-2 font-mono text-xs md:text-sm break-all">${id}</td>
+        <td class="px-3 py-2 font-mono text-xs md:text-sm break-all"><button type="button" class="text-slate-700 hover:text-emerald-600" data-portfolio-load="${idValue}">${id}</button></td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${formatIntDisplay(summary.totalDays)}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${formatIntDisplay(trades.total)}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${formatMoneyDisplay(summary.finalAUM)}</td>
@@ -2568,13 +2804,15 @@
 
     const favoriteSelectEl = document.getElementById('favoriteSelect');
     if (favoriteSelectEl) {
-      favoriteSelectEl.addEventListener('change', (e) => {
+      favoriteSelectEl.addEventListener('change', async (e) => {
         const select = e.target;
         const id = select.value;
         if (!id) return;
         const record = CURRENT_SYMBOL_FAVORITES.find(item => item && item.id === id);
         if (record) {
-          applyFavoriteStrategy(record);
+          try {
+            await applyFavoriteStrategy(record);
+          } catch {}
         }
       });
     }
@@ -2620,6 +2858,18 @@
     })();
 
     document.addEventListener('click', async (e) => {
+      const loadBtn = e.target.closest('[data-portfolio-load]');
+      if (loadBtn) {
+        const strategyId = loadBtn.getAttribute('data-portfolio-load');
+        if (strategyId) {
+          const record = PORTFOLIO_CACHE ? PORTFOLIO_CACHE.get(strategyId) : null;
+          if (record && record.params) {
+            applyFavoriteStrategy({ id: strategyId, params: record.params, favorite: false }).catch(() => {});
+          }
+        }
+        return;
+      }
+
       const btn = e.target.closest('[data-portfolio-delete]');
       if (!btn) return;
       const id = btn.getAttribute('data-portfolio-delete');
@@ -2648,6 +2898,19 @@
             }
           }, 4000);
         }
+      }
+    });
+
+    document.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-auto-load]');
+      if (!btn) return;
+      const id = btn.getAttribute('data-auto-load');
+      if (!id) return;
+      const entry = AUTO_RESULTS_CACHE.get(id);
+      if (entry) {
+        try {
+          await applyAutoResult(entry);
+        } catch {}
       }
     });
 
@@ -2910,8 +3173,10 @@
     // init
     populateTickerSegment().catch(()=>{});
     refreshPortfolioTable().catch(()=>{});
+    initModeTabs();
     syncFavoriteButton();
     loadFavoritesForSymbol(currentTicker).catch(()=>{});
+    loadAutoResultsForSymbol(currentTicker).catch(()=>{});
   </script>
 </body>
 </html>
