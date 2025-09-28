@@ -477,7 +477,9 @@
     let CURRENT_STRATEGY_PARAMS = null;
     let CURRENT_STRATEGY_FAVORITE = false;
     let CURRENT_SYMBOL_FAVORITES = [];
+    const AUTO_BACKTEST_STATE_STORAGE_KEY = 'orbAutoBacktestState_v1';
     let AUTO_BACKTEST_RUNNING = false;
+    let AUTO_BACKTEST_STATE_MAP = loadAutoBacktestState();
     let VIEW_DOW = new Set([1, 2, 3, 4, 5]); // 1=Mon ... 5=Fri
     let VIEW_MONTHS = new Set(); // empty => all
     let AVAILABLE_MONTHS = [];
@@ -488,7 +490,8 @@
   let PORTFOLIO_EQUITY_SERIES = null;
 
   const DEFAULT_VIEW_DOW = [1, 2, 3, 4, 5];
-  const DB_CONFIG = { name: 'orbBacktestDB', version: 1, store: 'runs' };
+  const DB_CONFIG = { name: 'orbBacktestDB', version: 2, store: 'runs', autoStore: 'autoResults' };
+  const AUTO_RESULTS_STORE = DB_CONFIG.autoStore;
   const PORTFOLIO_DB_CONFIG = { name: 'orb_portfolio', version: 1, store: 'entries' };
   let dbPromise = null;
   let portfolioDbPromise = null;
@@ -505,6 +508,11 @@
           const db = request.result;
           if (!db.objectStoreNames.contains(DB_CONFIG.store)) {
             db.createObjectStore(DB_CONFIG.store, { keyPath: 'id' });
+          }
+          if (AUTO_RESULTS_STORE && !db.objectStoreNames.contains(AUTO_RESULTS_STORE)) {
+            const autoStore = db.createObjectStore(AUTO_RESULTS_STORE, { keyPath: 'id' });
+            autoStore.createIndex('symbol', 'symbol', { unique: false });
+            autoStore.createIndex('symbol_mar', ['symbol', 'mar'], { unique: false });
           }
         };
         request.onsuccess = () => resolve(request.result);
@@ -533,6 +541,98 @@
     } catch (err) {
       console.error('Failed to read strategy record', err);
       return null;
+    }
+  }
+
+  async function fetchAutoResults(symbol) {
+    if (!symbol || !AUTO_RESULTS_STORE) return [];
+    const upper = String(symbol).toUpperCase();
+    try {
+      const db = await getDbInstance();
+      if (!db || !db.objectStoreNames.contains(AUTO_RESULTS_STORE)) return [];
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction(AUTO_RESULTS_STORE, 'readonly');
+        const store = tx.objectStore(AUTO_RESULTS_STORE);
+        const index = store.index('symbol');
+        const req = index.getAll(upper);
+        req.onsuccess = () => resolve(Array.isArray(req.result) ? req.result : []);
+        req.onerror = () => reject(req.error || new Error('IndexedDB request failed'));
+        tx.onerror = () => reject(tx.error || new Error('IndexedDB transaction failed'));
+        tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
+      });
+    } catch (err) {
+      console.error('Failed to fetch auto results', err);
+      return [];
+    }
+  }
+
+  async function updateAutoResultsStore(symbol, newEntries) {
+    if (!symbol || !AUTO_RESULTS_STORE) return [];
+    const upper = String(symbol).toUpperCase();
+    try {
+      const db = await getDbInstance();
+      if (!db || !db.objectStoreNames.contains(AUTO_RESULTS_STORE)) return [];
+
+      const existing = await fetchAutoResults(upper);
+      const map = new Map();
+      for (const rec of existing) {
+        if (rec && rec.strategyId) {
+          map.set(rec.strategyId, rec);
+        }
+      }
+
+      const entries = Array.isArray(newEntries) ? newEntries : [];
+      for (const entry of entries) {
+        if (!entry || !entry.params) continue;
+        const strategyId = buildStrategyKey(entry.params);
+        if (!strategyId) continue;
+        const mar = Number(entry.mar);
+        if (!Number.isFinite(mar)) continue;
+        const record = {
+          id: `${upper}::${strategyId}`,
+          symbol: upper,
+          strategyId,
+          mar,
+          params: sanitizeParamsForStorage(entry.params),
+          summary: entry.summary || null,
+          combo: entry.combo || null,
+          elapsedMs: Number.isFinite(entry.elapsedMs) ? Number(entry.elapsedMs) : null,
+          updatedAt: new Date().toISOString()
+        };
+        const existingRec = map.get(strategyId);
+        if (!existingRec || mar > Number(existingRec.mar || -Infinity)) {
+          map.set(strategyId, record);
+        }
+      }
+
+      const merged = Array.from(map.values()).sort((a, b) => Number(b.mar || -Infinity) - Number(a.mar || -Infinity)).slice(0, 20);
+
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(AUTO_RESULTS_STORE, 'readwrite');
+        const store = tx.objectStore(AUTO_RESULTS_STORE);
+        const index = store.index('symbol');
+        const cursorReq = index.openCursor(upper);
+        cursorReq.onsuccess = (event) => {
+          const cursor = event.target.result;
+          if (cursor) {
+            store.delete(cursor.primaryKey);
+            cursor.continue();
+          } else {
+            for (const rec of merged) {
+              store.put(rec);
+            }
+          }
+        };
+        cursorReq.onerror = () => reject(cursorReq.error || new Error('IndexedDB cursor failed'));
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error || new Error('IndexedDB transaction failed'));
+        tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
+      });
+
+      return merged;
+    } catch (err) {
+      console.error('Failed to update auto results store', err);
+      return [];
     }
   }
 
@@ -794,6 +894,7 @@
       CURRENT_STRATEGY_FAVORITE = false;
       syncFavoriteButton();
       loadFavoritesForSymbol(currentTicker).catch(() => {});
+      getAutoBacktestState(currentTicker);
       syncAutoBacktestButton();
     }
 
@@ -827,6 +928,39 @@
       btn.disabled = disabled;
       btn.classList.toggle('opacity-50', disabled);
       btn.classList.toggle('pointer-events-none', disabled);
+    }
+
+    function loadAutoBacktestState() {
+      if (typeof localStorage === 'undefined') return {};
+      try {
+        const raw = localStorage.getItem(AUTO_BACKTEST_STATE_STORAGE_KEY);
+        if (!raw) return {};
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : {};
+      } catch (err) {
+        console.warn('Failed to load auto backtest state', err);
+        return {};
+      }
+    }
+
+    function saveAutoBacktestState() {
+      if (typeof localStorage === 'undefined') return;
+      try {
+        localStorage.setItem(AUTO_BACKTEST_STATE_STORAGE_KEY, JSON.stringify(AUTO_BACKTEST_STATE_MAP));
+      } catch (err) {
+        console.warn('Failed to save auto backtest state', err);
+      }
+    }
+
+    function getAutoBacktestState(symbol) {
+      const key = (symbol || '').toUpperCase();
+      if (!AUTO_BACKTEST_STATE_MAP[key]) {
+        AUTO_BACKTEST_STATE_MAP[key] = { initialCompleted: false, sobolIndex: 0 };
+      }
+      const state = AUTO_BACKTEST_STATE_MAP[key];
+      if (typeof state.initialCompleted !== 'boolean') state.initialCompleted = false;
+      if (!Number.isFinite(state.sobolIndex)) state.sobolIndex = 0;
+      return state;
     }
 
     async function refreshFavoriteState(id) {
@@ -943,22 +1077,36 @@
       if (!currentTicker) { setStatus('Pick a symbol before running Auto Backtest.'); return; }
       if (!Array.isArray(DAYS) || DAYS.length === 0) { setStatus('Load data before running Auto Backtest.'); return; }
       const optimizer = window.ORBOptimizer;
-      if (!optimizer || (!optimizer.getInitialGridCombos && !optimizer.initialGridIterator)) {
+      if (!optimizer || (!optimizer.getInitialGridCombos && !optimizer.getSobolBatch)) {
         setStatus('Optimizer module not available.');
         return;
       }
-      const combos = optimizer.getInitialGridCombos
-        ? optimizer.getInitialGridCombos()
-        : Array.from(optimizer.initialGridIterator ? optimizer.initialGridIterator() : []);
+      const state = getAutoBacktestState(currentTicker);
+      let combos = [];
+      let mode = 'initial';
+      let sobolInfo = null;
+
+      if (!state.initialCompleted && optimizer.getInitialGridCombos) {
+        combos = optimizer.getInitialGridCombos();
+      } else if (optimizer.getSobolBatch) {
+        mode = 'sobol';
+        const batchSize = optimizer.SOBOL_DEFAULT_BATCH || 500;
+        sobolInfo = optimizer.getSobolBatch(batchSize, state.sobolIndex || 0);
+        combos = sobolInfo.combos || [];
+        state.initialCompleted = true;
+        state.sobolIndex = sobolInfo.nextIndex || (state.sobolIndex || 0) + combos.length;
+      }
+
       const total = combos.length;
       if (!total) {
-        setStatus('No parameter combinations configured for Auto Backtest.');
+        setStatus('No parameter combinations available for Auto Backtest.');
         return;
       }
 
       AUTO_BACKTEST_RUNNING = true;
       syncAutoBacktestButton();
-      setStatus(`Auto backtest running… 0/${total}`);
+      const modeLabel = mode === 'initial' ? 'Seed grid' : 'Sobol';
+      setStatus(`Auto backtest (${modeLabel}) running… 0/${total}`);
 
       const baseParams = getBacktestParams();
       const topResults = [];
@@ -993,8 +1141,10 @@
           processed += 1;
 
           if (processed % yieldInterval === 0) {
-            const bestMar = topResults.length && Number.isFinite(topResults[0].mar) ? topResults[0].mar.toFixed(2) : '—';
-            setStatus(`Auto backtest ${processed}/${total} (best MAR ${bestMar})`);
+            const bestEntry = topResults.length ? topResults[0] : null;
+            const bestMar = bestEntry && Number.isFinite(bestEntry.mar) ? bestEntry.mar.toFixed(2) : '—';
+            const bestId = bestEntry && bestEntry.params ? buildStrategyKey(bestEntry.params) : '—';
+            setStatus(`Auto backtest (${modeLabel}) ${processed}/${total} (best MAR ${bestMar}, ${bestId})`);
             await new Promise(resolve => setTimeout(resolve, 0));
           }
         }
@@ -1002,23 +1152,44 @@
         const bestEntry = topResults.length ? topResults[0] : null;
         const bestMar = bestEntry && Number.isFinite(bestEntry.mar) ? bestEntry.mar.toFixed(2) : '—';
         const bestId = bestEntry && bestEntry.params ? buildStrategyKey(bestEntry.params) : '—';
-        setStatus(`Auto backtest completed ${processed}/${total} combos. Best MAR ${bestMar}. Strategy ${bestId}.`);
+        setStatus(`Auto backtest (${modeLabel}) completed ${processed}/${total} combos. Best MAR ${bestMar}. Strategy ${bestId}.`);
       } catch (err) {
         console.error('Auto backtest failed', err);
         setStatus('Auto backtest encountered an error. See console for details.');
       } finally {
         AUTO_BACKTEST_RUNNING = false;
         syncAutoBacktestButton();
+        if (mode === 'initial' && processed === total) {
+          state.initialCompleted = true;
+          state.sobolIndex = state.sobolIndex || 0;
+        }
+
+        let storedTopRecords = [];
+        const runTop = topResults.slice(0, limit);
+        try {
+          storedTopRecords = await updateAutoResultsStore(currentTicker, runTop);
+        } catch (err) {
+          console.error('Failed to update stored auto results', err);
+        }
+
+        saveAutoBacktestState();
         window.ORBAutoBacktestResults = {
           timestamp: new Date().toISOString(),
           symbol: currentTicker,
           totalCombos: total,
           processedCombos: processed,
           validResults: topResults.length,
-          top: topResults
+          mode: modeLabel,
+          nextSobolIndex: state.sobolIndex || 0,
+          runTop,
+          storedTop: storedTopRecords,
+          top: runTop
         };
-        if (topResults.length) {
-          console.log('Auto backtest top results:', window.ORBAutoBacktestResults);
+        if (runTop.length) {
+          console.log('Auto backtest top results (session):', runTop);
+        }
+        if (storedTopRecords.length) {
+          console.log('Auto backtest stored top results:', storedTopRecords);
         }
       }
     }
