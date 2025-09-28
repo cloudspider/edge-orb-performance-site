@@ -111,6 +111,10 @@
       <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h2 class="font-semibold">ORB Settings</h2>
         <div class="flex flex-wrap items-center gap-2 sm:justify-end">
+          <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-indigo-500 hover:text-indigo-600 opacity-50 pointer-events-none" id="btnAutoBacktest" disabled>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3a7 7 0 00-6.937 6.174 1 1 0 001.981.272A5 5 0 0110 5a5 5 0 11-4.894 6.13 1 1 0 10-1.958.356A7 7 0 1010 3z"/><path d="M9 7a1 1 0 012 0v3.586l1.707 1.707a1 1 0 01-1.414 1.414l-2-2A1 1 0 019 11V7z"/></svg>
+            <span>Auto Backtest</span>
+          </button>
           <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-emerald-500 hover:text-emerald-600" id="btnAddFavorite" aria-pressed="false">
             <i class="fa fa-regular fa-heart"></i>
             <span>Favorite</span>
@@ -423,6 +427,7 @@
     </section>
   </div>
 
+  <script type="module" src="scripts/optimizer.js"></script>
   <script>
     // -----------------------------
     // Utilities
@@ -472,6 +477,7 @@
     let CURRENT_STRATEGY_PARAMS = null;
     let CURRENT_STRATEGY_FAVORITE = false;
     let CURRENT_SYMBOL_FAVORITES = [];
+    let AUTO_BACKTEST_RUNNING = false;
     let VIEW_DOW = new Set([1, 2, 3, 4, 5]); // 1=Mon ... 5=Fri
     let VIEW_MONTHS = new Set(); // empty => all
     let AVAILABLE_MONTHS = [];
@@ -759,6 +765,21 @@
     return { trades: combined, strategySeries: strategySeriesArr };
   }
 
+  async function evaluateParams(params, options = {}) {
+    const { skipPersist = false } = options;
+    const start = performance.now();
+    const out = backtest(params);
+    const summary = computeSummaryMetrics(out);
+    if (!skipPersist) {
+      await persistStrategyResult(params, out);
+    }
+    return {
+      summary,
+      out,
+      elapsedMs: performance.now() - start
+    };
+  }
+
     function setTicker(sym) {
       currentTicker = (sym || '').toUpperCase();
       const titleEl = document.getElementById('mainTitle');
@@ -773,6 +794,7 @@
       CURRENT_STRATEGY_FAVORITE = false;
       syncFavoriteButton();
       loadFavoritesForSymbol(currentTicker).catch(() => {});
+      syncAutoBacktestButton();
     }
 
     function setStatus(msg) { const el = document.getElementById('status'); if (el) el.textContent = msg || ''; }
@@ -796,6 +818,15 @@
         btn.disabled = true;
         btn.classList.add('opacity-50', 'pointer-events-none');
       }
+    }
+
+    function syncAutoBacktestButton() {
+      const btn = document.getElementById('btnAutoBacktest');
+      if (!btn) return;
+      const disabled = AUTO_BACKTEST_RUNNING || !currentTicker || !Array.isArray(DAYS) || DAYS.length === 0;
+      btn.disabled = disabled;
+      btn.classList.toggle('opacity-50', disabled);
+      btn.classList.toggle('pointer-events-none', disabled);
     }
 
     async function refreshFavoriteState(id) {
@@ -863,11 +894,11 @@
       }
     }
 
-    function setDirectionFromFavorite(dir) {
-      const seg = document.getElementById('dirSegment');
-      const normalized = (dir || 'both').toLowerCase();
-      VIEW_DIR = ['long', 'short'].includes(normalized) ? normalized : 'both';
-      if (!seg) return;
+  function setDirectionFromFavorite(dir) {
+    const seg = document.getElementById('dirSegment');
+    const normalized = (dir || 'both').toLowerCase();
+    VIEW_DIR = ['long', 'short'].includes(normalized) ? normalized : 'both';
+    if (!seg) return;
       seg.querySelectorAll('button[data-dir]').forEach(btn => {
         const val = (btn.getAttribute('data-dir') || '').toLowerCase();
         const active = val === VIEW_DIR;
@@ -905,6 +936,91 @@
         select.value = CURRENT_STRATEGY_ID;
       }
       runBacktestIfReady().catch(() => {});
+    }
+
+    async function startAutoBacktest() {
+      if (AUTO_BACKTEST_RUNNING) return;
+      if (!currentTicker) { setStatus('Pick a symbol before running Auto Backtest.'); return; }
+      if (!Array.isArray(DAYS) || DAYS.length === 0) { setStatus('Load data before running Auto Backtest.'); return; }
+      const optimizer = window.ORBOptimizer;
+      if (!optimizer || (!optimizer.getInitialGridCombos && !optimizer.initialGridIterator)) {
+        setStatus('Optimizer module not available.');
+        return;
+      }
+      const combos = optimizer.getInitialGridCombos
+        ? optimizer.getInitialGridCombos()
+        : Array.from(optimizer.initialGridIterator ? optimizer.initialGridIterator() : []);
+      const total = combos.length;
+      if (!total) {
+        setStatus('No parameter combinations configured for Auto Backtest.');
+        return;
+      }
+
+      AUTO_BACKTEST_RUNNING = true;
+      syncAutoBacktestButton();
+      setStatus(`Auto backtest running… 0/${total}`);
+
+      const baseParams = getBacktestParams();
+      const topResults = [];
+      const limit = 100;
+      const updateTop = (entry) => {
+        topResults.push(entry);
+        topResults.sort((a, b) => (Number.isFinite(b.mar) ? b.mar : -Infinity) - (Number.isFinite(a.mar) ? a.mar : -Infinity));
+        if (topResults.length > limit) topResults.length = limit;
+      };
+
+      let processed = 0;
+      const yieldInterval = 25;
+
+      try {
+        for (const combo of combos) {
+          const params = {
+            ...baseParams,
+            days: Array.isArray(baseParams.days) ? baseParams.days.slice() : baseParams.days,
+            orb_m: combo.orb_m,
+            target_R: combo.tp_R,
+            stop_R: combo.sl_R,
+            orb_start_time: combo.start_ny,
+            orb_end_time: combo.end_ny,
+            direction: (combo.direction || 'BOTH').toLowerCase()
+          };
+
+          const { summary, elapsedMs } = await evaluateParams(params, { skipPersist: true });
+          const marValue = summary && Number.isFinite(Number(summary.mar)) ? Number(summary.mar) : null;
+          if (marValue !== null) {
+            updateTop({ combo, params: { ...params }, summary, mar: marValue, elapsedMs });
+          }
+          processed += 1;
+
+          if (processed % yieldInterval === 0) {
+            const bestMar = topResults.length && Number.isFinite(topResults[0].mar) ? topResults[0].mar.toFixed(2) : '—';
+            setStatus(`Auto backtest ${processed}/${total} (best MAR ${bestMar})`);
+            await new Promise(resolve => setTimeout(resolve, 0));
+          }
+        }
+
+        const bestEntry = topResults.length ? topResults[0] : null;
+        const bestMar = bestEntry && Number.isFinite(bestEntry.mar) ? bestEntry.mar.toFixed(2) : '—';
+        const bestId = bestEntry && bestEntry.params ? buildStrategyKey(bestEntry.params) : '—';
+        setStatus(`Auto backtest completed ${processed}/${total} combos. Best MAR ${bestMar}. Strategy ${bestId}.`);
+      } catch (err) {
+        console.error('Auto backtest failed', err);
+        setStatus('Auto backtest encountered an error. See console for details.');
+      } finally {
+        AUTO_BACKTEST_RUNNING = false;
+        syncAutoBacktestButton();
+        window.ORBAutoBacktestResults = {
+          timestamp: new Date().toISOString(),
+          symbol: currentTicker,
+          totalCombos: total,
+          processedCombos: processed,
+          validResults: topResults.length,
+          top: topResults
+        };
+        if (topResults.length) {
+          console.log('Auto backtest top results:', window.ORBAutoBacktestResults);
+        }
+      }
     }
 
     function normalizeAndIndex(rows) {
@@ -945,11 +1061,13 @@
         }
         normalizeAndIndex(parsed.data);
         setStatus(`Loaded ${ROWS.length} rows across ${DAYS.length} day(s).`);
+        syncAutoBacktestButton();
         return true;
       } catch (err) {
         console.error(err);
         setStatus(`Error loading ${sym}: ${err.message}`);
         ROWS = []; DAY_GROUPS = new Map(); DAYS = [];
+        syncAutoBacktestButton();
         return false;
       }
     }
@@ -2168,6 +2286,7 @@
       CURRENT_STRATEGY_ID = buildStrategyKey(params);
       CURRENT_STRATEGY_FAVORITE = false;
       syncFavoriteButton();
+      syncAutoBacktestButton();
       renderTable(LAST_OUT);
       renderEquityChart(LAST_OUT);
       renderDrawdownChart(LAST_OUT);
@@ -2406,6 +2525,15 @@
       btn.addEventListener('click', () => {
         runPortfolio();
       });
+    })();
+
+    (function initAutoBacktestButton(){
+      const btn = document.getElementById('btnAutoBacktest');
+      if (!btn) return;
+      btn.addEventListener('click', () => {
+        startAutoBacktest();
+      });
+      syncAutoBacktestButton();
     })();
 
     (function initClearPortfolioButton(){
