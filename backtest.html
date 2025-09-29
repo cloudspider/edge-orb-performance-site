@@ -297,9 +297,10 @@
         <div data-tab-panel="auto" class="hidden space-y-4">
           <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div class="flex items-center gap-2">
-              <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-indigo-500 hover:text-indigo-600 opacity-50 pointer-events-none" id="btnAutoBacktest" disabled>
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3a7 7 0 00-6.937 6.174 1 1 0 001.981.272A5 5 0 0110 5a5 5 0 11-4.894 6.13 1 1 0 10-1.958.356A7 7 0 1010 3z"/><path d="M9 7a1 1 0 012 0v3.586l1.707 1.707a1 1 0 01-1.414 1.414l-2-2A1 1 0 019 11V7z"/></svg>
-                <span>Auto Backtest</span>
+              <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-indigo-500 hover:text-indigo-600 opacity-50 pointer-events-none" id="btnAutoBacktest" disabled data-state="idle">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" data-auto-icon="play"><path d="M4.5 3.75a.75.75 0 011.125-.65l9 5.25a.75.75 0 010 1.3l-9 5.25A.75.75 0 014 14.25V5.75a.75.75 0 01.5-.7z"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 hidden" viewBox="0 0 20 20" fill="currentColor" data-auto-icon="pause"><path d="M6.75 4.5a.75.75 0 00-.75.75v9.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75v-9.5a.75.75 0 00-.75-.75h-1.5zm5 0a.75.75 0 00-.75.75v9.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75v-9.5a.75.75 0 00-.75-.75h-1.5z"/></svg>
+                <span data-auto-label>Start Backtest</span>
               </button>
               <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-3 py-2 text-sm font-medium text-rose-600 shadow-sm transition hover:border-rose-400 hover:text-rose-700 opacity-50 pointer-events-none" id="btnClearAuto" disabled>
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 10-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 10-1.06-1.06L10 8.94 6.28 5.22z"/></svg>
@@ -623,10 +624,15 @@
   let CURRENT_MODE_TAB = 'backtest';
   let AUTO_RESULTS_CACHE = new Map();
   let AUTO_RESULTS_LIST = [];
-  let AUTO_RESULTS_SORT = { key: 'mar', direction: 'desc' };
+  let AUTO_RESULTS_SORT = { key: 'sortino', direction: 'desc' };
+  const AUTO_MAX_DD_LIMIT = 30; // percent drawdown ceiling for auto results
+  const AUTO_SORTINO_CACHE = new WeakMap();
+  const AUTO_MAXDD_CACHE = new WeakMap();
     let PORTFOLIO_CACHE = new Map();
     const AUTO_BACKTEST_STATE_STORAGE_KEY = 'orbAutoBacktestState_v1';
     let AUTO_BACKTEST_RUNNING = false;
+    let AUTO_BACKTEST_PAUSE_REQUESTED = false;
+    let AUTO_BACKTEST_PAUSED = false;
     let AUTO_BACKTEST_STATE_MAP = loadAutoBacktestState();
     let VIEW_DOW = new Set([1, 2, 3, 4, 5]); // 1=Mon ... 5=Fri
     let VIEW_MONTHS = new Set(); // empty => all
@@ -636,6 +642,59 @@
   let drawdownChartInst = null;
   let streakChartInst = null;
   let PORTFOLIO_EQUITY_SERIES = null;
+
+  function getAutoSummary(entry) {
+    return entry && entry.summary ? entry.summary : {};
+  }
+
+  function getAutoSortino(entry) {
+    if (!entry) return null;
+    if (AUTO_SORTINO_CACHE.has(entry)) return AUTO_SORTINO_CACHE.get(entry);
+    const summary = getAutoSummary(entry);
+    const val = Number(summary.sortinoRatio);
+    if (Number.isFinite(val)) {
+      AUTO_SORTINO_CACHE.set(entry, val);
+      return val;
+    }
+    return null;
+  }
+
+  function getAutoMaxDD(entry) {
+    if (!entry) return null;
+    if (AUTO_MAXDD_CACHE.has(entry)) return AUTO_MAXDD_CACHE.get(entry);
+    const summary = getAutoSummary(entry);
+    const val = Number(summary.maxDDPct);
+    if (Number.isFinite(val)) {
+      AUTO_MAXDD_CACHE.set(entry, val);
+      return val;
+    }
+    return null;
+  }
+
+  function autoEntryPassesFilters(entry) {
+    const sortino = getAutoSortino(entry);
+    const maxDD = getAutoMaxDD(entry);
+    if (sortino == null || maxDD == null) return false;
+    return Math.abs(maxDD) <= AUTO_MAX_DD_LIMIT;
+  }
+
+  function compareAutoEntries(a, b) {
+    const sortinoA = getAutoSortino(a);
+    const sortinoB = getAutoSortino(b);
+    const scoreA = Number.isFinite(sortinoA) ? sortinoA : -Infinity;
+    const scoreB = Number.isFinite(sortinoB) ? sortinoB : -Infinity;
+    if (scoreB !== scoreA) return scoreB - scoreA;
+
+    const maxDDA = getAutoMaxDD(a);
+    const maxDDB = getAutoMaxDD(b);
+    const ddA = Number.isFinite(maxDDA) ? Math.abs(maxDDA) : Infinity;
+    const ddB = Number.isFinite(maxDDB) ? Math.abs(maxDDB) : Infinity;
+    if (ddA !== ddB) return ddA - ddB; // prefer lower drawdown
+
+    const marA = Number.isFinite(Number(a && a.mar)) ? Number(a.mar) : -Infinity;
+    const marB = Number.isFinite(Number(b && b.mar)) ? Number(b.mar) : -Infinity;
+    return marB - marA;
+  }
 
   const DEFAULT_VIEW_DOW = [1, 2, 3, 4, 5];
   const DB_CONFIG = { name: 'orbBacktestDB', version: 2, store: 'runs', autoStore: 'autoResults' };
@@ -724,14 +783,15 @@
       const existing = await fetchAutoResults(upper);
       const map = new Map();
       for (const rec of existing) {
-        if (rec && rec.strategyId) {
-          map.set(rec.strategyId, rec);
-        }
+        if (!rec || !rec.strategyId) continue;
+        if (!autoEntryPassesFilters(rec)) continue;
+        map.set(rec.strategyId, rec);
       }
 
       const entries = Array.isArray(newEntries) ? newEntries : [];
       for (const entry of entries) {
         if (!entry || !entry.params) continue;
+        if (!autoEntryPassesFilters(entry)) continue;
         const strategyId = buildStrategyKey(entry.params);
         if (!strategyId) continue;
         const mar = Number(entry.mar);
@@ -748,12 +808,15 @@
           updatedAt: new Date().toISOString()
         };
         const existingRec = map.get(strategyId);
-        if (!existingRec || mar > Number(existingRec.mar || -Infinity)) {
+        if (!existingRec || compareAutoEntries(existingRec, record) > 0) {
           map.set(strategyId, record);
         }
       }
 
-      const merged = Array.from(map.values()).sort((a, b) => Number(b.mar || -Infinity) - Number(a.mar || -Infinity)).slice(0, 20);
+      const merged = Array.from(map.values())
+        .filter(autoEntryPassesFilters)
+        .sort(compareAutoEntries)
+        .slice(0, 20);
 
       await new Promise((resolve, reject) => {
         const tx = db.transaction(AUTO_RESULTS_STORE, 'readwrite');
@@ -810,7 +873,7 @@
       });
       AUTO_RESULTS_CACHE = new Map();
       AUTO_RESULTS_LIST = [];
-      AUTO_RESULTS_SORT = { key: 'mar', direction: 'desc' };
+      AUTO_RESULTS_SORT = { key: 'sortino', direction: 'desc' };
     } catch (err) {
       console.error('Failed to clear auto results', err);
     }
@@ -904,12 +967,13 @@
 
   async function loadAutoResultsForSymbol(symbol) {
     const entries = await fetchAutoResults(symbol);
+    const filtered = entries.filter(autoEntryPassesFilters).sort(compareAutoEntries);
     AUTO_RESULTS_CACHE = new Map();
-    AUTO_RESULTS_LIST = entries.slice().sort((a, b) => Number(b.mar || -Infinity) - Number(a.mar || -Infinity)).slice(0, 20);
+    AUTO_RESULTS_LIST = filtered.slice(0, 20);
     AUTO_RESULTS_LIST.forEach(entry => {
       if (entry && entry.strategyId) AUTO_RESULTS_CACHE.set(entry.strategyId, entry);
     });
-    AUTO_RESULTS_SORT = { key: 'mar', direction: 'desc' };
+    AUTO_RESULTS_SORT = { key: 'sortino', direction: 'desc' };
     applyAutoResultsSort();
     syncAutoBacktestButton();
     return AUTO_RESULTS_LIST;
@@ -1396,10 +1460,35 @@
   function syncAutoBacktestButton() {
     const btn = document.getElementById('btnAutoBacktest');
     if (!btn) return;
-    const disabled = AUTO_BACKTEST_RUNNING || !currentTicker || !Array.isArray(DAYS) || DAYS.length === 0;
+    const ready = !!currentTicker && Array.isArray(DAYS) && DAYS.length > 0;
+    const pausePending = AUTO_BACKTEST_RUNNING && AUTO_BACKTEST_PAUSE_REQUESTED;
+    const disableDueToPause = pausePending;
+    const disabled = !ready || disableDueToPause;
     btn.disabled = disabled;
     btn.classList.toggle('opacity-50', disabled);
     btn.classList.toggle('pointer-events-none', disabled);
+
+    const running = AUTO_BACKTEST_RUNNING && !AUTO_BACKTEST_PAUSE_REQUESTED;
+    const hasResults = (Array.isArray(AUTO_RESULTS_LIST) && AUTO_RESULTS_LIST.length > 0) || (AUTO_RESULTS_CACHE && AUTO_RESULTS_CACHE.size > 0);
+    const labelEl = btn.querySelector('[data-auto-label]');
+    const playIcon = btn.querySelector('[data-auto-icon="play"]');
+    const pauseIcon = btn.querySelector('[data-auto-icon="pause"]');
+    let label = 'Start Backtest';
+    if (pausePending) {
+      label = 'Pausing…';
+    } else if (running) {
+      label = 'Pause Backtest';
+    } else if (hasResults) {
+      label = 'Resume Backtest';
+    }
+    if (labelEl && labelEl.textContent !== label) labelEl.textContent = label;
+    if (playIcon && pauseIcon) {
+      const showPause = running || pausePending;
+      playIcon.classList.toggle('hidden', showPause);
+      pauseIcon.classList.toggle('hidden', !showPause);
+    }
+    const btnState = pausePending ? 'pausing' : (running ? 'running' : (AUTO_BACKTEST_PAUSED && hasResults ? 'paused' : 'idle'));
+    btn.setAttribute('data-state', btnState);
 
     const clearBtn = document.getElementById('btnClearAuto');
     if (clearBtn) {
@@ -1440,11 +1529,12 @@
   function getAutoBacktestState(symbol) {
     const key = (symbol || '').toUpperCase();
     if (!AUTO_BACKTEST_STATE_MAP[key]) {
-      AUTO_BACKTEST_STATE_MAP[key] = { initialCompleted: false, sobolIndex: 0 };
+      AUTO_BACKTEST_STATE_MAP[key] = { initialCompleted: false, sobolIndex: 0, initialIndex: 0 };
     }
     const state = AUTO_BACKTEST_STATE_MAP[key];
     if (typeof state.initialCompleted !== 'boolean') state.initialCompleted = false;
     if (!Number.isFinite(state.sobolIndex)) state.sobolIndex = 0;
+    if (!Number.isFinite(state.initialIndex)) state.initialIndex = 0;
     return state;
   }
 
@@ -1454,6 +1544,8 @@
       delete AUTO_BACKTEST_STATE_MAP[key];
       saveAutoBacktestState();
     }
+    AUTO_BACKTEST_PAUSED = false;
+    AUTO_BACKTEST_PAUSE_REQUESTED = false;
   }
 
     async function refreshFavoriteState(id) {
@@ -1573,56 +1665,70 @@
       await runBacktestIfReady();
     }
 
-    async function startAutoBacktest() {
-      if (AUTO_BACKTEST_RUNNING) return;
-      if (!currentTicker) { setStatus('Pick a symbol before running Auto Backtest.'); return; }
-      if (!Array.isArray(DAYS) || DAYS.length === 0) { setStatus('Load data before running Auto Backtest.'); return; }
-      const optimizer = window.ORBOptimizer;
-      if (!optimizer || (!optimizer.getInitialGridCombos && !optimizer.getSobolBatch)) {
-        setStatus('Optimizer module not available.');
-        return;
-      }
-      const state = getAutoBacktestState(currentTicker);
-      let combos = [];
-      let mode = 'initial';
-      let sobolInfo = null;
-
+    function getNextAutoBacktestBatch(state, optimizer) {
+      if (!state || !optimizer) return null;
       if (!state.initialCompleted && optimizer.getInitialGridCombos) {
-        combos = optimizer.getInitialGridCombos();
-      } else if (optimizer.getSobolBatch) {
-        mode = 'sobol';
+        const combos = optimizer.getInitialGridCombos ? optimizer.getInitialGridCombos() : [];
+        const totalInitial = Array.isArray(combos) ? combos.length : 0;
+        const startIndex = Math.min(Math.max(Number(state.initialIndex) || 0, 0), totalInitial);
+        if (!totalInitial || startIndex >= totalInitial) {
+          state.initialCompleted = true;
+          state.initialIndex = totalInitial;
+          return getNextAutoBacktestBatch(state, optimizer);
+        }
+        return {
+          mode: 'initial',
+          modeLabel: 'Seed grid',
+          combos: combos.slice(startIndex),
+          initialTotal: totalInitial,
+          initialStartIndex: startIndex
+        };
+      }
+      if (optimizer.getSobolBatch) {
         const batchSize = optimizer.SOBOL_DEFAULT_BATCH || 500;
-        sobolInfo = optimizer.getSobolBatch(batchSize, state.sobolIndex || 0);
-        combos = sobolInfo.combos || [];
-        state.initialCompleted = true;
-        state.sobolIndex = sobolInfo.nextIndex || (state.sobolIndex || 0) + combos.length;
+        const startIndex = Number(state.sobolIndex) || 0;
+        const sobolInfo = optimizer.getSobolBatch(batchSize, startIndex) || {};
+        const combos = Array.isArray(sobolInfo.combos) ? sobolInfo.combos : [];
+        const nextIndex = Number.isFinite(sobolInfo.nextIndex) ? sobolInfo.nextIndex : startIndex + combos.length;
+        if (!combos.length) return null;
+        return {
+          mode: 'sobol',
+          modeLabel: 'Sobol',
+          combos,
+          sobolStartIndex: startIndex,
+          sobolNextIndex: nextIndex
+        };
       }
+      return null;
+    }
 
-      const total = combos.length;
-      if (!total) {
+    async function runAutoBacktestBatch(batch, state) {
+      if (!batch || !Array.isArray(batch.combos) || batch.combos.length === 0) {
         setStatus('No parameter combinations available for Auto Backtest.');
-        return;
+        return { processed: 0, total: 0, completed: true, paused: false, hadError: false };
       }
 
-      AUTO_BACKTEST_RUNNING = true;
-      syncAutoBacktestButton();
-      const modeLabel = mode === 'initial' ? 'Seed grid' : 'Sobol';
-      setStatus(`Auto backtest (${modeLabel}) running… 0/${total}`);
-
+      const { combos, mode, modeLabel } = batch;
+      const total = combos.length;
       const baseParams = getBacktestParams();
       const topResults = [];
       const limit = 100;
       const updateTop = (entry) => {
+        if (!autoEntryPassesFilters(entry)) return;
         topResults.push(entry);
-        topResults.sort((a, b) => (Number.isFinite(b.mar) ? b.mar : -Infinity) - (Number.isFinite(a.mar) ? a.mar : -Infinity));
+        topResults.sort(compareAutoEntries);
         if (topResults.length > limit) topResults.length = limit;
       };
 
       let processed = 0;
       const yieldInterval = 25;
+      let hadError = false;
+
+      setStatus(`Auto backtest (${modeLabel}) running… 0/${total}`);
 
       try {
         for (const combo of combos) {
+          if (AUTO_BACKTEST_PAUSE_REQUESTED) break;
           const params = {
             ...baseParams,
             days: Array.isArray(baseParams.days) ? baseParams.days.slice() : baseParams.days,
@@ -1641,62 +1747,149 @@
           }
           processed += 1;
 
-          if (processed % yieldInterval === 0) {
+          if (AUTO_BACKTEST_PAUSE_REQUESTED) {
+            setStatus(`Pausing auto backtest… finishing current combo (${processed}/${total}).`);
+          } else if (processed % yieldInterval === 0) {
             const bestEntry = topResults.length ? topResults[0] : null;
-            const bestMar = bestEntry && Number.isFinite(bestEntry.mar) ? bestEntry.mar.toFixed(2) : '—';
+            const bestSortinoVal = bestEntry ? getAutoSortino(bestEntry) : null;
+            const bestSortino = Number.isFinite(bestSortinoVal) ? bestSortinoVal.toFixed(2) : '—';
             const bestId = bestEntry && bestEntry.params ? buildStrategyKey(bestEntry.params) : '—';
-            setStatus(`Auto backtest (${modeLabel}) ${processed}/${total} (best MAR ${bestMar}, ${bestId})`);
+            setStatus(`Auto backtest (${modeLabel}) ${processed}/${total} (best Sortino ${bestSortino}, ${bestId})`);
             await new Promise(resolve => setTimeout(resolve, 0));
           }
         }
-
-        const bestEntry = topResults.length ? topResults[0] : null;
-        const bestMar = bestEntry && Number.isFinite(bestEntry.mar) ? bestEntry.mar.toFixed(2) : '—';
-        const bestId = bestEntry && bestEntry.params ? buildStrategyKey(bestEntry.params) : '—';
-        setStatus(`Auto backtest (${modeLabel}) completed ${processed}/${total} combos. Best MAR ${bestMar}. Strategy ${bestId}.`);
       } catch (err) {
+        hadError = true;
         console.error('Auto backtest failed', err);
         setStatus('Auto backtest encountered an error. See console for details.');
-      } finally {
-        AUTO_BACKTEST_RUNNING = false;
-        syncAutoBacktestButton();
-        if (mode === 'initial' && processed === total) {
+      }
+
+      const bestEntry = topResults.length ? topResults[0] : null;
+      const bestSortinoVal = bestEntry ? getAutoSortino(bestEntry) : null;
+      const bestSortino = Number.isFinite(bestSortinoVal) ? bestSortinoVal.toFixed(2) : '—';
+      const bestId = bestEntry && bestEntry.params ? buildStrategyKey(bestEntry.params) : '—';
+      const completed = processed === total && !AUTO_BACKTEST_PAUSE_REQUESTED && !hadError;
+
+      if (AUTO_BACKTEST_PAUSE_REQUESTED && !hadError) {
+        setStatus(`Auto backtest paused after ${processed}/${total} combos. Best Sortino ${bestSortino}.`);
+      } else if (!hadError) {
+        if (completed) {
+          setStatus(`Auto backtest (${modeLabel}) completed ${processed}/${total} combos. Best Sortino ${bestSortino}. Strategy ${bestId}.`);
+        } else {
+          setStatus(`Auto backtest (${modeLabel}) stopped after ${processed}/${total} combos. Best Sortino ${bestSortino}.`);
+        }
+      }
+
+      if (mode === 'initial') {
+        const start = batch.initialStartIndex || 0;
+        const totalInitial = batch.initialTotal || total;
+        state.initialIndex = start + processed;
+        if (state.initialIndex >= totalInitial || completed) {
+          state.initialIndex = Math.min(state.initialIndex, totalInitial);
           state.initialCompleted = true;
-          state.sobolIndex = state.sobolIndex || 0;
         }
-
-        let storedTopRecords = [];
-        const runTop = topResults.slice(0, limit);
-        try {
-          storedTopRecords = await updateAutoResultsStore(currentTicker, runTop);
-        } catch (err) {
-          console.error('Failed to update stored auto results', err);
+        if (!Number.isFinite(state.sobolIndex)) state.sobolIndex = 0;
+      } else if (mode === 'sobol') {
+        const start = batch.sobolStartIndex || 0;
+        if (AUTO_BACKTEST_PAUSE_REQUESTED || hadError) {
+          state.sobolIndex = start + processed;
+        } else {
+          state.sobolIndex = batch.sobolNextIndex || (start + processed);
         }
+        state.initialCompleted = true;
+      }
 
+      saveAutoBacktestState();
+
+      const runTop = topResults.slice(0, limit);
+      let storedTopRecords = [];
+      try {
+        storedTopRecords = await updateAutoResultsStore(currentTicker, runTop);
+      } catch (err) {
+        console.error('Failed to update stored auto results', err);
+      }
+
+      saveAutoBacktestState();
+
+      try {
+        await loadAutoResultsForSymbol(currentTicker);
+      } catch (err) {
+        console.error('Failed to refresh auto results table', err);
+      }
+
+      window.ORBAutoBacktestResults = {
+        timestamp: new Date().toISOString(),
+        symbol: currentTicker,
+        totalCombos: total,
+        processedCombos: processed,
+        validResults: topResults.length,
+        mode: modeLabel,
+        batchMode: mode,
+        nextSobolIndex: state.sobolIndex || 0,
+        paused: AUTO_BACKTEST_PAUSE_REQUESTED,
+        hadError,
+        rankingMetric: 'sortino',
+        bestSortino: Number.isFinite(bestSortinoVal) ? bestSortinoVal : null,
+        maxDrawdownLimit: AUTO_MAX_DD_LIMIT,
+        runTop,
+        storedTop: storedTopRecords,
+        top: runTop
+      };
+      if (runTop.length) {
+        console.log('Auto backtest top results (session):', runTop);
+      }
+      if (storedTopRecords.length) {
+        console.log('Auto backtest stored top results:', storedTopRecords);
+      }
+
+      return { processed, total, completed, paused: AUTO_BACKTEST_PAUSE_REQUESTED, hadError };
+    }
+
+    function pauseAutoBacktest() {
+      if (!AUTO_BACKTEST_RUNNING || AUTO_BACKTEST_PAUSE_REQUESTED) return;
+      AUTO_BACKTEST_PAUSE_REQUESTED = true;
+      setStatus('Pausing auto backtest… finishing current combo.');
+      syncAutoBacktestButton();
+    }
+
+    async function startAutoBacktest() {
+      if (AUTO_BACKTEST_RUNNING) return;
+      if (!currentTicker) { setStatus('Pick a symbol before running Auto Backtest.'); return; }
+      if (!Array.isArray(DAYS) || DAYS.length === 0) { setStatus('Load data before running Auto Backtest.'); return; }
+      const optimizer = window.ORBOptimizer;
+      if (!optimizer || (!optimizer.getInitialGridCombos && !optimizer.getSobolBatch)) {
+        setStatus('Optimizer module not available.');
+        return;
+      }
+
+      const state = getAutoBacktestState(currentTicker);
+      AUTO_BACKTEST_PAUSE_REQUESTED = false;
+      AUTO_BACKTEST_PAUSED = false;
+      AUTO_BACKTEST_RUNNING = true;
+      syncAutoBacktestButton();
+
+      try {
+        while (!AUTO_BACKTEST_PAUSE_REQUESTED) {
+          const batch = getNextAutoBacktestBatch(state, optimizer);
+          if (!batch) {
+            if (!AUTO_BACKTEST_PAUSE_REQUESTED) {
+              setStatus('No parameter combinations available for Auto Backtest.');
+            }
+            break;
+          }
+
+          const result = await runAutoBacktestBatch(batch, state);
+          if (result.hadError || AUTO_BACKTEST_PAUSE_REQUESTED) break;
+
+          await new Promise(resolve => setTimeout(resolve, 0));
+        }
+      } finally {
+        const wasPaused = AUTO_BACKTEST_PAUSE_REQUESTED;
+        AUTO_BACKTEST_RUNNING = false;
+        AUTO_BACKTEST_PAUSED = wasPaused;
+        AUTO_BACKTEST_PAUSE_REQUESTED = false;
+        syncAutoBacktestButton();
         saveAutoBacktestState();
-        window.ORBAutoBacktestResults = {
-          timestamp: new Date().toISOString(),
-          symbol: currentTicker,
-          totalCombos: total,
-          processedCombos: processed,
-          validResults: topResults.length,
-          mode: modeLabel,
-          nextSobolIndex: state.sobolIndex || 0,
-          runTop,
-          storedTop: storedTopRecords,
-          top: runTop
-        };
-        if (runTop.length) {
-          console.log('Auto backtest top results (session):', runTop);
-        }
-        if (storedTopRecords.length) {
-          console.log('Auto backtest stored top results:', storedTopRecords);
-        }
-        try {
-          await loadAutoResultsForSymbol(currentTicker);
-        } catch (err) {
-          console.error('Failed to refresh auto results table', err);
-        }
       }
     }
 
@@ -3291,6 +3484,12 @@
       const btn = document.getElementById('btnAutoBacktest');
       if (!btn) return;
       btn.addEventListener('click', () => {
+        if (AUTO_BACKTEST_RUNNING) {
+          if (!AUTO_BACKTEST_PAUSE_REQUESTED) {
+            pauseAutoBacktest();
+          }
+          return;
+        }
         startAutoBacktest();
       });
       syncAutoBacktestButton();
