@@ -1981,8 +1981,11 @@
           PnL: NaN, pnl_R: 0, AUM: prev_AUM, DailyReturn: 0,
         };
 
-        const df_day = dayGroups.get(dayKey);
-        if (!df_day || df_day.length === 0) {
+        const rawDay = dayGroups && typeof dayGroups.get === 'function' ? dayGroups.get(dayKey) : null;
+        const df_day = Array.isArray(rawDay)
+          ? rawDay.filter(bar => bar && bar.caldt instanceof Date && !isNaN(bar.caldt.getTime()))
+          : [];
+        if (!df_day.length) {
           rowOut.HitType = 'NotEnoughBars';
           rowOut.Shares = 0;
           out.push(rowOut);
@@ -2000,9 +2003,21 @@
 
         // Calculate Opening Range High (ORH) and Low (ORL)
         let ORH = -Infinity, ORL = Infinity;
+        let windowValid = true;
         for (let k = startIdx; k < startIdx + orb_m; k++) {
-          ORH = Math.max(ORH, df_day[k].high);
-          ORL = Math.min(ORL, df_day[k].low);
+          const bar = df_day[k];
+          if (!bar || !Number.isFinite(bar.high) || !Number.isFinite(bar.low)) {
+            windowValid = false;
+            break;
+          }
+          ORH = Math.max(ORH, bar.high);
+          ORL = Math.min(ORL, bar.low);
+        }
+        if (!windowValid || !Number.isFinite(ORH) || !Number.isFinite(ORL)) {
+          rowOut.HitType = 'NotEnoughBars';
+          rowOut.Shares = 0;
+          out.push(rowOut);
+          continue;
         }
         rowOut.ORH = ORH;
         rowOut.ORL = ORL;
@@ -2012,6 +2027,8 @@
 
         for (let i = startIdx + orb_m; i < df_day.length; i++) {
           const r = df_day[i];
+          if (!r || !(r.caldt instanceof Date)) continue;
+          if (!Number.isFinite(r.high) || !Number.isFinite(r.low)) continue;
           if (minutesOfDay(r.caldt) >= entryCutoffMin) break;
 
           const long_hit = r.high > (ORH + breakout_buffer);
@@ -2076,6 +2093,8 @@
 
         for (let j = entryIdx + 1; j < df_day.length; j++) {
           const r2 = df_day[j];
+          if (!r2 || !(r2.caldt instanceof Date)) continue;
+          if (!Number.isFinite(r2.high) || !Number.isFinite(r2.low)) continue;
           const tp_hit = entry_side === 1 ? r2.high >= target_price : r2.low <= target_price;
           const st_hit = entry_side === 1 ? r2.low <= stop_price : r2.high >= stop_price;
 
@@ -2091,7 +2110,11 @@
 
         if (indeterminate) {
           const bar = df_day[exitIdx];
-          rowOut.ExitTime = bar ? new Date(bar.caldt) : null;
+          if (bar && bar.caldt instanceof Date) {
+            rowOut.ExitTime = new Date(bar.caldt);
+          } else {
+            rowOut.ExitTime = null;
+          }
           rowOut.HitType = 'Indeterminate';
           out.push(rowOut);
           continue;
@@ -2099,15 +2122,20 @@
 
         // No exit signal: exit at EOD
         if (exitIdx == null) {
-          const eodIdx = df_day.findLastIndex(r => minutesOfDay(r.caldt) === orbEndMin);
+          const eodIdx = df_day.findLastIndex(r => r && r.caldt instanceof Date && minutesOfDay(r.caldt) === orbEndMin);
           exitIdx = eodIdx >= 0 ? eodIdx : df_day.length - 1;
           const r_eod = df_day[exitIdx];
-          exit_time = new Date(r_eod.caldt);
-          exit_price = r_eod.close;
+          if (r_eod && r_eod.caldt instanceof Date) {
+            exit_time = new Date(r_eod.caldt);
+          } else {
+            exit_time = entry_time;
+          }
+          exit_price = r_eod && Number.isFinite(r_eod.close) ? r_eod.close : entry_price;
         } else {
           const r_exit = df_day[exitIdx];
-          exit_time = new Date(r_exit.caldt);
-          const o_exit = r_exit.open;
+          exit_time = r_exit && r_exit.caldt instanceof Date ? new Date(r_exit.caldt) : entry_time;
+          const fallbackExit = Number.isFinite(exit_price) ? exit_price : entry_price;
+          const o_exit = r_exit && Number.isFinite(r_exit.open) ? r_exit.open : fallbackExit;
 
           exit_price = (hit === 'TP')
             ? (entry_side === 1 ? Math.max(target_price, o_exit) : Math.min(target_price, o_exit))
