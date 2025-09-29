@@ -301,6 +301,10 @@
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 3a7 7 0 00-6.937 6.174 1 1 0 001.981.272A5 5 0 0110 5a5 5 0 11-4.894 6.13 1 1 0 10-1.958.356A7 7 0 1010 3z"/><path d="M9 7a1 1 0 012 0v3.586l1.707 1.707a1 1 0 01-1.414 1.414l-2-2A1 1 0 019 11V7z"/></svg>
                 <span>Auto Backtest</span>
               </button>
+              <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-3 py-2 text-sm font-medium text-rose-600 shadow-sm transition hover:border-rose-400 hover:text-rose-700 opacity-50 pointer-events-none" id="btnClearAuto" disabled>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 10-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 10-1.06-1.06L10 8.94 6.28 5.22z"/></svg>
+                <span>Clear Auto Data</span>
+              </button>
             </div>
             <div class="text-sm text-slate-500" id="autoResultsStatus">No auto backtest results yet.</div>
           </div>
@@ -308,24 +312,95 @@
             <table class="min-w-full text-sm">
               <thead class="bg-slate-50 text-slate-600">
                 <tr>
-                  <th class="px-3 py-2 text-left font-medium">Strategy</th>
-                  <th class="px-3 py-2 text-right font-medium">MAR</th>
-                  <th class="px-3 py-2 text-right font-medium">Total PnL</th>
-                  <th class="px-3 py-2 text-right font-medium">Avg Daily %</th>
-                  <th class="px-3 py-2 text-right font-medium">CAGR %</th>
-                  <th class="px-3 py-2 text-right font-medium">Max DD %</th>
-                  <th class="px-3 py-2 text-right font-medium">ORB (m)</th>
-                  <th class="px-3 py-2 text-right font-medium">TP R</th>
-                  <th class="px-3 py-2 text-right font-medium">SL R</th>
-                  <th class="px-3 py-2 text-left font-medium">Start</th>
-                  <th class="px-3 py-2 text-left font-medium">End</th>
-                  <th class="px-3 py-2 text-left font-medium">Direction</th>
-                  <th class="px-3 py-2 text-left font-medium">Updated</th>
+                  <th class="px-3 py-2 text-left font-medium">
+                    <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="strategyId">
+                      <span>Strategy</span>
+                      <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                    </button>
+                  </th>
+                  <th class="px-3 py-2 text-right font-medium">
+                    <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="sortino">
+                      <span>Sortino</span>
+                      <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                    </button>
+                  </th>
+                  <th class="px-3 py-2 text-right font-medium">
+                    <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="ulcerPerf">
+                      <span>UPI</span>
+                      <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                    </button>
+                  </th>
+                  <th class="px-3 py-2 text-right font-medium">
+                    <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="mar">
+                      <span>MAR</span>
+                      <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                    </button>
+                  </th>
+                  <th class="px-3 py-2 text-right font-medium">
+                    <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="totalPnL">
+                      <span>Total PnL</span>
+                      <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                    </button>
+                  </th>
+                  <th class="px-3 py-2 text-right font-medium">
+                    <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="avgDaily">
+                      <span>Avg Daily %</span>
+                      <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                    </button>
+                  </th>
+                  <th class="px-3 py-2 text-right font-medium">
+                    <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="cagr">
+                      <span>CAGR %</span>
+                      <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                    </button>
+                  </th>
+                  <th class="px-3 py-2 text-right font-medium">
+                    <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="maxDD">
+                      <span>Max DD %</span>
+                      <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                    </button>
+                  </th>
+                  <th class="px-3 py-2 text-right font-medium">
+                    <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="orb_m">
+                      <span>ORB (m)</span>
+                      <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                    </button>
+                  </th>
+                  <th class="px-3 py-2 text-right font-medium">
+                    <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="tp_R">
+                      <span>TP R</span>
+                      <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                    </button>
+                  </th>
+                  <th class="px-3 py-2 text-right font-medium">
+                    <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="sl_R">
+                      <span>SL R</span>
+                      <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                    </button>
+                  </th>
+                  <th class="px-3 py-2 text-left font-medium">
+                    <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="start">
+                      <span>Start</span>
+                      <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                    </button>
+                  </th>
+                  <th class="px-3 py-2 text-left font-medium">
+                    <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="end">
+                      <span>End</span>
+                      <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                    </button>
+                  </th>
+                  <th class="px-3 py-2 text-left font-medium">
+                    <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="direction">
+                      <span>Direction</span>
+                      <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                    </button>
+                  </th>
                 </tr>
               </thead>
               <tbody id="autoResultsTableBody">
                 <tr class="border-b last:border-b-0">
-                  <td colspan="9" class="px-3 py-4 text-center text-sm text-slate-500">No auto backtest results yet.</td>
+                  <td colspan="13" class="px-3 py-4 text-center text-sm text-slate-500">No auto backtest results yet.</td>
                 </tr>
               </tbody>
             </table>
@@ -538,9 +613,11 @@
     let CURRENT_STRATEGY_ID = null;
     let CURRENT_STRATEGY_PARAMS = null;
     let CURRENT_STRATEGY_FAVORITE = false;
-    let CURRENT_SYMBOL_FAVORITES = [];
-    let CURRENT_MODE_TAB = 'backtest';
-    let AUTO_RESULTS_CACHE = new Map();
+  let CURRENT_SYMBOL_FAVORITES = [];
+  let CURRENT_MODE_TAB = 'backtest';
+  let AUTO_RESULTS_CACHE = new Map();
+  let AUTO_RESULTS_LIST = [];
+  let AUTO_RESULTS_SORT = { key: 'mar', direction: 'desc' };
     let PORTFOLIO_CACHE = new Map();
     const AUTO_BACKTEST_STATE_STORAGE_KEY = 'orbAutoBacktestState_v1';
     let AUTO_BACKTEST_RUNNING = false;
@@ -701,6 +778,38 @@
     }
   }
 
+  async function clearAutoResultsForSymbol(symbol) {
+    if (!symbol || !AUTO_RESULTS_STORE) return;
+    const upper = String(symbol).toUpperCase();
+    try {
+      const db = await getDbInstance();
+      if (!db || !db.objectStoreNames.contains(AUTO_RESULTS_STORE)) return;
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(AUTO_RESULTS_STORE, 'readwrite');
+        const store = tx.objectStore(AUTO_RESULTS_STORE);
+        const index = store.index('symbol');
+        const req = index.openCursor(upper);
+        req.onsuccess = (event) => {
+          const cursor = event.target.result;
+          if (cursor) {
+            store.delete(cursor.primaryKey);
+            cursor.continue();
+          } else {
+            resolve();
+          }
+        };
+        req.onerror = () => reject(req.error || new Error('IndexedDB cursor failed'));
+        tx.onerror = () => reject(tx.error || new Error('IndexedDB transaction failed'));
+        tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
+      });
+      AUTO_RESULTS_CACHE = new Map();
+      AUTO_RESULTS_LIST = [];
+      AUTO_RESULTS_SORT = { key: 'mar', direction: 'desc' };
+    } catch (err) {
+      console.error('Failed to clear auto results', err);
+    }
+  }
+
   function renderAutoResultsTable(entries) {
     const tbody = document.getElementById('autoResultsTableBody');
     const statusEl = document.getElementById('autoResultsStatus');
@@ -710,7 +819,7 @@
     if (!Array.isArray(entries) || entries.length === 0) {
       if (statusEl) statusEl.textContent = 'No auto backtest results yet.';
       const tr = document.createElement('tr');
-      tr.innerHTML = '<td colspan="13" class="px-3 py-4 text-center text-sm text-slate-500">No auto backtest results yet.</td>';
+      tr.innerHTML = '<td colspan="14" class="px-3 py-4 text-center text-sm text-slate-500">No auto backtest results yet.</td>';
       tbody.appendChild(tr);
       return;
     }
@@ -723,7 +832,6 @@
     entries.forEach((entry) => {
       const params = entry && entry.params ? entry.params : {};
       const dir = params.direction ? String(params.direction).toUpperCase() : (entry && entry.combo && entry.combo.direction ? String(entry.combo.direction).toUpperCase() : '');
-      const updatedAt = entry && entry.updatedAt ? new Date(entry.updatedAt).toLocaleString() : '';
       const mar = Number(entry && entry.mar);
       const orbVal = params.orb_m ?? (entry && entry.combo ? entry.combo.orb_m : null);
       const tpValRaw = params.target_R ?? params.tp_R ?? (entry && entry.combo ? entry.combo.tp_R : null);
@@ -737,20 +845,30 @@
       const avgDaily = Number(summary.avgDailyRet);
       const cagr = Number(summary.cagrPct);
       const maxDD = Number(summary.maxDDPct);
+      const sortino = Number(summary.sortinoRatio);
+      const ulcerPerf = Number(summary.ulcerPerf);
+      const totalPnLDisplay = Number.isFinite(totalPnL) ? `$${totalPnL.toLocaleString()}` : '—';
+      const avgDailyDisplay = Number.isFinite(avgDaily) ? `${avgDaily.toFixed(2)}%` : '—';
+      const cagrDisplay = Number.isFinite(cagr) ? `${cagr.toFixed(2)}%` : '—';
+      const maxDDDisplay = Number.isFinite(maxDD) ? `${maxDD.toFixed(2)}%` : '—';
+      const sortinoDisplay = Number.isFinite(sortino) ? sortino.toFixed(2) : '—';
+      const ulcerDisplay = Number.isFinite(ulcerPerf) ? ulcerPerf.toFixed(2) : '—';
+
       tr.innerHTML = `
         <td class="px-3 py-2 font-mono text-xs break-all"><button type="button" class="text-slate-700 hover:text-indigo-600" data-auto-load="${entry.strategyId || ''}">${entry.strategyId || ''}</button></td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${sortinoDisplay}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${ulcerDisplay}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${Number.isFinite(mar) ? mar.toFixed(2) : ''}</td>
-        <td class="px-3 py-2 text-right tabular-nums font-mono">${Number.isFinite(totalPnL) ? totalPnL.toLocaleString() : '—'}</td>
-        <td class="px-3 py-2 text-right tabular-nums font-mono">${Number.isFinite(avgDaily) ? avgDaily.toFixed(2) + '%' : '—'}</td>
-        <td class="px-3 py-2 text-right tabular-nums font-mono">${Number.isFinite(cagr) ? cagr.toFixed(2) + '%' : '—'}</td>
-        <td class="px-3 py-2 text-right tabular-nums font-mono">${Number.isFinite(maxDD) ? maxDD.toFixed(2) + '%' : '—'}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${totalPnLDisplay}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${avgDailyDisplay}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${cagrDisplay}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${maxDDDisplay}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${orbVal ?? ''}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${Number.isFinite(tpVal) ? tpVal.toFixed(2) : (tpValRaw ?? '')}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${Number.isFinite(slVal) ? slVal.toFixed(2) : (slValRaw ?? '')}</td>
         <td class="px-3 py-2 text-sm">${params.orb_start_time || params.start_ny || ''}</td>
         <td class="px-3 py-2 text-sm">${params.orb_end_time || params.end_ny || ''}</td>
-        <td class="px-3 py-2 text-sm">${dir}</td>
-        <td class="px-3 py-2 text-sm text-slate-500">${updatedAt}</td>`;
+        <td class="px-3 py-2 text-sm">${dir}</td>`;
       tbody.appendChild(tr);
     });
   }
@@ -758,12 +876,99 @@
   async function loadAutoResultsForSymbol(symbol) {
     const entries = await fetchAutoResults(symbol);
     AUTO_RESULTS_CACHE = new Map();
-    const sorted = entries.slice().sort((a, b) => Number(b.mar || -Infinity) - Number(a.mar || -Infinity)).slice(0, 20);
+    AUTO_RESULTS_LIST = entries.slice().sort((a, b) => Number(b.mar || -Infinity) - Number(a.mar || -Infinity)).slice(0, 20);
+    AUTO_RESULTS_LIST.forEach(entry => {
+      if (entry && entry.strategyId) AUTO_RESULTS_CACHE.set(entry.strategyId, entry);
+    });
+    AUTO_RESULTS_SORT = { key: 'mar', direction: 'desc' };
+    applyAutoResultsSort();
+    syncAutoBacktestButton();
+    return AUTO_RESULTS_LIST;
+  }
+
+  function getAutoResultValue(entry, key) {
+    const params = entry && entry.params ? entry.params : {};
+    const summary = entry && entry.summary ? entry.summary : {};
+    switch (key) {
+      case 'strategyId':
+        return entry && entry.strategyId ? String(entry.strategyId) : '';
+      case 'sortino':
+        return Number(summary.sortinoRatio);
+      case 'ulcerPerf':
+        return Number(summary.ulcerPerf);
+      case 'mar':
+        return Number(entry && entry.mar);
+      case 'totalPnL':
+        return Number(summary.totalPnL);
+      case 'avgDaily':
+        return Number(summary.avgDailyRet);
+      case 'cagr':
+        return Number(summary.cagrPct);
+      case 'maxDD':
+        return Number(summary.maxDDPct);
+      case 'orb_m':
+        return Number(params.orb_m ?? (entry && entry.combo ? entry.combo.orb_m : null));
+      case 'tp_R':
+        return Number(params.target_R ?? params.tp_R ?? (entry && entry.combo ? entry.combo.tp_R : null));
+      case 'sl_R':
+        return Number(params.stop_R ?? params.sl_R ?? (entry && entry.combo ? entry.combo.sl_R : null));
+      case 'start':
+        return parseTimeHHMM(params.orb_start_time || params.start_ny || '00:00');
+      case 'end':
+        return parseTimeHHMM(params.orb_end_time || params.end_ny || '00:00');
+      case 'direction':
+        return (params.direction || (entry && entry.combo ? entry.combo.direction : '') || '').toUpperCase();
+      default:
+        return null;
+    }
+  }
+
+  function applyAutoResultsSort() {
+    if (!Array.isArray(AUTO_RESULTS_LIST)) {
+      renderAutoResultsTable([]);
+      return;
+    }
+    const { key = 'mar', direction = 'desc' } = AUTO_RESULTS_SORT || {};
+    const factor = direction === 'asc' ? 1 : -1;
+    const sorted = AUTO_RESULTS_LIST.slice().sort((a, b) => {
+      const va = getAutoResultValue(a, key);
+      const vb = getAutoResultValue(b, key);
+      if (va == null && vb == null) return 0;
+      if (va == null) return 1;
+      if (vb == null) return -1;
+      if (typeof va === 'string' || typeof vb === 'string') {
+        return factor * String(va).localeCompare(String(vb));
+      }
+      if (va > vb) return factor;
+      if (va < vb) return -factor;
+      return 0;
+    });
+    AUTO_RESULTS_LIST = sorted;
+    updateAutoSortHeaders();
+    AUTO_RESULTS_CACHE = new Map();
     sorted.forEach(entry => {
       if (entry && entry.strategyId) AUTO_RESULTS_CACHE.set(entry.strategyId, entry);
     });
     renderAutoResultsTable(sorted);
-    return sorted;
+  }
+
+  function updateAutoSortHeaders() {
+    document.querySelectorAll('[data-auto-sort]').forEach(btn => {
+      const key = btn.getAttribute('data-auto-sort');
+      const indicator = btn.querySelector('[data-sort-indicator]');
+      const active = AUTO_RESULTS_SORT && AUTO_RESULTS_SORT.key === key;
+      btn.classList.toggle('text-slate-900', active);
+      btn.classList.toggle('text-slate-600', !active);
+      if (indicator) {
+        if (active) {
+          indicator.style.opacity = '1';
+          indicator.textContent = AUTO_RESULTS_SORT.direction === 'asc' ? '▲' : '▼';
+        } else {
+          indicator.style.opacity = '0';
+          indicator.textContent = '▲';
+        }
+      }
+    });
   }
 
   function highlightTickerButton(symbol) {
@@ -824,6 +1029,7 @@
       });
     });
     activateModeTab(CURRENT_MODE_TAB);
+    updateAutoSortHeaders();
   }
 
   async function applyAutoResult(entry) {
@@ -1115,6 +1321,7 @@
       syncFavoriteButton();
       loadFavoritesForSymbol(currentTicker).catch(() => {});
       loadAutoResultsForSymbol(currentTicker).catch(() => {});
+      highlightTickerButton(currentTicker);
       getAutoBacktestState(currentTicker);
       syncAutoBacktestButton();
     }
@@ -1142,14 +1349,27 @@
       }
     }
 
-    function syncAutoBacktestButton() {
-      const btn = document.getElementById('btnAutoBacktest');
-      if (!btn) return;
-      const disabled = AUTO_BACKTEST_RUNNING || !currentTicker || !Array.isArray(DAYS) || DAYS.length === 0;
-      btn.disabled = disabled;
-      btn.classList.toggle('opacity-50', disabled);
-      btn.classList.toggle('pointer-events-none', disabled);
+  function syncAutoBacktestButton() {
+    const btn = document.getElementById('btnAutoBacktest');
+    if (!btn) return;
+    const disabled = AUTO_BACKTEST_RUNNING || !currentTicker || !Array.isArray(DAYS) || DAYS.length === 0;
+    btn.disabled = disabled;
+    btn.classList.toggle('opacity-50', disabled);
+    btn.classList.toggle('pointer-events-none', disabled);
+
+    const clearBtn = document.getElementById('btnClearAuto');
+    if (clearBtn) {
+      const key = (currentTicker || '').toUpperCase();
+      const state = AUTO_BACKTEST_STATE_MAP[key];
+      const hasStateData = !!(state && (state.initialCompleted || (Number.isFinite(state.sobolIndex) && state.sobolIndex > 0)));
+      const hasCacheData = !!(AUTO_RESULTS_CACHE && AUTO_RESULTS_CACHE.size);
+      const hasData = hasStateData || hasCacheData;
+      const clearDisabled = AUTO_BACKTEST_RUNNING || !currentTicker || !hasData;
+      clearBtn.disabled = clearDisabled;
+      clearBtn.classList.toggle('opacity-50', clearDisabled);
+      clearBtn.classList.toggle('pointer-events-none', clearDisabled);
     }
+  }
 
     function loadAutoBacktestState() {
       if (typeof localStorage === 'undefined') return {};
@@ -1173,16 +1393,24 @@
       }
     }
 
-    function getAutoBacktestState(symbol) {
-      const key = (symbol || '').toUpperCase();
-      if (!AUTO_BACKTEST_STATE_MAP[key]) {
-        AUTO_BACKTEST_STATE_MAP[key] = { initialCompleted: false, sobolIndex: 0 };
-      }
-      const state = AUTO_BACKTEST_STATE_MAP[key];
-      if (typeof state.initialCompleted !== 'boolean') state.initialCompleted = false;
-      if (!Number.isFinite(state.sobolIndex)) state.sobolIndex = 0;
-      return state;
+  function getAutoBacktestState(symbol) {
+    const key = (symbol || '').toUpperCase();
+    if (!AUTO_BACKTEST_STATE_MAP[key]) {
+      AUTO_BACKTEST_STATE_MAP[key] = { initialCompleted: false, sobolIndex: 0 };
     }
+    const state = AUTO_BACKTEST_STATE_MAP[key];
+    if (typeof state.initialCompleted !== 'boolean') state.initialCompleted = false;
+    if (!Number.isFinite(state.sobolIndex)) state.sobolIndex = 0;
+    return state;
+  }
+
+  function resetAutoBacktestState(symbol) {
+    const key = (symbol || '').toUpperCase();
+    if (AUTO_BACKTEST_STATE_MAP[key]) {
+      delete AUTO_BACKTEST_STATE_MAP[key];
+      saveAutoBacktestState();
+    }
+  }
 
     async function refreshFavoriteState(id) {
       if (!id) {
@@ -1699,17 +1927,37 @@
 
       let totalPnL = 0;
       let totalDailyReturn = 0;
+      let dailyReturnCount = 0;
+      let sumDailyReturnDecimal = 0;
+      let downsideSumSquares = 0;
       for (const row of out) {
         if (Number.isFinite(row.PnL)) totalPnL += row.PnL;
-        if (Number.isFinite(row.DailyReturn)) totalDailyReturn += row.DailyReturn;
+        if (Number.isFinite(row.DailyReturn)) {
+          totalDailyReturn += row.DailyReturn;
+          dailyReturnCount += 1;
+          const dailyDec = Number(row.DailyReturn) / 100;
+          if (Number.isFinite(dailyDec)) {
+            sumDailyReturnDecimal += dailyDec;
+            if (dailyDec < 0) {
+              downsideSumSquares += dailyDec * dailyDec;
+            }
+          }
+        }
       }
-      const avgDailyRet = out.length ? totalDailyReturn / out.length : 0;
+      const avgDailyRet = dailyReturnCount ? totalDailyReturn / dailyReturnCount : 0;
+      const avgDailyRetDecimal = dailyReturnCount ? sumDailyReturnDecimal / dailyReturnCount : 0;
+      const downsideDeviation = dailyReturnCount ? Math.sqrt(downsideSumSquares / dailyReturnCount) : null;
+      const sortinoRatio = (downsideDeviation && downsideDeviation > 0)
+        ? (avgDailyRetDecimal * Math.sqrt(252)) / downsideDeviation
+        : null;
 
       const lastRow = out[out.length - 1] || {};
       const lastAUM = Number.isFinite(lastRow.AUM) ? lastRow.AUM : null;
 
       let cagrPct = 0;
       let maxDDPct = 0;
+      let ulcerIndex = null;
+      let ulcerPerf = null;
       if (out.length > 1) {
         const firstRow = out[0] || {};
         const startAUM = Number.isFinite(firstRow.AUM) ? firstRow.AUM : null;
@@ -1727,6 +1975,8 @@
         }
         let peak = startAUM;
         let mdd = 0;
+        let ddSquares = 0;
+        let ddCount = 0;
         for (const row of out) {
           const a = Number(row.AUM);
           if (!Number.isFinite(a)) continue;
@@ -1737,6 +1987,18 @@
           if (Number.isFinite(peak) && peak > 0) {
             const dd = ((a / peak) - 1) * 100;
             if (dd < mdd) mdd = dd;
+            const ddDecimal = Math.max(0, (peak - a) / peak);
+            ddSquares += ddDecimal * ddDecimal;
+            ddCount += 1;
+          }
+        }
+        if (ddCount > 0) {
+          const uiDecimal = Math.sqrt(ddSquares / ddCount);
+          ulcerIndex = uiDecimal * 100;
+          const cagrDecimal = Number.isFinite(cagrPct) ? cagrPct / 100 : null;
+          ulcerPerf = (Number.isFinite(cagrDecimal) && uiDecimal > 0) ? cagrDecimal / uiDecimal : null;
+          if (ulcerPerf !== null) {
+            ulcerPerf = Number(ulcerPerf.toFixed(4));
           }
         }
         maxDDPct = mdd;
@@ -1754,6 +2016,10 @@
         cagrPct,
         maxDDPct,
         mar,
+        sortinoRatio,
+        downsideDeviation: (downsideDeviation != null) ? downsideDeviation : null,
+        ulcerIndex,
+        ulcerPerf,
         tradeCounts: {
           total: totalTrades,
           wins,
@@ -1780,7 +2046,7 @@
       const metrics = computeSummaryMetrics(out);
       if (!metrics) { summary.innerHTML = ''; return; }
 
-      const { totalDays, finalAUM, totalPnL, avgDailyRet, cagrPct, maxDDPct, mar, tradeCounts } = metrics;
+      const { totalDays, finalAUM, totalPnL, avgDailyRet, cagrPct, maxDDPct, mar, sortinoRatio, ulcerIndex, ulcerPerf, tradeCounts } = metrics;
       const { total, wins, losses, eodCount, eodWin, eodLoss, indeterminate, pct: tradePct = {} } = tradeCounts;
 
       const cards = [
@@ -1790,8 +2056,9 @@
         { label: 'Avg Daily Return', value: `${fmtPct(avgDailyRet)}%` },
         { label: 'Total PnL', value: `$${fmtInt(totalPnL)}`, cls: ((totalPnL > 0) ? 'num-pos' : 'num-neg') + ' text-3xl' },
         { label: 'Max DD', value: `${fmtPct(maxDDPct)}%` },
-        { label: '', value: '' },
-        { label: '', value: '' },
+        { label: 'Sortino (ann.)', value: sortinoRatio == null ? '—' : `${fmtNum(sortinoRatio, 2)}x` },
+        { label: 'Ulcer Index', value: ulcerIndex == null ? '—' : `${fmtPct(ulcerIndex)}%` },
+        { label: 'Ulcer Perf (UPI)', value: ulcerPerf == null ? '—' : `${fmtNum(ulcerPerf, 2)}x` },
         { label: 'MAR', value: mar == null ? '—' : `${fmtNum(mar, 2)}x` },
       ];
 
@@ -2902,6 +3169,21 @@
     });
 
     document.addEventListener('click', async (e) => {
+      const sortBtn = e.target.closest('[data-auto-sort]');
+      if (sortBtn) {
+        const key = sortBtn.getAttribute('data-auto-sort');
+        if (key) {
+          const ascKeys = new Set(['strategyId','direction','start','end']);
+          if (AUTO_RESULTS_SORT && AUTO_RESULTS_SORT.key === key) {
+            AUTO_RESULTS_SORT.direction = AUTO_RESULTS_SORT.direction === 'desc' ? 'asc' : 'desc';
+          } else {
+            AUTO_RESULTS_SORT = { key, direction: ascKeys.has(key) ? 'asc' : 'desc' };
+          }
+          applyAutoResultsSort();
+        }
+        return;
+      }
+
       const btn = e.target.closest('[data-auto-load]');
       if (!btn) return;
       const id = btn.getAttribute('data-auto-load');
@@ -2968,6 +3250,44 @@
         startAutoBacktest();
       });
       syncAutoBacktestButton();
+    })();
+
+    (function initClearAutoButton(){
+      const btn = document.getElementById('btnClearAuto');
+      if (!btn) return;
+      btn.addEventListener('click', async () => {
+        if (!currentTicker) { setStatus('Pick a symbol before clearing auto data.'); return; }
+        if (!window.confirm('Clear saved auto backtest results for this symbol?')) return;
+        const statusEl = document.getElementById('status');
+        const previousMsg = statusEl ? statusEl.textContent : '';
+        setStatus('Clearing auto backtest data…');
+        try {
+          await clearAutoResultsForSymbol(currentTicker);
+          resetAutoBacktestState(currentTicker);
+          AUTO_RESULTS_CACHE = new Map();
+          await loadAutoResultsForSymbol(currentTicker);
+          setStatus('Auto backtest data cleared.');
+          if (statusEl) {
+            setTimeout(() => {
+              if (statusEl.textContent === 'Auto backtest data cleared.') {
+                statusEl.textContent = previousMsg;
+              }
+            }, 2000);
+          }
+        } catch (err) {
+          console.error('Failed to clear auto backtest data', err);
+          setStatus('Failed to clear auto backtest data.');
+          if (statusEl) {
+            setTimeout(() => {
+              if (statusEl.textContent === 'Failed to clear auto backtest data.') {
+                statusEl.textContent = previousMsg;
+              }
+            }, 3000);
+          }
+        } finally {
+          syncAutoBacktestButton();
+        }
+      });
     })();
 
     (function initClearPortfolioButton(){
