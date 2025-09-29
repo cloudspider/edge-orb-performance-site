@@ -308,7 +308,7 @@
             </div>
             <div class="text-sm text-slate-500" id="autoResultsStatus">No auto backtest results yet.</div>
           </div>
-          <div class="overflow-x-auto border border-slate-200 rounded-xl">
+          <div class="overflow-x-auto border border-slate-200 rounded-xl max-h-96">
             <table class="min-w-full text-sm">
               <thead class="bg-slate-50 text-slate-600">
                 <tr>
@@ -339,6 +339,12 @@
                   <th class="px-3 py-2 text-right font-medium">
                     <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="totalPnL">
                       <span>Total PnL</span>
+                      <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                    </button>
+                  </th>
+                  <th class="px-3 py-2 text-right font-medium">
+                    <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="winPct">
+                      <span>Win %</span>
                       <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
                     </button>
                   </th>
@@ -400,7 +406,7 @@
               </thead>
               <tbody id="autoResultsTableBody">
                 <tr class="border-b last:border-b-0">
-                  <td colspan="13" class="px-3 py-4 text-center text-sm text-slate-500">No auto backtest results yet.</td>
+                  <td colspan="15" class="px-3 py-4 text-center text-sm text-slate-500">No auto backtest results yet.</td>
                 </tr>
               </tbody>
             </table>
@@ -452,7 +458,7 @@
     </section>
 
     <!-- Filters -->
-    <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
+    <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6" data-shared-section="filters">
       <h2 class="font-semibold mb-3">Filters</h2>
       <div class="flex flex-wrap items-center gap-3">
         <div id="dirSegment" class="inline-flex rounded-xl border border-slate-200 overflow-hidden" aria-label="Direction">
@@ -819,7 +825,7 @@
     if (!Array.isArray(entries) || entries.length === 0) {
       if (statusEl) statusEl.textContent = 'No auto backtest results yet.';
       const tr = document.createElement('tr');
-      tr.innerHTML = '<td colspan="14" class="px-3 py-4 text-center text-sm text-slate-500">No auto backtest results yet.</td>';
+      tr.innerHTML = '<td colspan="15" class="px-3 py-4 text-center text-sm text-slate-500">No auto backtest results yet.</td>';
       tbody.appendChild(tr);
       return;
     }
@@ -839,7 +845,6 @@
       const tpVal = Number(tpValRaw);
       const slVal = Number(slValRaw);
       const tr = document.createElement('tr');
-      tr.className = 'border-b last:border-b-0 hover:bg-slate-50';
       const summary = entry && entry.summary ? entry.summary : {};
       const totalPnL = Number(summary.totalPnL);
       const avgDaily = Number(summary.avgDailyRet);
@@ -847,6 +852,17 @@
       const maxDD = Number(summary.maxDDPct);
       const sortino = Number(summary.sortinoRatio);
       const ulcerPerf = Number(summary.ulcerPerf);
+      const tradeCounts = summary && summary.tradeCounts ? summary.tradeCounts : {};
+      const tradePct = tradeCounts && tradeCounts.pct ? tradeCounts.pct : {};
+      let winPct = Number(tradePct.wins);
+      if (!Number.isFinite(winPct)) {
+        const totalTrades = Number(tradeCounts.total);
+        const winsCount = Number(tradeCounts.wins);
+        if (Number.isFinite(totalTrades) && totalTrades > 0 && Number.isFinite(winsCount) && winsCount >= 0) {
+          winPct = (winsCount / totalTrades) * 100;
+        }
+      }
+      const winPctDisplay = Number.isFinite(winPct) ? `${winPct.toFixed(2)}%` : '—';
       const totalPnLDisplay = Number.isFinite(totalPnL) ? `$${totalPnL.toLocaleString()}` : '—';
       const avgDailyDisplay = Number.isFinite(avgDaily) ? `${avgDaily.toFixed(2)}%` : '—';
       const cagrDisplay = Number.isFinite(cagr) ? `${cagr.toFixed(2)}%` : '—';
@@ -860,6 +876,7 @@
         <td class="px-3 py-2 text-right tabular-nums font-mono">${ulcerDisplay}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${Number.isFinite(mar) ? mar.toFixed(2) : ''}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${totalPnLDisplay}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${winPctDisplay}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${avgDailyDisplay}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${cagrDisplay}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${maxDDDisplay}</td>
@@ -869,7 +886,19 @@
         <td class="px-3 py-2 text-sm">${params.orb_start_time || params.start_ny || ''}</td>
         <td class="px-3 py-2 text-sm">${params.orb_end_time || params.end_ny || ''}</td>
         <td class="px-3 py-2 text-sm">${dir}</td>`;
+      tr.dataset.autostrategy = entry.strategyId || '';
+      tr.className = 'border-b last:border-b-0 hover:bg-slate-50';
       tbody.appendChild(tr);
+    });
+    highlightAutoResultRow();
+  }
+
+  function highlightAutoResultRow() {
+    document.querySelectorAll('[data-autostrategy]').forEach(row => {
+      const active = row.dataset.autostrategy === CURRENT_STRATEGY_ID && CURRENT_STRATEGY_ID;
+      row.classList.toggle('bg-indigo-50', active);
+      row.classList.toggle('hover:bg-indigo-100', active);
+      row.classList.toggle('hover:bg-slate-50', !active);
     });
   }
 
@@ -900,6 +929,17 @@
         return Number(entry && entry.mar);
       case 'totalPnL':
         return Number(summary.totalPnL);
+      case 'winPct': {
+        const tradeCounts = summary && summary.tradeCounts ? summary.tradeCounts : {};
+        const pctWins = tradeCounts && tradeCounts.pct ? Number(tradeCounts.pct.wins) : NaN;
+        if (Number.isFinite(pctWins)) return pctWins;
+        const totalTrades = Number(tradeCounts.total);
+        const wins = Number(tradeCounts.wins);
+        if (Number.isFinite(totalTrades) && totalTrades > 0 && Number.isFinite(wins) && wins >= 0) {
+          return (wins / totalTrades) * 100;
+        }
+        return null;
+      }
       case 'avgDaily':
         return Number(summary.avgDailyRet);
       case 'cagr':
@@ -1017,6 +1057,10 @@
     document.querySelectorAll('[data-tab-panel]').forEach(panel => {
       const active = panel.getAttribute('data-tab-panel') === name;
       panel.classList.toggle('hidden', !active);
+    });
+    document.querySelectorAll('[data-shared-section]').forEach(section => {
+      const onlyBacktest = section.getAttribute('data-shared-section') === 'filters';
+      section.classList.toggle('hidden', onlyBacktest && name !== 'backtest');
     });
   }
 
