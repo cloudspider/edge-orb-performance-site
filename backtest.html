@@ -125,7 +125,7 @@
           </div>
           <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-emerald-500 hover:text-emerald-600" id="btnAddPortfolio">
             <i class="fa fa-regular fa-bookmark"></i>
-            <span>Add to Portfolio</span>
+            <span data-portfolio-add-label>Add to Portfolio</span>
           </button>
         </div>
       </div>
@@ -420,7 +420,19 @@
                 <h2 class="font-semibold">Portfolio</h2>
                 <p class="text-sm text-slate-500">Saved backtests are stored locally in IndexedDB.</p>
               </div>
-              <div class="flex items-center gap-2">
+              <div class="flex flex-wrap items-center gap-2 justify-end">
+                <button id="btnCreatePortfolio" type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-emerald-500 hover:text-emerald-600">
+                  <i class="fa fa-regular fa-square-plus"></i>
+                  <span>New Portfolio</span>
+                </button>
+                <div class="relative min-w-[200px]">
+                  <select id="portfolioSelect" class="appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-8 py-2 text-sm text-slate-600 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60 min-w-[200px] opacity-50 pointer-events-none" disabled>
+                    <option value="">Load Portfolio…</option>
+                  </select>
+                  <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
+                  </span>
+                </div>
                 <button id="btnRunPortfolio" type="button" class="inline-flex items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 shadow-sm transition hover:border-emerald-500 hover:text-emerald-600">
                   <i class="fa fa-regular fa-circle-play"></i>
                   <span>Run Portfolio</span>
@@ -632,6 +644,10 @@
   const AUTO_INDET_CACHE = new WeakMap();
   let AUTO_BACKTEST_TOTAL_COUNT = 0;
   let LAST_PORTFOLIO_RUN = false;
+  const PORTFOLIO_LIST_STORAGE_KEY = 'orbPortfolioList_v1';
+  const PORTFOLIO_ACTIVE_STORAGE_KEY = 'orbPortfolioActive_v1';
+  let PORTFOLIO_LIST = [];
+  let CURRENT_PORTFOLIO_ID = '';
     let PORTFOLIO_CACHE = new Map();
     const AUTO_BACKTEST_STATE_STORAGE_KEY = 'orbAutoBacktestState_v1';
     let AUTO_BACKTEST_RUNNING = false;
@@ -738,6 +754,22 @@
     }
   }
 
+  function syncAddPortfolioButton() {
+    const btn = document.getElementById('btnAddPortfolio');
+    if (!btn) return;
+    const label = btn.querySelector('[data-portfolio-add-label]');
+    const portfolioName = CURRENT_PORTFOLIO_ID || getDefaultPortfolioName();
+    if (label) label.textContent = `Add to ${portfolioName}`;
+  }
+
+  function setPortfolioSelectDisabled(disabled) {
+    const select = document.getElementById('portfolioSelect');
+    if (!select) return;
+    select.disabled = !!disabled;
+    select.classList.toggle('opacity-50', !!disabled);
+    select.classList.toggle('pointer-events-none', !!disabled);
+  }
+
   function applySectionTitle(id, baseLabel) {
     const el = document.getElementById(id);
     if (!el) return;
@@ -751,6 +783,127 @@
     applySectionTitle('drawdownTitle', 'Drawdown');
     applySectionTitle('streakTitle', 'Win/Loss Streaks');
     applySectionTitle('monthlyTitle', 'Monthly Performance');
+    syncAddPortfolioButton();
+  }
+
+  function getDefaultPortfolioName() {
+    return 'Portfolio 1';
+  }
+
+  function loadPortfolioListFromStorage() {
+    if (typeof localStorage === 'undefined') return [];
+    try {
+      const raw = localStorage.getItem(PORTFOLIO_LIST_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function savePortfolioListToStorage(list) {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      localStorage.setItem(PORTFOLIO_LIST_STORAGE_KEY, JSON.stringify(list));
+    } catch {}
+  }
+
+  function saveActivePortfolio(id) {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      localStorage.setItem(PORTFOLIO_ACTIVE_STORAGE_KEY, id || '');
+    } catch {}
+  }
+
+  function ensurePortfolioListLoaded() {
+    if (!PORTFOLIO_LIST.length) {
+      const stored = loadPortfolioListFromStorage();
+      const list = stored.length ? stored.slice() : [getDefaultPortfolioName()];
+      if (!list.includes(getDefaultPortfolioName())) list.unshift(getDefaultPortfolioName());
+      PORTFOLIO_LIST = list;
+    }
+    let active = CURRENT_PORTFOLIO_ID && PORTFOLIO_LIST.includes(CURRENT_PORTFOLIO_ID) ? CURRENT_PORTFOLIO_ID : null;
+    if (!active && typeof localStorage !== 'undefined') {
+      try {
+        const storedActive = localStorage.getItem(PORTFOLIO_ACTIVE_STORAGE_KEY);
+        if (storedActive && PORTFOLIO_LIST.includes(storedActive)) {
+          active = storedActive;
+        }
+      } catch {}
+    }
+    if (!active) {
+      active = PORTFOLIO_LIST[0] || getDefaultPortfolioName();
+    }
+    if (!PORTFOLIO_LIST.includes(active)) PORTFOLIO_LIST.unshift(active);
+    CURRENT_PORTFOLIO_ID = active;
+    savePortfolioListToStorage(PORTFOLIO_LIST);
+    saveActivePortfolio(CURRENT_PORTFOLIO_ID);
+    syncAddPortfolioButton();
+  }
+
+  function populatePortfolioSelect() {
+    ensurePortfolioListLoaded();
+    const select = document.getElementById('portfolioSelect');
+    if (!select) return;
+    const frag = document.createDocumentFragment();
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Load Portfolio…';
+    frag.appendChild(placeholder);
+    PORTFOLIO_LIST.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      frag.appendChild(opt);
+    });
+    select.innerHTML = '';
+    select.appendChild(frag);
+    const target = (CURRENT_PORTFOLIO_ID && PORTFOLIO_LIST.includes(CURRENT_PORTFOLIO_ID)) ? CURRENT_PORTFOLIO_ID : (PORTFOLIO_LIST[0] || '');
+    if (target) {
+      CURRENT_PORTFOLIO_ID = target;
+      select.value = target;
+    } else {
+      select.value = '';
+    }
+    saveActivePortfolio(CURRENT_PORTFOLIO_ID);
+    setPortfolioSelectDisabled(PORTFOLIO_LIST.length === 0);
+    syncAddPortfolioButton();
+  }
+
+  function setCurrentPortfolio(id, { refresh = true } = {}) {
+    ensurePortfolioListLoaded();
+    if (!id) id = PORTFOLIO_LIST[0];
+    if (!PORTFOLIO_LIST.includes(id)) {
+      PORTFOLIO_LIST.push(id);
+      savePortfolioListToStorage(PORTFOLIO_LIST);
+    }
+    CURRENT_PORTFOLIO_ID = id;
+    const select = document.getElementById('portfolioSelect');
+    if (select) {
+      select.value = CURRENT_PORTFOLIO_ID;
+    }
+    saveActivePortfolio(CURRENT_PORTFOLIO_ID);
+    setPortfolioContext(false);
+    syncAddPortfolioButton();
+    if (refresh) refreshPortfolioTable().catch(() => {});
+  }
+
+  function createNewPortfolio() {
+    ensurePortfolioListLoaded();
+    const base = 'Portfolio ';
+    let maxNum = 0;
+    PORTFOLIO_LIST.forEach(name => {
+      const match = /^Portfolio\s+(\d+)$/.exec(name);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (Number.isFinite(num)) maxNum = Math.max(maxNum, num);
+      }
+    });
+    const nextName = `${base}${maxNum + 1}`;
+    PORTFOLIO_LIST.push(nextName);
+    savePortfolioListToStorage(PORTFOLIO_LIST);
+    populatePortfolioSelect();
+    setCurrentPortfolio(nextName);
   }
 
   setPortfolioContext(false);
@@ -2494,13 +2647,17 @@
 
   async function persistPortfolioEntry(params, trades) {
     if (!params || !Array.isArray(trades) || trades.length === 0) return;
-    const id = buildStrategyKey(params);
-    if (!id) return;
+    ensurePortfolioListLoaded();
+    const strategyId = buildStrategyKey(params);
+    if (!strategyId) return;
+    const portfolioId = CURRENT_PORTFOLIO_ID || getDefaultPortfolioName();
     const summary = computeSummaryMetrics(trades);
     if (!summary) return;
 
     const record = {
-      id,
+      id: `${portfolioId}::${strategyId}`,
+      portfolioId,
+      strategyId,
       savedAt: new Date().toISOString(),
       params: sanitizeParamsForStorage(params),
       summary,
@@ -2524,17 +2681,43 @@
     return record;
   }
 
-  async function fetchPortfolioEntries() {
+  async function fetchPortfolioEntries(portfolioId = CURRENT_PORTFOLIO_ID) {
     try {
       const db = await getPortfolioDbInstance();
       if (!db) return [];
+      const activeId = portfolioId || getDefaultPortfolioName();
       return await new Promise((resolve, reject) => {
         const tx = db.transaction(PORTFOLIO_DB_CONFIG.store, 'readonly');
         const store = tx.objectStore(PORTFOLIO_DB_CONFIG.store);
         const req = store.getAll();
         tx.onerror = () => reject(tx.error || new Error('IndexedDB transaction failed'));
         tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
-        req.onsuccess = () => resolve(Array.isArray(req.result) ? req.result : []);
+        req.onsuccess = () => {
+          const all = Array.isArray(req.result) ? req.result : [];
+          let listChanged = false;
+          const normalized = all.map(rec => {
+            if (rec && !rec.portfolioId) {
+              rec.portfolioId = getDefaultPortfolioName();
+            }
+            if (rec && rec.portfolioId && !PORTFOLIO_LIST.includes(rec.portfolioId)) {
+              PORTFOLIO_LIST.push(rec.portfolioId);
+              listChanged = true;
+            }
+            if (rec && !rec.strategyId) {
+              const rawId = rec.id ? String(rec.id) : '';
+              const parts = rawId.split('::');
+              rec.strategyId = parts.length > 1 ? parts[parts.length - 1] : rawId || '';
+            }
+            if (rec && rec.portfolioId && rec.strategyId && !rec.id) {
+              rec.id = `${rec.portfolioId}::${rec.strategyId}`;
+            }
+            return rec;
+          });
+          if (listChanged) {
+            savePortfolioListToStorage(PORTFOLIO_LIST);
+          }
+          resolve(normalized.filter(rec => rec && rec.portfolioId === activeId));
+        };
         req.onerror = () => reject(req.error || new Error('IndexedDB request failed'));
       });
     } catch (err) {
@@ -2586,11 +2769,11 @@
       const trades = summary && summary.tradeCounts ? summary.tradeCounts : {};
       const idValue = entry && entry.id ? String(entry.id) : '';
       if (idValue) PORTFOLIO_CACHE.set(idValue, entry);
+      const displayId = entry && entry.strategyId ? entry.strategyId : (idValue ? idValue.split('::').pop() : '—');
       const tr = document.createElement('tr');
       tr.className = 'border-b last:border-b-0 hover:bg-slate-50';
-      const id = entry && entry.id ? entry.id : '—';
       tr.innerHTML = `
-        <td class="px-3 py-2 font-mono text-xs md:text-sm break-all"><button type="button" class="text-slate-700 hover:text-emerald-600" data-portfolio-load="${idValue}">${id}</button></td>
+        <td class="px-3 py-2 font-mono text-xs md:text-sm break-all"><button type="button" class="text-slate-700 hover:text-emerald-600" data-portfolio-load="${idValue}">${displayId}</button></td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${formatIntDisplay(summary.totalDays)}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${formatIntDisplay(trades.total)}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${formatMoneyDisplay(summary.finalAUM)}</td>
@@ -2610,7 +2793,9 @@
   }
 
   async function refreshPortfolioTable() {
-    const entries = await fetchPortfolioEntries();
+    ensurePortfolioListLoaded();
+    const entries = await fetchPortfolioEntries(CURRENT_PORTFOLIO_ID);
+    populatePortfolioSelect();
     renderPortfolioTable(entries);
   }
 
@@ -2639,15 +2824,29 @@
     try {
       const db = await getPortfolioDbInstance();
       if (!db) return false;
+      const activeId = CURRENT_PORTFOLIO_ID || getDefaultPortfolioName();
       await new Promise((resolve, reject) => {
         const tx = db.transaction(PORTFOLIO_DB_CONFIG.store, 'readwrite');
         const store = tx.objectStore(PORTFOLIO_DB_CONFIG.store);
-        const req = store.clear();
-        tx.oncomplete = () => resolve();
+        const cursorReq = store.openCursor();
+        cursorReq.onsuccess = (event) => {
+          const cursor = event.target.result;
+          if (cursor) {
+            const value = cursor.value || {};
+            const recPortfolio = value.portfolioId || getDefaultPortfolioName();
+            if (recPortfolio === activeId) {
+              cursor.delete();
+            }
+            cursor.continue();
+          } else {
+            resolve();
+          }
+        };
+        cursorReq.onerror = () => reject(cursorReq.error || new Error('IndexedDB cursor failed'));
         tx.onerror = () => reject(tx.error || new Error('IndexedDB transaction failed'));
         tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
-        req.onerror = () => reject(req.error || new Error('IndexedDB request failed'));
       });
+      PORTFOLIO_CACHE = new Map();
       return true;
     } catch (err) {
       console.error('Failed to clear portfolio entries', err);
@@ -2664,13 +2863,16 @@
     syncFavoriteButton();
     loadFavoritesForSymbol(currentTicker).catch(() => {});
     try {
-      const entries = await fetchPortfolioEntries();
+      ensurePortfolioListLoaded();
+      const portfolioName = CURRENT_PORTFOLIO_ID || getDefaultPortfolioName();
+      const entries = await fetchPortfolioEntries(portfolioName);
       if (!entries.length) {
         PORTFOLIO_EQUITY_SERIES = null;
-        setStatus('Portfolio is empty. Nothing to run.');
+        setPortfolioContext(false);
+        setStatus(`${portfolioName} is empty. Nothing to run.`);
         if (statusEl) {
           setTimeout(() => {
-            if (statusEl.textContent === 'Portfolio is empty. Nothing to run.') {
+            if (statusEl.textContent === `${portfolioName} is empty. Nothing to run.`) {
               statusEl.textContent = previousMsg;
             }
           }, 3000);
@@ -2680,10 +2882,11 @@
       const { trades: combined, strategySeries } = combinePortfolioTrades(entries);
       if (!combined.length) {
         PORTFOLIO_EQUITY_SERIES = null;
-        setStatus('No trades found across portfolio entries.');
+        setPortfolioContext(false);
+        setStatus(`No trades found across ${portfolioName}.`);
         if (statusEl) {
           setTimeout(() => {
-            if (statusEl.textContent === 'No trades found across portfolio entries.') {
+            if (statusEl.textContent === `No trades found across ${portfolioName}.`) {
               statusEl.textContent = previousMsg;
             }
           }, 3000);
@@ -2699,7 +2902,7 @@
       renderDrawdownChart(LAST_OUT);
       renderStreakChart(LAST_OUT);
       renderMonthlyPerf(LAST_OUT);
-      const msg = `Ran portfolio across ${entries.length} strategies (${combined.length} rows).`;
+      const msg = `Ran ${portfolioName} across ${entries.length} strategies (${combined.length} rows).`;
       setStatus(msg);
       if (statusEl) {
         setTimeout(() => {
@@ -3444,15 +3647,17 @@
           setStatus('Pick a symbol before saving to the portfolio.');
           return;
         }
+        ensurePortfolioListLoaded();
+        const portfolioName = CURRENT_PORTFOLIO_ID || getDefaultPortfolioName();
         const statusEl = document.getElementById('status');
         const previousMsg = statusEl ? statusEl.textContent : '';
         try {
           await persistPortfolioEntry(params, LAST_OUT);
           await refreshPortfolioTable();
-          setStatus('Saved to portfolio.');
+          setStatus(`Saved to ${portfolioName}.`);
           if (statusEl) {
             setTimeout(() => {
-              if (statusEl.textContent === 'Saved to portfolio.') {
+              if (statusEl.textContent === `Saved to ${portfolioName}.`) {
                 statusEl.textContent = previousMsg;
               }
             }, 2000);
@@ -3488,16 +3693,17 @@
       if (!btn) return;
       const id = btn.getAttribute('data-portfolio-delete');
       if (!id) return;
-      if (!window.confirm('Remove this strategy from your portfolio?')) return;
+      const portfolioName = CURRENT_PORTFOLIO_ID || getDefaultPortfolioName();
+      if (!window.confirm(`Remove this strategy from ${portfolioName}?`)) return;
       const statusEl = document.getElementById('status');
       const previousMsg = statusEl ? statusEl.textContent : '';
       try {
         await deletePortfolioEntry(id);
         await refreshPortfolioTable();
-        setStatus('Removed from portfolio.');
+        setStatus(`Removed from ${portfolioName}.`);
         if (statusEl) {
           setTimeout(() => {
-            if (statusEl.textContent === 'Removed from portfolio.') {
+            if (statusEl.textContent === `Removed from ${portfolioName}.`) {
               statusEl.textContent = previousMsg;
             }
           }, 2000);
@@ -3582,6 +3788,26 @@
       });
     })();
 
+    (function initPortfolioControls(){
+      ensurePortfolioListLoaded();
+      populatePortfolioSelect();
+      refreshPortfolioTable().catch(()=>{});
+      const createBtn = document.getElementById('btnCreatePortfolio');
+      if (createBtn) {
+        createBtn.addEventListener('click', () => {
+          createNewPortfolio();
+        });
+      }
+      const select = document.getElementById('portfolioSelect');
+      if (select) {
+        select.addEventListener('change', () => {
+          const val = select.value;
+          if (!val) return;
+          setCurrentPortfolio(val);
+        });
+      }
+    })();
+
     (function initRunPortfolioButton(){
       const btn = document.getElementById('btnRunPortfolio');
       if (!btn) return;
@@ -3647,16 +3873,19 @@
       const btn = document.getElementById('btnClearPortfolio');
       if (!btn) return;
       btn.addEventListener('click', async () => {
-        if (!window.confirm('Clear all saved strategies from your portfolio?')) return;
+        ensurePortfolioListLoaded();
+        const portfolioName = CURRENT_PORTFOLIO_ID || getDefaultPortfolioName();
+        if (!window.confirm(`Clear all saved strategies from ${portfolioName}?`)) return;
         const statusEl = document.getElementById('status');
         const previousMsg = statusEl ? statusEl.textContent : '';
         try {
           await clearPortfolioEntries();
           await refreshPortfolioTable();
-          setStatus('Portfolio cleared.');
+          setPortfolioContext(false);
+          setStatus(`${portfolioName} cleared.`);
           if (statusEl) {
             setTimeout(() => {
-              if (statusEl.textContent === 'Portfolio cleared.') {
+              if (statusEl.textContent === `${portfolioName} cleared.`) {
                 statusEl.textContent = previousMsg;
               }
             }, 2000);
@@ -3845,7 +4074,6 @@
 
     // init
     populateTickerSegment().catch(()=>{});
-    refreshPortfolioTable().catch(()=>{});
     initModeTabs();
     syncFavoriteButton();
     loadFavoritesForSymbol(currentTicker).catch(()=>{});
