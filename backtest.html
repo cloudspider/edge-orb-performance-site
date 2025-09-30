@@ -494,20 +494,20 @@
 
     <!-- Summary -->
     <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
-      <h2 class="font-semibold mb-3">Summary</h2>
+      <h2 class="font-semibold mb-3" id="summaryTitle">Summary</h2>
       <div id="summary" class="grid sm:grid-cols-2 lg:grid-cols-2 gap-4"></div>
     </section>
     
     <!-- Equity Chart -->
     <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
-      <h2 class="font-semibold mb-3">Equity Curve</h2>
+      <h2 class="font-semibold mb-3" id="equityTitle">Equity Curve</h2>
       <div id="equityChart" class="w-full h-[360px]"></div>
     </section>
 
     <!-- Drawdown Chart -->
     <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
       <div class="flex items-center justify-between mb-3">
-        <h2 class="font-semibold">Drawdown</h2>
+        <h2 class="font-semibold" id="drawdownTitle">Drawdown</h2>
         <div class="inline-flex items-center gap-0.5 rounded-xl bg-slate-100 p-0.5" aria-label="Drawdown mode">
           <button id="ddBtnPct" type="button" class="px-2 py-1 text-xs rounded-lg">%</button>
           <button id="ddBtnUsd" type="button" class="px-2 py-1 text-xs rounded-lg">$</button>
@@ -518,14 +518,14 @@
 
     <!-- Win/Loss Streaks Chart -->
     <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
-      <h2 class="font-semibold mb-3">Win/Loss Streaks</h2>
+      <h2 class="font-semibold mb-3" id="streakTitle">Win/Loss Streaks</h2>
       <div id="streakChart" class="w-full h-[280px]"></div>
     </section>
 
     <!-- Monthly Performance -->
     <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6">
       <div class="flex items-center justify-between mb-3">
-        <h2 class="font-semibold">Monthly Performance</h2>
+        <h2 class="font-semibold" id="monthlyTitle">Monthly Performance</h2>
         <div class="inline-flex items-center gap-0.5 rounded-xl bg-slate-100 p-0.5" aria-label="Monthly performance mode">
           <button id="mpBtnPct" type="button" class="px-2 py-1 text-xs rounded-lg">%</button>
           <button id="mpBtnUsd" type="button" class="px-2 py-1 text-xs rounded-lg">$</button>
@@ -631,6 +631,7 @@
   const AUTO_MAXDD_CACHE = new WeakMap();
   const AUTO_INDET_CACHE = new WeakMap();
   let AUTO_BACKTEST_TOTAL_COUNT = 0;
+  let LAST_PORTFOLIO_RUN = false;
     let PORTFOLIO_CACHE = new Map();
     const AUTO_BACKTEST_STATE_STORAGE_KEY = 'orbAutoBacktestState_v1';
     let AUTO_BACKTEST_RUNNING = false;
@@ -736,6 +737,23 @@
       return String(Math.trunc(num));
     }
   }
+
+  function applySectionTitle(id, baseLabel) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = LAST_PORTFOLIO_RUN ? `${baseLabel} (Portfolio)` : baseLabel;
+  }
+
+  function setPortfolioContext(isPortfolio) {
+    LAST_PORTFOLIO_RUN = !!isPortfolio;
+    applySectionTitle('summaryTitle', 'Summary');
+    applySectionTitle('equityTitle', 'Equity Curve');
+    applySectionTitle('drawdownTitle', 'Drawdown');
+    applySectionTitle('streakTitle', 'Win/Loss Streaks');
+    applySectionTitle('monthlyTitle', 'Monthly Performance');
+  }
+
+  setPortfolioContext(false);
 
   const DEFAULT_VIEW_DOW = [1, 2, 3, 4, 5];
   const DB_CONFIG = { name: 'orbBacktestDB', version: 2, store: 'runs', autoStore: 'autoResults' };
@@ -2365,6 +2383,7 @@
     function renderSummary(out) {
       const summary = document.getElementById('summary');
       if (!summary) return;
+      applySectionTitle('summaryTitle', 'Summary');
       const metrics = computeSummaryMetrics(out);
       if (!metrics) { summary.innerHTML = ''; return; }
 
@@ -2673,6 +2692,7 @@
       }
       LAST_OUT = combined;
       PORTFOLIO_EQUITY_SERIES = Array.isArray(strategySeries) && strategySeries.length ? strategySeries : null;
+      setPortfolioContext(true);
       renderSummary(LAST_OUT);
       renderTable(LAST_OUT);
       renderEquityChart(LAST_OUT);
@@ -2754,6 +2774,7 @@
     }
 
     function renderEquityChart(out){
+      applySectionTitle('equityTitle', 'Equity Curve');
       const el = document.getElementById('equityChart');
       if (!el) return;
       if (!out || !out.length) {
@@ -2832,6 +2853,7 @@
     }
 
     function renderDrawdownChart(out) {
+      applySectionTitle('drawdownTitle', 'Drawdown');
       const el = document.getElementById('drawdownChart');
       if (!el) return;
       if (!out || !out.length) {
@@ -2955,6 +2977,7 @@
     }
 
     function renderStreakChart(out) {
+      applySectionTitle('streakTitle', 'Win/Loss Streaks');
       const el = document.getElementById('streakChart');
       if (!el) return;
       const { winsX, winsY, lossX, lossY } = computeWinLossStreaks(out);
@@ -3106,6 +3129,7 @@
     }
 
     function renderMonthlyPerf(out){
+      applySectionTitle('monthlyTitle', 'Monthly Performance');
       const host = document.getElementById('monthlyPerf');
       if (!host) return;
       if (!out || !out.length){ host.innerHTML = '<div class="text-sm text-slate-500">No data</div>'; return; }
@@ -3275,6 +3299,7 @@
       const out = backtest(params);
       const t1 = performance.now();
       setStatus(`Ran ${out.length} day(s) in ${(t1 - t0).toFixed(0)} ms.`);
+      setPortfolioContext(false);
       renderSummary(out);
       LAST_OUT = out;
       PORTFOLIO_EQUITY_SERIES = null;
