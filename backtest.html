@@ -104,30 +104,27 @@
     <header class="mb-2">
       <h1 id="mainTitle" class="text-2xl md:text-3xl font-semibold">ORB Backtest</h1>
       <p class="text-slate-600 mt-1">Pick a symbol and tweak settings.</p>
+      <nav class="flex border-b border-slate-200 gap-1" role="tablist">
+        <button type="button" class="inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-700" data-mode-tab="backtest">
+          <span class="inline-flex h-5 w-5 items-center justify-center text-slate-400">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M6 2a1 1 0 00-1 1v1.382a1 1 0 01-.553.894 4 4 0 000 7.448A1 1 0 015 13.618V15a1 1 0 001 1h2.382a1 1 0 01.894.553 4 4 0 007.448 0A1 1 0 0117 16.382V15a1 1 0 00-1-1h-1.382a1 1 0 01-.894-.553 4 4 0 00-7.448 0A1 1 0 015.382 14H6v-1.382a1 1 0 01.553-.894 4 4 0 000-7.448A1 1 0 016 4.382V3a1 1 0 00-1-1h1z"/></svg>
+          </span>
+          <span>Single Backtest</span>
+        </button>
+        <button type="button" class="inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-700" data-mode-tab="auto">
+          <span class="inline-flex h-5 w-5 items-center justify-center text-slate-400">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10.5 2.75a.75.75 0 00-1.5 0V4.6a5.5 5.5 0 00-3.376 9.888l-.955 1.653a.75.75 0 001.302.75l.955-1.653a5.483 5.483 0 002.324.735V17.25a.75.75 0 001.5 0V15.4A5.5 5.5 0 0014.876 5.5l.955-1.653a.75.75 0 00-1.302-.75L13.574 4.6A5.483 5.483 0 0010.5 4.6V2.75z"/></svg>
+          </span>
+          <span>Auto Backtest</span>
+        </button>
+        <button type="button" class="inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-700" data-mode-tab="portfolio">
+          <span class="inline-flex h-5 w-5 items-center justify-center text-slate-400">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M4 5a2 2 0 00-2 2v2a1 1 0 001 1h.382l.894 5.366A2 2 0 006.254 17h7.492a2 2 0 001.978-1.634L16.618 10H17a1 1 0 001-1V7a2 2 0 00-2-2h-2.5a2.5 2.5 0 00-5 0H4zm4.5-2a1.5 1.5 0 013 0h-3z"/></svg>
+          </span>
+          <span>Portfolio</span>
+        </button>
+      </nav>
     </header>
-
-
-    <nav class="flex border-b border-slate-200 gap-1" role="tablist">
-      <button type="button" class="inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-700" data-mode-tab="backtest">
-        <span class="inline-flex h-5 w-5 items-center justify-center text-slate-400">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M6 2a1 1 0 00-1 1v1.382a1 1 0 01-.553.894 4 4 0 000 7.448A1 1 0 015 13.618V15a1 1 0 001 1h2.382a1 1 0 01.894.553 4 4 0 007.448 0A1 1 0 0117 16.382V15a1 1 0 00-1-1h-1.382a1 1 0 01-.894-.553 4 4 0 00-7.448 0A1 1 0 015.382 14H6v-1.382a1 1 0 01.553-.894 4 4 0 000-7.448A1 1 0 016 4.382V3a1 1 0 00-1-1h1z"/></svg>
-        </span>
-        <span>Single Backtest</span>
-      </button>
-      <button type="button" class="inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-700" data-mode-tab="auto">
-        <span class="inline-flex h-5 w-5 items-center justify-center text-slate-400">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10.5 2.75a.75.75 0 00-1.5 0V4.6a5.5 5.5 0 00-3.376 9.888l-.955 1.653a.75.75 0 001.302.75l.955-1.653a5.483 5.483 0 002.324.735V17.25a.75.75 0 001.5 0V15.4A5.5 5.5 0 0014.876 5.5l.955-1.653a.75.75 0 00-1.302-.75L13.574 4.6A5.483 5.483 0 0010.5 4.6V2.75z"/></svg>
-        </span>
-        <span>Auto Backtest</span>
-      </button>
-      <button type="button" class="inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-700" data-mode-tab="portfolio">
-        <span class="inline-flex h-5 w-5 items-center justify-center text-slate-400">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M4 5a2 2 0 00-2 2v2a1 1 0 001 1h.382l.894 5.366A2 2 0 006.254 17h7.492a2 2 0 001.978-1.634L16.618 10H17a1 1 0 001-1V7a2 2 0 00-2-2h-2.5a2.5 2.5 0 00-5 0H4zm4.5-2a1.5 1.5 0 013 0h-3z"/></svg>
-        </span>
-        <span>Portfolio</span>
-      </button>
-    </nav>
-
 
     <!-- Symbol segmented control + Params -->
     <section id="symbolPicker" class="bg-white rounded-2xl shadow-soft p-3 md:p-4">
@@ -282,183 +279,180 @@
       </div>
     </section>
 
-    <section class="bg-white rounded-2xl shadow-soft p-3 md:p-4">
-      <div class="mt-4 space-y-4">
-        <div data-tab-panel="auto" class="hidden space-y-4">
+    <section id="autoBacktestSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 hidden space-y-4" data-tab-panel="auto">
+      <div>
+        <h2 class="font-semibold">Auto Backtest</h2>
+      </div>
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div class="flex items-center gap-2">
+          <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-indigo-500 hover:text-indigo-600 opacity-50 pointer-events-none" id="btnAutoBacktest" disabled data-state="idle">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" data-auto-icon="play"><path d="M4.5 3.75a.75.75 0 011.125-.65l9 5.25a.75.75 0 010 1.3l-9 5.25A.75.75 0 014 14.25V5.75a.75.75 0 01.5-.7z"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 hidden" viewBox="0 0 20 20" fill="currentColor" data-auto-icon="pause"><path d="M6.75 4.5a.75.75 0 00-.75.75v9.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75v-9.5a.75.75 0 00-.75-.75h-1.5zm5 0a.75.75 0 00-.75.75v9.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75v-9.5a.75.75 0 00-.75-.75h-1.5z"/></svg>
+            <span data-auto-label>Start Backtest</span>
+          </button>
+          <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-3 py-2 text-sm font-medium text-rose-600 shadow-sm transition hover:border-rose-400 hover:text-rose-700 opacity-50 pointer-events-none" id="btnClearAuto" disabled>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 10-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 10-1.06-1.06L10 8.94 6.28 5.22z"/></svg>
+            <span>Clear Auto Data</span>
+          </button>
+        </div>
+        <div class="text-sm text-slate-500" id="autoResultsStatus">No auto backtest results yet.</div>
+      </div>
+      <div class="overflow-x-auto border border-slate-200 rounded-xl max-h-96">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-50 text-slate-600">
+            <tr>
+              <th class="px-3 py-2 text-left font-medium">
+                <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="strategyId">
+                  <span>Strategy</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-right font-medium">
+                <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="sortino">
+                  <span>Sortino</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-right font-medium">
+                <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="ulcerPerf">
+                  <span>UPI</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-right font-medium">
+                <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="mar">
+                  <span>MAR</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-right font-medium">
+                <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="totalPnL">
+                  <span>Total PnL</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-right font-medium">
+                <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="winPct">
+                  <span>Win %</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-right font-medium">
+                <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="avgDaily">
+                  <span>Avg Daily %</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-right font-medium">
+                <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="cagr">
+                  <span>CAGR %</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-right font-medium">
+                <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="maxDD">
+                  <span>Max DD %</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-right font-medium">
+                <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="orb_m">
+                  <span>ORB (m)</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-right font-medium">
+                <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="tp_R">
+                  <span>TP R</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-right font-medium">
+                <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="sl_R">
+                  <span>SL R</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-left font-medium">
+                <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="start">
+                  <span>Start</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-left font-medium">
+                <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="end">
+                  <span>End</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-left font-medium">
+                <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="direction">
+                  <span>Direction</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+            </tr>
+          </thead>
+          <tbody id="autoResultsTableBody">
+            <tr class="border-b last:border-b-0">
+              <td colspan="15" class="px-3 py-4 text-center text-sm text-slate-500">No auto backtest results yet.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="portfolioPanel" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 hidden" data-tab-panel="portfolio">
+      <div id="portfolioSection" class="space-y-4">
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 class="font-semibold">Auto Backtest</h2>
-          </div>          
-          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div class="flex items-center gap-2">
-              <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-indigo-500 hover:text-indigo-600 opacity-50 pointer-events-none" id="btnAutoBacktest" disabled data-state="idle">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" data-auto-icon="play"><path d="M4.5 3.75a.75.75 0 011.125-.65l9 5.25a.75.75 0 010 1.3l-9 5.25A.75.75 0 014 14.25V5.75a.75.75 0 01.5-.7z"/></svg>
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 hidden" viewBox="0 0 20 20" fill="currentColor" data-auto-icon="pause"><path d="M6.75 4.5a.75.75 0 00-.75.75v9.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75v-9.5a.75.75 0 00-.75-.75h-1.5zm5 0a.75.75 0 00-.75.75v9.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75v-9.5a.75.75 0 00-.75-.75h-1.5z"/></svg>
-                <span data-auto-label>Start Backtest</span>
-              </button>
-              <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-3 py-2 text-sm font-medium text-rose-600 shadow-sm transition hover:border-rose-400 hover:text-rose-700 opacity-50 pointer-events-none" id="btnClearAuto" disabled>
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 10-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 10-1.06-1.06L10 8.94 6.28 5.22z"/></svg>
-                <span>Clear Auto Data</span>
-              </button>
-            </div>
-            <div class="text-sm text-slate-500" id="autoResultsStatus">No auto backtest results yet.</div>
+            <h2 class="font-semibold">Portfolio</h2>
+            <p class="text-sm text-slate-500">Saved backtests are stored locally in IndexedDB.</p>
           </div>
-          <div class="overflow-x-auto border border-slate-200 rounded-xl max-h-96">
-            <table class="min-w-full text-sm">
-              <thead class="bg-slate-50 text-slate-600">
-                <tr>
-                  <th class="px-3 py-2 text-left font-medium">
-                    <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="strategyId">
-                      <span>Strategy</span>
-                      <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
-                    </button>
-                  </th>
-                  <th class="px-3 py-2 text-right font-medium">
-                    <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="sortino">
-                      <span>Sortino</span>
-                      <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
-                    </button>
-                  </th>
-                  <th class="px-3 py-2 text-right font-medium">
-                    <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="ulcerPerf">
-                      <span>UPI</span>
-                      <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
-                    </button>
-                  </th>
-                  <th class="px-3 py-2 text-right font-medium">
-                    <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="mar">
-                      <span>MAR</span>
-                      <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
-                    </button>
-                  </th>
-                  <th class="px-3 py-2 text-right font-medium">
-                    <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="totalPnL">
-                      <span>Total PnL</span>
-                      <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
-                    </button>
-                  </th>
-                  <th class="px-3 py-2 text-right font-medium">
-                    <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="winPct">
-                      <span>Win %</span>
-                      <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
-                    </button>
-                  </th>
-                  <th class="px-3 py-2 text-right font-medium">
-                    <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="avgDaily">
-                      <span>Avg Daily %</span>
-                      <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
-                    </button>
-                  </th>
-                  <th class="px-3 py-2 text-right font-medium">
-                    <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="cagr">
-                      <span>CAGR %</span>
-                      <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
-                    </button>
-                  </th>
-                  <th class="px-3 py-2 text-right font-medium">
-                    <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="maxDD">
-                      <span>Max DD %</span>
-                      <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
-                    </button>
-                  </th>
-                  <th class="px-3 py-2 text-right font-medium">
-                    <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="orb_m">
-                      <span>ORB (m)</span>
-                      <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
-                    </button>
-                  </th>
-                  <th class="px-3 py-2 text-right font-medium">
-                    <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="tp_R">
-                      <span>TP R</span>
-                      <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
-                    </button>
-                  </th>
-                  <th class="px-3 py-2 text-right font-medium">
-                    <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="sl_R">
-                      <span>SL R</span>
-                      <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
-                    </button>
-                  </th>
-                  <th class="px-3 py-2 text-left font-medium">
-                    <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="start">
-                      <span>Start</span>
-                      <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
-                    </button>
-                  </th>
-                  <th class="px-3 py-2 text-left font-medium">
-                    <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="end">
-                      <span>End</span>
-                      <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
-                    </button>
-                  </th>
-                  <th class="px-3 py-2 text-left font-medium">
-                    <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="direction">
-                      <span>Direction</span>
-                      <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
-                    </button>
-                  </th>
-                </tr>
-              </thead>
-              <tbody id="autoResultsTableBody">
-                <tr class="border-b last:border-b-0">
-                  <td colspan="15" class="px-3 py-4 text-center text-sm text-slate-500">No auto backtest results yet.</td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="flex flex-wrap items-center gap-2 justify-end">
+            <button id="btnCreatePortfolio" type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-emerald-500 hover:text-emerald-600">
+              <i class="fa fa-regular fa-square-plus"></i>
+              <span>New Portfolio</span>
+            </button>
+            <div class="relative min-w-[200px]">
+              <select id="portfolioSelect" class="appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-8 py-2 text-sm text-slate-600 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60 min-w-[200px] opacity-50 pointer-events-none" disabled>
+                <option value="">Load Portfolio…</option>
+              </select>
+              <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
+              </span>
+            </div>
+            <button id="btnRunPortfolio" type="button" class="inline-flex items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 shadow-sm transition hover:border-emerald-500 hover:text-emerald-600">
+              <i class="fa fa-regular fa-circle-play"></i>
+              <span>Run Portfolio</span>
+            </button>
+            <button id="btnClearPortfolio" type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-rose-500 hover:text-rose-600">
+              <span>Clear All</span>
+            </button>
           </div>
         </div>
-        <div data-tab-panel="portfolio" class="hidden">
-          <section id="portfolioSection" class="space-y-4">
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 class="font-semibold">Portfolio</h2>
-                <p class="text-sm text-slate-500">Saved backtests are stored locally in IndexedDB.</p>
-              </div>
-              <div class="flex flex-wrap items-center gap-2 justify-end">
-                <button id="btnCreatePortfolio" type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-emerald-500 hover:text-emerald-600">
-                  <i class="fa fa-regular fa-square-plus"></i>
-                  <span>New Portfolio</span>
-                </button>
-                <div class="relative min-w-[200px]">
-                  <select id="portfolioSelect" class="appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-8 py-2 text-sm text-slate-600 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60 min-w-[200px] opacity-50 pointer-events-none" disabled>
-                    <option value="">Load Portfolio…</option>
-                  </select>
-                  <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
-                  </span>
-                </div>
-                <button id="btnRunPortfolio" type="button" class="inline-flex items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 shadow-sm transition hover:border-emerald-500 hover:text-emerald-600">
-                  <i class="fa fa-regular fa-circle-play"></i>
-                  <span>Run Portfolio</span>
-                </button>
-                <button id="btnClearPortfolio" type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-rose-500 hover:text-rose-600">
-                  <span>Clear All</span>
-                </button>
-              </div>
-            </div>
-            <div class="overflow-x-auto">
-              <table class="min-w-full text-sm">
-                <thead class="bg-slate-50 text-slate-600">
-                  <tr>
-                    <th class="px-3 py-2 text-left font-medium">Strategy</th>
-                    <th class="px-3 py-2 text-right font-medium">Days</th>
-                    <th class="px-3 py-2 text-right font-medium">Trades</th>
-                    <th class="px-3 py-2 text-right font-medium">Win %</th>
-                    <th class="px-3 py-2 text-right font-medium">Total PnL</th>
-                    <th class="px-3 py-2 text-right font-medium">Avg Daily %</th>
-                    <th class="px-3 py-2 text-right font-medium">CAGR %</th>
-                    <th class="px-3 py-2 text-right font-medium">Max DD %</th>
-                    <th class="px-3 py-2 text-right font-medium">MAR</th>
-                    <th class="px-3 py-2 text-right font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="portfolioTableBody">
-                  <tr>
-                    <td colspan="10" class="px-3 py-4 text-center text-sm text-slate-500">No saved strategies yet.</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </section>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead class="bg-slate-50 text-slate-600">
+              <tr>
+                <th class="px-3 py-2 text-left font-medium">Strategy</th>
+                <th class="px-3 py-2 text-right font-medium">Days</th>
+                <th class="px-3 py-2 text-right font-medium">Trades</th>
+                <th class="px-3 py-2 text-right font-medium">Win %</th>
+                <th class="px-3 py-2 text-right font-medium">Total PnL</th>
+                <th class="px-3 py-2 text-right font-medium">Avg Daily %</th>
+                <th class="px-3 py-2 text-right font-medium">CAGR %</th>
+                <th class="px-3 py-2 text-right font-medium">Max DD %</th>
+                <th class="px-3 py-2 text-right font-medium">MAR</th>
+                <th class="px-3 py-2 text-right font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="portfolioTableBody">
+              <tr>
+                <td colspan="10" class="px-3 py-4 text-center text-sm text-slate-500">No saved strategies yet.</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </section>
@@ -1336,6 +1330,26 @@
     return true;
   }
 
+  function syncSecondaryNav(name) {
+    const secondaryButtons = document.querySelectorAll('[data-secondary-nav]');
+    if (!secondaryButtons.length) return;
+    secondaryButtons.forEach(btn => {
+      const isActive = btn.getAttribute('data-secondary-nav') === name;
+      btn.classList.toggle('text-slate-900', isActive);
+      btn.classList.toggle('text-slate-500', !isActive);
+      if (isActive) {
+        btn.setAttribute('aria-current', 'page');
+      } else {
+        btn.removeAttribute('aria-current');
+      }
+      const underline = btn.querySelector('[data-secondary-underline]');
+      if (underline) {
+        underline.classList.toggle('opacity-100', isActive);
+        underline.classList.toggle('opacity-0', !isActive);
+      }
+    });
+  }
+
   function activateModeTab(name) {
     CURRENT_MODE_TAB = name;
     document.querySelectorAll('[data-mode-tab]').forEach(btn => {
@@ -1357,6 +1371,7 @@
       const onlyBacktest = section.getAttribute('data-shared-section') === 'filters';
       section.classList.toggle('hidden', onlyBacktest && name !== 'backtest');
     });
+    syncSecondaryNav(name);
   }
 
   function initModeTabs() {
@@ -1369,6 +1384,17 @@
     });
     activateModeTab(CURRENT_MODE_TAB);
     updateAutoSortHeaders();
+  }
+
+  function initSecondaryNav() {
+    const buttons = document.querySelectorAll('[data-secondary-nav]');
+    if (!buttons.length) return;
+    buttons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        activateModeTab(btn.getAttribute('data-secondary-nav'));
+      });
+    });
+    syncSecondaryNav(CURRENT_MODE_TAB);
   }
 
   async function applyAutoResult(entry) {
@@ -4103,6 +4129,7 @@
     // init
     populateTickerSegment().catch(()=>{});
     initModeTabs();
+  initSecondaryNav();
     syncFavoriteButton();
     loadFavoritesForSymbol(currentTicker).catch(()=>{});
     loadAutoResultsForSymbol(currentTicker).catch(()=>{});
