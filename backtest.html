@@ -106,6 +106,29 @@
       <p class="text-slate-600 mt-1">Pick a symbol and tweak settings.</p>
     </header>
 
+
+    <nav class="flex border-b border-slate-200 gap-1" role="tablist">
+      <button type="button" class="inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-700" data-mode-tab="backtest">
+        <span class="inline-flex h-5 w-5 items-center justify-center text-slate-400">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M6 2a1 1 0 00-1 1v1.382a1 1 0 01-.553.894 4 4 0 000 7.448A1 1 0 015 13.618V15a1 1 0 001 1h2.382a1 1 0 01.894.553 4 4 0 007.448 0A1 1 0 0117 16.382V15a1 1 0 00-1-1h-1.382a1 1 0 01-.894-.553 4 4 0 00-7.448 0A1 1 0 015.382 14H6v-1.382a1 1 0 01.553-.894 4 4 0 000-7.448A1 1 0 016 4.382V3a1 1 0 00-1-1h1z"/></svg>
+        </span>
+        <span>Single Backtest</span>
+      </button>
+      <button type="button" class="inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-700" data-mode-tab="auto">
+        <span class="inline-flex h-5 w-5 items-center justify-center text-slate-400">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10.5 2.75a.75.75 0 00-1.5 0V4.6a5.5 5.5 0 00-3.376 9.888l-.955 1.653a.75.75 0 001.302.75l.955-1.653a5.483 5.483 0 002.324.735V17.25a.75.75 0 001.5 0V15.4A5.5 5.5 0 0014.876 5.5l.955-1.653a.75.75 0 00-1.302-.75L13.574 4.6A5.483 5.483 0 0010.5 4.6V2.75z"/></svg>
+        </span>
+        <span>Auto Backtest</span>
+      </button>
+      <button type="button" class="inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-700" data-mode-tab="portfolio">
+        <span class="inline-flex h-5 w-5 items-center justify-center text-slate-400">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M4 5a2 2 0 00-2 2v2a1 1 0 001 1h.382l.894 5.366A2 2 0 006.254 17h7.492a2 2 0 001.978-1.634L16.618 10H17a1 1 0 001-1V7a2 2 0 00-2-2h-2.5a2.5 2.5 0 00-5 0H4zm4.5-2a1.5 1.5 0 013 0h-3z"/></svg>
+        </span>
+        <span>Portfolio</span>
+      </button>
+    </nav>
+
+
     <!-- Symbol segmented control + Params -->
     <section id="symbolPicker" class="bg-white rounded-2xl shadow-soft p-3 md:p-4">
       <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -260,31 +283,11 @@
     </section>
 
     <section class="bg-white rounded-2xl shadow-soft p-3 md:p-4">
-      <nav class="flex border-b border-slate-200 gap-1" role="tablist">
-        <button type="button" class="inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-700" data-mode-tab="backtest">
-          <span class="inline-flex h-5 w-5 items-center justify-center text-slate-400">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M6 2a1 1 0 00-1 1v1.382a1 1 0 01-.553.894 4 4 0 000 7.448A1 1 0 015 13.618V15a1 1 0 001 1h2.382a1 1 0 01.894.553 4 4 0 007.448 0A1 1 0 0117 16.382V15a1 1 0 00-1-1h-1.382a1 1 0 01-.894-.553 4 4 0 00-7.448 0A1 1 0 015.382 14H6v-1.382a1 1 0 01.553-.894 4 4 0 000-7.448A1 1 0 016 4.382V3a1 1 0 00-1-1h1z"/></svg>
-          </span>
-          <span>Single Backtest</span>
-        </button>
-        <button type="button" class="inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-700" data-mode-tab="auto">
-          <span class="inline-flex h-5 w-5 items-center justify-center text-slate-400">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10.5 2.75a.75.75 0 00-1.5 0V4.6a5.5 5.5 0 00-3.376 9.888l-.955 1.653a.75.75 0 001.302.75l.955-1.653a5.483 5.483 0 002.324.735V17.25a.75.75 0 001.5 0V15.4A5.5 5.5 0 0014.876 5.5l.955-1.653a.75.75 0 00-1.302-.75L13.574 4.6A5.483 5.483 0 0010.5 4.6V2.75z"/></svg>
-          </span>
-          <span>Auto Backtest</span>
-        </button>
-        <button type="button" class="inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-700" data-mode-tab="portfolio">
-          <span class="inline-flex h-5 w-5 items-center justify-center text-slate-400">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M4 5a2 2 0 00-2 2v2a1 1 0 001 1h.382l.894 5.366A2 2 0 006.254 17h7.492a2 2 0 001.978-1.634L16.618 10H17a1 1 0 001-1V7a2 2 0 00-2-2h-2.5a2.5 2.5 0 00-5 0H4zm4.5-2a1.5 1.5 0 013 0h-3z"/></svg>
-          </span>
-          <span>Portfolio</span>
-        </button>
-      </nav>
       <div class="mt-4 space-y-4">
-        <div data-tab-panel="backtest">
-          <p class="text-sm text-slate-600">Run a single backtest with the parameters above. Results update in the sections below.</p>
-        </div>
         <div data-tab-panel="auto" class="hidden space-y-4">
+          <div>
+            <h2 class="font-semibold">Auto Backtest</h2>
+          </div>          
           <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div class="flex items-center gap-2">
               <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-indigo-500 hover:text-indigo-600 opacity-50 pointer-events-none" id="btnAutoBacktest" disabled data-state="idle">
