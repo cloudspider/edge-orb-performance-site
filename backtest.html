@@ -626,8 +626,11 @@
   let AUTO_RESULTS_LIST = [];
   let AUTO_RESULTS_SORT = { key: 'sortino', direction: 'desc' };
   const AUTO_MAX_DD_LIMIT = 30; // percent drawdown ceiling for auto results
+  const AUTO_MAX_INDETERMINATE_PCT = 3; // maximum reachable % of indeterminate trades
   const AUTO_SORTINO_CACHE = new WeakMap();
   const AUTO_MAXDD_CACHE = new WeakMap();
+  const AUTO_INDET_CACHE = new WeakMap();
+  let AUTO_BACKTEST_TOTAL_COUNT = 0;
     let PORTFOLIO_CACHE = new Map();
     const AUTO_BACKTEST_STATE_STORAGE_KEY = 'orbAutoBacktestState_v1';
     let AUTO_BACKTEST_RUNNING = false;
@@ -671,11 +674,33 @@
     return null;
   }
 
+  function getAutoIndeterminatePct(entry) {
+    if (!entry) return null;
+    if (AUTO_INDET_CACHE.has(entry)) return AUTO_INDET_CACHE.get(entry);
+    const summary = getAutoSummary(entry);
+    const tradeCounts = summary && summary.tradeCounts ? summary.tradeCounts : {};
+    let pct = tradeCounts && tradeCounts.pct ? Number(tradeCounts.pct.indeterminate) : NaN;
+    if (!Number.isFinite(pct)) {
+      const total = Number(tradeCounts.total);
+      const indetCount = Number(tradeCounts.indeterminate);
+      if (Number.isFinite(total) && total > 0 && Number.isFinite(indetCount) && indetCount >= 0) {
+        pct = Number(((indetCount / total) * 100).toFixed(2));
+      }
+    }
+    if (Number.isFinite(pct)) {
+      AUTO_INDET_CACHE.set(entry, pct);
+      return pct;
+    }
+    return null;
+  }
+
   function autoEntryPassesFilters(entry) {
     const sortino = getAutoSortino(entry);
     const maxDD = getAutoMaxDD(entry);
-    if (sortino == null || maxDD == null) return false;
-    return Math.abs(maxDD) <= AUTO_MAX_DD_LIMIT;
+    const indetPct = getAutoIndeterminatePct(entry);
+    if (sortino == null || maxDD == null || indetPct == null) return false;
+    if (!(Math.abs(maxDD) <= AUTO_MAX_DD_LIMIT)) return false;
+    return indetPct <= AUTO_MAX_INDETERMINATE_PCT;
   }
 
   function compareAutoEntries(a, b) {
@@ -691,9 +716,25 @@
     const ddB = Number.isFinite(maxDDB) ? Math.abs(maxDDB) : Infinity;
     if (ddA !== ddB) return ddA - ddB; // prefer lower drawdown
 
+    const indetA = getAutoIndeterminatePct(a);
+    const indetB = getAutoIndeterminatePct(b);
+    const inA = Number.isFinite(indetA) ? indetA : Infinity;
+    const inB = Number.isFinite(indetB) ? indetB : Infinity;
+    if (inA !== inB) return inA - inB; // prefer fewer indeterminates
+
     const marA = Number.isFinite(Number(a && a.mar)) ? Number(a.mar) : -Infinity;
     const marB = Number.isFinite(Number(b && b.mar)) ? Number(b.mar) : -Infinity;
     return marB - marA;
+  }
+
+  function formatAutoRunCount(count) {
+    const num = Number(count);
+    if (!Number.isFinite(num) || num < 0) return '0';
+    try {
+      return num.toLocaleString();
+    } catch {
+      return String(Math.trunc(num));
+    }
   }
 
   const DEFAULT_VIEW_DOW = [1, 2, 3, 4, 5];
@@ -1430,7 +1471,8 @@
       loadFavoritesForSymbol(currentTicker).catch(() => {});
       loadAutoResultsForSymbol(currentTicker).catch(() => {});
       highlightTickerButton(currentTicker);
-      getAutoBacktestState(currentTicker);
+      const autoState = getAutoBacktestState(currentTicker);
+      AUTO_BACKTEST_TOTAL_COUNT = Number.isFinite(autoState.totalProcessed) ? autoState.totalProcessed : 0;
       syncAutoBacktestButton();
     }
 
@@ -1529,12 +1571,13 @@
   function getAutoBacktestState(symbol) {
     const key = (symbol || '').toUpperCase();
     if (!AUTO_BACKTEST_STATE_MAP[key]) {
-      AUTO_BACKTEST_STATE_MAP[key] = { initialCompleted: false, sobolIndex: 0, initialIndex: 0 };
+      AUTO_BACKTEST_STATE_MAP[key] = { initialCompleted: false, sobolIndex: 0, initialIndex: 0, totalProcessed: 0 };
     }
     const state = AUTO_BACKTEST_STATE_MAP[key];
     if (typeof state.initialCompleted !== 'boolean') state.initialCompleted = false;
     if (!Number.isFinite(state.sobolIndex)) state.sobolIndex = 0;
     if (!Number.isFinite(state.initialIndex)) state.initialIndex = 0;
+    if (!Number.isFinite(state.totalProcessed)) state.totalProcessed = 0;
     return state;
   }
 
@@ -1546,6 +1589,7 @@
     }
     AUTO_BACKTEST_PAUSED = false;
     AUTO_BACKTEST_PAUSE_REQUESTED = false;
+    AUTO_BACKTEST_TOTAL_COUNT = 0;
   }
 
     async function refreshFavoriteState(id) {
@@ -1724,7 +1768,7 @@
       const yieldInterval = 25;
       let hadError = false;
 
-      setStatus(`Auto backtest (${modeLabel}) running… 0/${total}`);
+      setStatus(`Auto backtest (${modeLabel}) running… 0/${total} (total ${formatAutoRunCount(AUTO_BACKTEST_TOTAL_COUNT)})`);
 
       try {
         for (const combo of combos) {
@@ -1746,15 +1790,17 @@
             updateTop({ combo, params: { ...params }, summary, mar: marValue, elapsedMs });
           }
           processed += 1;
+          AUTO_BACKTEST_TOTAL_COUNT += 1;
+          state.totalProcessed = (Number.isFinite(state.totalProcessed) ? state.totalProcessed : 0) + 1;
 
           if (AUTO_BACKTEST_PAUSE_REQUESTED) {
-            setStatus(`Pausing auto backtest… finishing current combo (${processed}/${total}).`);
+            setStatus(`Pausing auto backtest… finishing current combo (${processed}/${total}, total ${formatAutoRunCount(AUTO_BACKTEST_TOTAL_COUNT)}).`);
           } else if (processed % yieldInterval === 0) {
             const bestEntry = topResults.length ? topResults[0] : null;
             const bestSortinoVal = bestEntry ? getAutoSortino(bestEntry) : null;
             const bestSortino = Number.isFinite(bestSortinoVal) ? bestSortinoVal.toFixed(2) : '—';
             const bestId = bestEntry && bestEntry.params ? buildStrategyKey(bestEntry.params) : '—';
-            setStatus(`Auto backtest (${modeLabel}) ${processed}/${total} (best Sortino ${bestSortino}, ${bestId})`);
+            setStatus(`Auto backtest (${modeLabel}) ${processed}/${total} (total ${formatAutoRunCount(AUTO_BACKTEST_TOTAL_COUNT)}) (best Sortino ${bestSortino}, ${bestId})`);
             await new Promise(resolve => setTimeout(resolve, 0));
           }
         }
@@ -1770,13 +1816,15 @@
       const bestId = bestEntry && bestEntry.params ? buildStrategyKey(bestEntry.params) : '—';
       const completed = processed === total && !AUTO_BACKTEST_PAUSE_REQUESTED && !hadError;
 
+      const totalLabel = formatAutoRunCount(AUTO_BACKTEST_TOTAL_COUNT);
+
       if (AUTO_BACKTEST_PAUSE_REQUESTED && !hadError) {
-        setStatus(`Auto backtest paused after ${processed}/${total} combos. Best Sortino ${bestSortino}.`);
+        setStatus(`Auto backtest paused after ${processed}/${total} combos (total ${totalLabel}). Best Sortino ${bestSortino}.`);
       } else if (!hadError) {
         if (completed) {
-          setStatus(`Auto backtest (${modeLabel}) completed ${processed}/${total} combos. Best Sortino ${bestSortino}. Strategy ${bestId}.`);
+          setStatus(`Auto backtest (${modeLabel}) completed ${processed}/${total} combos (total ${totalLabel}). Best Sortino ${bestSortino}. Strategy ${bestId}.`);
         } else {
-          setStatus(`Auto backtest (${modeLabel}) stopped after ${processed}/${total} combos. Best Sortino ${bestSortino}.`);
+          setStatus(`Auto backtest (${modeLabel}) stopped after ${processed}/${total} combos (total ${totalLabel}). Best Sortino ${bestSortino}.`);
         }
       }
 
@@ -1831,6 +1879,7 @@
         rankingMetric: 'sortino',
         bestSortino: Number.isFinite(bestSortinoVal) ? bestSortinoVal : null,
         maxDrawdownLimit: AUTO_MAX_DD_LIMIT,
+        totalProcessed: Number.isFinite(state.totalProcessed) ? state.totalProcessed : AUTO_BACKTEST_TOTAL_COUNT,
         runTop,
         storedTop: storedTopRecords,
         top: runTop
@@ -1848,7 +1897,7 @@
     function pauseAutoBacktest() {
       if (!AUTO_BACKTEST_RUNNING || AUTO_BACKTEST_PAUSE_REQUESTED) return;
       AUTO_BACKTEST_PAUSE_REQUESTED = true;
-      setStatus('Pausing auto backtest… finishing current combo.');
+      setStatus(`Pausing auto backtest… finishing current combo (total ${formatAutoRunCount(AUTO_BACKTEST_TOTAL_COUNT)}).`);
       syncAutoBacktestButton();
     }
 
@@ -1863,6 +1912,7 @@
       }
 
       const state = getAutoBacktestState(currentTicker);
+      AUTO_BACKTEST_TOTAL_COUNT = Number.isFinite(state.totalProcessed) ? state.totalProcessed : 0;
       AUTO_BACKTEST_PAUSE_REQUESTED = false;
       AUTO_BACKTEST_PAUSED = false;
       AUTO_BACKTEST_RUNNING = true;
@@ -1880,6 +1930,13 @@
 
           const result = await runAutoBacktestBatch(batch, state);
           if (result.hadError || AUTO_BACKTEST_PAUSE_REQUESTED) break;
+
+          if (batch.mode === 'initial' && result.completed) {
+            AUTO_BACKTEST_PAUSE_REQUESTED = true;
+            const totalLabel = formatAutoRunCount(AUTO_BACKTEST_TOTAL_COUNT);
+            setStatus(`Auto backtest seed grid completed (total ${totalLabel}). Paused before Sobol sweep. Press Resume Backtest to continue.`);
+            break;
+          }
 
           await new Promise(resolve => setTimeout(resolve, 0));
         }

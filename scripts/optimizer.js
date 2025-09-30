@@ -2,6 +2,21 @@
 // Placeholder module for automated parameter search logic.
 // Exports parameter space definitions and helper utilities; wiring happens later.
 
+const TIME_HELPERS = (() => {
+  const toMinutes = (timeStr) => {
+    if (!timeStr) return 0;
+    const [hh, mm] = timeStr.split(':').map(Number);
+    return (Number.isFinite(hh) ? hh : 0) * 60 + (Number.isFinite(mm) ? mm : 0);
+  };
+  const toTimeString = (minutes) => {
+    const clampVal = Math.max(0, Math.floor(minutes));
+    const hh = Math.floor(clampVal / 60);
+    const mm = clampVal % 60;
+    return `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
+  };
+  return { toMinutes, toTimeString };
+})();
+
 export const PARAMETER_SPACE = {
   orb_m: { type: 'int', min: 1, max: 60 },
   tp_R: { type: 'float', min: 0.1, max: 8.0, step: 0.1 },
@@ -16,7 +31,7 @@ export const INITIAL_GRID = {
   tp_R: Array.from({ length: 18 }, (_, i) => Number((0.3 + 0.1 * i).toFixed(1))),
   sl_R: Array.from({ length: 18 }, (_, i) => Number((0.3 + 0.1 * i).toFixed(1))),
   start_ny: ['09:30'],
-  end_ny: ['15:30'],
+  end_ny: ['13:30'],
   direction: ['BOTH']
 };
 
@@ -39,6 +54,7 @@ export function* initialGridIterator(grid = INITIAL_GRID) {
       for (const sl of sl_R) {
         for (const start of start_ny) {
           for (const end of end_ny) {
+            if (TIME_HELPERS.toMinutes(end) <= TIME_HELPERS.toMinutes(start)) continue;
             for (const dir of direction) {
               yield {
                 orb_m: m,
@@ -59,21 +75,6 @@ export function* initialGridIterator(grid = INITIAL_GRID) {
 export function getInitialGridCombos(grid = INITIAL_GRID) {
   return Array.from(initialGridIterator(grid));
 }
-
-const TIME_HELPERS = (() => {
-  const toMinutes = (timeStr) => {
-    if (!timeStr) return 0;
-    const [hh, mm] = timeStr.split(':').map(Number);
-    return (Number.isFinite(hh) ? hh : 0) * 60 + (Number.isFinite(mm) ? mm : 0);
-  };
-  const toTimeString = (minutes) => {
-    const clamp = Math.max(0, Math.floor(minutes));
-    const hh = Math.floor(clamp / 60);
-    const mm = clamp % 60;
-    return `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
-  };
-  return { toMinutes, toTimeString };
-})();
 
 const PARAM_ORDER = ['orb_m','tp_R','sl_R','start_ny','end_ny','direction'];
 
