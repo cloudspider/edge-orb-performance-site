@@ -607,6 +607,32 @@
     const fmtInt = (x) => (x == null || isNaN(x) ? '0' : Math.round(Number(x)).toLocaleString());
     const fmtPct = (x) => (x == null || isNaN(x) ? '' : Number(x).toFixed(2));
     const fmtTime = (d) => d instanceof Date && !isNaN(d) ? `${pad2(d.getHours())}:${pad2(d.getMinutes())}` : '';
+    const fmtCompactMoney = (value) => {
+      const num = Number(value);
+      if (!Number.isFinite(num)) return '';
+      const abs = Math.abs(num);
+      const sign = num < 0 ? '-' : '';
+      let scaled = abs;
+      let suffix = '';
+      if (abs >= 1e12) {
+        scaled = abs / 1e12;
+        suffix = 'T';
+      } else if (abs >= 1e9) {
+        scaled = abs / 1e9;
+        suffix = 'B';
+      } else if (abs >= 1e6) {
+        scaled = abs / 1e6;
+        suffix = 'M';
+      } else if (abs >= 1e3) {
+        scaled = abs / 1e3;
+        suffix = 'K';
+      } else {
+        return `${sign}$${Math.round(abs).toLocaleString()}`;
+      }
+      const digits = scaled >= 10 ? 0 : 1;
+      const scaledStr = scaled.toFixed(digits).replace(/\.0$/, '');
+      return `${sign}$${scaledStr}${suffix}`;
+    };
 
     const CONTRACT_SPECS = {
       MNQ: { multiplier: 2, maxLeverage: Infinity },
@@ -3038,7 +3064,7 @@
         xAxis: { type: 'time', name: 'Date' },
         yAxis: {
           type: 'value', name: 'AUM',
-          axisLabel: { formatter: (v) => `$${Math.round(v).toLocaleString()}` }
+          axisLabel: { formatter: (v) => fmtCompactMoney(v) }
         },
         legend: series.length > 1 ? {
           top: 4,
