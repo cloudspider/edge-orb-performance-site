@@ -128,7 +128,7 @@
         </button>
       </nav>
 
-      <div class="flex-1 min-w-0">
+      <div class="flex-1 min-w-0 mt-4">
         <div class="flex items-center gap-2 mb-2">
           <div class="flex-1 min-w-0 overflow-x-auto">
             <div id="tickerSegment" class="inline-flex min-w-max rounded-xl border border-slate-200 overflow-hidden whitespace-nowrap">
@@ -166,7 +166,7 @@
         </div>
       </div>
       <div class="flex items-start gap-4 flex-col md:flex-row">
-        <div class="w-full md:w-[860px] grid grid-cols-3 md:grid-cols-6 gap-3">
+  <div class="w-full md:w-full grid grid-cols-3 md:grid-cols-8 gap-3">
           <label class="block">
             <span class="text-sm text-slate-600">orb_m</span>
             <div class="mt-1 relative">
@@ -253,7 +253,7 @@
           </label>
 
           <!-- AUM + At Risk % row under existing fields -->
-          <label class="block col-span-3 md:col-span-3">
+          <label class="block col-span-3 md:col-span-1">
             <span class="text-sm text-slate-600">AUM</span>
             <div class="mt-1 relative">
               <input id="inp_aum0" data-default="100000" type="number" min="0" max="1000000000" step="1000" value="100000" class="w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm" />
@@ -267,7 +267,7 @@
               </div>
             </div>
           </label>
-          <label class="block col-span-3 md:col-span-3">
+          <label class="block col-span-3 md:col-span-1">
             <span class="text-sm text-slate-600">At Risk % (Per Trade)</span>
             <div class="mt-1 relative">
               <input id="inp_risk_pct" data-default="2" type="number" min="0" max="100" step="0.5" value="2" class="w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm" />
