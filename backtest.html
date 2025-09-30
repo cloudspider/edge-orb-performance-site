@@ -449,7 +449,7 @@
                     <th class="px-3 py-2 text-left font-medium">Strategy</th>
                     <th class="px-3 py-2 text-right font-medium">Days</th>
                     <th class="px-3 py-2 text-right font-medium">Trades</th>
-                    <th class="px-3 py-2 text-right font-medium">Final AUM</th>
+                    <th class="px-3 py-2 text-right font-medium">Win %</th>
                     <th class="px-3 py-2 text-right font-medium">Total PnL</th>
                     <th class="px-3 py-2 text-right font-medium">Avg Daily %</th>
                     <th class="px-3 py-2 text-right font-medium">CAGR %</th>
@@ -2767,6 +2767,15 @@
     for (const entry of rows) {
       const summary = entry && entry.summary ? entry.summary : {};
       const trades = summary && summary.tradeCounts ? summary.tradeCounts : {};
+      const tradePct = trades && trades.pct ? trades.pct : {};
+      let winPct = Number(tradePct.wins);
+      if (!Number.isFinite(winPct)) {
+        const totalTrades = Number(trades.total);
+        const winsCount = Number(trades.wins);
+        if (Number.isFinite(totalTrades) && totalTrades > 0 && Number.isFinite(winsCount) && winsCount >= 0) {
+          winPct = (winsCount / totalTrades) * 100;
+        }
+      }
       const idValue = entry && entry.id ? String(entry.id) : '';
       if (idValue) PORTFOLIO_CACHE.set(idValue, entry);
       const displayId = entry && entry.strategyId ? entry.strategyId : (idValue ? idValue.split('::').pop() : '—');
@@ -2776,7 +2785,7 @@
         <td class="px-3 py-2 font-mono text-xs md:text-sm break-all"><button type="button" class="text-slate-700 hover:text-emerald-600" data-portfolio-load="${idValue}">${displayId}</button></td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${formatIntDisplay(summary.totalDays)}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${formatIntDisplay(trades.total)}</td>
-        <td class="px-3 py-2 text-right tabular-nums font-mono">${formatMoneyDisplay(summary.finalAUM)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${formatPercentDisplay(winPct)}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${formatMoneyDisplay(summary.totalPnL)}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${formatPercentDisplay(summary.avgDailyRet)}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${formatPercentDisplay(summary.cagrPct)}</td>
