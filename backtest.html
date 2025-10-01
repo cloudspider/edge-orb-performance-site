@@ -550,26 +550,121 @@
       <div class="overflow-auto max-h-[65vh] border rounded-xl">
         <table class="min-w-full text-sm">
           <thead>
-              <tr class="border-b">
-              <th class="px-3 py-2 text-left">Date</th>
-              <th class="px-3 py-2 text-right">ORH</th>
-              <th class="px-3 py-2 text-right">ORL</th>
-              <th class="px-3 py-2 text-right">OR</th>
-              <th class="px-3 py-2 text-right">OR%</th>
-              <th class="px-3 py-2">Side</th>
-              <th class="px-3 py-2">EntryTime</th>
-              <th class="px-3 py-2">ExitTime</th>
-              <th class="px-3 py-2 text-right">Entry</th>
-              <th class="px-3 py-2 text-right">Exit</th>
-              <th class="px-3 py-2 text-right">LossPrice</th>
-              <th class="px-3 py-2 text-right">TPPrice</th>
-              <th class="px-3 py-2">HitType</th>
-              <th class="px-3 py-2 text-right">Shares</th>
-              <th class="px-3 py-2 text-right">PnL</th>
-              <th class="px-3 py-2 text-right">pnl_R</th>
-              <th class="px-3 py-2 text-right">AUM</th>
-              <th class="px-3 py-2 text-right">DailyReturn %</th>
-              <th class="px-3 py-2 text-left">Strategy</th>
+            <tr class="border-b">
+              <th class="px-3 py-2 text-left">
+                <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-trade-sort="date">
+                  <span>Date</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-right">
+                <button type="button" class="inline-flex w-full items-center justify-end gap-1 text-slate-600 hover:text-slate-800" data-trade-sort="orh">
+                  <span>ORH</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-right">
+                <button type="button" class="inline-flex w-full items-center justify-end gap-1 text-slate-600 hover:text-slate-800" data-trade-sort="orl">
+                  <span>ORL</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-right">
+                <button type="button" class="inline-flex w-full items-center justify-end gap-1 text-slate-600 hover:text-slate-800" data-trade-sort="range">
+                  <span>OR</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-right">
+                <button type="button" class="inline-flex w-full items-center justify-end gap-1 text-slate-600 hover:text-slate-800" data-trade-sort="rangePct">
+                  <span>OR%</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-left">
+                <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-trade-sort="side">
+                  <span>Side</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-left">
+                <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-trade-sort="entryTime">
+                  <span>EntryTime</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-left">
+                <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-trade-sort="exitTime">
+                  <span>ExitTime</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-right">
+                <button type="button" class="inline-flex w-full items-center justify-end gap-1 text-slate-600 hover:text-slate-800" data-trade-sort="entry">
+                  <span>Entry</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-right">
+                <button type="button" class="inline-flex w-full items-center justify-end gap-1 text-slate-600 hover:text-slate-800" data-trade-sort="exit">
+                  <span>Exit</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-right">
+                <button type="button" class="inline-flex w-full items-center justify-end gap-1 text-slate-600 hover:text-slate-800" data-trade-sort="stop">
+                  <span>LossPrice</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-right">
+                <button type="button" class="inline-flex w-full items-center justify-end gap-1 text-slate-600 hover:text-slate-800" data-trade-sort="tp">
+                  <span>TPPrice</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-left">
+                <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-trade-sort="hitType">
+                  <span>HitType</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-right">
+                <button type="button" class="inline-flex w-full items-center justify-end gap-1 text-slate-600 hover:text-slate-800" data-trade-sort="shares">
+                  <span>Shares</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-right">
+                <button type="button" class="inline-flex w-full items-center justify-end gap-1 text-slate-600 hover:text-slate-800" data-trade-sort="pnl">
+                  <span>PnL</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-right">
+                <button type="button" class="inline-flex w-full items-center justify-end gap-1 text-slate-600 hover:text-slate-800" data-trade-sort="pnlR">
+                  <span>pnl_R</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-right">
+                <button type="button" class="inline-flex w-full items-center justify-end gap-1 text-slate-600 hover:text-slate-800" data-trade-sort="aum">
+                  <span>AUM</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-right">
+                <button type="button" class="inline-flex w-full items-center justify-end gap-1 text-slate-600 hover:text-slate-800" data-trade-sort="dailyReturn">
+                  <span>DailyReturn %</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-left">
+                <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-trade-sort="strategy">
+                  <span>Strategy</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
             </tr>
           </thead>
           <tbody id="tbody"></tbody>
@@ -658,6 +753,15 @@
   let AUTO_RESULTS_CACHE = new Map();
   let AUTO_RESULTS_LIST = [];
   let AUTO_RESULTS_SORT = { key: 'sortino', direction: 'desc' };
+  let TRADES_SORT = { key: 'date', direction: 'desc' };
+  const TRADE_SORT_DEFAULT_DIRECTION = {
+    date: 'desc',
+    side: 'asc',
+    entryTime: 'asc',
+    exitTime: 'asc',
+    hitType: 'asc',
+    strategy: 'asc'
+  };
   const AUTO_MAX_DD_LIMIT = 30; // percent drawdown ceiling for auto results
   const AUTO_MAX_INDETERMINATE_PCT = 3; // maximum reachable % of indeterminate trades
   const AUTO_SORTINO_CACHE = new WeakMap();
@@ -3015,14 +3119,126 @@
     }
   }
 
-    function renderTable(out) {
+  function getTradeSortValue(row, key) {
+    if (!row) return null;
+    const num = (val) => {
+      const parsed = Number(val);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+    switch (key) {
+      case 'date':
+        return row.Date || '';
+      case 'orh':
+        return num(row.ORH);
+      case 'orl':
+        return num(row.ORL);
+      case 'range': {
+        const high = num(row.ORH);
+        const low = num(row.ORL);
+        return high != null && low != null ? high - low : null;
+      }
+      case 'rangePct': {
+        const high = num(row.ORH);
+        const low = num(row.ORL);
+        if (high == null || low == null || low === 0) return null;
+        return ((high - low) / low) * 100;
+      }
+      case 'side':
+        return (row.Side || '').toString().toUpperCase();
+      case 'entryTime': {
+        const val = row.EntryTime;
+        if (val instanceof Date && !isNaN(val)) return minutesOfDay(val);
+        if (typeof val === 'number' && Number.isFinite(val)) return val;
+        if (typeof val === 'string' && val) return parseTimeHHMM(val);
+        return null;
+      }
+      case 'exitTime': {
+        const val = row.ExitTime;
+        if (val instanceof Date && !isNaN(val)) return minutesOfDay(val);
+        if (typeof val === 'number' && Number.isFinite(val)) return val;
+        if (typeof val === 'string' && val) return parseTimeHHMM(val);
+        return null;
+      }
+      case 'entry':
+        return num(row.Entry);
+      case 'exit':
+        return num(row.Exit);
+      case 'stop':
+        return num(row.StopPrice);
+      case 'tp':
+        return num(row.TPPrice);
+      case 'hitType':
+        return (row.HitType === 'Stop' ? 'Loss' : row.HitType || '').toString().toUpperCase();
+      case 'shares':
+        return num(row.Shares);
+      case 'pnl':
+        return num(row.PnL);
+      case 'pnlR':
+        return num(row.pnl_R);
+      case 'aum':
+        return num(row.AUM);
+      case 'dailyReturn':
+        return num(row.DailyReturn);
+      case 'strategy': {
+        const strategyId = row.SourceStrategyId || row.StrategyId || '';
+        return strategyId.toString().toUpperCase();
+      }
+      default:
+        return null;
+    }
+  }
+
+  function updateTradeSortHeaders() {
+    document.querySelectorAll('[data-trade-sort]').forEach(btn => {
+      const key = btn.getAttribute('data-trade-sort');
+      const indicator = btn.querySelector('[data-sort-indicator]');
+      const active = TRADES_SORT && TRADES_SORT.key === key;
+      btn.classList.toggle('text-slate-900', active);
+      btn.classList.toggle('text-slate-600', !active);
+      if (indicator) {
+        if (active) {
+          indicator.style.opacity = '1';
+          indicator.textContent = TRADES_SORT.direction === 'asc' ? '▲' : '▼';
+        } else {
+          indicator.style.opacity = '0';
+          indicator.textContent = '▲';
+        }
+      }
+    });
+  }
+
+  function renderTable(out) {
       const tb = document.getElementById('tbody');
+      if (!tb) {
+        updateTradeSortHeaders();
+        return;
+      }
       tb.innerHTML = '';
       let rows = Array.isArray(out) ? (VIEW_DIR === 'both' ? out.slice() : out.filter(r => (r.Shares > 0) && ((VIEW_DIR === 'long' && r.Side === 'Long') || (VIEW_DIR === 'short' && r.Side === 'Short')))) : [];
-      // Sort by date descending (YYYY-MM-DD strings sort lexicographically)
+      const { key = 'date', direction = 'desc' } = TRADES_SORT || {};
+      const factor = direction === 'asc' ? 1 : -1;
       rows.sort((a, b) => {
-        const da = a && a.Date ? a.Date : '';
-        const db = b && b.Date ? b.Date : '';
+        const va = getTradeSortValue(a, key);
+        const vb = getTradeSortValue(b, key);
+        const aNull = va == null || (typeof va === 'number' && !Number.isFinite(va));
+        const bNull = vb == null || (typeof vb === 'number' && !Number.isFinite(vb));
+        if (aNull && bNull) return 0;
+        if (aNull) return 1;
+        if (bNull) return -1;
+        const numA = typeof va === 'number' ? va : Number(va);
+        const numB = typeof vb === 'number' ? vb : Number(vb);
+        const bothNumeric = Number.isFinite(numA) && Number.isFinite(numB);
+        if (bothNumeric) {
+          if (numA > numB) return factor;
+          if (numA < numB) return -factor;
+        } else {
+          const sa = String(va);
+          const sb = String(vb);
+          const cmp = sa.localeCompare(sb, undefined, { numeric: true });
+          if (cmp !== 0) return factor * cmp;
+        }
+        const da = getTradeSortValue(a, 'date') || '';
+        const db = getTradeSortValue(b, 'date') || '';
         if (da === db) return 0;
         return da < db ? 1 : -1;
       });
@@ -3039,8 +3255,11 @@
           highlight = ' bg-emerald-100';
         }
         tr.className = ('border-b' + (highlight ? highlight : ' hover:bg-slate-50'));
-  const OR_val = (Number.isFinite(r.ORH) && Number.isFinite(r.ORL)) ? (r.ORH - r.ORL) : NaN;
-  const OR_pct = (Number.isFinite(OR_val) && Number.isFinite(r.ORL) && r.ORL !== 0) ? ((OR_val / r.ORL) * 100) : NaN;
+  const orHigh = Number(r.ORH);
+  const orLow = Number(r.ORL);
+  const OR_val = (Number.isFinite(orHigh) && Number.isFinite(orLow)) ? (orHigh - orLow) : NaN;
+  const OR_pct = (Number.isFinite(OR_val) && Number.isFinite(orLow) && orLow !== 0) ? ((OR_val / orLow) * 100) : NaN;
+  const strategyLabel = r.SourceStrategyId || r.StrategyId || '';
   tr.innerHTML = `
   <td class="px-3 py-2">${r.Date}</td>
   <td class="px-3 py-2 text-right">${fmtNum(r.ORH)}</td>
@@ -3060,10 +3279,11 @@
         <td class="px-3 py-2 text-right">${fmtNum(r.pnl_R)}</td>
         <td class="px-3 py-2 text-right">${fmtNum(r.AUM)}</td>
         <td class="px-3 py-2 text-right">${fmtPct(r.DailyReturn)}</td>
-        <td class="px-3 py-2 text-left text-xs font-mono">${r.SourceStrategyId || r.StrategyId || ''}</td>`;
+        <td class="px-3 py-2 text-left text-xs font-mono">${strategyLabel}</td>`;
         frag.appendChild(tr);
       }
       tb.appendChild(frag);
+      updateTradeSortHeaders();
     }
 
     function renderEquityChart(out){
@@ -3815,6 +4035,21 @@
     });
 
     document.addEventListener('click', async (e) => {
+      const tradeSortBtn = e.target.closest('[data-trade-sort]');
+      if (tradeSortBtn) {
+        const key = tradeSortBtn.getAttribute('data-trade-sort');
+        if (key) {
+          if (TRADES_SORT && TRADES_SORT.key === key) {
+            TRADES_SORT.direction = TRADES_SORT.direction === 'asc' ? 'desc' : 'asc';
+          } else {
+            const defaultDir = TRADE_SORT_DEFAULT_DIRECTION[key] || 'desc';
+            TRADES_SORT = { key, direction: defaultDir };
+          }
+          renderTable(LAST_OUT || []);
+        }
+        return;
+      }
+
       const sortBtn = e.target.closest('[data-auto-sort]');
       if (sortBtn) {
         const key = sortBtn.getAttribute('data-auto-sort');
@@ -4172,6 +4407,7 @@
     syncFavoriteButton();
     loadFavoritesForSymbol(currentTicker).catch(()=>{});
     loadAutoResultsForSymbol(currentTicker).catch(()=>{});
+    updateTradeSortHeaders();
   </script>
 </body>
 </html>
