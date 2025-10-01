@@ -1198,6 +1198,16 @@
     });
   }
 
+  function highlightPortfolioRow() {
+    document.querySelectorAll('[data-portfolio-strategy]').forEach(row => {
+      const active = row.dataset.portfolioStrategy === CURRENT_STRATEGY_ID && CURRENT_STRATEGY_ID;
+      row.classList.toggle('bg-emerald-50', !!active);
+      row.classList.toggle('hover:bg-emerald-100', !!active);
+      row.classList.toggle('hover:bg-slate-50', !active);
+      row.classList.toggle('border-emerald-200', !!active);
+    });
+  }
+
   async function loadAutoResultsForSymbol(symbol) {
     const entries = await fetchAutoResults(symbol);
     const filtered = entries.filter(autoEntryPassesFilters).sort(compareAutoEntries);
@@ -1432,6 +1442,8 @@
     CURRENT_STRATEGY_PARAMS = { ...params };
     CURRENT_STRATEGY_FAVORITE = false;
     syncFavoriteButton();
+    highlightAutoResultRow();
+    highlightPortfolioRow();
     await runBacktestIfReady();
   }
 
@@ -1927,6 +1939,7 @@
     CURRENT_STRATEGY_PARAMS = { ...params };
     CURRENT_STRATEGY_FAVORITE = !!record.favorite;
       syncFavoriteButton();
+      highlightPortfolioRow();
       const select = document.getElementById('favoriteSelect');
       if (select && CURRENT_STRATEGY_ID) {
         select.value = CURRENT_STRATEGY_ID;
@@ -2863,8 +2876,10 @@
           </button>
         </td>
       `;
+      tr.dataset.portfolioStrategy = entry && entry.strategyId ? entry.strategyId : '';
       tbody.appendChild(tr);
     }
+    highlightPortfolioRow();
   }
 
   async function refreshPortfolioTable() {
@@ -3586,6 +3601,8 @@
       CURRENT_STRATEGY_FAVORITE = false;
       syncFavoriteButton();
       syncAutoBacktestButton();
+      highlightAutoResultRow();
+      highlightPortfolioRow();
       renderTable(LAST_OUT);
       renderEquityChart(LAST_OUT);
       renderDrawdownChart(LAST_OUT);
@@ -3758,7 +3775,8 @@
         if (strategyId) {
           const record = PORTFOLIO_CACHE ? PORTFOLIO_CACHE.get(strategyId) : null;
           if (record && record.params) {
-            applyFavoriteStrategy({ id: strategyId, params: record.params, favorite: false }).catch(() => {});
+            const idForLoad = record.strategyId || strategyId;
+            applyFavoriteStrategy({ id: idForLoad, params: record.params, favorite: false }).catch(() => {});
           }
         }
         return;
