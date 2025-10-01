@@ -40,3 +40,19 @@ Console output will show:
 - Paths to the raw and formatted CSV exports.
 
 If you encounter import errors for `databento`, ensure there is no local folder named `databento/` shadowing the installed package; rename or remove it.
+
+
+# Documentation
+
+
+
+| `HitType`        | Meaning/Reason                                     |
+| ---------------- | -------------------------------------------------- |
+| `NotEnoughBars`  | Not enough valid data bars to process the day      |
+| `NoBreak`        | Price never broke ORH/ORL; no trade taken          |
+| `NoSize`         | Trade signal exists, but position size is 0        |
+| `Indeterminate`  | Both stop and target hit in same bar (ambiguous)   |
+| `TP`             | Target profit hit before stop                      |
+| `Stop`           | Stop loss hit before target                        |
+| `EOD`            | Neither hit; exit at end of day                    |
+| `ORTooSmall`     | Opening Range % below minimum threshold (no trade) |

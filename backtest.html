@@ -289,8 +289,9 @@
       <div>
         <h2 class="font-semibold">Auto Backtest</h2>
       </div>
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div class="flex items-center gap-2">
+      <div class="flex flex-col gap-2">
+        <div class="flex flex-col gap-2">
+          <div class="flex items-center gap-2">
           <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-indigo-500 hover:text-indigo-600 opacity-50 pointer-events-none" id="btnAutoBacktest" disabled data-state="idle">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" data-auto-icon="play"><path d="M4.5 3.75a.75.75 0 011.125-.65l9 5.25a.75.75 0 010 1.3l-9 5.25A.75.75 0 014 14.25V5.75a.75.75 0 01.5-.7z"/></svg>
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 hidden" viewBox="0 0 20 20" fill="currentColor" data-auto-icon="pause"><path d="M6.75 4.5a.75.75 0 00-.75.75v9.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75v-9.5a.75.75 0 00-.75-.75h-1.5zm5 0a.75.75 0 00-.75.75v9.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75v-9.5a.75.75 0 00-.75-.75h-1.5z"/></svg>
@@ -300,8 +301,9 @@
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 10-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 10-1.06-1.06L10 8.94 6.28 5.22z"/></svg>
             <span>Clear Auto Data</span>
           </button>
+          </div>
+          <div class="text-xs text-slate-500" id="autoResultsStatus">No auto backtest results yet.</div>
         </div>
-        <div class="text-sm text-slate-500" id="autoResultsStatus">No auto backtest results yet.</div>
       </div>
       <div class="overflow-x-auto border border-slate-200 rounded-xl max-h-96">
         <table class="min-w-full text-sm">
@@ -1405,7 +1407,7 @@
 
   async function applyAutoResult(entry) {
     if (AUTO_BACKTEST_RUNNING) {
-      setStatus('Wait for Auto Backtest to finish before loading a result.');
+      setAutoStatus('Wait for Auto Backtest to finish before loading a result.');
       return;
     }
     if (!entry || !entry.params) return;
@@ -1413,7 +1415,7 @@
     if (params.symbol) {
       const ok = await ensureSymbolLoaded(params.symbol);
       if (!ok) {
-        setStatus(`Failed to load data for ${params.symbol}.`);
+        setAutoStatus(`Failed to load data for ${params.symbol}.`);
         return;
       }
     }
@@ -1698,7 +1700,8 @@
       syncAutoBacktestButton();
     }
 
-    function setStatus(msg) { const el = document.getElementById('status'); if (el) el.textContent = msg || ''; }
+  function setStatus(msg) { const el = document.getElementById('status'); if (el) el.textContent = msg || ''; }
+  function setAutoStatus(msg) { const el = document.getElementById('autoResultsStatus'); if (el) el.textContent = msg || ''; }
 
     function syncFavoriteButton() {
       const btn = document.getElementById('btnAddFavorite');
@@ -1970,7 +1973,7 @@
 
     async function runAutoBacktestBatch(batch, state) {
       if (!batch || !Array.isArray(batch.combos) || batch.combos.length === 0) {
-        setStatus('No parameter combinations available for Auto Backtest.');
+        setAutoStatus('No parameter combinations available for Auto Backtest.');
         return { processed: 0, total: 0, completed: true, paused: false, hadError: false };
       }
 
@@ -1990,7 +1993,7 @@
       const yieldInterval = 25;
       let hadError = false;
 
-      setStatus(`Auto backtest (${modeLabel}) running… 0/${total} (total ${formatAutoRunCount(AUTO_BACKTEST_TOTAL_COUNT)})`);
+  setAutoStatus(`Auto backtest (${modeLabel}) running… 0/${total} (total ${formatAutoRunCount(AUTO_BACKTEST_TOTAL_COUNT)})`);
 
       try {
         for (const combo of combos) {
@@ -2016,20 +2019,20 @@
           state.totalProcessed = (Number.isFinite(state.totalProcessed) ? state.totalProcessed : 0) + 1;
 
           if (AUTO_BACKTEST_PAUSE_REQUESTED) {
-            setStatus(`Pausing auto backtest… finishing current combo (${processed}/${total}, total ${formatAutoRunCount(AUTO_BACKTEST_TOTAL_COUNT)}).`);
+            setAutoStatus(`Pausing auto backtest… finishing current combo (${processed}/${total}, total ${formatAutoRunCount(AUTO_BACKTEST_TOTAL_COUNT)}).`);
           } else if (processed % yieldInterval === 0) {
             const bestEntry = topResults.length ? topResults[0] : null;
             const bestSortinoVal = bestEntry ? getAutoSortino(bestEntry) : null;
             const bestSortino = Number.isFinite(bestSortinoVal) ? bestSortinoVal.toFixed(2) : '—';
             const bestId = bestEntry && bestEntry.params ? buildStrategyKey(bestEntry.params) : '—';
-            setStatus(`Auto backtest (${modeLabel}) ${processed}/${total} (total ${formatAutoRunCount(AUTO_BACKTEST_TOTAL_COUNT)}) (best Sortino ${bestSortino}, ${bestId})`);
+            setAutoStatus(`Auto backtest (${modeLabel}) ${processed}/${total} (total ${formatAutoRunCount(AUTO_BACKTEST_TOTAL_COUNT)}) (best Sortino ${bestSortino}, ${bestId})`);
             await new Promise(resolve => setTimeout(resolve, 0));
           }
         }
       } catch (err) {
         hadError = true;
         console.error('Auto backtest failed', err);
-        setStatus('Auto backtest encountered an error. See console for details.');
+        setAutoStatus('Auto backtest encountered an error. See console for details.');
       }
 
       const bestEntry = topResults.length ? topResults[0] : null;
@@ -2041,12 +2044,12 @@
       const totalLabel = formatAutoRunCount(AUTO_BACKTEST_TOTAL_COUNT);
 
       if (AUTO_BACKTEST_PAUSE_REQUESTED && !hadError) {
-        setStatus(`Auto backtest paused after ${processed}/${total} combos (total ${totalLabel}). Best Sortino ${bestSortino}.`);
+        setAutoStatus(`Auto backtest paused after ${processed}/${total} combos (total ${totalLabel}). Best Sortino ${bestSortino}.`);
       } else if (!hadError) {
         if (completed) {
-          setStatus(`Auto backtest (${modeLabel}) completed ${processed}/${total} combos (total ${totalLabel}). Best Sortino ${bestSortino}. Strategy ${bestId}.`);
+          setAutoStatus(`Auto backtest (${modeLabel}) completed ${processed}/${total} combos (total ${totalLabel}). Best Sortino ${bestSortino}. Strategy ${bestId}.`);
         } else {
-          setStatus(`Auto backtest (${modeLabel}) stopped after ${processed}/${total} combos (total ${totalLabel}). Best Sortino ${bestSortino}.`);
+          setAutoStatus(`Auto backtest (${modeLabel}) stopped after ${processed}/${total} combos (total ${totalLabel}). Best Sortino ${bestSortino}.`);
         }
       }
 
@@ -2119,17 +2122,17 @@
     function pauseAutoBacktest() {
       if (!AUTO_BACKTEST_RUNNING || AUTO_BACKTEST_PAUSE_REQUESTED) return;
       AUTO_BACKTEST_PAUSE_REQUESTED = true;
-      setStatus(`Pausing auto backtest… finishing current combo (total ${formatAutoRunCount(AUTO_BACKTEST_TOTAL_COUNT)}).`);
+      setAutoStatus(`Pausing auto backtest… finishing current combo (total ${formatAutoRunCount(AUTO_BACKTEST_TOTAL_COUNT)}).`);
       syncAutoBacktestButton();
     }
 
     async function startAutoBacktest() {
       if (AUTO_BACKTEST_RUNNING) return;
-      if (!currentTicker) { setStatus('Pick a symbol before running Auto Backtest.'); return; }
-      if (!Array.isArray(DAYS) || DAYS.length === 0) { setStatus('Load data before running Auto Backtest.'); return; }
+      if (!currentTicker) { setAutoStatus('Pick a symbol before running Auto Backtest.'); return; }
+      if (!Array.isArray(DAYS) || DAYS.length === 0) { setAutoStatus('Load data before running Auto Backtest.'); return; }
       const optimizer = window.ORBOptimizer;
       if (!optimizer || (!optimizer.getInitialGridCombos && !optimizer.getSobolBatch)) {
-        setStatus('Optimizer module not available.');
+        setAutoStatus('Optimizer module not available.');
         return;
       }
 
@@ -2145,7 +2148,7 @@
           const batch = getNextAutoBacktestBatch(state, optimizer);
           if (!batch) {
             if (!AUTO_BACKTEST_PAUSE_REQUESTED) {
-              setStatus('No parameter combinations available for Auto Backtest.');
+              setAutoStatus('No parameter combinations available for Auto Backtest.');
             }
             break;
           }
@@ -2156,7 +2159,7 @@
           if (batch.mode === 'initial' && result.completed) {
             AUTO_BACKTEST_PAUSE_REQUESTED = true;
             const totalLabel = formatAutoRunCount(AUTO_BACKTEST_TOTAL_COUNT);
-            setStatus(`Auto backtest seed grid completed (total ${totalLabel}). Paused before Sobol sweep. Press Resume Backtest to continue.`);
+            setAutoStatus(`Auto backtest seed grid completed (total ${totalLabel}). Paused before Sobol sweep. Press Resume Backtest to continue.`);
             break;
           }
 
@@ -2239,6 +2242,7 @@
       orb_end_time = '15:30',
       entry_cutoff_time = '12:00',
       breakout_buffer = 0.01,
+      min_or_perc = 0.25,
     }) {
       const out = [];
 
@@ -2300,6 +2304,17 @@
         }
         rowOut.ORH = ORH;
         rowOut.ORL = ORL;
+
+        // Check if Opening Range % is too small
+        const OR_range = ORH - ORL;
+        const OR_perc = OR_range / ORL;
+
+        if (OR_perc < (min_or_perc / 100)) {
+          rowOut.HitType = 'ORTooSmall';
+          rowOut.Shares = 0;
+          out.push(rowOut);
+          continue;
+        }
 
         // Entry logic
         let entryIdx = null, entry_side = 0, entry_price = NaN, entry_time = null;
@@ -3895,17 +3910,17 @@
       const btn = document.getElementById('btnClearAuto');
       if (!btn) return;
       btn.addEventListener('click', async () => {
-        if (!currentTicker) { setStatus('Pick a symbol before clearing auto data.'); return; }
+        if (!currentTicker) { setAutoStatus('Pick a symbol before clearing auto data.'); return; }
         if (!window.confirm('Clear saved auto backtest results for this symbol?')) return;
-        const statusEl = document.getElementById('status');
+        const statusEl = document.getElementById('autoResultsStatus');
         const previousMsg = statusEl ? statusEl.textContent : '';
-        setStatus('Clearing auto backtest data…');
+        setAutoStatus('Clearing auto backtest data…');
         try {
           await clearAutoResultsForSymbol(currentTicker);
           resetAutoBacktestState(currentTicker);
           AUTO_RESULTS_CACHE = new Map();
           await loadAutoResultsForSymbol(currentTicker);
-          setStatus('Auto backtest data cleared.');
+          setAutoStatus('Auto backtest data cleared.');
           if (statusEl) {
             setTimeout(() => {
               if (statusEl.textContent === 'Auto backtest data cleared.') {
@@ -3915,7 +3930,7 @@
           }
         } catch (err) {
           console.error('Failed to clear auto backtest data', err);
-          setStatus('Failed to clear auto backtest data.');
+          setAutoStatus('Failed to clear auto backtest data.');
           if (statusEl) {
             setTimeout(() => {
               if (statusEl.textContent === 'Failed to clear auto backtest data.') {
