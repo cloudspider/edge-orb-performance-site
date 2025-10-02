@@ -291,16 +291,34 @@
       </div>
       <div class="flex flex-col gap-2">
         <div class="flex flex-col gap-2">
-          <div class="flex items-center gap-2">
-          <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-indigo-500 hover:text-indigo-600 opacity-50 pointer-events-none" id="btnAutoBacktest" disabled data-state="idle">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" data-auto-icon="play"><path d="M4.5 3.75a.75.75 0 011.125-.65l9 5.25a.75.75 0 010 1.3l-9 5.25A.75.75 0 014 14.25V5.75a.75.75 0 01.5-.7z"/></svg>
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 hidden" viewBox="0 0 20 20" fill="currentColor" data-auto-icon="pause"><path d="M6.75 4.5a.75.75 0 00-.75.75v9.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75v-9.5a.75.75 0 00-.75-.75h-1.5zm5 0a.75.75 0 00-.75.75v9.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75v-9.5a.75.75 0 00-.75-.75h-1.5z"/></svg>
-            <span data-auto-label>Start Backtest</span>
-          </button>
-          <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-3 py-2 text-sm font-medium text-rose-600 shadow-sm transition hover:border-rose-400 hover:text-rose-700 opacity-50 pointer-events-none" id="btnClearAuto" disabled>
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 10-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 10-1.06-1.06L10 8.94 6.28 5.22z"/></svg>
-            <span>Clear Auto Data</span>
-          </button>
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-2 text-sm text-slate-600">
+              <span>Rank by</span>
+              <div class="relative min-w-[180px]">
+              <select id="autoSortSelect" class="appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-8 py-2 text-sm text-slate-600 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60 w-full">
+                  <option value="athDayPct">ATH Day %</option>
+                  <option value="sortino">Sortino</option>
+                  <option value="mar">MAR</option>
+                  <option value="totalPnL">Total PnL</option>
+                  <option value="cagr">CAGR</option>
+                  <option value="maxDD">Max DD</option>
+              </select>
+                <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
+                </span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-indigo-500 hover:text-indigo-600 opacity-50 pointer-events-none" id="btnAutoBacktest" disabled data-state="idle">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" data-auto-icon="play"><path d="M4.5 3.75a.75.75 0 011.125-.65l9 5.25a.75.75 0 010 1.3l-9 5.25A.75.75 0 014 14.25V5.75a.75.75 0 01.5-.7z"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 hidden" viewBox="0 0 20 20" fill="currentColor" data-auto-icon="pause"><path d="M6.75 4.5a.75.75 0 00-.75.75v9.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75v-9.5a.75.75 0 00-.75-.75h-1.5zm5 0a.75.75 0 00-.75.75v9.5c0 .414.336.75.75.75h1.5a.75.75 0 00.75-.75v-9.5a.75.75 0 00-.75-.75h-1.5z"/></svg>
+                <span data-auto-label>Start Backtest</span>
+              </button>
+              <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-3 py-2 text-sm font-medium text-rose-600 shadow-sm transition hover:border-rose-400 hover:text-rose-700 opacity-50 pointer-events-none" id="btnClearAuto" disabled>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M6.28 5.22a.75.75 0 10-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 10-1.06-1.06L10 8.94 6.28 5.22z"/></svg>
+                <span>Clear Auto Data</span>
+              </button>
+            </div>
           </div>
           <div class="text-xs text-slate-500" id="autoResultsStatus">No auto backtest results yet.</div>
         </div>
@@ -364,6 +382,12 @@
                 </button>
               </th>
               <th class="px-3 py-2 text-right font-medium">
+                <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="athDayPct">
+                  <span>ATH Day %</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-right font-medium">
                 <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="orb_m">
                   <span>ORB (m)</span>
                   <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
@@ -403,7 +427,7 @@
           </thead>
           <tbody id="autoResultsTableBody">
             <tr class="border-b last:border-b-0">
-              <td colspan="15" class="px-3 py-4 text-center text-sm text-slate-500">No auto backtest results yet.</td>
+              <td colspan="16" class="px-3 py-4 text-center text-sm text-slate-500">No auto backtest results yet.</td>
             </tr>
           </tbody>
         </table>
@@ -752,7 +776,7 @@
   let CURRENT_MODE_TAB = 'backtest';
   let AUTO_RESULTS_CACHE = new Map();
   let AUTO_RESULTS_LIST = [];
-  let AUTO_RESULTS_SORT = { key: 'sortino', direction: 'desc' };
+  let AUTO_RESULTS_SORT = { key: 'athDayPct', direction: 'desc' };
   let TRADES_SORT = { key: 'date', direction: 'desc' };
   const TRADE_SORT_DEFAULT_DIRECTION = {
     date: 'desc',
@@ -761,6 +785,26 @@
     exitTime: 'asc',
     hitType: 'asc',
     strategy: 'asc'
+  };
+  const AUTO_SORT_DEFAULT_DIRECTION = {
+    sortino: 'desc',
+    athDayPct: 'desc',
+    mar: 'desc',
+    totalPnL: 'desc',
+    cagr: 'desc',
+    maxDD: 'asc',
+    strategyId: 'asc',
+    direction: 'asc',
+    start: 'asc',
+    end: 'asc'
+  };
+  const AUTO_SORT_LABELS = {
+    sortino: 'Sortino',
+    athDayPct: 'ATH Day %',
+    mar: 'MAR',
+    totalPnL: 'Total PnL',
+    cagr: 'CAGR %',
+    maxDD: 'Max DD %'
   };
   const AUTO_MAX_DD_LIMIT = 30; // percent drawdown ceiling for auto results
   const AUTO_MAX_INDETERMINATE_PCT = 3; // maximum reachable % of indeterminate trades
@@ -845,7 +889,7 @@
     return indetPct <= AUTO_MAX_INDETERMINATE_PCT;
   }
 
-  function compareAutoEntries(a, b) {
+  function compareAutoEntriesFallback(a, b) {
     const sortinoA = getAutoSortino(a);
     const sortinoB = getAutoSortino(b);
     const scoreA = Number.isFinite(sortinoA) ? sortinoA : -Infinity;
@@ -867,6 +911,58 @@
     const marA = Number.isFinite(Number(a && a.mar)) ? Number(a.mar) : -Infinity;
     const marB = Number.isFinite(Number(b && b.mar)) ? Number(b.mar) : -Infinity;
     return marB - marA;
+  }
+
+  function compareAutoEntries(a, b, sortConfig = AUTO_RESULTS_SORT) {
+    const key = sortConfig && sortConfig.key ? sortConfig.key : 'athDayPct';
+    const direction = sortConfig && sortConfig.direction ? sortConfig.direction : (AUTO_SORT_DEFAULT_DIRECTION[key] || 'desc');
+    const factor = direction === 'asc' ? 1 : -1;
+    const va = getAutoResultValue(a, key);
+    const vb = getAutoResultValue(b, key);
+    const aNull = va == null || (typeof va === 'number' && !Number.isFinite(va));
+    const bNull = vb == null || (typeof vb === 'number' && !Number.isFinite(vb));
+    if (aNull && bNull) return compareAutoEntriesFallback(a, b);
+    if (aNull) return 1;
+    if (bNull) return -1;
+    if (typeof va === 'string' || typeof vb === 'string') {
+      const cmp = String(va).localeCompare(String(vb), undefined, { numeric: true });
+      if (cmp !== 0) return factor * cmp;
+    } else if (va !== vb) {
+      if (va > vb) return factor;
+      if (va < vb) return -factor;
+    }
+    return compareAutoEntriesFallback(a, b);
+  }
+
+  function formatAutoMetricValue(key, value) {
+    if (!Number.isFinite(value)) return '—';
+    switch (key) {
+      case 'athDayPct':
+      case 'cagr':
+      case 'maxDD':
+        return `${value.toFixed(2)}%`;
+      case 'totalPnL':
+        return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      case 'sortino':
+      case 'mar':
+        return value.toFixed(2);
+      default:
+        return String(value);
+    }
+  }
+
+  function getBestAutoMetric(entry, sortConfig = AUTO_RESULTS_SORT) {
+    const key = sortConfig && sortConfig.key ? sortConfig.key : 'athDayPct';
+    const rawValue = entry ? getAutoResultValue(entry, key) : null;
+    const label = AUTO_SORT_LABELS[key] || key;
+    if (typeof rawValue === 'string') {
+      const trimmed = rawValue.trim();
+      return { key, label, raw: null, display: trimmed || '—' };
+    }
+    const numeric = Number(rawValue);
+    const isFiniteVal = Number.isFinite(numeric);
+    const display = formatAutoMetricValue(key, isFiniteVal ? numeric : null);
+    return { key, label, raw: isFiniteVal ? numeric : null, display };
   }
 
   function formatAutoRunCount(count) {
@@ -1145,14 +1241,14 @@
           updatedAt: new Date().toISOString()
         };
         const existingRec = map.get(strategyId);
-        if (!existingRec || compareAutoEntries(existingRec, record) > 0) {
+        if (!existingRec || compareAutoEntries(existingRec, record, AUTO_RESULTS_SORT) > 0) {
           map.set(strategyId, record);
         }
       }
 
       const merged = Array.from(map.values())
         .filter(autoEntryPassesFilters)
-        .sort(compareAutoEntries)
+        .sort((a, b) => compareAutoEntries(a, b, AUTO_RESULTS_SORT))
         .slice(0, 20);
 
       await new Promise((resolve, reject) => {
@@ -1210,7 +1306,7 @@
       });
       AUTO_RESULTS_CACHE = new Map();
       AUTO_RESULTS_LIST = [];
-      AUTO_RESULTS_SORT = { key: 'sortino', direction: 'desc' };
+      AUTO_RESULTS_SORT = { key: 'athDayPct', direction: 'desc' };
     } catch (err) {
       console.error('Failed to clear auto results', err);
     }
@@ -1225,7 +1321,7 @@
     if (!Array.isArray(entries) || entries.length === 0) {
       if (statusEl) statusEl.textContent = 'No auto backtest results yet.';
       const tr = document.createElement('tr');
-      tr.innerHTML = '<td colspan="15" class="px-3 py-4 text-center text-sm text-slate-500">No auto backtest results yet.</td>';
+      tr.innerHTML = '<td colspan="16" class="px-3 py-4 text-center text-sm text-slate-500">No auto backtest results yet.</td>';
       tbody.appendChild(tr);
       return;
     }
@@ -1252,6 +1348,7 @@
       const maxDD = Number(summary.maxDDPct);
       const sortino = Number(summary.sortinoRatio);
       const ulcerPerf = Number(summary.ulcerPerf);
+      const athDayPct = Number(summary.athDayPct);
       const tradeCounts = summary && summary.tradeCounts ? summary.tradeCounts : {};
       const tradePct = tradeCounts && tradeCounts.pct ? tradeCounts.pct : {};
       let winPct = Number(tradePct.wins);
@@ -1269,6 +1366,7 @@
       const maxDDDisplay = Number.isFinite(maxDD) ? `${maxDD.toFixed(2)}%` : '—';
       const sortinoDisplay = Number.isFinite(sortino) ? sortino.toFixed(2) : '—';
       const ulcerDisplay = Number.isFinite(ulcerPerf) ? ulcerPerf.toFixed(2) : '—';
+      const athDayDisplay = Number.isFinite(athDayPct) ? `${athDayPct.toFixed(2)}%` : '—';
 
       tr.innerHTML = `
         <td class="px-3 py-2 font-mono text-xs break-all"><button type="button" class="text-slate-700 hover:text-indigo-600" data-auto-load="${entry.strategyId || ''}">${entry.strategyId || ''}</button></td>
@@ -1280,6 +1378,7 @@
         <td class="px-3 py-2 text-right tabular-nums font-mono">${avgDailyDisplay}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${cagrDisplay}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${maxDDDisplay}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${athDayDisplay}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${orbVal ?? ''}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${Number.isFinite(tpVal) ? tpVal.toFixed(2) : (tpValRaw ?? '')}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${Number.isFinite(slVal) ? slVal.toFixed(2) : (slValRaw ?? '')}</td>
@@ -1320,7 +1419,9 @@
     AUTO_RESULTS_LIST.forEach(entry => {
       if (entry && entry.strategyId) AUTO_RESULTS_CACHE.set(entry.strategyId, entry);
     });
-    AUTO_RESULTS_SORT = { key: 'sortino', direction: 'desc' };
+    if (!AUTO_RESULTS_SORT || !AUTO_RESULTS_SORT.key) {
+      AUTO_RESULTS_SORT = { key: 'athDayPct', direction: 'desc' };
+    }
     applyAutoResultsSort();
     syncAutoBacktestButton();
     return AUTO_RESULTS_LIST;
@@ -1357,6 +1458,8 @@
         return Number(summary.cagrPct);
       case 'maxDD':
         return Number(summary.maxDDPct);
+      case 'athDayPct':
+        return Number(summary.athDayPct);
       case 'orb_m':
         return Number(params.orb_m ?? (entry && entry.combo ? entry.combo.orb_m : null));
       case 'tp_R':
@@ -1379,21 +1482,7 @@
       renderAutoResultsTable([]);
       return;
     }
-    const { key = 'mar', direction = 'desc' } = AUTO_RESULTS_SORT || {};
-    const factor = direction === 'asc' ? 1 : -1;
-    const sorted = AUTO_RESULTS_LIST.slice().sort((a, b) => {
-      const va = getAutoResultValue(a, key);
-      const vb = getAutoResultValue(b, key);
-      if (va == null && vb == null) return 0;
-      if (va == null) return 1;
-      if (vb == null) return -1;
-      if (typeof va === 'string' || typeof vb === 'string') {
-        return factor * String(va).localeCompare(String(vb));
-      }
-      if (va > vb) return factor;
-      if (va < vb) return -factor;
-      return 0;
-    });
+    const sorted = AUTO_RESULTS_LIST.slice().sort((a, b) => compareAutoEntries(a, b, AUTO_RESULTS_SORT));
     AUTO_RESULTS_LIST = sorted;
     updateAutoSortHeaders();
     AUTO_RESULTS_CACHE = new Map();
@@ -1401,6 +1490,17 @@
       if (entry && entry.strategyId) AUTO_RESULTS_CACHE.set(entry.strategyId, entry);
     });
     renderAutoResultsTable(sorted);
+  }
+
+  function syncAutoSortSelect() {
+    const select = document.getElementById('autoSortSelect');
+    if (!select) return;
+    const key = AUTO_RESULTS_SORT && AUTO_RESULTS_SORT.key;
+    if (!key) return;
+    const hasOption = Array.from(select.options || []).some(opt => opt.value === key);
+    if (hasOption) {
+      select.value = key;
+    }
   }
 
   function updateAutoSortHeaders() {
@@ -1419,6 +1519,23 @@
           indicator.textContent = '▲';
         }
       }
+    });
+    syncAutoSortSelect();
+  }
+
+  function initAutoSortSelect() {
+    const select = document.getElementById('autoSortSelect');
+    if (!select) return;
+    const currentKey = AUTO_RESULTS_SORT && AUTO_RESULTS_SORT.key;
+    if (currentKey) {
+      select.value = currentKey;
+    }
+    select.addEventListener('change', (e) => {
+      const key = e.target.value;
+      if (!key) return;
+      const direction = AUTO_SORT_DEFAULT_DIRECTION[key] || 'desc';
+      AUTO_RESULTS_SORT = { key, direction };
+      applyAutoResultsSort();
     });
   }
 
@@ -2098,11 +2215,11 @@
       const total = combos.length;
       const baseParams = getBacktestParams();
       const topResults = [];
-      const limit = 100;
+      const limit = 20;
       const updateTop = (entry) => {
         if (!autoEntryPassesFilters(entry)) return;
         topResults.push(entry);
-        topResults.sort(compareAutoEntries);
+        topResults.sort((a, b) => compareAutoEntries(a, b, AUTO_RESULTS_SORT));
         if (topResults.length > limit) topResults.length = limit;
       };
 
@@ -2139,10 +2256,9 @@
             setAutoStatus(`Pausing auto backtest… finishing current combo (${processed}/${total}, total ${formatAutoRunCount(AUTO_BACKTEST_TOTAL_COUNT)}).`);
           } else if (processed % yieldInterval === 0) {
             const bestEntry = topResults.length ? topResults[0] : null;
-            const bestSortinoVal = bestEntry ? getAutoSortino(bestEntry) : null;
-            const bestSortino = Number.isFinite(bestSortinoVal) ? bestSortinoVal.toFixed(2) : '—';
+            const bestMetric = getBestAutoMetric(bestEntry, AUTO_RESULTS_SORT);
             const bestId = bestEntry && bestEntry.params ? buildStrategyKey(bestEntry.params) : '—';
-            setAutoStatus(`Auto backtest (${modeLabel}) ${processed}/${total} (total ${formatAutoRunCount(AUTO_BACKTEST_TOTAL_COUNT)}) (best Sortino ${bestSortino}, ${bestId})`);
+            setAutoStatus(`Auto backtest (${modeLabel}) ${processed}/${total} (total ${formatAutoRunCount(AUTO_BACKTEST_TOTAL_COUNT)}) (best ${bestMetric.label} ${bestMetric.display}, ${bestId})`);
             await new Promise(resolve => setTimeout(resolve, 0));
           }
         }
@@ -2153,20 +2269,19 @@
       }
 
       const bestEntry = topResults.length ? topResults[0] : null;
-      const bestSortinoVal = bestEntry ? getAutoSortino(bestEntry) : null;
-      const bestSortino = Number.isFinite(bestSortinoVal) ? bestSortinoVal.toFixed(2) : '—';
+      const bestMetric = getBestAutoMetric(bestEntry, AUTO_RESULTS_SORT);
       const bestId = bestEntry && bestEntry.params ? buildStrategyKey(bestEntry.params) : '—';
       const completed = processed === total && !AUTO_BACKTEST_PAUSE_REQUESTED && !hadError;
 
       const totalLabel = formatAutoRunCount(AUTO_BACKTEST_TOTAL_COUNT);
 
       if (AUTO_BACKTEST_PAUSE_REQUESTED && !hadError) {
-        setAutoStatus(`Auto backtest paused after ${processed}/${total} combos (total ${totalLabel}). Best Sortino ${bestSortino}.`);
+        setAutoStatus(`Auto backtest paused after ${processed}/${total} combos (total ${totalLabel}). Best ${bestMetric.label} ${bestMetric.display}.`);
       } else if (!hadError) {
         if (completed) {
-          setAutoStatus(`Auto backtest (${modeLabel}) completed ${processed}/${total} combos (total ${totalLabel}). Best Sortino ${bestSortino}. Strategy ${bestId}.`);
+          setAutoStatus(`Auto backtest (${modeLabel}) completed ${processed}/${total} combos (total ${totalLabel}). Best ${bestMetric.label} ${bestMetric.display}. Strategy ${bestId}.`);
         } else {
-          setAutoStatus(`Auto backtest (${modeLabel}) stopped after ${processed}/${total} combos (total ${totalLabel}). Best Sortino ${bestSortino}.`);
+          setAutoStatus(`Auto backtest (${modeLabel}) stopped after ${processed}/${total} combos (total ${totalLabel}). Best ${bestMetric.label} ${bestMetric.display}.`);
         }
       }
 
@@ -2218,8 +2333,11 @@
         nextSobolIndex: state.sobolIndex || 0,
         paused: AUTO_BACKTEST_PAUSE_REQUESTED,
         hadError,
-        rankingMetric: 'sortino',
-        bestSortino: Number.isFinite(bestSortinoVal) ? bestSortinoVal : null,
+        rankingMetric: bestMetric.key,
+        rankingDirection: AUTO_RESULTS_SORT && AUTO_RESULTS_SORT.direction ? AUTO_RESULTS_SORT.direction : null,
+        bestMetricValue: bestMetric.raw,
+        bestMetricLabel: bestMetric.label,
+        bestMetricDisplay: bestMetric.display,
         maxDrawdownLimit: AUTO_MAX_DD_LIMIT,
         totalProcessed: Number.isFinite(state.totalProcessed) ? state.totalProcessed : AUTO_BACKTEST_TOTAL_COUNT,
         runTop,
@@ -2699,9 +2817,12 @@
         if (Number.isFinite(cagrPct) && Number.isFinite(painIndexPct) && painIndexPct > 0) {
           painRatio = cagrPct / painIndexPct;
         }
-        if (totalEquityPoints > 0) {
+        if (totalEquityPoints > 0 && totalTrades > 0) {
           athDays = athCounter;
           athDayPct = (athCounter / totalEquityPoints) * 100;
+        } else {
+          athDays = 0;
+          athDayPct = null;
         }
         maxDDPct = mdd;
       }
@@ -4108,7 +4229,8 @@
           if (AUTO_RESULTS_SORT && AUTO_RESULTS_SORT.key === key) {
             AUTO_RESULTS_SORT.direction = AUTO_RESULTS_SORT.direction === 'desc' ? 'asc' : 'desc';
           } else {
-            AUTO_RESULTS_SORT = { key, direction: ascKeys.has(key) ? 'asc' : 'desc' };
+            const defaultDir = AUTO_SORT_DEFAULT_DIRECTION[key] || (ascKeys.has(key) ? 'asc' : 'desc');
+            AUTO_RESULTS_SORT = { key, direction: defaultDir };
           }
           applyAutoResultsSort();
         }
@@ -4454,6 +4576,7 @@
     populateTickerSegment().catch(()=>{});
     initModeTabs();
   initSecondaryNav();
+    initAutoSortSelect();
     syncFavoriteButton();
     loadFavoritesForSymbol(currentTicker).catch(()=>{});
     loadAutoResultsForSymbol(currentTicker).catch(()=>{});
