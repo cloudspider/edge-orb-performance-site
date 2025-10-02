@@ -2634,6 +2634,10 @@
       let maxDDPct = 0;
       let ulcerIndex = null;
       let ulcerPerf = null;
+      let painIndexPct = null;
+      let painRatio = null;
+      let athDays = 0;
+      let athDayPct = null;
       if (out.length > 1) {
         const firstRow = out[0] || {};
         const startAUM = Number.isFinite(firstRow.AUM) ? firstRow.AUM : null;
@@ -2649,23 +2653,34 @@
             cagrPct = (Math.pow(endAUM / startAUM, 1 / years) - 1) * 100;
           }
         }
-        let peak = startAUM;
+        let peak = Number.isFinite(startAUM) ? startAUM : null;
         let mdd = 0;
         let ddSquares = 0;
         let ddCount = 0;
+        let painSum = 0;
+        let painCount = 0;
+        let totalEquityPoints = 0;
+        let athCounter = 0;
         for (const row of out) {
           const a = Number(row.AUM);
           if (!Number.isFinite(a)) continue;
+          totalEquityPoints += 1;
           if (!Number.isFinite(peak) || a > peak) {
             peak = a;
-            continue;
           }
-          if (Number.isFinite(peak) && peak > 0) {
-            const dd = ((a / peak) - 1) * 100;
-            if (dd < mdd) mdd = dd;
+          const peakValid = Number.isFinite(peak) && peak !== 0;
+          const tolerance = peakValid ? Math.max(Math.abs(peak) * 1e-8, 1e-6) : 1e-6;
+          if (peakValid && Math.abs(a - peak) <= tolerance) {
+            athCounter += 1;
+          }
+          if (peakValid) {
+            const ddPct = ((a / peak) - 1) * 100;
+            if (ddPct < mdd) mdd = ddPct;
             const ddDecimal = Math.max(0, (peak - a) / peak);
             ddSquares += ddDecimal * ddDecimal;
             ddCount += 1;
+            painSum += ddDecimal;
+            painCount += 1;
           }
         }
         if (ddCount > 0) {
@@ -2676,6 +2691,17 @@
           if (ulcerPerf !== null) {
             ulcerPerf = Number(ulcerPerf.toFixed(4));
           }
+          painIndexPct = (painSum / ddCount) * 100;
+          if (!Number.isFinite(painIndexPct)) {
+            painIndexPct = null;
+          }
+        }
+        if (Number.isFinite(cagrPct) && Number.isFinite(painIndexPct) && painIndexPct > 0) {
+          painRatio = cagrPct / painIndexPct;
+        }
+        if (totalEquityPoints > 0) {
+          athDays = athCounter;
+          athDayPct = (athCounter / totalEquityPoints) * 100;
         }
         maxDDPct = mdd;
       }
@@ -2696,6 +2722,10 @@
         downsideDeviation: (downsideDeviation != null) ? downsideDeviation : null,
         ulcerIndex,
         ulcerPerf,
+        painIndexPct,
+        painRatio,
+        athDays,
+        athDayPct,
         tradeCounts: {
           total: totalTrades,
           wins,
@@ -2723,7 +2753,23 @@
       const metrics = computeSummaryMetrics(out);
       if (!metrics) { summary.innerHTML = ''; return; }
 
-      const { totalDays, finalAUM, totalPnL, avgDailyRet, cagrPct, maxDDPct, mar, sortinoRatio, ulcerIndex, ulcerPerf, tradeCounts } = metrics;
+      const {
+        totalDays,
+        finalAUM,
+        totalPnL,
+        avgDailyRet,
+        cagrPct,
+        maxDDPct,
+        mar,
+        sortinoRatio,
+        ulcerIndex,
+        ulcerPerf,
+        painIndexPct,
+        painRatio,
+        athDays,
+        athDayPct,
+        tradeCounts
+      } = metrics;
       const { total, wins, losses, eodCount, eodWin, eodLoss, indeterminate, pct: tradePct = {} } = tradeCounts;
 
       const cards = [
@@ -2737,6 +2783,10 @@
         { label: 'Ulcer Index', value: ulcerIndex == null ? '—' : `${fmtPct(ulcerIndex)}%` },
         { label: 'Ulcer Perf (UPI)', value: ulcerPerf == null ? '—' : `${fmtNum(ulcerPerf, 2)}x` },
         { label: 'MAR', value: mar == null ? '—' : `${fmtNum(mar, 2)}x` },
+        { label: 'Pain Index', value: painIndexPct == null ? '—' : `${fmtPct(painIndexPct)}%` },
+        { label: 'Pain Ratio', value: painRatio == null ? '—' : `${fmtNum(painRatio, 2)}x` },
+        { label: 'ATH Days', value: fmtInt(athDays) },
+        { label: 'ATH Day %', value: athDayPct == null ? '—' : `${fmtPct(athDayPct)}%` },
       ];
 
       const gridHtml = `<div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">${cards.map(c => {
