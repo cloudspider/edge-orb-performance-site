@@ -31,7 +31,7 @@ export const INITIAL_GRID = {
   tp_R: Array.from({ length: 18 }, (_, i) => Number((0.3 + 0.1 * i).toFixed(1))),
   sl_R: Array.from({ length: 18 }, (_, i) => Number((0.3 + 0.1 * i).toFixed(1))),
   start_ny: ['09:30'],
-  end_ny: ['13:30'],
+  end_ny: ['15:30'],
   direction: ['BOTH']
 };
 

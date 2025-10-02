@@ -126,6 +126,12 @@
           </span>
           <span>Portfolio</span>
         </button>
+        <button type="button" class="inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-700" data-mode-tab="favorites">
+          <span class="inline-flex h-5 w-5 items-center justify-center text-slate-400">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"/></svg>
+          </span>
+          <span>Favorites</span>
+        </button>
       </nav>
 
       <div class="flex-1 min-w-0 mt-4">
@@ -428,6 +434,37 @@
           <tbody id="autoResultsTableBody">
             <tr class="border-b last:border-b-0">
               <td colspan="16" class="px-3 py-4 text-center text-sm text-slate-500">No auto backtest results yet.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="favoritesPanel" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 hidden space-y-4" data-tab-panel="favorites">
+      <div>
+        <h2 class="font-semibold">Favorite Strategies</h2>
+        <p class="text-sm text-slate-500">Favorites saved for the currently selected symbol.</p>
+      </div>
+      <div class="overflow-x-auto border border-slate-200 rounded-xl max-h-[65vh]">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-50 text-slate-600">
+            <tr>
+              <th class="px-3 py-2 text-left font-medium">Strategy</th>
+              <th class="px-3 py-2 text-right font-medium">Days</th>
+              <th class="px-3 py-2 text-right font-medium">Trades</th>
+              <th class="px-3 py-2 text-right font-medium">Win %</th>
+              <th class="px-3 py-2 text-right font-medium">Total PnL</th>
+              <th class="px-3 py-2 text-right font-medium">Avg Daily %</th>
+              <th class="px-3 py-2 text-right font-medium">CAGR %</th>
+              <th class="px-3 py-2 text-right font-medium">Max DD %</th>
+              <th class="px-3 py-2 text-right font-medium">MAR</th>
+              <th class="px-3 py-2 text-right font-medium">Sortino</th>
+              <th class="px-3 py-2 text-right font-medium">ATH Day %</th>
+            </tr>
+          </thead>
+          <tbody id="favoritesTableBody">
+            <tr class="border-b last:border-b-0">
+              <td colspan="11" class="px-3 py-4 text-center text-sm text-slate-500">No favorites yet for this symbol.</td>
             </tr>
           </tbody>
         </table>
@@ -1411,6 +1448,85 @@
     });
   }
 
+  function highlightFavoriteRow() {
+    document.querySelectorAll('[data-favorite-strategy]').forEach(row => {
+      const active = row.dataset.favoriteStrategy === CURRENT_STRATEGY_ID && CURRENT_STRATEGY_ID;
+      row.classList.toggle('bg-indigo-50', !!active);
+      row.classList.toggle('hover:bg-indigo-100', !!active);
+      row.classList.toggle('hover:bg-slate-50', !active);
+    });
+  }
+
+  function renderFavoritesTable(entries) {
+    const tbody = document.getElementById('favoritesTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    const sorted = Array.isArray(entries)
+      ? entries.slice().sort((a, b) => {
+          const ta = a && a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+          const tb = b && b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+          return tb - ta;
+        })
+      : [];
+
+    if (!sorted.length) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td colspan="11" class="px-3 py-4 text-center text-sm text-slate-500">No favorites yet for this symbol.</td>';
+      tbody.appendChild(tr);
+      highlightFavoriteRow();
+      return;
+    }
+
+    const formatMoneyDisplay = (val) => {
+      const num = Number(val);
+      return Number.isFinite(num) ? `$${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—';
+    };
+    const formatPercentDisplay = (val) => {
+      const num = Number(val);
+      return Number.isFinite(num) ? `${num.toFixed(2)}%` : '—';
+    };
+    const formatNumberDisplay = (val, digits = 2) => {
+      const num = Number(val);
+      return Number.isFinite(num) ? num.toFixed(digits) : '—';
+    };
+
+    sorted.forEach(entry => {
+      const summary = entry && entry.summary ? entry.summary : {};
+      const trades = summary && summary.tradeCounts ? summary.tradeCounts : {};
+      const tradePct = trades && trades.pct ? trades.pct : {};
+      const totalTrades = Number(trades.total);
+      let winPct = Number(tradePct.wins);
+      if (!Number.isFinite(winPct) && Number.isFinite(totalTrades) && totalTrades > 0) {
+        const wins = Number(trades.wins);
+        if (Number.isFinite(wins) && wins >= 0) {
+          winPct = (wins / totalTrades) * 100;
+        }
+      }
+      const strategyId = entry && entry.id ? entry.id : (entry && entry.strategyId ? entry.strategyId : '');
+      const tr = document.createElement('tr');
+      tr.className = 'border-b last:border-b-0 hover:bg-slate-50';
+      tr.dataset.favoriteStrategy = strategyId || '';
+
+      tr.innerHTML = `
+        <td class="px-3 py-2 font-mono text-xs md:text-sm break-all"><button type="button" class="text-slate-700 hover:text-indigo-600" data-favorite-load="${strategyId || ''}">${strategyId || ''}</button></td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(summary.totalDays)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(trades.total)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${formatPercentDisplay(winPct)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${formatMoneyDisplay(summary.totalPnL)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${formatPercentDisplay(summary.avgDailyRet)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${formatPercentDisplay(summary.cagrPct)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${formatPercentDisplay(summary.maxDDPct)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${formatNumberDisplay(summary.mar, 2)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${formatNumberDisplay(summary.sortinoRatio, 2)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${formatPercentDisplay(summary.athDayPct)}</td>`;
+
+      tbody.appendChild(tr);
+    });
+
+    highlightFavoriteRow();
+  }
+
   async function loadAutoResultsForSymbol(symbol) {
     const entries = await fetchAutoResults(symbol);
     const filtered = entries.filter(autoEntryPassesFilters).sort(compareAutoEntries);
@@ -1665,6 +1781,7 @@
     syncFavoriteButton();
     highlightAutoResultRow();
     highlightPortfolioRow();
+    highlightFavoriteRow();
     await runBacktestIfReady();
   }
 
@@ -2087,10 +2204,12 @@
       select.innerHTML = placeholder;
       setFavoriteSelectDisabled(true);
       if (!symbol) {
+        renderFavoritesTable([]);
         return;
       }
       const favorites = await fetchFavoriteRunsForSymbol(symbol);
       CURRENT_SYMBOL_FAVORITES = favorites;
+      renderFavoritesTable(favorites);
       if (!favorites.length) {
         return;
       }
@@ -3994,6 +4113,7 @@
       syncAutoBacktestButton();
       highlightAutoResultRow();
       highlightPortfolioRow();
+      highlightFavoriteRow();
       renderTable(LAST_OUT);
       renderEquityChart(LAST_OUT);
       renderDrawdownChart(LAST_OUT);
@@ -4160,6 +4280,22 @@
     })();
 
     document.addEventListener('click', async (e) => {
+      const favLoadBtn = e.target.closest('[data-favorite-load]');
+      if (favLoadBtn) {
+        const strategyId = favLoadBtn.getAttribute('data-favorite-load');
+        if (strategyId) {
+          const record = Array.isArray(CURRENT_SYMBOL_FAVORITES)
+            ? CURRENT_SYMBOL_FAVORITES.find(item => item && (item.id === strategyId || item.strategyId === strategyId))
+            : null;
+          if (record) {
+            try {
+              await applyFavoriteStrategy(record);
+            } catch {}
+          }
+        }
+        return;
+      }
+
       const loadBtn = e.target.closest('[data-portfolio-load]');
       if (loadBtn) {
         const strategyId = loadBtn.getAttribute('data-portfolio-load');
