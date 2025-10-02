@@ -27,7 +27,7 @@ export const PARAMETER_SPACE = {
 };
 
 export const INITIAL_GRID = {
-  orb_m: [5, 10, 15, 20, 25, 30],
+  orb_m: [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60],
   tp_R: Array.from({ length: 18 }, (_, i) => Number((0.3 + 0.1 * i).toFixed(1))),
   sl_R: Array.from({ length: 18 }, (_, i) => Number((0.3 + 0.1 * i).toFixed(1))),
   start_ny: ['09:30'],
