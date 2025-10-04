@@ -13,10 +13,10 @@ if not API_KEY:
 
 DATASET = "glbx.mdp3"
 SCHEMA = "ohlcv-1m"
-SYMBOL = "MES.v.0"       # ES1! equivalent on TradingView
+SYMBOL = "NQ.v.0"       # ES1! equivalent on TradingView
 SYMBOL_SLUG = SYMBOL.lower()
-START = "2023-01-01"
-END = "2025-09-20"
+START = "2025-09-20"
+END = "2025-10-04"
 OUTPUT_FILE = Path(f"data/{SYMBOL_SLUG}_{START}_{END}_1m.csv")
 RAW_OUTPUT_FILE = OUTPUT_FILE.with_name(f"{SYMBOL_SLUG}_{START}_{END}_1m_raw.csv")
 
