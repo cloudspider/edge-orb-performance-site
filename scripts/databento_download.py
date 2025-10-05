@@ -19,6 +19,7 @@ START = "2025-09-20"
 END = "2025-10-04"
 OUTPUT_FILE = Path(f"data/{SYMBOL_SLUG}_{START}_{END}_1m.csv")
 RAW_OUTPUT_FILE = OUTPUT_FILE.with_name(f"{SYMBOL_SLUG}_{START}_{END}_1m_raw.csv")
+NY_TZ = "America/New_York"
 
 
 def main() -> None:
@@ -63,7 +64,12 @@ def main() -> None:
             "Missing expected price/volume columns: " + ", ".join(sorted(missing_prices))
         )
 
-    caldt = pd.to_datetime(df[timestamp_column], utc=True).dt.tz_localize(None)
+    timestamps = pd.to_datetime(df[timestamp_column], utc=True, errors="coerce")
+    if timestamps.isna().any():
+        raise RuntimeError("Encountered unparseable timestamps in Databento response")
+
+    timestamps_ny = timestamps.dt.tz_convert(NY_TZ)
+    caldt = timestamps_ny.dt.tz_localize(None)
     df["caldt"] = caldt.dt.strftime("%Y-%m-%d %H:%M:%S")
     df["day"] = caldt.dt.strftime("%Y-%m-%d")
     df["vwap"] = ""
