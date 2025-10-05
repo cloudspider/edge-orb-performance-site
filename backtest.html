@@ -302,6 +302,7 @@
               <span>Rank by</span>
               <div class="relative min-w-[180px]">
               <select id="autoSortSelect" class="appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-8 py-2 text-sm text-slate-600 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60 w-full">
+                  <option value="winPct">Win %</option>
                   <option value="athDayPct">ATH Day %</option>
                   <option value="sortino">Sortino</option>
                   <option value="mar">MAR</option>
@@ -813,7 +814,7 @@
   let CURRENT_MODE_TAB = 'backtest';
   let AUTO_RESULTS_CACHE = new Map();
   let AUTO_RESULTS_LIST = [];
-  let AUTO_RESULTS_SORT = { key: 'athDayPct', direction: 'desc' };
+  let AUTO_RESULTS_SORT = { key: 'winPct', direction: 'desc' };
   let TRADES_SORT = { key: 'date', direction: 'desc' };
   const TRADE_SORT_DEFAULT_DIRECTION = {
     date: 'desc',
@@ -829,6 +830,7 @@
     mar: 'desc',
     totalPnL: 'desc',
     cagr: 'desc',
+    winPct: 'desc',
     maxDD: 'asc',
     strategyId: 'asc',
     direction: 'asc',
@@ -841,7 +843,10 @@
     mar: 'MAR',
     totalPnL: 'Total PnL',
     cagr: 'CAGR %',
-    maxDD: 'Max DD %'
+    maxDD: 'Max DD %',
+    winPct: 'Win %',
+    avgDaily: 'Avg Daily %',
+    ulcerPerf: 'UPI'
   };
   const AUTO_MAX_DD_LIMIT = 30; // percent drawdown ceiling for auto results
   const AUTO_MAX_INDETERMINATE_PCT = 3; // maximum reachable % of indeterminate trades
@@ -951,7 +956,7 @@
   }
 
   function compareAutoEntries(a, b, sortConfig = AUTO_RESULTS_SORT) {
-    const key = sortConfig && sortConfig.key ? sortConfig.key : 'athDayPct';
+    const key = sortConfig && sortConfig.key ? sortConfig.key : 'winPct';
     const direction = sortConfig && sortConfig.direction ? sortConfig.direction : (AUTO_SORT_DEFAULT_DIRECTION[key] || 'desc');
     const factor = direction === 'asc' ? 1 : -1;
     const va = getAutoResultValue(a, key);
@@ -977,6 +982,8 @@
       case 'athDayPct':
       case 'cagr':
       case 'maxDD':
+      case 'winPct':
+      case 'avgDaily':
         return `${value.toFixed(2)}%`;
       case 'totalPnL':
         return `$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -989,7 +996,7 @@
   }
 
   function getBestAutoMetric(entry, sortConfig = AUTO_RESULTS_SORT) {
-    const key = sortConfig && sortConfig.key ? sortConfig.key : 'athDayPct';
+    const key = sortConfig && sortConfig.key ? sortConfig.key : 'winPct';
     const rawValue = entry ? getAutoResultValue(entry, key) : null;
     const label = AUTO_SORT_LABELS[key] || key;
     if (typeof rawValue === 'string') {
@@ -1343,7 +1350,7 @@
       });
       AUTO_RESULTS_CACHE = new Map();
       AUTO_RESULTS_LIST = [];
-      AUTO_RESULTS_SORT = { key: 'athDayPct', direction: 'desc' };
+      AUTO_RESULTS_SORT = { key: 'winPct', direction: 'desc' };
     } catch (err) {
       console.error('Failed to clear auto results', err);
     }
@@ -1536,7 +1543,7 @@
       if (entry && entry.strategyId) AUTO_RESULTS_CACHE.set(entry.strategyId, entry);
     });
     if (!AUTO_RESULTS_SORT || !AUTO_RESULTS_SORT.key) {
-      AUTO_RESULTS_SORT = { key: 'athDayPct', direction: 'desc' };
+      AUTO_RESULTS_SORT = { key: 'winPct', direction: 'desc' };
     }
     applyAutoResultsSort();
     syncAutoBacktestButton();
@@ -2335,10 +2342,15 @@
       const baseParams = getBacktestParams();
       const topResults = [];
       const limit = 20;
+      const sortConfig = (AUTO_RESULTS_SORT && AUTO_RESULTS_SORT.key)
+        ? { ...AUTO_RESULTS_SORT }
+        : { key: 'winPct', direction: 'desc' };
+      AUTO_RESULTS_SORT = sortConfig;
+      updateAutoSortHeaders();
       const updateTop = (entry) => {
         if (!autoEntryPassesFilters(entry)) return;
         topResults.push(entry);
-        topResults.sort((a, b) => compareAutoEntries(a, b, AUTO_RESULTS_SORT));
+        topResults.sort((a, b) => compareAutoEntries(a, b, sortConfig));
         if (topResults.length > limit) topResults.length = limit;
       };
 
@@ -2375,7 +2387,7 @@
             setAutoStatus(`Pausing auto backtest… finishing current combo (${processed}/${total}, total ${formatAutoRunCount(AUTO_BACKTEST_TOTAL_COUNT)}).`);
           } else if (processed % yieldInterval === 0) {
             const bestEntry = topResults.length ? topResults[0] : null;
-            const bestMetric = getBestAutoMetric(bestEntry, AUTO_RESULTS_SORT);
+            const bestMetric = getBestAutoMetric(bestEntry, sortConfig);
             const bestId = bestEntry && bestEntry.params ? buildStrategyKey(bestEntry.params) : '—';
             setAutoStatus(`Auto backtest (${modeLabel}) ${processed}/${total} (total ${formatAutoRunCount(AUTO_BACKTEST_TOTAL_COUNT)}) (best ${bestMetric.label} ${bestMetric.display}, ${bestId})`);
             await new Promise(resolve => setTimeout(resolve, 0));
@@ -2388,7 +2400,7 @@
       }
 
       const bestEntry = topResults.length ? topResults[0] : null;
-      const bestMetric = getBestAutoMetric(bestEntry, AUTO_RESULTS_SORT);
+      const bestMetric = getBestAutoMetric(bestEntry, sortConfig);
       const bestId = bestEntry && bestEntry.params ? buildStrategyKey(bestEntry.params) : '—';
       const completed = processed === total && !AUTO_BACKTEST_PAUSE_REQUESTED && !hadError;
 
