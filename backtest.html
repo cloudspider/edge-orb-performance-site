@@ -106,7 +106,7 @@
       <p class="text-slate-600 mt-1">Pick a symbol and tweak settings.</p>
     </header>
 
-    <section class="bg-white rounded-2xl shadow-soft p-3 md:p-4">
+    <section id="symbolPicker" class="bg-white rounded-2xl shadow-soft p-3 md:p-4">
       <nav class="flex border-b border-slate-200 gap-1" role="tablist">
         <button type="button" class="inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-700" data-mode-tab="backtest">
           <span class="inline-flex h-5 w-5 items-center justify-center text-slate-400">
@@ -148,11 +148,15 @@
     </section>
 
 
-    <!-- Symbol segmented control + Params -->
-    <section id="symbolPicker" class="bg-white rounded-2xl shadow-soft p-3 md:p-4">
+    <!-- ORB settings -->
+    <section id="orbSettings" class="bg-white rounded-2xl shadow-soft p-3 md:p-4">
       <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h2 class="font-semibold">ORB Settings</h2>
         <div class="flex flex-wrap items-center gap-2 sm:justify-end">
+          <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-500 shadow-sm transition opacity-50 pointer-events-none" id="btnToggleLive" aria-pressed="false" disabled>
+            <span data-live-indicator class="h-2.5 w-2.5 rounded-full bg-slate-300"></span>
+            <span data-live-label>Live: Off</span>
+          </button>
           <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-emerald-500 hover:text-emerald-600" id="btnAddFavorite" aria-pressed="false">
             <i class="fa fa-regular fa-heart"></i>
             <span>Favorite</span>
@@ -451,6 +455,7 @@
           <thead class="bg-slate-50 text-slate-600">
             <tr>
               <th class="px-3 py-2 text-left font-medium">Strategy</th>
+              <th class="px-3 py-2 text-center font-medium">Live</th>
               <th class="px-3 py-2 text-right font-medium">Days</th>
               <th class="px-3 py-2 text-right font-medium">Trades</th>
               <th class="px-3 py-2 text-right font-medium">Win %</th>
@@ -465,7 +470,7 @@
           </thead>
           <tbody id="favoritesTableBody">
             <tr class="border-b last:border-b-0">
-              <td colspan="11" class="px-3 py-4 text-center text-sm text-slate-500">No favorites yet for this symbol.</td>
+              <td colspan="12" class="px-3 py-4 text-center text-sm text-slate-500">No favorites yet for this symbol.</td>
             </tr>
           </tbody>
         </table>
@@ -805,11 +810,12 @@
     let ROWS = [];        // current symbol rows
     let DAY_GROUPS = new Map();
     let DAYS = [];
-    let VIEW_DIR = 'both';
-    let LAST_OUT = null;
-    let CURRENT_STRATEGY_ID = null;
-    let CURRENT_STRATEGY_PARAMS = null;
-    let CURRENT_STRATEGY_FAVORITE = false;
+  let VIEW_DIR = 'both';
+  let LAST_OUT = null;
+  let CURRENT_STRATEGY_ID = null;
+  let CURRENT_STRATEGY_PARAMS = null;
+  let CURRENT_STRATEGY_FAVORITE = false;
+  let CURRENT_STRATEGY_LIVE = false;
   let CURRENT_SYMBOL_FAVORITES = [];
   let CURRENT_MODE_TAB = 'backtest';
   let AUTO_RESULTS_CACHE = new Map();
@@ -1479,7 +1485,7 @@
 
     if (!sorted.length) {
       const tr = document.createElement('tr');
-      tr.innerHTML = '<td colspan="11" class="px-3 py-4 text-center text-sm text-slate-500">No favorites yet for this symbol.</td>';
+      tr.innerHTML = '<td colspan="12" class="px-3 py-4 text-center text-sm text-slate-500">No favorites yet for this symbol.</td>';
       tbody.appendChild(tr);
       highlightFavoriteRow();
       return;
@@ -1511,12 +1517,17 @@
         }
       }
       const strategyId = entry && entry.id ? entry.id : (entry && entry.strategyId ? entry.strategyId : '');
+      const live = !!(entry && entry.live);
+      const liveBadge = live
+        ? '<span class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">On</span>'
+        : '<span class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">Off</span>';
       const tr = document.createElement('tr');
       tr.className = 'border-b last:border-b-0 hover:bg-slate-50';
       tr.dataset.favoriteStrategy = strategyId || '';
 
       tr.innerHTML = `
         <td class="px-3 py-2 font-mono text-xs md:text-sm break-all"><button type="button" class="text-slate-700 hover:text-indigo-600" data-favorite-load="${strategyId || ''}">${strategyId || ''}</button></td>
+        <td class="px-3 py-2 text-center">${liveBadge}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(summary.totalDays)}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(trades.total)}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${formatPercentDisplay(winPct)}</td>
@@ -1785,6 +1796,7 @@
     CURRENT_STRATEGY_ID = entry.strategyId || null;
     CURRENT_STRATEGY_PARAMS = { ...params };
     CURRENT_STRATEGY_FAVORITE = false;
+    CURRENT_STRATEGY_LIVE = false;
     syncFavoriteButton();
     highlightAutoResultRow();
     highlightPortfolioRow();
@@ -2048,6 +2060,7 @@
       CURRENT_STRATEGY_ID = null;
       CURRENT_STRATEGY_PARAMS = null;
       CURRENT_STRATEGY_FAVORITE = false;
+      CURRENT_STRATEGY_LIVE = false;
       syncFavoriteButton();
       loadFavoritesForSymbol(currentTicker).catch(() => {});
       loadAutoResultsForSymbol(currentTicker).catch(() => {});
@@ -2059,6 +2072,36 @@
 
   function setStatus(msg) { const el = document.getElementById('status'); if (el) el.textContent = msg || ''; }
   function setAutoStatus(msg) { const el = document.getElementById('autoResultsStatus'); if (el) el.textContent = msg || ''; }
+
+    function syncLiveButton() {
+      const btn = document.getElementById('btnToggleLive');
+      if (!btn) return;
+      const indicator = btn.querySelector('[data-live-indicator]');
+      const label = btn.querySelector('[data-live-label]');
+      const favoriteActive = !!CURRENT_STRATEGY_FAVORITE;
+      const hasId = !!CURRENT_STRATEGY_ID;
+      const hasResults = Array.isArray(LAST_OUT) && LAST_OUT.length > 0;
+      const enable = favoriteActive && hasId && hasResults;
+      const active = enable && !!CURRENT_STRATEGY_LIVE;
+
+      btn.disabled = !enable;
+      btn.classList.toggle('opacity-50', !enable);
+      btn.classList.toggle('pointer-events-none', !enable);
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+
+      btn.classList.remove('bg-amber-500', 'text-white', 'border-amber-500', 'border-slate-200', 'bg-white', 'text-slate-600', 'text-slate-500');
+      if (active) {
+        btn.classList.add('bg-amber-500', 'text-white', 'border-amber-500');
+      } else {
+        btn.classList.add('border-slate-200', 'bg-white', enable ? 'text-slate-600' : 'text-slate-500');
+      }
+
+      if (indicator) {
+        indicator.classList.toggle('bg-amber-300', active);
+        indicator.classList.toggle('bg-slate-300', !active);
+      }
+      if (label) label.textContent = active ? 'Live: On' : 'Live: Off';
+    }
 
     function syncFavoriteButton() {
       const btn = document.getElementById('btnAddFavorite');
@@ -2079,6 +2122,7 @@
         btn.disabled = true;
         btn.classList.add('opacity-50', 'pointer-events-none');
       }
+      syncLiveButton();
     }
 
   function syncAutoBacktestButton() {
@@ -2177,6 +2221,7 @@
     async function refreshFavoriteState(id) {
       if (!id) {
         CURRENT_STRATEGY_FAVORITE = false;
+        CURRENT_STRATEGY_LIVE = false;
         syncFavoriteButton();
         const select = document.getElementById('favoriteSelect');
         if (select) select.value = '';
@@ -2184,6 +2229,7 @@
       }
       const record = await getStrategyRecord(id);
       CURRENT_STRATEGY_FAVORITE = !!(record && record.favorite);
+      CURRENT_STRATEGY_LIVE = CURRENT_STRATEGY_FAVORITE && !!(record && record.live);
       syncFavoriteButton();
       const select = document.getElementById('favoriteSelect');
       if (select) {
@@ -2285,7 +2331,8 @@
     CURRENT_STRATEGY_ID = record.id || null;
     CURRENT_STRATEGY_PARAMS = { ...params };
     CURRENT_STRATEGY_FAVORITE = !!record.favorite;
-      syncFavoriteButton();
+    CURRENT_STRATEGY_LIVE = CURRENT_STRATEGY_FAVORITE && !!record.live;
+    syncFavoriteButton();
       highlightPortfolioRow();
       const select = document.getElementById('favoriteSelect');
       if (select && CURRENT_STRATEGY_ID) {
@@ -2608,7 +2655,7 @@
       orb_end_time = '15:30',
       entry_cutoff_time = '12:00',
       breakout_buffer = 0.01,
-      min_or_perc = 0.25,
+      min_or_perc = 0.10,
     }) {
       const out = [];
 
@@ -3095,7 +3142,7 @@
 
     async function persistStrategyResult(params, out, opts = {}) {
       if (!params || !Array.isArray(out) || out.length === 0) return;
-      const { force = false, favoriteOverride } = opts;
+      const { force = false, favoriteOverride, liveOverride } = opts;
       if (!isDefaultFilterState() && !force) return;
       const key = buildStrategyKey(params);
       if (!key) return;
@@ -3106,13 +3153,21 @@
       const favoriteFlag = (favoriteOverride != null)
         ? !!favoriteOverride
         : !!(existing && existing.favorite);
+      const liveFlag = favoriteFlag
+        ? ((liveOverride != null) ? !!liveOverride : !!(existing && existing.live))
+        : false;
+
+      const nowIso = new Date().toISOString();
+      const savedAt = existing && existing.savedAt ? existing.savedAt : nowIso;
 
       const record = {
         id: key,
-        savedAt: new Date().toISOString(),
+        savedAt,
+        updatedAt: nowIso,
         params: sanitizeParamsForStorage(params),
         summary: summaryMetrics,
-        favorite: favoriteFlag
+        favorite: favoriteFlag,
+        live: liveFlag
       };
 
       try {
@@ -3356,6 +3411,7 @@
     CURRENT_STRATEGY_ID = null;
     CURRENT_STRATEGY_PARAMS = null;
     CURRENT_STRATEGY_FAVORITE = false;
+    CURRENT_STRATEGY_LIVE = false;
     syncFavoriteButton();
     loadFavoritesForSymbol(currentTicker).catch(() => {});
     try {
@@ -4121,6 +4177,7 @@
       CURRENT_STRATEGY_PARAMS = params;
       CURRENT_STRATEGY_ID = buildStrategyKey(params);
       CURRENT_STRATEGY_FAVORITE = false;
+      CURRENT_STRATEGY_LIVE = false;
       syncFavoriteButton();
       syncAutoBacktestButton();
       highlightAutoResultRow();
@@ -4405,11 +4462,13 @@
         const params = CURRENT_STRATEGY_PARAMS || getBacktestParams();
         if (!params) return;
         const nextFavorite = !CURRENT_STRATEGY_FAVORITE;
+        const nextLive = nextFavorite ? CURRENT_STRATEGY_LIVE : false;
         const statusEl = document.getElementById('status');
         const previousMsg = statusEl ? statusEl.textContent : '';
         try {
-          await persistStrategyResult(params, LAST_OUT, { force: true, favoriteOverride: nextFavorite });
+          await persistStrategyResult(params, LAST_OUT, { force: true, favoriteOverride: nextFavorite, liveOverride: nextLive });
           CURRENT_STRATEGY_FAVORITE = nextFavorite;
+          CURRENT_STRATEGY_LIVE = nextLive;
           syncFavoriteButton();
           const msg = nextFavorite ? 'Marked strategy as favorite.' : 'Removed strategy from favorites.';
           setStatus(msg);
@@ -4428,6 +4487,46 @@
           if (statusEl) {
             setTimeout(() => {
               if (statusEl.textContent === 'Failed to update favorite.') {
+                statusEl.textContent = previousMsg;
+              }
+            }, 3000);
+          }
+        }
+      });
+    })();
+
+    (function initLiveButton(){
+      const btn = document.getElementById('btnToggleLive');
+      if (!btn) return;
+      btn.addEventListener('click', async () => {
+        if (!CURRENT_STRATEGY_ID || !CURRENT_STRATEGY_FAVORITE) return;
+        if (!Array.isArray(LAST_OUT) || LAST_OUT.length === 0) return;
+        const params = CURRENT_STRATEGY_PARAMS || getBacktestParams();
+        if (!params) return;
+        const nextLive = !CURRENT_STRATEGY_LIVE;
+        const statusEl = document.getElementById('status');
+        const previousMsg = statusEl ? statusEl.textContent : '';
+        try {
+          await persistStrategyResult(params, LAST_OUT, { force: true, favoriteOverride: true, liveOverride: nextLive });
+          CURRENT_STRATEGY_LIVE = nextLive;
+          syncLiveButton();
+          const msg = nextLive ? 'Live strategy enabled.' : 'Live strategy disabled.';
+          setStatus(msg);
+          await loadFavoritesForSymbol(currentTicker);
+          if (statusEl) {
+            setTimeout(() => {
+              if (statusEl.textContent === msg) {
+                statusEl.textContent = previousMsg;
+              }
+            }, 2000);
+          }
+        } catch (err) {
+          console.error('Failed to toggle live state', err);
+          setStatus('Failed to update live flag.');
+          await refreshFavoriteState(CURRENT_STRATEGY_ID);
+          if (statusEl) {
+            setTimeout(() => {
+              if (statusEl.textContent === 'Failed to update live flag.') {
                 statusEl.textContent = previousMsg;
               }
             }, 3000);
