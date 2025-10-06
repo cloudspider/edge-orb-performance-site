@@ -132,6 +132,12 @@
           </span>
           <span>Favorites</span>
         </button>
+        <button type="button" class="inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-700" data-mode-tab="live">
+          <span class="inline-flex h-5 w-5 items-center justify-center text-slate-400">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M2 10a8 8 0 0116 0 8 8 0 01-16 0zm5.75-2.5a.75.75 0 000 1.5h4.5a.75.75 0 000-1.5h-4.5zm0 3a.75.75 0 000 1.5h2.5a.75.75 0 000-1.5h-2.5z"/></svg>
+          </span>
+          <span>Live</span>
+        </button>
       </nav>
 
       <div class="flex-1 min-w-0 mt-4">
@@ -439,6 +445,38 @@
           <tbody id="autoResultsTableBody">
             <tr class="border-b last:border-b-0">
               <td colspan="16" class="px-3 py-4 text-center text-sm text-slate-500">No auto backtest results yet.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="livePanel" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 hidden space-y-4" data-tab-panel="live">
+      <div>
+        <h2 class="font-semibold">Live Strategies</h2>
+        <p class="text-sm text-slate-500">Strategies currently marked as live for this symbol.</p>
+      </div>
+      <div class="overflow-x-auto border border-slate-200 rounded-xl max-h-[65vh]">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-50 text-slate-600">
+            <tr>
+              <th class="px-3 py-2 text-left font-medium">Strategy</th>
+              <th class="px-3 py-2 text-center font-medium">Favorite</th>
+              <th class="px-3 py-2 text-right font-medium">Days</th>
+              <th class="px-3 py-2 text-right font-medium">Trades</th>
+              <th class="px-3 py-2 text-right font-medium">Win %</th>
+              <th class="px-3 py-2 text-right font-medium">Total PnL</th>
+              <th class="px-3 py-2 text-right font-medium">Avg Daily %</th>
+              <th class="px-3 py-2 text-right font-medium">CAGR %</th>
+              <th class="px-3 py-2 text-right font-medium">Max DD %</th>
+              <th class="px-3 py-2 text-right font-medium">MAR</th>
+              <th class="px-3 py-2 text-right font-medium">Sortino</th>
+              <th class="px-3 py-2 text-right font-medium">ATH Day %</th>
+            </tr>
+          </thead>
+          <tbody id="liveTableBody">
+            <tr class="border-b last:border-b-0">
+              <td colspan="12" class="px-3 py-4 text-center text-sm text-slate-500">No live strategies yet for this symbol.</td>
             </tr>
           </tbody>
         </table>
@@ -817,6 +855,7 @@
   let CURRENT_STRATEGY_FAVORITE = false;
   let CURRENT_STRATEGY_LIVE = false;
   let CURRENT_SYMBOL_FAVORITES = [];
+  let CURRENT_SYMBOL_LIVE = [];
   let CURRENT_MODE_TAB = 'backtest';
   let AUTO_RESULTS_CACHE = new Map();
   let AUTO_RESULTS_LIST = [];
@@ -1470,6 +1509,15 @@
     });
   }
 
+  function highlightLiveRow() {
+    document.querySelectorAll('[data-live-strategy]').forEach(row => {
+      const active = row.dataset.liveStrategy === CURRENT_STRATEGY_ID && CURRENT_STRATEGY_ID;
+      row.classList.toggle('bg-amber-50', !!active);
+      row.classList.toggle('hover:bg-amber-100', !!active);
+      row.classList.toggle('hover:bg-slate-50', !active);
+    });
+  }
+
   function renderFavoritesTable(entries) {
     const tbody = document.getElementById('favoritesTableBody');
     if (!tbody) return;
@@ -1543,6 +1591,81 @@
     });
 
     highlightFavoriteRow();
+  }
+
+  function renderLiveTable(entries) {
+    const tbody = document.getElementById('liveTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    const sorted = Array.isArray(entries)
+      ? entries.slice().sort((a, b) => {
+          const ta = a && a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+          const tb = b && b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+          return tb - ta;
+        })
+      : [];
+
+    if (!sorted.length) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td colspan="12" class="px-3 py-4 text-center text-sm text-slate-500">No live strategies yet for this symbol.</td>';
+      tbody.appendChild(tr);
+      highlightLiveRow();
+      return;
+    }
+
+    const formatMoneyDisplay = (val) => {
+      const num = Number(val);
+      return Number.isFinite(num) ? `$${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—';
+    };
+    const formatPercentDisplay = (val) => {
+      const num = Number(val);
+      return Number.isFinite(num) ? `${num.toFixed(2)}%` : '—';
+    };
+    const formatNumberDisplay = (val, digits = 2) => {
+      const num = Number(val);
+      return Number.isFinite(num) ? num.toFixed(digits) : '—';
+    };
+
+    sorted.forEach(entry => {
+      const summary = entry && entry.summary ? entry.summary : {};
+      const trades = summary && summary.tradeCounts ? summary.tradeCounts : {};
+      const tradePct = trades && trades.pct ? trades.pct : {};
+      const totalTrades = Number(trades.total);
+      let winPct = Number(tradePct.wins);
+      if (!Number.isFinite(winPct) && Number.isFinite(totalTrades) && totalTrades > 0) {
+        const wins = Number(trades.wins);
+        if (Number.isFinite(wins) && wins >= 0) {
+          winPct = (wins / totalTrades) * 100;
+        }
+      }
+      const strategyId = entry && entry.id ? entry.id : (entry && entry.strategyId ? entry.strategyId : '');
+      const isFavorite = !!(entry && entry.favorite);
+      const favoriteBadge = isFavorite
+        ? '<span class="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">Yes</span>'
+        : '<span class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">No</span>';
+      const tr = document.createElement('tr');
+      tr.className = 'border-b last:border-b-0 hover:bg-slate-50';
+      tr.dataset.liveStrategy = strategyId || '';
+
+      tr.innerHTML = `
+        <td class="px-3 py-2 font-mono text-xs md:text-sm break-all"><button type="button" class="text-slate-700 hover:text-amber-600" data-live-load="${strategyId || ''}">${strategyId || ''}</button></td>
+        <td class="px-3 py-2 text-center">${favoriteBadge}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(summary.totalDays)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(trades.total)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${formatPercentDisplay(winPct)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${formatMoneyDisplay(summary.totalPnL)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${formatPercentDisplay(summary.avgDailyRet)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${formatPercentDisplay(summary.cagrPct)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${formatPercentDisplay(summary.maxDDPct)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${formatNumberDisplay(summary.mar, 2)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${formatNumberDisplay(summary.sortinoRatio, 2)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${formatPercentDisplay(summary.athDayPct)}</td>`;
+
+      tbody.appendChild(tr);
+    });
+
+    highlightLiveRow();
   }
 
   async function loadAutoResultsForSymbol(symbol) {
@@ -1831,6 +1954,33 @@
     }
   }
 
+  async function fetchLiveRunsForSymbol(symbol) {
+    if (symbol === undefined) symbol = null;
+    try {
+      const db = await getDbInstance();
+      if (!db) return [];
+      const runs = await new Promise((resolve, reject) => {
+        const tx = db.transaction(DB_CONFIG.store, 'readonly');
+        const store = tx.objectStore(DB_CONFIG.store);
+        const req = store.getAll();
+        req.onsuccess = () => resolve(Array.isArray(req.result) ? req.result : []);
+        req.onerror = () => reject(req.error || new Error('IndexedDB request failed'));
+        tx.onerror = () => reject(tx.error || new Error('IndexedDB transaction failed'));
+        tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
+      });
+      const targetSym = symbol ? String(symbol).toUpperCase() : null;
+      return runs.filter(r => {
+        if (!r || !r.live) return false;
+        const params = r.params || {};
+        const storedSym = (params.symbol || '').toUpperCase();
+        return targetSym ? storedSym === targetSym : !!storedSym;
+      });
+    } catch (err) {
+      console.error('Failed to fetch live strategies', err);
+      return [];
+    }
+  }
+
   function getPortfolioDbInstance() {
     if (typeof indexedDB === 'undefined') {
       return Promise.reject(new Error('IndexedDB is not available in this environment'));
@@ -2063,6 +2213,7 @@
       CURRENT_STRATEGY_LIVE = false;
       syncFavoriteButton();
       loadFavoritesForSymbol(currentTicker).catch(() => {});
+      loadLiveStrategiesForSymbol().catch(() => {});
       loadAutoResultsForSymbol(currentTicker).catch(() => {});
       highlightTickerButton(currentTicker);
       const autoState = getAutoBacktestState(currentTicker);
@@ -2287,6 +2438,13 @@
       }
     }
 
+    async function loadLiveStrategiesForSymbol() {
+      CURRENT_SYMBOL_LIVE = [];
+      const entries = await fetchLiveRunsForSymbol();
+      CURRENT_SYMBOL_LIVE = entries;
+      renderLiveTable(entries);
+    }
+
   function setDirectionFromFavorite(dir) {
     const seg = document.getElementById('dirSegment');
     const normalized = (dir || 'both').toLowerCase();
@@ -2333,11 +2491,12 @@
     CURRENT_STRATEGY_FAVORITE = !!record.favorite;
     CURRENT_STRATEGY_LIVE = CURRENT_STRATEGY_FAVORITE && !!record.live;
     syncFavoriteButton();
-      highlightPortfolioRow();
-      const select = document.getElementById('favoriteSelect');
-      if (select && CURRENT_STRATEGY_ID) {
-        select.value = CURRENT_STRATEGY_ID;
-      }
+    highlightLiveRow();
+    highlightPortfolioRow();
+    const select = document.getElementById('favoriteSelect');
+    if (select && CURRENT_STRATEGY_ID) {
+      select.value = CURRENT_STRATEGY_ID;
+    }
       await runBacktestIfReady();
     }
 
@@ -3414,6 +3573,7 @@
     CURRENT_STRATEGY_LIVE = false;
     syncFavoriteButton();
     loadFavoritesForSymbol(currentTicker).catch(() => {});
+    loadLiveStrategiesForSymbol().catch(() => {});
     try {
       ensurePortfolioListLoaded();
       const portfolioName = CURRENT_PORTFOLIO_ID || getDefaultPortfolioName();
@@ -4183,6 +4343,7 @@
       highlightAutoResultRow();
       highlightPortfolioRow();
       highlightFavoriteRow();
+      highlightLiveRow();
       renderTable(LAST_OUT);
       renderEquityChart(LAST_OUT);
       renderDrawdownChart(LAST_OUT);
@@ -4350,6 +4511,21 @@
 
     document.addEventListener('click', async (e) => {
       const favLoadBtn = e.target.closest('[data-favorite-load]');
+      const liveLoadBtn = e.target.closest('[data-live-load]');
+      if (liveLoadBtn) {
+        const strategyId = liveLoadBtn.getAttribute('data-live-load');
+        if (strategyId) {
+          const record = Array.isArray(CURRENT_SYMBOL_LIVE)
+            ? CURRENT_SYMBOL_LIVE.find(item => item && (item.id === strategyId || item.strategyId === strategyId))
+            : null;
+          if (record) {
+            try {
+              await applyFavoriteStrategy(record);
+            } catch {}
+          }
+        }
+        return;
+      }
       if (favLoadBtn) {
         const strategyId = favLoadBtn.getAttribute('data-favorite-load');
         if (strategyId) {
@@ -4472,7 +4648,10 @@
           syncFavoriteButton();
           const msg = nextFavorite ? 'Marked strategy as favorite.' : 'Removed strategy from favorites.';
           setStatus(msg);
-          await loadFavoritesForSymbol(currentTicker);
+          await Promise.all([
+            loadFavoritesForSymbol(currentTicker),
+            loadLiveStrategiesForSymbol()
+          ]);
           if (statusEl) {
             setTimeout(() => {
               if (statusEl.textContent === msg) {
@@ -4512,7 +4691,10 @@
           syncLiveButton();
           const msg = nextLive ? 'Live strategy enabled.' : 'Live strategy disabled.';
           setStatus(msg);
-          await loadFavoritesForSymbol(currentTicker);
+          await Promise.all([
+            loadFavoritesForSymbol(currentTicker),
+            loadLiveStrategiesForSymbol()
+          ]);
           if (statusEl) {
             setTimeout(() => {
               if (statusEl.textContent === msg) {
@@ -4826,6 +5008,7 @@
     initAutoSortSelect();
     syncFavoriteButton();
     loadFavoritesForSymbol(currentTicker).catch(()=>{});
+    loadLiveStrategiesForSymbol().catch(()=>{});
     loadAutoResultsForSymbol(currentTicker).catch(()=>{});
     updateTradeSortHeaders();
   </script>
