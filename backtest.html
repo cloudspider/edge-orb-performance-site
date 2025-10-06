@@ -835,6 +835,8 @@
       NQ: { multiplier: 20, maxLeverage: Infinity },
       ES: { multiplier: 50, maxLeverage: Infinity },
       MES: { multiplier: 20, maxLeverage: Infinity },
+      GC: { multiplier: 100, maxLeverage: Infinity },
+      MGC: { multiplier: 10, maxLeverage: Infinity },
     };
 
     const getContractSpec = (symbol) => {
@@ -1012,12 +1014,18 @@
     if (aNull && bNull) return compareAutoEntriesFallback(a, b);
     if (aNull) return 1;
     if (bNull) return -1;
-    if (typeof va === 'string' || typeof vb === 'string') {
-      const cmp = String(va).localeCompare(String(vb), undefined, { numeric: true });
+    let compA = va;
+    let compB = vb;
+    if (key === 'maxDD') {
+      if (typeof compA === 'number' && Number.isFinite(compA)) compA = Math.abs(compA);
+      if (typeof compB === 'number' && Number.isFinite(compB)) compB = Math.abs(compB);
+    }
+    if (typeof compA === 'string' || typeof compB === 'string') {
+      const cmp = String(compA).localeCompare(String(compB), undefined, { numeric: true });
       if (cmp !== 0) return factor * cmp;
-    } else if (va !== vb) {
-      if (va > vb) return factor;
-      if (va < vb) return -factor;
+    } else if (compA !== compB) {
+      if (compA > compB) return factor;
+      if (compA < compB) return -factor;
     }
     return compareAutoEntriesFallback(a, b);
   }
@@ -1450,7 +1458,7 @@
         }
       }
       const winPctDisplay = Number.isFinite(winPct) ? `${winPct.toFixed(2)}%` : '—';
-      const totalPnLDisplay = Number.isFinite(totalPnL) ? `$${totalPnL.toLocaleString()}` : '—';
+      const totalPnLDisplay = Number.isFinite(totalPnL) ? `$${Math.round(totalPnL).toLocaleString()}` : '—';
       const avgDailyDisplay = Number.isFinite(avgDaily) ? `${avgDaily.toFixed(2)}%` : '—';
       const cagrDisplay = Number.isFinite(cagr) ? `${cagr.toFixed(2)}%` : '—';
       const maxDDDisplay = Number.isFinite(maxDD) ? `${maxDD.toFixed(2)}%` : '—';
@@ -1542,7 +1550,9 @@
 
     const formatMoneyDisplay = (val) => {
       const num = Number(val);
-      return Number.isFinite(num) ? `$${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—';
+      if (!Number.isFinite(num)) return '—';
+      const rounded = Math.round(num);
+      return `$${rounded.toLocaleString()}`;
     };
     const formatPercentDisplay = (val) => {
       const num = Number(val);
@@ -1617,7 +1627,9 @@
 
     const formatMoneyDisplay = (val) => {
       const num = Number(val);
-      return Number.isFinite(num) ? `$${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—';
+      if (!Number.isFinite(num)) return '—';
+      const rounded = Math.round(num);
+      return `$${rounded.toLocaleString()}`;
     };
     const formatPercentDisplay = (val) => {
       const num = Number(val);
@@ -3446,7 +3458,9 @@
     };
     const formatMoneyDisplay = (val) => {
       const num = Number(val);
-      return Number.isFinite(num) ? `$${num.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '—';
+      if (!Number.isFinite(num)) return '—';
+      const rounded = Math.round(num);
+      return `$${rounded.toLocaleString()}`;
     };
     const formatPercentDisplay = (val) => {
       const num = Number(val);
