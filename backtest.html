@@ -549,6 +549,7 @@
             <thead class="bg-slate-50 text-slate-600">
               <tr>
                 <th class="px-3 py-2 text-left font-medium">Strategy</th>
+                <th class="px-3 py-2 text-center font-medium">Live</th>
                 <th class="px-3 py-2 text-right font-medium">Days</th>
                 <th class="px-3 py-2 text-right font-medium">Trades</th>
                 <th class="px-3 py-2 text-right font-medium">Win %</th>
@@ -562,7 +563,7 @@
             </thead>
             <tbody id="portfolioTableBody">
               <tr>
-                <td colspan="10" class="px-3 py-4 text-center text-sm text-slate-500">No saved strategies yet.</td>
+                <td colspan="11" class="px-3 py-4 text-center text-sm text-slate-500">No saved strategies yet.</td>
               </tr>
             </tbody>
           </table>
@@ -3458,7 +3459,7 @@
 
     if (!rows.length) {
       const tr = document.createElement('tr');
-      tr.innerHTML = '<td colspan="10" class="px-3 py-4 text-center text-sm text-slate-500">No saved strategies yet.</td>';
+      tr.innerHTML = '<td colspan="11" class="px-3 py-4 text-center text-sm text-slate-500">No saved strategies yet.</td>';
       tbody.appendChild(tr);
       return;
     }
@@ -3478,10 +3479,21 @@
       const idValue = entry && entry.id ? String(entry.id) : '';
       if (idValue) PORTFOLIO_CACHE.set(idValue, entry);
       const displayId = entry && entry.strategyId ? entry.strategyId : (idValue ? idValue.split('::').pop() : '—');
+      const strategyKey = entry && entry.strategyId ? String(entry.strategyId) : (idValue ? String(idValue).split('::').pop() : null);
+      const strategyKeyUpper = strategyKey ? strategyKey.toUpperCase() : '';
+      const isLive = strategyKeyUpper && Array.isArray(CURRENT_SYMBOL_LIVE) && CURRENT_SYMBOL_LIVE.some(item => {
+        if (!item) return false;
+        const liveId = (item.id || item.strategyId || '').toString().toUpperCase();
+        return liveId === strategyKeyUpper;
+      });
+      const liveBadge = isLive
+        ? '<span class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">On</span>'
+        : '<span class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">Off</span>';
       const tr = document.createElement('tr');
       tr.className = 'border-b last:border-b-0 hover:bg-slate-50';
       tr.innerHTML = `
         <td class="px-3 py-2 font-mono text-xs md:text-sm break-all"><button type="button" class="text-slate-700 hover:text-emerald-600" data-portfolio-load="${idValue}">${displayId}</button></td>
+        <td class="px-3 py-2 text-center">${liveBadge}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${formatIntDisplay(summary.totalDays)}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${formatIntDisplay(trades.total)}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${formatPercentDisplay(winPct)}</td>
@@ -3504,6 +3516,7 @@
 
   async function refreshPortfolioTable() {
     ensurePortfolioListLoaded();
+    await loadLiveStrategiesForSymbol();
     const entries = await fetchPortfolioEntries(CURRENT_PORTFOLIO_ID);
     populatePortfolioSelect();
     renderPortfolioTable(entries);
@@ -3573,8 +3586,8 @@
     CURRENT_STRATEGY_LIVE = false;
     syncFavoriteButton();
     loadFavoritesForSymbol(currentTicker).catch(() => {});
-    loadLiveStrategiesForSymbol().catch(() => {});
     try {
+      await loadLiveStrategiesForSymbol();
       ensurePortfolioListLoaded();
       const portfolioName = CURRENT_PORTFOLIO_ID || getDefaultPortfolioName();
       const entries = await fetchPortfolioEntries(portfolioName);
