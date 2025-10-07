@@ -849,18 +849,16 @@
       return `${sign}$${scaledStr}${suffix}`;
     };
 
-    const CONTRACT_SPECS = {
-      MNQ: { multiplier: 2, maxLeverage: Infinity },
-      NQ: { multiplier: 20, maxLeverage: Infinity },
-      ES: { multiplier: 50, maxLeverage: Infinity },
-      MES: { multiplier: 20, maxLeverage: Infinity },
-      GC: { multiplier: 100, maxLeverage: Infinity },
-      MGC: { multiplier: 10, maxLeverage: Infinity },
-    };
-
     const getContractSpec = (symbol) => {
       const sym = (symbol || '').toUpperCase();
-      return CONTRACT_SPECS[sym] || { multiplier: 1, maxLeverage: null };
+      const meta = SYMBOL_META.get(sym);
+      if (meta) {
+        const mul = Number(meta.multiplier);
+        if (Number.isFinite(mul) && mul > 0) {
+          return { multiplier: mul, maxLeverage: null };
+        }
+      }
+      return { multiplier: 1, maxLeverage: null };
     };
 
     // -----------------------------
@@ -870,6 +868,7 @@
     let ROWS = [];        // current symbol rows
     let DAY_GROUPS = new Map();
     let DAYS = [];
+    let SYMBOL_META = new Map();
   let VIEW_DIR = 'both';
   let LAST_OUT = null;
   let CURRENT_STRATEGY_ID = null;
@@ -1842,6 +1841,11 @@
       btn.classList.toggle('focus:outline-none', active);
       btn.classList.toggle('bg-white', !active);
       btn.classList.toggle('hover:bg-slate-100', !active);
+      const nameSpan = btn.querySelector('[data-symbol-name]');
+      if (nameSpan) {
+        nameSpan.classList.toggle('text-slate-200', active);
+        nameSpan.classList.toggle('text-slate-500', !active);
+      }
     });
   }
 
@@ -2342,7 +2346,14 @@
       currentTicker = (sym || '').toUpperCase();
       const titleEl = document.getElementById('mainTitle');
       if (titleEl) {
-        const prefix = currentTicker ? currentTicker + ' - ' : '';
+        let prefix = '';
+        if (currentTicker) {
+          const meta = SYMBOL_META.get(currentTicker);
+          const namePart = meta && meta.name && meta.name.toUpperCase() !== currentTicker
+            ? ` · ${meta.name}`
+            : '';
+          prefix = `${currentTicker}${namePart} - `;
+        }
         const full = prefix + 'ORB Backtest';
         titleEl.textContent = full;
         document.title = full;
@@ -4688,24 +4699,74 @@
     // -----------------------------
     // Symbol segment (existing code with auto-run hook)
     // -----------------------------
+    function normalizeSymbolEntries(entries) {
+      const map = new Map();
+      const ordered = [];
+      if (!Array.isArray(entries)) return { list: ordered, map };
+      for (const entry of entries) {
+        let symbol = '';
+        let name = '';
+        let multiplier = null;
+        if (typeof entry === 'string') {
+          symbol = entry;
+          name = entry;
+        } else if (entry && typeof entry === 'object') {
+          symbol = entry.symbol;
+          name = entry.name || entry.symbol || '';
+          multiplier = entry.multiplier;
+        } else {
+          continue;
+        }
+        symbol = (symbol || '').toUpperCase().trim();
+        if (!symbol || map.has(symbol)) continue;
+        const parsedMultiplier = Number(multiplier);
+        const finalMultiplier = Number.isFinite(parsedMultiplier) && parsedMultiplier > 0 ? parsedMultiplier : 1;
+        const meta = {
+          symbol,
+          name: (typeof name === 'string' && name.trim()) ? name.trim() : symbol,
+          multiplier: finalMultiplier
+        };
+        map.set(symbol, meta);
+        ordered.push(meta);
+      }
+      return { list: ordered, map };
+    }
+
     async function populateTickerSegment() {
       const container = document.getElementById('tickerSegment');
       if (!container) return;
       container.innerHTML = '<span class="px-3 py-1.5 text-sm text-slate-500">Loading…</span>';
-      const render = (symbols) => {
+      const render = (entries) => {
+        const normalized = normalizeSymbolEntries(entries);
+        SYMBOL_META = normalized.map instanceof Map ? normalized.map : new Map();
+        const list = Array.isArray(normalized.list) ? normalized.list : [];
         container.innerHTML = '';
-        symbols.forEach((s, i) => {
+        if (!list.length) {
+          container.innerHTML = '<span class="px-3 py-1.5 text-sm text-slate-500">No symbols available.</span>';
+          highlightTickerButton(currentTicker);
+          return;
+        }
+        list.forEach((meta, i) => {
           const btn = document.createElement('button');
           btn.type = 'button';
-          const cls = 'px-3 py-1.5 text-sm font-medium bg-white hover:bg-slate-100' + (i < symbols.length - 1 ? ' border-r border-slate-200' : '');
-          btn.className = cls; btn.setAttribute('data-symbol', s); btn.textContent = s; container.appendChild(btn);
+          btn.className = 'px-3 py-1.5 text-left bg-white hover:bg-slate-100 flex flex-col leading-tight gap-0.5';
+          if (i < list.length - 1) btn.classList.add('border-r', 'border-slate-200');
+          btn.setAttribute('data-symbol', meta.symbol);
+          btn.setAttribute('title', meta.name);
+          btn.dataset.multiplier = String(meta.multiplier);
+          btn.innerHTML = `
+            <span class="text-sm font-semibold">${meta.symbol}</span>
+            <span class="text-xs text-slate-500" data-symbol-name>${meta.name}</span>
+          `;
+          container.appendChild(btn);
         });
+        highlightTickerButton(currentTicker);
       };
       try {
         const res = await fetch('data/index.json', { cache: 'no-cache' });
         if (res.ok) {
           const list = await res.json();
-          if (Array.isArray(list) && list.length) { render(list.map(s => String(s).toUpperCase())); return; }
+          if (Array.isArray(list) && list.length) { render(list); return; }
         }
       } catch { }
       try {
@@ -4720,8 +4781,8 @@
           } else { files = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean); }
           const regex = /^([A-Za-z0-9-]+)_1m\.csv$/i;
           const syms = [];
-          for (const f of files) { const name = (f || '').split('/').pop(); const m = name.match(regex); if (m) syms.push(m[1].toUpperCase()); }
-          const uniq = Array.from(new Set(syms)); if (uniq.length) { render(uniq); return; }
+          for (const f of files) { const name = (f || '').split('/').pop(); const m = name.match(regex); if (m) syms.push({ symbol: m[1].toUpperCase(), name: m[1].toUpperCase(), multiplier: undefined }); }
+          if (syms.length) { render(syms); return; }
         }
       } catch { }
       render(['TQQQ', 'TSLA', 'PLTR', 'UVXY']);
