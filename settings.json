@@ -1,0 +1,48 @@
+{
+  "site_settings": {
+    "site_name": "EDGE_ORB",
+    "version": "1.0.0"
+  },
+  "sessions": [
+    {
+      "name": "New York",
+      "open_utc": "13:30",
+      "close_utc": "20:00",
+      "open_ny": "09:30",
+      "close_ny": "16:00",
+      "orb_start_ny": "09:30",
+      "orb_end_ny": "15:30",
+      "entry_cutoff_ny": "12:00"
+    },
+    {
+      "name": "London",
+      "open_utc": "07:00",
+      "close_utc": "15:30",
+      "open_ny": "03:00",
+      "close_ny": "11:30",
+      "orb_start_ny": "03:00",
+      "orb_end_ny": "11:00",
+      "entry_cutoff_ny": "07:00"
+    },
+    {
+      "name": "Tokyo",
+      "open_utc": "00:00",
+      "close_utc": "06:00",
+      "open_ny": "20:00",
+      "close_ny": "02:00",
+      "orb_start_ny": "20:00",
+      "orb_end_ny": "01:30",
+      "entry_cutoff_ny": "00:00"
+    },
+    {
+      "name": "Sydney",
+      "open_utc": "22:00",
+      "close_utc": "04:00",
+      "open_ny": "18:00",
+      "close_ny": "00:00",
+      "orb_start_ny": "18:00",
+      "orb_end_ny": "23:30",
+      "entry_cutoff_ny": "22:00"
+    }
+  ]
+}
