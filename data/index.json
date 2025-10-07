@@ -35,6 +35,11 @@
     "multiplier": 1
   },
   {
+    "symbol": "DIA",
+    "name": "SPDR Dow Jones ETF",
+    "multiplier": 1
+  },
+  {
     "symbol": "GLD",
     "name": "SPDR Gold Shares ETF",
     "multiplier": 1

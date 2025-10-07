@@ -849,9 +849,12 @@
       return `${sign}$${scaledStr}${suffix}`;
     };
 
+    const DEFAULT_PRICE_PRECISION = 2;
+
     const getContractSpec = (symbol) => {
       const sym = (symbol || '').toUpperCase();
-      const meta = SYMBOL_META.get(sym);
+      if (!sym) return { multiplier: 1, maxLeverage: null };
+      const meta = ensureSymbolMetaEntry(sym);
       if (meta) {
         const mul = Number(meta.multiplier);
         if (Number.isFinite(mul) && mul > 0) {
@@ -869,6 +872,74 @@
     let DAY_GROUPS = new Map();
     let DAYS = [];
     let SYMBOL_META = new Map();
+
+    function ensureSymbolMetaEntry(symbol) {
+      const sym = (symbol || '').toUpperCase();
+      if (!sym) return null;
+      if (!SYMBOL_META.has(sym)) {
+        SYMBOL_META.set(sym, { symbol: sym, name: sym, multiplier: 1, precision: null });
+      }
+      const meta = SYMBOL_META.get(sym);
+      if (meta && !meta.symbol) meta.symbol = sym;
+      return meta || null;
+    }
+
+    function getSymbolPrecision(symbol) {
+      const sym = (symbol || '').toUpperCase();
+      if (!sym) return DEFAULT_PRICE_PRECISION;
+      const meta = SYMBOL_META.get(sym);
+      const precision = meta && Number.isInteger(meta.precision) && meta.precision >= 0 ? meta.precision : null;
+      return Number.isInteger(precision) ? precision : DEFAULT_PRICE_PRECISION;
+    }
+
+    function fmtPrice(value, symbol = currentTicker) {
+      if (value == null) return '';
+      const num = Number(value);
+      if (!Number.isFinite(num)) return '';
+      const precision = Math.min(Math.max(getSymbolPrecision(symbol), 0), 8);
+      let str = num.toFixed(precision);
+      if (str.startsWith('-0.') && Number(str) === 0) {
+        str = str.slice(1);
+      }
+      return str;
+    }
+
+    function countPriceDecimals(value) {
+      if (!Number.isFinite(value)) return 0;
+      const str = Number(value).toFixed(8).replace(/0+$/,'').replace(/\.$/,'');
+      const idx = str.indexOf('.');
+      return idx >= 0 ? (str.length - idx - 1) : 0;
+    }
+
+    function inferPricePrecisionFromRows(rows) {
+      if (!Array.isArray(rows)) return 0;
+      let maxDecimals = 0;
+      const limit = Math.min(rows.length, 400);
+      for (let i = 0; i < limit; i++) {
+        const row = rows[i];
+        if (!row) continue;
+        const values = [row.open, row.high, row.low, row.close];
+        for (const val of values) {
+          const decimals = countPriceDecimals(val);
+          if (decimals > maxDecimals) maxDecimals = decimals;
+          if (maxDecimals >= 6) return 6;
+        }
+      }
+      return maxDecimals;
+    }
+
+    function updateSymbolPrecisionFromRows(symbol, rows) {
+      const sym = (symbol || '').toUpperCase();
+      if (!sym) return;
+      const inferred = inferPricePrecisionFromRows(rows);
+      const precision = Math.min(inferred > 0 ? inferred : DEFAULT_PRICE_PRECISION, 8);
+      const meta = ensureSymbolMetaEntry(sym);
+      if (meta) {
+        meta.precision = precision;
+        SYMBOL_META.set(sym, meta);
+      }
+    }
+
   let VIEW_DIR = 'both';
   let LAST_OUT = null;
   let CURRENT_STRATEGY_ID = null;
@@ -2348,7 +2419,7 @@
       if (titleEl) {
         let prefix = '';
         if (currentTicker) {
-          const meta = SYMBOL_META.get(currentTicker);
+          const meta = ensureSymbolMetaEntry(currentTicker);
           const namePart = meta && meta.name && meta.name.toUpperCase() !== currentTicker
             ? ` · ${meta.name}`
             : '';
@@ -3098,6 +3169,7 @@
           console.warn('CSV parse warnings:', parsed.errors.slice(0, 3));
         }
         normalizeAndIndex(parsed.data);
+        updateSymbolPrecisionFromRows(sym, parsed.data);
         setStatus(`Loaded ${ROWS.length} rows across ${DAYS.length} day(s).`);
         syncAutoBacktestButton();
         return true;
@@ -4108,17 +4180,17 @@
   const strategyLabel = r.SourceStrategyId || r.StrategyId || '';
   tr.innerHTML = `
   <td class="px-3 py-2">${r.Date}</td>
-  <td class="px-3 py-2 text-right">${fmtNum(r.ORH)}</td>
-  <td class="px-3 py-2 text-right">${fmtNum(r.ORL)}</td>
-  <td class="px-3 py-2 text-right">${fmtNum(OR_val)}</td>
+  <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtPrice(r.ORH)}</td>
+  <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtPrice(r.ORL)}</td>
+  <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtPrice(OR_val)}</td>
   <td class="px-3 py-2 text-right">${fmtPct(OR_pct)}</td>
   <td class="px-3 py-2">${r.Side || ''}</td>
   <td class="px-3 py-2">${fmtTime(r.EntryTime)}</td>
   <td class="px-3 py-2">${fmtTime(r.ExitTime)}</td>
-  <td class="px-3 py-2 text-right">${fmtNum(r.Entry)}</td>
-  <td class="px-3 py-2 text-right">${fmtNum(r.Exit)}</td>
-        <td class="px-3 py-2 text-right">${fmtNum(r.StopPrice)}</td>
-        <td class="px-3 py-2 text-right">${fmtNum(r.TPPrice)}</td>
+  <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtPrice(r.Entry)}</td>
+  <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtPrice(r.Exit)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtPrice(r.StopPrice)}</td>
+        <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtPrice(r.TPPrice)}</td>
         <td class="px-3 py-2">${r.HitType === 'Stop' ? 'Loss' : r.HitType}</td>
         <td class="px-3 py-2 text-right">${Number.isFinite(r.Shares) ? r.Shares : ''}</td>
         <td class="px-3 py-2 text-right">${fmtNum(r.PnL)}</td>
@@ -4719,12 +4791,15 @@
         }
         symbol = (symbol || '').toUpperCase().trim();
         if (!symbol || map.has(symbol)) continue;
+        const existing = SYMBOL_META.get(symbol) || null;
         const parsedMultiplier = Number(multiplier);
-        const finalMultiplier = Number.isFinite(parsedMultiplier) && parsedMultiplier > 0 ? parsedMultiplier : 1;
+        const finalMultiplier = Number.isFinite(parsedMultiplier) && parsedMultiplier > 0 ? parsedMultiplier : (existing && Number.isFinite(existing.multiplier) ? existing.multiplier : 1);
+        const providedPrecision = entry && typeof entry === 'object' && Number.isInteger(entry.precision) && entry.precision >= 0 ? Math.min(entry.precision, 8) : null;
         const meta = {
           symbol,
-          name: (typeof name === 'string' && name.trim()) ? name.trim() : symbol,
-          multiplier: finalMultiplier
+          name: (typeof name === 'string' && name.trim()) ? name.trim() : (existing && existing.name ? existing.name : symbol),
+          multiplier: finalMultiplier,
+          precision: providedPrecision != null ? providedPrecision : (existing && Number.isInteger(existing.precision) ? existing.precision : null)
         };
         map.set(symbol, meta);
         ordered.push(meta);
