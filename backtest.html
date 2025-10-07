@@ -182,7 +182,7 @@
         </div>
       </div>
       <div class="flex items-start gap-4 flex-col md:flex-row">
-  <div class="w-full md:w-full grid grid-cols-3 md:grid-cols-8 gap-3">
+  <div class="w-full md:w-full grid grid-cols-3 md:grid-cols-9 gap-3">
           <label class="block">
             <span class="text-sm text-slate-600">orb_m</span>
             <div class="mt-1 relative">
@@ -293,6 +293,20 @@
                 </button>
                 <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease risk %" data-num-target="inp_risk_pct" data-num-step="-1">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l-4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd"/></svg>
+                </button>
+              </div>
+            </div>
+          </label>
+          <label class="block col-span-3 md:col-span-1">
+            <span class="text-sm text-slate-600">Min OR %</span>
+            <div class="mt-1 relative">
+              <input id="inp_min_or_perc" data-default="0.2" type="number" min="0" max="10" step="0.05" value="0.2" class="w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm" />
+              <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
+                <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase Min OR %" data-num-target="inp_min_or_perc" data-num-step="1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd"/></svg>
+                </button>
+                <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease Min OR %" data-num-target="inp_min_or_perc" data-num-step="-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd"/></svg>
                 </button>
               </div>
             </div>
@@ -1228,6 +1242,7 @@
   setPortfolioContext(false);
 
   const DEFAULT_VIEW_DOW = [1, 2, 3, 4, 5];
+  const DEFAULT_MIN_OR_PERC = 0.2;
   const DB_CONFIG = { name: 'orbBacktestDB', version: 2, store: 'runs', autoStore: 'autoResults' };
   const AUTO_RESULTS_STORE = DB_CONFIG.autoStore;
   const PORTFOLIO_DB_CONFIG = { name: 'orb_portfolio', version: 1, store: 'entries' };
@@ -1928,9 +1943,14 @@
     setInputValue('inp_orb_start', params.orb_start_time ?? params.start_ny);
     setInputValue('inp_orb_end', params.orb_end_time ?? params.end_ny);
     setInputValue('inp_entry_cutoff', params.entry_cutoff_time ?? params.cutoff_time);
+    const autoMinRaw = params.min_or_perc ?? params.min_or_pct;
+    const autoMin = normalizeMinOr(autoMinRaw);
+    const effectiveAutoMin = autoMin != null ? autoMin : DEFAULT_MIN_OR_PERC;
+    setInputValue('inp_min_or_perc', effectiveAutoMin);
     setDirectionFromFavorite(params.direction);
-    CURRENT_STRATEGY_ID = entry.strategyId || null;
-    CURRENT_STRATEGY_PARAMS = { ...params };
+    const canonicalId = canonicalizeStrategyKey(entry.strategyId || '') || null;
+    CURRENT_STRATEGY_ID = canonicalId;
+    CURRENT_STRATEGY_PARAMS = { ...params, min_or_perc: effectiveAutoMin };
     CURRENT_STRATEGY_FAVORITE = false;
     CURRENT_STRATEGY_LIVE = false;
     syncFavoriteButton();
@@ -1945,7 +1965,7 @@
     try {
       const db = await getDbInstance();
       if (!db) return [];
-      const runs = await new Promise((resolve, reject) => {
+      let runs = await new Promise((resolve, reject) => {
         const tx = db.transaction(DB_CONFIG.store, 'readonly');
         const store = tx.objectStore(DB_CONFIG.store);
         const req = store.getAll();
@@ -1954,6 +1974,20 @@
         tx.onerror = () => reject(tx.error || new Error('IndexedDB transaction failed'));
         tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
       });
+      const canonicalized = [];
+      for (const rec of runs) {
+        if (!rec || !rec.id) continue;
+        const canonicalId = canonicalizeStrategyKey(rec.id);
+        if (canonicalId !== rec.id) {
+          const migrated = await migrateStrategyRecord(rec.id, canonicalId, rec);
+          if (migrated) {
+            canonicalized.push(migrated);
+            continue;
+          }
+        }
+        canonicalized.push(rec);
+      }
+      runs = canonicalized;
       const symUpper = String(symbol || '').toUpperCase();
       return runs.filter(r => {
         if (!r || !r.favorite) return false;
@@ -1972,7 +2006,7 @@
     try {
       const db = await getDbInstance();
       if (!db) return [];
-      const runs = await new Promise((resolve, reject) => {
+      let runs = await new Promise((resolve, reject) => {
         const tx = db.transaction(DB_CONFIG.store, 'readonly');
         const store = tx.objectStore(DB_CONFIG.store);
         const req = store.getAll();
@@ -1981,6 +2015,20 @@
         tx.onerror = () => reject(tx.error || new Error('IndexedDB transaction failed'));
         tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
       });
+      const normalizedRuns = [];
+      for (const rec of runs) {
+        if (!rec || !rec.id) continue;
+        const canonicalId = canonicalizeStrategyKey(rec.id);
+        if (canonicalId !== rec.id) {
+          const migrated = await migrateStrategyRecord(rec.id, canonicalId, rec);
+          if (migrated) {
+            normalizedRuns.push(migrated);
+            continue;
+          }
+        }
+        normalizedRuns.push(rec);
+      }
+      runs = normalizedRuns;
       const targetSym = symbol ? String(symbol).toUpperCase() : null;
       return runs.filter(r => {
         if (!r || !r.live) return false;
@@ -2036,10 +2084,77 @@
     return timeStr.replace(':', '.');
   }
 
+  function normalizeMinOr(value) {
+    if (value === undefined || value === null || value === '') return null;
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
+  }
+
+  function defaultMinSegment() {
+    return formatNumberForKey(DEFAULT_MIN_OR_PERC);
+  }
+
+  function canonicalizeStrategyKey(id) {
+    if (!id) return id;
+    const parts = String(id).split('_');
+    if (parts.length < 2) return id;
+    const penultimate = parts[parts.length - 2];
+    if (penultimate !== defaultMinSegment()) return id;
+    const riskPart = parts[parts.length - 1];
+    const baseParts = parts.slice(0, -2);
+    baseParts.push(riskPart);
+    return baseParts.join('_');
+  }
+
+  function keyWithDefaultMin(id) {
+    if (!id) return null;
+    const parts = String(id).split('_');
+    if (parts.length < 2) return null;
+    const defaultSegment = defaultMinSegment();
+    if (parts[parts.length - 2] === defaultSegment) return null;
+    const riskPart = parts.pop();
+    parts.push(defaultSegment);
+    parts.push(riskPart);
+    return parts.join('_');
+  }
+
+  async function migrateStrategyRecord(fromId, toId, record) {
+    if (!fromId || !toId || fromId === toId) return record || null;
+    try {
+      const db = await getDbInstance();
+      if (!db) return record || null;
+      let source = record;
+      if (!source) {
+        source = await getStrategyRecord(fromId);
+        if (!source) return null;
+      }
+      const payload = { ...source, id: toId };
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(DB_CONFIG.store, 'readwrite');
+        const store = tx.objectStore(DB_CONFIG.store);
+        store.delete(fromId);
+        store.put(payload);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error || new Error('IndexedDB transaction failed'));
+        tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
+      });
+      return payload;
+    } catch (err) {
+      console.error('Failed to migrate strategy record', err);
+      return record || null;
+    }
+  }
+
+  function hasOwn(obj, key) {
+    return Object.prototype.hasOwnProperty.call(obj || {}, key);
+  }
+
   function buildStrategyKey(params) {
     if (!params || !params.symbol) return '';
     const dirLetter = params.direction === 'long' ? 'L' : params.direction === 'short' ? 'S' : 'B';
     const riskPct = Number.isFinite(params.risk) ? params.risk * 100 : 0;
+    const hasMinOrParam = hasOwn(params, 'min_or_perc') || hasOwn(params, 'min_or_pct');
+    const normalizedMinOr = hasMinOrParam ? normalizeMinOr(params.min_or_perc ?? params.min_or_pct) : null;
     const parts = [
       (params.symbol || '').toUpperCase(),
       dirLetter,
@@ -2048,9 +2163,12 @@
       formatNumberForKey(params.stop_R),
       formatTimeForKey(params.orb_start_time),
       formatTimeForKey(params.orb_end_time),
-      formatTimeForKey(params.entry_cutoff_time),
-      formatNumberForKey(riskPct)
+      formatTimeForKey(params.entry_cutoff_time)
     ];
+    if (normalizedMinOr != null && Math.abs(normalizedMinOr - DEFAULT_MIN_OR_PERC) > 1e-9) {
+      parts.push(formatNumberForKey(normalizedMinOr));
+    }
+    parts.push(formatNumberForKey(riskPct));
     return parts.join('_');
   }
 
@@ -2068,7 +2186,8 @@
       risk_pct: Number.isFinite(params.risk) ? Number((params.risk * 100).toFixed(4)) : null,
       AUM_0: params.AUM_0,
       commission: params.commission,
-      breakout_buffer: params.breakout_buffer
+      breakout_buffer: params.breakout_buffer,
+      min_or_perc: normalizeMinOr(params.min_or_perc)
     };
   }
 
@@ -2391,17 +2510,33 @@
         if (select) select.value = '';
         return;
       }
-      const record = await getStrategyRecord(id);
+      const canonicalId = canonicalizeStrategyKey(id);
+      let record = await getStrategyRecord(canonicalId);
+      let migrated = false;
+      if (!record) {
+        const legacyId = keyWithDefaultMin(canonicalId);
+        if (legacyId) {
+          const legacyRecord = await getStrategyRecord(legacyId);
+          if (legacyRecord) {
+            record = await migrateStrategyRecord(legacyId, canonicalId, legacyRecord);
+            migrated = true;
+          }
+        }
+      }
+      CURRENT_STRATEGY_ID = canonicalId;
       CURRENT_STRATEGY_FAVORITE = !!(record && record.favorite);
       CURRENT_STRATEGY_LIVE = CURRENT_STRATEGY_FAVORITE && !!(record && record.live);
       syncFavoriteButton();
       const select = document.getElementById('favoriteSelect');
       if (select) {
-        if (CURRENT_STRATEGY_FAVORITE && Array.from(select.options).some(opt => opt.value === id)) {
-          select.value = id;
-        } else if (!CURRENT_STRATEGY_FAVORITE && select.value === id) {
+        if (CURRENT_STRATEGY_FAVORITE && Array.from(select.options).some(opt => opt.value === canonicalId)) {
+          select.value = canonicalId;
+        } else if (!CURRENT_STRATEGY_FAVORITE && select.value === canonicalId) {
           select.value = '';
         }
+      }
+      if (migrated) {
+        await loadFavoritesForSymbol(currentTicker).catch(() => {});
       }
     }
 
@@ -2498,17 +2633,22 @@
       setInputValue('inp_orb_start', params.orb_start_time);
       setInputValue('inp_orb_end', params.orb_end_time);
       setInputValue('inp_entry_cutoff', params.entry_cutoff_time);
+      const favoriteMin = params.min_or_perc ?? params.min_or_pct;
+      const normalizedMin = normalizeMinOr(favoriteMin);
+      const effectiveMin = normalizedMin != null ? normalizedMin : DEFAULT_MIN_OR_PERC;
+      setInputValue('inp_min_or_perc', effectiveMin);
     setDirectionFromFavorite(params.direction);
-    CURRENT_STRATEGY_ID = record.id || null;
-    CURRENT_STRATEGY_PARAMS = { ...params };
+    const canonicalId = canonicalizeStrategyKey(record.id || '') || null;
+    CURRENT_STRATEGY_ID = canonicalId;
+    CURRENT_STRATEGY_PARAMS = { ...params, min_or_perc: effectiveMin };
     CURRENT_STRATEGY_FAVORITE = !!record.favorite;
     CURRENT_STRATEGY_LIVE = CURRENT_STRATEGY_FAVORITE && !!record.live;
     syncFavoriteButton();
     highlightLiveRow();
     highlightPortfolioRow();
     const select = document.getElementById('favoriteSelect');
-    if (select && CURRENT_STRATEGY_ID) {
-      select.value = CURRENT_STRATEGY_ID;
+    if (select && canonicalId) {
+      select.value = canonicalId;
     }
       await runBacktestIfReady();
     }
@@ -2827,7 +2967,7 @@
       orb_end_time = '15:30',
       entry_cutoff_time = '12:00',
       breakout_buffer = 0.01,
-      min_or_perc = 0.10,
+      min_or_perc = 0.2,
     }) {
       const out = [];
 
@@ -4237,7 +4377,7 @@
     // -----------------------------
     // Param handling + run
     // -----------------------------
-    const riskConst = 0.02, AUM0Const = 100000, commissionConst = 0, directionConst = 'both', breakoutBufferConst = 0.01, orbStartConst = '9:30', orbEndConst = '15:30', entryCutoffConst = '12:00';
+    const riskConst = 0.02, AUM0Const = 100000, commissionConst = 0, directionConst = 'both', breakoutBufferConst = 0.01, orbStartConst = '9:30', orbEndConst = '15:30', entryCutoffConst = '12:00', minOrConst = DEFAULT_MIN_OR_PERC;
 
     function computeFilteredDays() {
       if (!Array.isArray(DAYS) || DAYS.length === 0) return [];
@@ -4265,6 +4405,7 @@
       const tStart = document.getElementById('inp_orb_start');
       const tEnd = document.getElementById('inp_orb_end');
       const tCut = document.getElementById('inp_entry_cutoff');
+      const minOr = document.getElementById('inp_min_or_perc');
       const filteredDays = computeFilteredDays();
       return {
         symbol: currentTicker,
@@ -4281,6 +4422,7 @@
         orb_end_time: (tEnd && tEnd.value) ? tEnd.value : orbEndConst,
         entry_cutoff_time: (tCut && tCut.value) ? tCut.value : entryCutoffConst,
         breakout_buffer: breakoutBufferConst,
+        min_or_perc: (()=>{ const v = minOr ? parseFloat(minOr.value) : NaN; return Number.isFinite(v) ? v : minOrConst; })(),
       };
     }
 
@@ -4937,8 +5079,9 @@
       const orb = document.getElementById('inp_orb_m');
       const trg = document.getElementById('inp_target_R');
       const stp = document.getElementById('inp_stop_R');
-  const riskPct = document.getElementById('inp_risk_pct');
-  const aum0 = document.getElementById('inp_aum0');
+      const riskPct = document.getElementById('inp_risk_pct');
+      const aum0 = document.getElementById('inp_aum0');
+      const minOr = document.getElementById('inp_min_or_perc');
       const tStart = document.getElementById('inp_orb_start');
       const tEnd = document.getElementById('inp_orb_end');
       const tCut = document.getElementById('inp_entry_cutoff');
@@ -4979,9 +5122,76 @@
         aum0.addEventListener('input', () => onInputNumber(aum0, 100000, 0, 1000000000));
         aum0.addEventListener('change', () => onChangeNumber(aum0, 100000, 0, 1000000000));
       }
+      if (minOr) {
+        minOr.addEventListener('input', () => onInputNumber(minOr, 0.2, 0, 10));
+        minOr.addEventListener('change', () => onChangeNumber(minOr, 0.2, 0, 10));
+      }
       if (tStart) ['input', 'change'].forEach(evt => tStart.addEventListener(evt, scheduleRun));
       if (tEnd) ['input', 'change'].forEach(evt => tEnd.addEventListener(evt, scheduleRun));
       if (tCut) ['input', 'change'].forEach(evt => tCut.addEventListener(evt, scheduleRun));
+    })();
+
+    // Inline arrow navigation across primary numeric fields
+    (function(){
+      const focusField = (el, position) => {
+        if (!el || typeof el.focus !== 'function') return;
+        const applyFocus = () => {
+          el.focus();
+          try {
+            if (typeof el.setSelectionRange === 'function') {
+              const len = (el.value || '').length;
+              const offset = position === 'start' ? 0 : len;
+              el.setSelectionRange(offset, offset);
+            }
+          } catch (err) {
+            // number inputs may reject setSelectionRange; ignore.
+          }
+        };
+        // Schedule after current event to avoid being overridden by the native handler
+        requestAnimationFrame(applyFocus);
+      };
+
+      const isArrow = (event, key) => {
+        if (!event) return false;
+        const normalized = event.key || '';
+        return normalized === key || normalized === key.replace('Arrow', '');
+      };
+
+      const configs = [
+        { id: 'inp_orb_m', next: 'inp_target_R' },
+        { id: 'inp_target_R', prev: 'inp_orb_m', next: 'inp_stop_R' },
+        { id: 'inp_stop_R', prev: 'inp_target_R', next: 'inp_orb_start' }
+      ];
+
+      configs.forEach(cfg => {
+        const field = document.getElementById(cfg.id);
+        if (!field) return;
+        field.addEventListener('keydown', (event) => {
+          if (event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return;
+          const raw = field.value == null ? '' : String(field.value);
+          let start = raw.length;
+          let end = raw.length;
+          try {
+            const selStart = field.selectionStart;
+            const selEnd = field.selectionEnd;
+            if (typeof selStart === 'number') start = selStart;
+            if (typeof selEnd === 'number') end = selEnd;
+          } catch (err) {
+            // selectionStart/End may be unsupported; default to assuming caret at end
+          }
+
+          if (cfg.next && isArrow(event, 'ArrowRight') && start === end && end === raw.length) {
+            event.preventDefault();
+            focusField(document.getElementById(cfg.next), 'start');
+            return;
+          }
+
+          if (cfg.prev && isArrow(event, 'ArrowLeft') && start === 0 && start === end) {
+            event.preventDefault();
+            focusField(document.getElementById(cfg.prev), 'end');
+          }
+        });
+      });
     })();
 
     // Drawdown toggle handlers
