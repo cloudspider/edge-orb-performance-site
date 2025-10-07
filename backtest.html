@@ -55,15 +55,17 @@
       appearance: textfield;
     }
 
-    /* Allow ticker chips to wrap within their container */
-    #tickerSegment {
+    /* Allow segment controls to wrap within their container */
+    #tickerSegment,
+    #sessionSegment {
       display: flex;
       flex-wrap: wrap;
       max-width: 100%;
       min-width: 0;
       white-space: normal;
     }
-    #tickerSegment button {
+    #tickerSegment button,
+    #sessionSegment button {
       flex: 0 0 auto;
     }
   </style>
@@ -159,6 +161,9 @@
       <div class="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h2 class="font-semibold">ORB Settings</h2>
         <div class="flex flex-wrap items-center gap-2 sm:justify-end">
+          <div id="sessionSegment" class="inline-flex rounded-xl border border-slate-200 bg-white overflow-hidden">
+            <span class="px-3 py-1.5 text-sm text-slate-500">Loading…</span>
+          </div>
           <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-500 shadow-sm transition opacity-50 pointer-events-none" id="btnToggleLive" aria-pressed="false" disabled>
             <span data-live-indicator class="h-2.5 w-2.5 rounded-full bg-slate-300"></span>
             <span data-live-label>Live: Off</span>
@@ -930,6 +935,8 @@
     let VIEW_DOW = new Set([1, 2, 3, 4, 5]); // 1=Mon ... 5=Fri
     let VIEW_MONTHS = new Set(); // empty => all
     let AVAILABLE_MONTHS = [];
+    let SESSION_OPTIONS = [];
+    let CURRENT_SESSION_NAME = null;
   // ECharts instances
   let equityChartInst = null;
   let drawdownChartInst = null;
@@ -1947,6 +1954,7 @@
     const autoMin = normalizeMinOr(autoMinRaw);
     const effectiveAutoMin = autoMin != null ? autoMin : DEFAULT_MIN_OR_PERC;
     setInputValue('inp_min_or_perc', effectiveAutoMin);
+    syncSessionSelectionFromInputs();
     setDirectionFromFavorite(params.direction);
     const canonicalId = canonicalizeStrategyKey(entry.strategyId || '') || null;
     CURRENT_STRATEGY_ID = canonicalId;
@@ -2615,6 +2623,138 @@
       el.value = String(value);
     }
 
+    function normalizeSessionList(rawSessions) {
+      if (!Array.isArray(rawSessions)) return [];
+      const cleaned = [];
+      for (const entry of rawSessions) {
+        if (!entry) continue;
+        const name = typeof entry.name === 'string' ? entry.name.trim() : '';
+        if (!name) continue;
+        const start = typeof entry.orb_start_ny === 'string' && entry.orb_start_ny.trim()
+          ? entry.orb_start_ny.trim()
+          : (typeof entry.start_ny === 'string' ? entry.start_ny.trim() : '');
+        const end = typeof entry.orb_end_ny === 'string' && entry.orb_end_ny.trim()
+          ? entry.orb_end_ny.trim()
+          : (typeof entry.end_ny === 'string' ? entry.end_ny.trim() : '');
+        const cutoff = typeof entry.entry_cutoff_ny === 'string' && entry.entry_cutoff_ny.trim()
+          ? entry.entry_cutoff_ny.trim()
+          : (typeof entry.orb_cutoff === 'string' && entry.orb_cutoff.trim()
+            ? entry.orb_cutoff.trim()
+            : (typeof entry.cutoff_time === 'string' ? entry.cutoff_time.trim() : ''));
+        if (!start || !end || !cutoff) continue;
+        cleaned.push({
+          name,
+          orbStart: start,
+          orbEnd: end,
+          entryCutoff: cutoff,
+        });
+      }
+      return cleaned;
+    }
+
+    function syncSessionSegmentUI() {
+      const container = document.getElementById('sessionSegment');
+      if (!container) return;
+      container.querySelectorAll('button[data-session-name]').forEach(btn => {
+        const name = btn.getAttribute('data-session-name') || '';
+        const active = !!CURRENT_SESSION_NAME && name === CURRENT_SESSION_NAME;
+        btn.classList.toggle('bg-slate-800', active);
+        btn.classList.toggle('text-white', active);
+        btn.classList.toggle('bg-white', !active);
+        btn.classList.toggle('text-slate-600', !active);
+        btn.classList.toggle('hover:bg-slate-100', !active);
+      });
+    }
+
+    function clearSessionSelection() {
+      CURRENT_SESSION_NAME = null;
+      syncSessionSegmentUI();
+    }
+
+    function syncSessionSelectionFromInputs() {
+      if (!SESSION_OPTIONS.length) {
+        clearSessionSelection();
+        return;
+      }
+      const tStart = document.getElementById('inp_orb_start');
+      const tEnd = document.getElementById('inp_orb_end');
+      const tCut = document.getElementById('inp_entry_cutoff');
+      if (!tStart || !tEnd || !tCut) return;
+      const startVal = (tStart.value || '').trim();
+      const endVal = (tEnd.value || '').trim();
+      const cutVal = (tCut.value || '').trim();
+      if (!startVal || !endVal || !cutVal) {
+        clearSessionSelection();
+        return;
+      }
+      const match = SESSION_OPTIONS.find(session =>
+        session
+        && session.orbStart === startVal
+        && session.orbEnd === endVal
+        && session.entryCutoff === cutVal
+      );
+      if (match) {
+        if (CURRENT_SESSION_NAME !== match.name) {
+          setActiveSession(match.name, { applyTimes: false });
+        } else {
+          syncSessionSegmentUI();
+        }
+      } else {
+        clearSessionSelection();
+      }
+    }
+
+    function setActiveSession(name, { applyTimes = true } = {}) {
+      const session = SESSION_OPTIONS.find(item => item && item.name === name);
+      if (!session) {
+        clearSessionSelection();
+        return;
+      }
+      CURRENT_SESSION_NAME = session.name;
+      if (applyTimes) {
+        setInputValue('inp_orb_start', session.orbStart);
+        setInputValue('inp_orb_end', session.orbEnd);
+        setInputValue('inp_entry_cutoff', session.entryCutoff);
+        scheduleRun();
+      }
+      syncSessionSegmentUI();
+    }
+
+    async function populateSessionSegment() {
+      const container = document.getElementById('sessionSegment');
+      if (!container) return;
+      container.innerHTML = '<span class="px-3 py-1.5 text-sm text-slate-500">Loading…</span>';
+      try {
+        const res = await fetch('settings.json', { cache: 'no-cache' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        SESSION_OPTIONS = normalizeSessionList(data && data.sessions);
+        if (!SESSION_OPTIONS.length) {
+          clearSessionSelection();
+          container.innerHTML = '<span class="px-3 py-1.5 text-sm text-slate-500">No sessions configured.</span>';
+          return;
+        }
+        const frag = document.createDocumentFragment();
+        SESSION_OPTIONS.forEach((session, idx) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.textContent = session.name;
+          btn.setAttribute('data-session-name', session.name);
+          btn.classList.add('px-3', 'py-1.5', 'text-sm', 'font-medium', 'bg-white', 'text-slate-600', 'hover:bg-slate-100');
+          if (idx > 0) btn.classList.add('border-l', 'border-slate-200');
+          frag.appendChild(btn);
+        });
+        container.innerHTML = '';
+        container.appendChild(frag);
+        syncSessionSelectionFromInputs();
+      } catch (err) {
+        console.error('Failed to load sessions', err);
+        SESSION_OPTIONS = [];
+        clearSessionSelection();
+        container.innerHTML = '<span class="px-3 py-1.5 text-sm text-rose-600">Failed to load sessions.</span>';
+      }
+    }
+
     async function applyFavoriteStrategy(record) {
       if (!record || !record.params) return;
       const params = record.params;
@@ -2637,19 +2777,20 @@
       const normalizedMin = normalizeMinOr(favoriteMin);
       const effectiveMin = normalizedMin != null ? normalizedMin : DEFAULT_MIN_OR_PERC;
       setInputValue('inp_min_or_perc', effectiveMin);
-    setDirectionFromFavorite(params.direction);
-    const canonicalId = canonicalizeStrategyKey(record.id || '') || null;
-    CURRENT_STRATEGY_ID = canonicalId;
-    CURRENT_STRATEGY_PARAMS = { ...params, min_or_perc: effectiveMin };
-    CURRENT_STRATEGY_FAVORITE = !!record.favorite;
-    CURRENT_STRATEGY_LIVE = CURRENT_STRATEGY_FAVORITE && !!record.live;
-    syncFavoriteButton();
-    highlightLiveRow();
-    highlightPortfolioRow();
-    const select = document.getElementById('favoriteSelect');
-    if (select && canonicalId) {
-      select.value = canonicalId;
-    }
+      syncSessionSelectionFromInputs();
+      setDirectionFromFavorite(params.direction);
+      const canonicalId = canonicalizeStrategyKey(record.id || '') || null;
+      CURRENT_STRATEGY_ID = canonicalId;
+      CURRENT_STRATEGY_PARAMS = { ...params, min_or_perc: effectiveMin };
+      CURRENT_STRATEGY_FAVORITE = !!record.favorite;
+      CURRENT_STRATEGY_LIVE = CURRENT_STRATEGY_FAVORITE && !!record.live;
+      syncFavoriteButton();
+      highlightLiveRow();
+      highlightPortfolioRow();
+      const select = document.getElementById('favoriteSelect');
+      if (select && canonicalId) {
+        select.value = canonicalId;
+      }
       await runBacktestIfReady();
     }
 
@@ -2859,6 +3000,15 @@
       if (!optimizer || (!optimizer.getInitialGridCombos && !optimizer.getSobolBatch)) {
         setAutoStatus('Optimizer module not available.');
         return;
+      }
+
+      const baseParams = getBacktestParams();
+      if (optimizer.configureTimeBounds && baseParams) {
+        optimizer.configureTimeBounds({
+          orbStart: baseParams.orb_start_time ?? baseParams.start_ny,
+          orbEnd: baseParams.orb_end_time ?? baseParams.end_ny,
+          entryCutoff: baseParams.entry_cutoff_time ?? baseParams.cutoff_time
+        });
       }
 
       const state = getAutoBacktestState(currentTicker);
@@ -4578,6 +4728,14 @@
     }
 
     document.addEventListener('click', (e) => {
+      const btn = e.target.closest('#sessionSegment button[data-session-name]');
+      if (!btn) return;
+      const name = btn.getAttribute('data-session-name');
+      if (!name) return;
+      setActiveSession(name);
+    });
+
+    document.addEventListener('click', (e) => {
       const btn = e.target.closest('#tickerSegment button[data-symbol]');
       if (!btn) return;
       const seg = document.getElementById('tickerSegment'); if (!seg) return;
@@ -5126,9 +5284,26 @@
         minOr.addEventListener('input', () => onInputNumber(minOr, 0.2, 0, 10));
         minOr.addEventListener('change', () => onChangeNumber(minOr, 0.2, 0, 10));
       }
-      if (tStart) ['input', 'change'].forEach(evt => tStart.addEventListener(evt, scheduleRun));
-      if (tEnd) ['input', 'change'].forEach(evt => tEnd.addEventListener(evt, scheduleRun));
-      if (tCut) ['input', 'change'].forEach(evt => tCut.addEventListener(evt, scheduleRun));
+      const onTimeInput = () => {
+        clearSessionSelection();
+        scheduleRun();
+      };
+      const onTimeChange = () => {
+        syncSessionSelectionFromInputs();
+        scheduleRun();
+      };
+      if (tStart) {
+        tStart.addEventListener('input', onTimeInput);
+        tStart.addEventListener('change', onTimeChange);
+      }
+      if (tEnd) {
+        tEnd.addEventListener('input', onTimeInput);
+        tEnd.addEventListener('change', onTimeChange);
+      }
+      if (tCut) {
+        tCut.addEventListener('input', onTimeInput);
+        tCut.addEventListener('change', onTimeChange);
+      }
     })();
 
     // Inline arrow navigation across primary numeric fields
@@ -5239,6 +5414,7 @@
     })();
 
     // init
+    populateSessionSegment().catch(()=>{});
     populateTickerSegment().catch(()=>{});
     initModeTabs();
   initSecondaryNav();

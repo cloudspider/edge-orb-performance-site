@@ -3,18 +3,19 @@
 // Exports parameter space definitions and helper utilities; wiring happens later.
 
 const TIME_HELPERS = (() => {
+  const isValid = (timeStr) => typeof timeStr === 'string' && /^\d{1,2}:[0-5]\d$/.test(timeStr);
   const toMinutes = (timeStr) => {
-    if (!timeStr) return 0;
+    if (!isValid(timeStr)) return null;
     const [hh, mm] = timeStr.split(':').map(Number);
-    return (Number.isFinite(hh) ? hh : 0) * 60 + (Number.isFinite(mm) ? mm : 0);
+    return (hh * 60) + mm;
   };
   const toTimeString = (minutes) => {
-    const clampVal = Math.max(0, Math.floor(minutes));
-    const hh = Math.floor(clampVal / 60);
-    const mm = clampVal % 60;
-    return `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
+    const total = Number.isFinite(minutes) ? Math.max(0, Math.min(1439, Math.floor(minutes))) : 0;
+    const hh = Math.floor(total / 60);
+    const mm = total % 60;
+    return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
   };
-  return { toMinutes, toTimeString };
+  return { toMinutes, toTimeString, isValid };
 })();
 
 export const PARAMETER_SPACE = {
@@ -34,6 +35,51 @@ export const INITIAL_GRID = {
   end_ny: ['15:30'],
   direction: ['BOTH']
 };
+
+const DEFAULT_TIME_BOUNDS = {
+  startMin: PARAMETER_SPACE.start_ny.min,
+  startMax: PARAMETER_SPACE.start_ny.max,
+  endMin: PARAMETER_SPACE.end_ny.min,
+  endMax: PARAMETER_SPACE.end_ny.max
+};
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+export function configureTimeBounds({ orbStart, orbEnd, entryCutoff } = {}) {
+  const { toMinutes, toTimeString, isValid } = TIME_HELPERS;
+  const fallbackStartMin = toMinutes(DEFAULT_TIME_BOUNDS.startMin) ?? 570; // 09:30
+  const fallbackStartMax = toMinutes(DEFAULT_TIME_BOUNDS.startMax) ?? 959; // 15:59
+  const fallbackEndMin = toMinutes(DEFAULT_TIME_BOUNDS.endMin) ?? 720; // 12:00
+  const fallbackEndMax = toMinutes(DEFAULT_TIME_BOUNDS.endMax) ?? 959; // 15:59
+
+  const rawStart = isValid(orbStart) ? toMinutes(orbStart) : fallbackStartMin;
+  const rawEnd = isValid(orbEnd) ? toMinutes(orbEnd) : fallbackEndMax;
+  const rawCutoff = isValid(entryCutoff) ? toMinutes(entryCutoff) : fallbackEndMin;
+
+  const startMin = clamp(rawStart, 0, 1439);
+  const endMax = clamp(Math.max(rawEnd, startMin + 1), 0, 1439);
+  const cutoff = clamp(Math.max(rawCutoff, startMin + 1), startMin + 1, endMax);
+
+  const startMax = Math.max(startMin, Math.min(cutoff, endMax - 1));
+  const endMin = Math.max(startMax + 1, cutoff);
+
+  PARAMETER_SPACE.start_ny.min = toTimeString(startMin);
+  PARAMETER_SPACE.start_ny.max = toTimeString(startMax);
+  PARAMETER_SPACE.end_ny.min = toTimeString(endMin);
+  PARAMETER_SPACE.end_ny.max = toTimeString(endMax);
+
+  INITIAL_GRID.start_ny = [toTimeString(startMin)];
+  INITIAL_GRID.end_ny = [toTimeString(endMax)];
+
+  return {
+    startMin: PARAMETER_SPACE.start_ny.min,
+    startMax: PARAMETER_SPACE.start_ny.max,
+    endMin: PARAMETER_SPACE.end_ny.min,
+    endMax: PARAMETER_SPACE.end_ny.max
+  };
+}
 
 export function describeInitialGrid() {
   const counts = Object.values(INITIAL_GRID).map(arr => arr.length);
@@ -142,10 +188,6 @@ class SobolSampler {
   }
 }
 
-function clamp(value, min, max) {
-  return Math.min(max, Math.max(min, value));
-}
-
 function mapUnitToParams(unitVector) {
   const { toMinutes, toTimeString } = TIME_HELPERS;
   const [uOrb, uTp, uSl, uStart, uEnd, uDir] = unitVector;
@@ -217,6 +259,7 @@ if (typeof window !== 'undefined') {
     getInitialGridCombos,
     getSobolBatch,
     SOBOL_DEFAULT_BATCH,
-    mapUnitToParams
+    mapUnitToParams,
+    configureTimeBounds
   };
 }
