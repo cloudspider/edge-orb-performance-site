@@ -56,7 +56,17 @@
     }
 
     /* Allow segment controls to wrap within their container */
-    #tickerSegment,
+    #tickerSegment {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      grid-auto-rows: 1fr;
+      width: 100%;
+      gap: 1px;
+    }
+    #tickerSegment button {
+      width: 100%;
+      height: 100%;
+    }
     #sessionSegment {
       display: flex;
       flex-wrap: wrap;
@@ -64,7 +74,6 @@
       min-width: 0;
       white-space: normal;
     }
-    #tickerSegment button,
     #sessionSegment button {
       flex: 0 0 auto;
     }
@@ -144,8 +153,8 @@
 
       <div class="flex-1 min-w-0 mt-4">
         <div class="flex items-center gap-2 mb-2">
-          <div class="flex-1 min-w-0 overflow-x-auto">
-            <div id="tickerSegment" class="inline-flex min-w-max rounded-xl border border-slate-200 overflow-hidden whitespace-nowrap">
+          <div class="flex-1 min-w-0">
+            <div id="tickerSegment" class="w-full rounded-xl border border-slate-200 bg-slate-200 p-px overflow-hidden">
               <span class="px-3 py-1.5 text-sm text-slate-500">Loading…</span>
             </div>
           </div>
@@ -1916,14 +1925,14 @@
     const upper = (symbol || '').toUpperCase();
     seg.querySelectorAll('button[data-symbol]').forEach(btn => {
       const active = (btn.getAttribute('data-symbol') || '').toUpperCase() === upper;
-      btn.classList.toggle('bg-slate-800', active);
+      btn.classList.toggle('bg-emerald-600', active);
       btn.classList.toggle('text-white', active);
-      btn.classList.toggle('focus:outline-none', active);
+      btn.classList.toggle('hover:bg-emerald-600', active);
       btn.classList.toggle('bg-white', !active);
-      btn.classList.toggle('hover:bg-slate-100', !active);
+      btn.classList.toggle('hover:bg-emerald-50', !active);
       const nameSpan = btn.querySelector('[data-symbol-name]');
       if (nameSpan) {
-        nameSpan.classList.toggle('text-slate-200', active);
+        nameSpan.classList.toggle('text-emerald-100', active);
         nameSpan.classList.toggle('text-slate-500', !active);
       }
     });
@@ -3842,6 +3851,8 @@
       const tr = document.createElement('tr');
       tr.innerHTML = '<td colspan="12" class="px-3 py-4 text-center text-sm text-slate-500">No saved strategies yet.</td>';
       tbody.appendChild(tr);
+      const headerToggle = document.getElementById('portfolioIncludeAll');
+      if (headerToggle) headerToggle.checked = false;
       return;
     }
 
@@ -3937,6 +3948,11 @@
       if (key.startsWith(includePrefix) && !seenIds.has(key)) {
         PORTFOLIO_INCLUDE_STATE.delete(key);
       }
+    }
+    const headerToggle = document.getElementById('portfolioIncludeAll');
+    if (headerToggle) {
+      const checkboxes = Array.from(tbody.querySelectorAll('input[data-portfolio-include]'));
+      headerToggle.checked = checkboxes.length > 0 && checkboxes.every(cb => cb.checked);
     }
     highlightPortfolioRow();
   }
@@ -4887,11 +4903,10 @@
           highlightTickerButton(currentTicker);
           return;
         }
-        list.forEach((meta, i) => {
+        list.forEach((meta) => {
           const btn = document.createElement('button');
           btn.type = 'button';
-          btn.className = 'px-3 py-1.5 text-left bg-white hover:bg-slate-100 flex flex-col leading-tight gap-0.5';
-          if (i < list.length - 1) btn.classList.add('border-r', 'border-slate-200');
+          btn.className = 'w-full h-full px-3 py-2 text-left bg-white hover:bg-emerald-50 transition flex flex-col justify-center gap-0.5 leading-tight';
           btn.setAttribute('data-symbol', meta.symbol);
           btn.setAttribute('title', meta.name);
           btn.dataset.multiplier = String(meta.multiplier);
