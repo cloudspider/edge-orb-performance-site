@@ -10,6 +10,8 @@
     rel="stylesheet"
     href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"
   />
+  <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+  <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
   <!-- Apache ECharts for interactive charts (mobile pinch-zoom supported) -->
   <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
   <!-- PapaParse for CSV parsing -->
@@ -121,32 +123,32 @@
       <div class="overflow-x-auto -mx-3 md:mx-0 px-3 md:px-0">
         <nav class="flex min-w-max border-b border-slate-200 gap-1" role="tablist">
           <button type="button" class="inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-700" data-mode-tab="backtest">
-            <span class="inline-flex h-5 w-5 items-center justify-center text-slate-400">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M6 2a1 1 0 00-1 1v1.382a1 1 0 01-.553.894 4 4 0 000 7.448A1 1 0 015 13.618V15a1 1 0 001 1h2.382a1 1 0 01.894.553 4 4 0 007.448 0A1 1 0 0117 16.382V15a1 1 0 00-1-1h-1.382a1 1 0 01-.894-.553 4 4 0 00-7.448 0A1 1 0 015.382 14H6v-1.382a1 1 0 01.553-.894 4 4 0 000-7.448A1 1 0 016 4.382V3a1 1 0 00-1-1h1z"/></svg>
+            <span class="inline-flex h-8 w-8 items-center justify-center text-slate-400">
+              <ion-icon name="beaker-outline" class="text-2xl"></ion-icon>
             </span>
-            <span>Single Backtest</span>
+            <span>Backtest</span>
           </button>
           <button type="button" class="inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-700" data-mode-tab="auto">
-            <span class="inline-flex h-5 w-5 items-center justify-center text-slate-400">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10.5 2.75a.75.75 0 00-1.5 0V4.6a5.5 5.5 0 00-3.376 9.888l-.955 1.653a.75.75 0 001.302.75l.955-1.653a5.483 5.483 0 002.324.735V17.25a.75.75 0 001.5 0V15.4A5.5 5.5 0 0014.876 5.5l.955-1.653a.75.75 0 00-1.302-.75L13.574 4.6A5.483 5.483 0 0010.5 4.6V2.75z"/></svg>
+            <span class="inline-flex h-8 w-8 items-center justify-center text-slate-400">
+              <ion-icon name="star-outline" class="text-2xl"></ion-icon>
             </span>
             <span>Auto Backtest</span>
           </button>
           <button type="button" class="inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-700" data-mode-tab="portfolio">
-            <span class="inline-flex h-5 w-5 items-center justify-center text-slate-400">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M4 5a2 2 0 00-2 2v2a1 1 0 001 1h.382l.894 5.366A2 2 0 006.254 17h7.492a2 2 0 001.978-1.634L16.618 10H17a1 1 0 001-1V7a2 2 0 00-2-2h-2.5a2.5 2.5 0 00-5 0H4zm4.5-2a1.5 1.5 0 013 0h-3z"/></svg>
+            <span class="inline-flex h-8 w-8 items-center justify-center text-slate-400">
+              <ion-icon name="briefcase-outline" class="text-2xl"></ion-icon>
             </span>
             <span>Portfolio</span>
           </button>
           <button type="button" class="inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-700" data-mode-tab="favorites">
-            <span class="inline-flex h-5 w-5 items-center justify-center text-slate-400">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"/></svg>
+            <span class="inline-flex h-8 w-8 items-center justify-center text-slate-400">
+              <ion-icon name="heart-outline" class="text-2xl"></ion-icon>
             </span>
             <span>Favorites</span>
           </button>
           <button type="button" class="inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-sm font-medium text-slate-500 transition hover:text-slate-700" data-mode-tab="live">
-            <span class="inline-flex h-5 w-5 items-center justify-center text-slate-400">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M2 10a8 8 0 0116 0 8 8 0 01-16 0zm5.75-2.5a.75.75 0 000 1.5h4.5a.75.75 0 000-1.5h-4.5zm0 3a.75.75 0 000 1.5h2.5a.75.75 0 000-1.5h-2.5z"/></svg>
+            <span class="inline-flex h-8 w-8 items-center justify-center text-slate-400">
+              <ion-icon name="pulse-outline" class="text-2xl"></ion-icon>
             </span>
             <span>Live</span>
           </button>
@@ -383,12 +385,6 @@
               <th class="px-3 py-2 text-right font-medium">
                 <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="sortino">
                   <span>Sortino</span>
-                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
-                </button>
-              </th>
-              <th class="px-3 py-2 text-right font-medium">
-                <button type="button" class="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800" data-auto-sort="ulcerPerf">
-                  <span>UPI</span>
                   <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
                 </button>
               </th>
@@ -1001,8 +997,7 @@
     cagr: 'CAGR %',
     maxDD: 'Max DD %',
     winPct: 'Win %',
-    avgDaily: 'Avg Daily %',
-    ulcerPerf: 'UPI'
+    avgDaily: 'Avg Daily %'
   };
   const AUTO_MAX_DD_LIMIT = 30; // percent drawdown ceiling for auto results
   const AUTO_MAX_INDETERMINATE_PCT = 3; // maximum reachable % of indeterminate trades
@@ -1531,7 +1526,7 @@
     if (!Array.isArray(entries) || entries.length === 0) {
       if (statusEl) statusEl.textContent = 'No auto backtest results yet.';
       const tr = document.createElement('tr');
-      tr.innerHTML = '<td colspan="16" class="px-3 py-4 text-center text-sm text-slate-500">No auto backtest results yet.</td>';
+      tr.innerHTML = '<td colspan="15" class="px-3 py-4 text-center text-sm text-slate-500">No auto backtest results yet.</td>';
       tbody.appendChild(tr);
       return;
     }
@@ -1557,7 +1552,6 @@
       const cagr = Number(summary.cagrPct);
       const maxDD = Number(summary.maxDDPct);
       const sortino = Number(summary.sortinoRatio);
-      const ulcerPerf = Number(summary.ulcerPerf);
       const athDayPct = Number(summary.athDayPct);
       const tradeCounts = summary && summary.tradeCounts ? summary.tradeCounts : {};
       const tradePct = tradeCounts && tradeCounts.pct ? tradeCounts.pct : {};
@@ -1575,13 +1569,11 @@
       const cagrDisplay = Number.isFinite(cagr) ? `${cagr.toFixed(2)}%` : '—';
       const maxDDDisplay = Number.isFinite(maxDD) ? `${maxDD.toFixed(2)}%` : '—';
       const sortinoDisplay = Number.isFinite(sortino) ? sortino.toFixed(2) : '—';
-      const ulcerDisplay = Number.isFinite(ulcerPerf) ? ulcerPerf.toFixed(2) : '—';
       const athDayDisplay = Number.isFinite(athDayPct) ? `${athDayPct.toFixed(2)}%` : '—';
 
       tr.innerHTML = `
         <td class="px-3 py-2 font-mono text-xs break-all"><button type="button" class="text-slate-700 hover:text-indigo-600" data-auto-load="${entry.strategyId || ''}">${entry.strategyId || ''}</button></td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${sortinoDisplay}</td>
-        <td class="px-3 py-2 text-right tabular-nums font-mono">${ulcerDisplay}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${Number.isFinite(mar) ? mar.toFixed(2) : ''}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${totalPnLDisplay}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${winPctDisplay}</td>
@@ -1817,8 +1809,6 @@
         return entry && entry.strategyId ? String(entry.strategyId) : '';
       case 'sortino':
         return Number(summary.sortinoRatio);
-      case 'ulcerPerf':
-        return Number(summary.ulcerPerf);
       case 'mar':
         return Number(entry && entry.mar);
       case 'totalPnL':
@@ -3507,10 +3497,6 @@
 
       let cagrPct = 0;
       let maxDDPct = 0;
-      let ulcerIndex = null;
-      let ulcerPerf = null;
-      let painIndexPct = null;
-      let painRatio = null;
       let athDays = 0;
       let athDayPct = null;
       if (out.length > 1) {
@@ -3530,10 +3516,6 @@
         }
         let peak = Number.isFinite(startAUM) ? startAUM : null;
         let mdd = 0;
-        let ddSquares = 0;
-        let ddCount = 0;
-        let painSum = 0;
-        let painCount = 0;
         let totalEquityPoints = 0;
         let athCounter = 0;
         for (const row of out) {
@@ -3551,28 +3533,7 @@
           if (peakValid) {
             const ddPct = ((a / peak) - 1) * 100;
             if (ddPct < mdd) mdd = ddPct;
-            const ddDecimal = Math.max(0, (peak - a) / peak);
-            ddSquares += ddDecimal * ddDecimal;
-            ddCount += 1;
-            painSum += ddDecimal;
-            painCount += 1;
           }
-        }
-        if (ddCount > 0) {
-          const uiDecimal = Math.sqrt(ddSquares / ddCount);
-          ulcerIndex = uiDecimal * 100;
-          const cagrDecimal = Number.isFinite(cagrPct) ? cagrPct / 100 : null;
-          ulcerPerf = (Number.isFinite(cagrDecimal) && uiDecimal > 0) ? cagrDecimal / uiDecimal : null;
-          if (ulcerPerf !== null) {
-            ulcerPerf = Number(ulcerPerf.toFixed(4));
-          }
-          painIndexPct = (painSum / ddCount) * 100;
-          if (!Number.isFinite(painIndexPct)) {
-            painIndexPct = null;
-          }
-        }
-        if (Number.isFinite(cagrPct) && Number.isFinite(painIndexPct) && painIndexPct > 0) {
-          painRatio = cagrPct / painIndexPct;
         }
         if (totalEquityPoints > 0 && totalTrades > 0) {
           athDays = athCounter;
@@ -3598,10 +3559,6 @@
         mar,
         sortinoRatio,
         downsideDeviation: (downsideDeviation != null) ? downsideDeviation : null,
-        ulcerIndex,
-        ulcerPerf,
-        painIndexPct,
-        painRatio,
         athDays,
         athDayPct,
         tradeCounts: {
@@ -3640,16 +3597,16 @@
         maxDDPct,
         mar,
         sortinoRatio,
-        ulcerIndex,
-        ulcerPerf,
-        painIndexPct,
-        painRatio,
         athDays,
         athDayPct,
         tradeCounts
       } = metrics;
       const { total, wins, losses, eodCount, eodWin, eodLoss, indeterminate, pct: tradePct = {} } = tradeCounts;
 
+      const athDaysRounded = Number.isFinite(athDays) ? Math.round(athDays) : null;
+      const athDaysTitle = athDaysRounded != null
+        ? `${fmtInt(athDaysRounded)} ATH day${athDaysRounded === 1 ? '' : 's'}`
+        : 'ATH days unavailable';
       const cards = [
         { label: 'Days Backtested', value: fmtInt(totalDays) },
         { label: 'Final AUM', value: `$${fmtInt(finalAUM)}` },
@@ -3658,19 +3615,15 @@
         { label: 'Total PnL', value: `$${fmtInt(totalPnL)}`, cls: ((totalPnL > 0) ? 'num-pos' : 'num-neg') + ' text-3xl' },
         { label: 'Max DD', value: `${fmtPct(maxDDPct)}%` },
         { label: 'Sortino (ann.)', value: sortinoRatio == null ? '—' : `${fmtNum(sortinoRatio, 2)}x` },
-        { label: 'Ulcer Index', value: ulcerIndex == null ? '—' : `${fmtPct(ulcerIndex)}%` },
-        { label: 'Ulcer Perf (UPI)', value: ulcerPerf == null ? '—' : `${fmtNum(ulcerPerf, 2)}x` },
         { label: 'MAR', value: mar == null ? '—' : `${fmtNum(mar, 2)}x` },
-        { label: 'Pain Index', value: painIndexPct == null ? '—' : `${fmtPct(painIndexPct)}%` },
-        { label: 'Pain Ratio', value: painRatio == null ? '—' : `${fmtNum(painRatio, 2)}x` },
-        { label: 'ATH Days', value: fmtInt(athDays) },
-        { label: 'ATH Day %', value: athDayPct == null ? '—' : `${fmtPct(athDayPct)}%` },
+        { label: 'ATH Day %', value: athDayPct == null ? '—' : `${fmtPct(athDayPct)}%`, title: athDaysTitle },
       ];
 
       const gridHtml = `<div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">${cards.map(c => {
         const baseValCls = 'text-xl font-semibold tabular-nums font-mono text-right';
         const valCls = (c.label === 'Total PnL') ? `${baseValCls} text-3xl pnl-strong` : baseValCls;
-        return `<div class=\"rounded-2xl border p-4\"><div class=\"text-xs text-slate-500\">${c.label}</div><div class=\"${valCls} ${c.cls || ''}\">${c.value}</div></div>`;
+        const titleAttr = c.title ? ` title="${String(c.title).replace(/"/g, '&quot;')}"` : '';
+        return `<div class=\"rounded-2xl border p-4\"${titleAttr}><div class=\"text-xs text-slate-500\">${c.label}</div><div class=\"${valCls} ${c.cls || ''}\">${c.value}</div></div>`;
       }).join('')
         }</div>`;
 
