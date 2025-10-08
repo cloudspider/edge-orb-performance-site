@@ -3177,29 +3177,43 @@
     }
 
     async function loadSymbolData(sym) {
-      if (!sym) return false;
-      setStatus(`Loading data for ${sym}…`);
-      try {
-        const path = `data/${sym}_1m.csv`;
-        const res = await fetch(path, { cache: 'no-cache' });
-        if (!res.ok) throw new Error(`HTTP ${res.status} loading ${path}`);
-        const text = await res.text();
-        const parsed = Papa.parse(text, { header: true, dynamicTyping: true, skipEmptyLines: true });
-        if (parsed.errors && parsed.errors.length) {
-          console.warn('CSV parse warnings:', parsed.errors.slice(0, 3));
+      const baseSymbol = (sym || '').trim();
+      if (!baseSymbol) return false;
+      setStatus(`Loading data for ${baseSymbol}…`);
+      const candidates = Array.from(new Set([
+        baseSymbol,
+        baseSymbol.toUpperCase(),
+        baseSymbol.toLowerCase()
+      ])).filter(Boolean);
+      let lastError = null;
+      for (const candidate of candidates) {
+        const path = `data/${candidate}_1m.csv`;
+        try {
+          const res = await fetch(path, { cache: 'no-cache' });
+          if (!res.ok) {
+            lastError = `HTTP ${res.status} loading ${path}`;
+            continue;
+          }
+          const text = await res.text();
+          const parsed = Papa.parse(text, { header: true, dynamicTyping: true, skipEmptyLines: true });
+          if (parsed.errors && parsed.errors.length) {
+            console.warn('CSV parse warnings:', parsed.errors.slice(0, 3));
+          }
+          normalizeAndIndex(parsed.data);
+          updateSymbolPrecisionFromRows(baseSymbol, parsed.data);
+          setStatus(`Loaded ${ROWS.length} rows across ${DAYS.length} day(s).`);
+          syncAutoBacktestButton();
+          return true;
+        } catch (err) {
+          lastError = err.message || String(err);
+          continue;
         }
-        normalizeAndIndex(parsed.data);
-        updateSymbolPrecisionFromRows(sym, parsed.data);
-        setStatus(`Loaded ${ROWS.length} rows across ${DAYS.length} day(s).`);
-        syncAutoBacktestButton();
-        return true;
-      } catch (err) {
-        console.error(err);
-        setStatus(`Error loading ${sym}: ${err.message}`);
-        ROWS = []; DAY_GROUPS = new Map(); DAYS = [];
-        syncAutoBacktestButton();
-        return false;
       }
+      console.error(`Failed to load ${baseSymbol}: ${lastError || 'not found'}`);
+      setStatus(`Error loading ${baseSymbol}: ${lastError || 'File not found.'}`);
+      ROWS = []; DAY_GROUPS = new Map(); DAYS = [];
+      syncAutoBacktestButton();
+      return false;
     }
 
     // -----------------------------
