@@ -567,6 +567,14 @@
           <table class="min-w-full text-sm">
             <thead class="bg-slate-50 text-slate-600">
               <tr>
+                <th class="px-3 py-2 w-10">
+                  <label class="inline-flex cursor-pointer items-center justify-center">
+                    <input type="checkbox" class="peer sr-only" id="portfolioIncludeAll" aria-label="Toggle all portfolio strategies" checked />
+                    <span class="inline-flex h-5 w-5 select-none items-center justify-center rounded-md border border-slate-300 bg-white text-xs font-bold text-transparent transition peer-checked:border-emerald-500 peer-checked:bg-emerald-500 peer-checked:text-white">
+                      &#10003;
+                    </span>
+                  </label>
+                </th>
                 <th class="px-3 py-2 text-left font-medium">Strategy</th>
                 <th class="px-3 py-2 text-center font-medium">Live</th>
                 <th class="px-3 py-2 text-right font-medium">Days</th>
@@ -582,7 +590,7 @@
             </thead>
             <tbody id="portfolioTableBody">
               <tr>
-                <td colspan="11" class="px-3 py-4 text-center text-sm text-slate-500">No saved strategies yet.</td>
+                <td colspan="12" class="px-3 py-4 text-center text-sm text-slate-500">No saved strategies yet.</td>
               </tr>
             </tbody>
           </table>
@@ -997,6 +1005,7 @@
   let PORTFOLIO_LIST = [];
   let CURRENT_PORTFOLIO_ID = '';
     let PORTFOLIO_CACHE = new Map();
+    let PORTFOLIO_INCLUDE_STATE = new Map();
     const AUTO_BACKTEST_STATE_STORAGE_KEY = 'orbAutoBacktestState_v1';
     let AUTO_BACKTEST_RUNNING = false;
     let AUTO_BACKTEST_PAUSE_REQUESTED = false;
@@ -3825,6 +3834,19 @@
         })
       : [];
 
+    if (!rows.length) {
+      const emptyPrefix = `${CURRENT_PORTFOLIO_ID || getDefaultPortfolioName()}::`;
+      for (const key of Array.from(PORTFOLIO_INCLUDE_STATE.keys())) {
+        if (key.startsWith(emptyPrefix)) PORTFOLIO_INCLUDE_STATE.delete(key);
+      }
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td colspan="12" class="px-3 py-4 text-center text-sm text-slate-500">No saved strategies yet.</td>';
+      tbody.appendChild(tr);
+      return;
+    }
+
+    const seenIds = new Set();
+
     const formatIntDisplay = (val) => {
       const num = Number(val);
       return Number.isFinite(num) ? Math.round(num).toLocaleString() : '—';
@@ -3844,13 +3866,6 @@
       return Number.isFinite(num) ? num.toFixed(digits) : '—';
     };
 
-    if (!rows.length) {
-      const tr = document.createElement('tr');
-      tr.innerHTML = '<td colspan="11" class="px-3 py-4 text-center text-sm text-slate-500">No saved strategies yet.</td>';
-      tbody.appendChild(tr);
-      return;
-    }
-
     for (const entry of rows) {
       const summary = entry && entry.summary ? entry.summary : {};
       const trades = summary && summary.tradeCounts ? summary.tradeCounts : {};
@@ -3864,7 +3879,14 @@
         }
       }
       const idValue = entry && entry.id ? String(entry.id) : '';
-      if (idValue) PORTFOLIO_CACHE.set(idValue, entry);
+      if (idValue) {
+        PORTFOLIO_CACHE.set(idValue, entry);
+        seenIds.add(idValue);
+        if (!PORTFOLIO_INCLUDE_STATE.has(idValue)) {
+          PORTFOLIO_INCLUDE_STATE.set(idValue, true);
+        }
+      }
+      const include = idValue ? PORTFOLIO_INCLUDE_STATE.get(idValue) !== false : true;
       const displayId = entry && entry.strategyId ? entry.strategyId : (idValue ? idValue.split('::').pop() : '—');
       const strategyKey = entry && entry.strategyId ? String(entry.strategyId) : (idValue ? String(idValue).split('::').pop() : null);
       const strategyKeyUpper = strategyKey ? strategyKey.toUpperCase() : '';
@@ -3878,8 +3900,19 @@
         : '<span class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">Off</span>';
       const tr = document.createElement('tr');
       tr.className = 'border-b last:border-b-0 hover:bg-slate-50';
+      if (!include) tr.classList.add('opacity-60');
       tr.innerHTML = `
-        <td class="px-3 py-2 font-mono text-xs md:text-sm break-all"><button type="button" class="text-slate-700 hover:text-emerald-600" data-portfolio-load="${idValue}">${displayId}</button></td>
+        <td class="px-3 py-2 align-top">
+          ${idValue ? `<label class="inline-flex cursor-pointer items-center justify-center">
+            <input type="checkbox" class="peer sr-only" data-portfolio-include="${idValue}" aria-label="Include ${displayId}" ${include ? 'checked' : ''} />
+            <span class="inline-flex h-5 w-5 select-none items-center justify-center rounded-md border border-slate-300 bg-white text-xs font-bold text-transparent transition peer-checked:border-emerald-500 peer-checked:bg-emerald-500 peer-checked:text-white">
+              &#10003;
+            </span>
+          </label>` : ''}
+        </td>
+        <td class="px-3 py-2 font-mono text-xs md:text-sm break-all">
+          <button type="button" class="text-slate-700 hover:text-emerald-600" data-portfolio-load="${idValue}">${displayId}</button>
+        </td>
         <td class="px-3 py-2 text-center">${liveBadge}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${formatIntDisplay(summary.totalDays)}</td>
         <td class="px-3 py-2 text-right tabular-nums font-mono">${formatIntDisplay(trades.total)}</td>
@@ -3896,7 +3929,14 @@
         </td>
       `;
       tr.dataset.portfolioStrategy = entry && entry.strategyId ? entry.strategyId : '';
+      tr.dataset.portfolioInclude = include ? '1' : '0';
       tbody.appendChild(tr);
+    }
+    const includePrefix = `${CURRENT_PORTFOLIO_ID || getDefaultPortfolioName()}::`;
+    for (const key of Array.from(PORTFOLIO_INCLUDE_STATE.keys())) {
+      if (key.startsWith(includePrefix) && !seenIds.has(key)) {
+        PORTFOLIO_INCLUDE_STATE.delete(key);
+      }
     }
     highlightPortfolioRow();
   }
@@ -3923,6 +3963,7 @@
         tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
         req.onerror = () => reject(req.error || new Error('IndexedDB request failed'));
       });
+      PORTFOLIO_INCLUDE_STATE.delete(id);
       return true;
     } catch (err) {
       console.error('Failed to delete portfolio entry', err);
@@ -3957,6 +3998,10 @@
         tx.onabort = () => reject(tx.error || new Error('IndexedDB transaction aborted'));
       });
       PORTFOLIO_CACHE = new Map();
+      const clearedPrefix = `${CURRENT_PORTFOLIO_ID || getDefaultPortfolioName()}::`;
+      for (const key of Array.from(PORTFOLIO_INCLUDE_STATE.keys())) {
+        if (key.startsWith(clearedPrefix)) PORTFOLIO_INCLUDE_STATE.delete(key);
+      }
       return true;
     } catch (err) {
       console.error('Failed to clear portfolio entries', err);
@@ -3991,7 +4036,28 @@
         }
         return;
       }
-      const { trades: combined, strategySeries } = combinePortfolioTrades(entries);
+      const activeEntries = entries.filter(entry => {
+        const idValue = entry && entry.id ? String(entry.id) : '';
+        if (!idValue) return true;
+        if (!PORTFOLIO_INCLUDE_STATE.has(idValue)) return true;
+        return PORTFOLIO_INCLUDE_STATE.get(idValue) !== false;
+      });
+
+      if (!activeEntries.length) {
+        PORTFOLIO_EQUITY_SERIES = null;
+        setPortfolioContext(false);
+        setStatus('All strategies are excluded. Nothing to run.');
+        if (statusEl) {
+          setTimeout(() => {
+            if (statusEl.textContent === 'All strategies are excluded. Nothing to run.') {
+              statusEl.textContent = previousMsg;
+            }
+          }, 3000);
+        }
+        return;
+      }
+
+      const { trades: combined, strategySeries } = combinePortfolioTrades(activeEntries);
       if (!combined.length) {
         PORTFOLIO_EQUITY_SERIES = null;
         setPortfolioContext(false);
@@ -4014,7 +4080,7 @@
       renderDrawdownChart(LAST_OUT);
       renderStreakChart(LAST_OUT);
       renderMonthlyPerf(LAST_OUT);
-      const msg = `Ran ${portfolioName} across ${entries.length} strategies (${combined.length} rows).`;
+      const msg = `Ran ${portfolioName} across ${activeEntries.length} strategies (${combined.length} rows).`;
       setStatus(msg);
       if (statusEl) {
         setTimeout(() => {
@@ -5046,6 +5112,41 @@
             }
           }, 4000);
         }
+      }
+    });
+
+    const portfolioIncludeAll = document.getElementById('portfolioIncludeAll');
+    if (portfolioIncludeAll) {
+      portfolioIncludeAll.addEventListener('change', () => {
+        const tbody = document.getElementById('portfolioTableBody');
+        if (!tbody) return;
+        const allChecked = !!portfolioIncludeAll.checked;
+        const checkboxes = Array.from(tbody.querySelectorAll('input[data-portfolio-include]'));
+        checkboxes.forEach(cb => {
+          cb.checked = allChecked;
+          cb.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+      });
+    }
+
+    document.addEventListener('change', (e) => {
+      const cb = e.target.closest('input[data-portfolio-include]');
+      if (!cb) return;
+      const id = cb.getAttribute('data-portfolio-include');
+      if (!id) return;
+      const include = !!cb.checked;
+      PORTFOLIO_INCLUDE_STATE.set(id, include);
+      const row = cb.closest('tr');
+      if (row) {
+        row.classList.toggle('opacity-60', !include);
+        row.dataset.portfolioInclude = include ? '1' : '0';
+      }
+      const allToggle = document.getElementById('portfolioIncludeAll');
+      if (allToggle) {
+        const tbody = document.getElementById('portfolioTableBody');
+        const checkboxes = tbody ? Array.from(tbody.querySelectorAll('input[data-portfolio-include]')) : [];
+        const allChecked = checkboxes.length > 0 && checkboxes.every(box => box.checked);
+        allToggle.checked = allChecked;
       }
     });
 
