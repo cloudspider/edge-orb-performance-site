@@ -335,7 +335,10 @@
 
     <section id="autoBacktestSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 hidden space-y-4" data-tab-panel="auto">
       <div>
-        <h2 class="font-semibold">Auto Backtest</h2>
+        <h2 class="font-semibold inline-flex items-center gap-2 text-slate-700">
+          <ion-icon name="star-outline" class="text-emerald-500 text-xl"></ion-icon>
+          <span>Auto Backtest</span>
+        </h2>
       </div>
       <div class="flex flex-col gap-2">
         <div class="flex flex-col gap-2">
@@ -479,7 +482,10 @@
 
     <section id="livePanel" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 hidden space-y-4" data-tab-panel="live">
       <div>
-        <h2 class="font-semibold">Live Strategies</h2>
+        <h2 class="font-semibold inline-flex items-center gap-2 text-slate-700">
+          <ion-icon name="pulse-outline" class="text-emerald-500 text-xl"></ion-icon>
+          <span>Live Strategies</span>
+        </h2>
         <p class="text-sm text-slate-500">Strategies currently marked as live for this symbol.</p>
       </div>
       <div class="overflow-x-auto border border-slate-200 rounded-xl max-h-[65vh]">
@@ -511,7 +517,10 @@
 
     <section id="favoritesPanel" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 hidden space-y-4" data-tab-panel="favorites">
       <div>
-        <h2 class="font-semibold">Favorite Strategies</h2>
+        <h2 class="font-semibold inline-flex items-center gap-2 text-slate-700">
+          <ion-icon name="heart-outline" class="text-emerald-500 text-xl"></ion-icon>
+          <span>Favorite Strategies</span>
+        </h2>
         <p class="text-sm text-slate-500">Favorites saved for the currently selected symbol.</p>
       </div>
       <div class="overflow-x-auto border border-slate-200 rounded-xl max-h-[65vh]">
@@ -545,7 +554,10 @@
       <div id="portfolioSection" class="space-y-4">
         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 class="font-semibold">Portfolio</h2>
+            <h2 class="font-semibold inline-flex items-center gap-2 text-slate-700">
+              <ion-icon name="briefcase-outline" class="text-emerald-500 text-xl"></ion-icon>
+              <span>Portfolio</span>
+            </h2>
             <p class="text-sm text-slate-500">Saved backtests are stored locally in IndexedDB.</p>
           </div>
           <div class="flex flex-wrap items-center gap-2 justify-end">
@@ -1026,6 +1038,7 @@
   let equityChartInst = null;
   let drawdownChartInst = null;
   let streakChartInst = null;
+  let dailyOutcomeChartInst = null;
   let PORTFOLIO_EQUITY_SERIES = null;
 
   function getAutoSummary(entry) {
@@ -3586,6 +3599,83 @@
       };
     }
 
+    function formatOutcomeLabel(wins, losses) {
+      const plural = (count, word) => {
+        if (count === 1) return `${count} ${word}`;
+        if (word === 'loss') return `${count} losses`;
+        return `${count} ${word}s`;
+      };
+      if (wins > 0 && losses > 0) {
+        return `${plural(wins, 'win')} / ${plural(losses, 'loss')}`;
+      }
+      if (wins > 0) return plural(wins, 'win');
+      if (losses > 0) return plural(losses, 'loss');
+      return 'No trades';
+    }
+
+    function computeDailyOutcomeDistribution(rows) {
+      if (!Array.isArray(rows) || rows.length === 0) return null;
+      const dayMap = new Map();
+      for (const row of rows) {
+        if (!row) continue;
+        const pnl = Number(row.PnL);
+        if (!Number.isFinite(pnl) || pnl === 0) continue;
+        const rawDate = row.Date || row.EntryTime || row.ExitTime || row.caldt;
+        const dayKey = dateKeyFromStr(rawDate);
+        if (!dayKey) continue;
+        let ref = dayMap.get(dayKey);
+        if (!ref) {
+          ref = { wins: 0, losses: 0 };
+          dayMap.set(dayKey, ref);
+        }
+        if (pnl > 0) ref.wins += 1;
+        else if (pnl < 0) ref.losses += 1;
+      }
+
+      const categoryMap = new Map();
+      let maxTrades = 0;
+      for (const { wins, losses } of dayMap.values()) {
+        const trades = wins + losses;
+        if (trades === 0) continue;
+        maxTrades = Math.max(maxTrades, trades);
+        const key = `${wins}|${losses}`;
+        if (!categoryMap.has(key)) {
+          categoryMap.set(key, { wins, losses, count: 0 });
+        }
+        categoryMap.get(key).count += 1;
+      }
+
+      if (categoryMap.size === 0) return null;
+
+      let totalDays = 0;
+      const categories = Array.from(categoryMap.values()).map(({ wins, losses, count }) => {
+        totalDays += count;
+        return { wins, losses, count };
+      });
+      if (totalDays === 0) return null;
+
+      categories.sort((a, b) => {
+        const diff = (a.wins - a.losses) - (b.wins - b.losses);
+        if (diff !== 0) return diff;
+        const totalDiff = (b.wins + b.losses) - (a.wins + a.losses);
+        if (totalDiff !== 0) return totalDiff;
+        if (b.wins !== a.wins) return b.wins - a.wins;
+        return b.count - a.count;
+      });
+
+      const withPct = categories.map((item) => ({
+        ...item,
+        pct: (item.count / totalDays) * 100,
+        label: formatOutcomeLabel(item.wins, item.losses)
+      }));
+
+      return {
+        totalDays,
+        maxTrades,
+        categories: withPct
+      };
+    }
+
     function renderSummary(out) {
       const summary = document.getElementById('summary');
       if (!summary) return;
@@ -3658,7 +3748,7 @@
       <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(losses)}</td>
       <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(eodCount)}</td>
       <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(eodWin)}</td>
-      <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(eodLoss)}</td>
+          <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtInt(eodLoss)}</td>
             </tr>
             <tr>
       <td class="px-3 py-2 text-slate-600">100.0%</td>
@@ -3674,7 +3764,134 @@
       </div>
     `;
 
-      summary.innerHTML = gridHtml + tableHtml;
+      let chartHtml = '';
+      if (LAST_PORTFOLIO_RUN) {
+        chartHtml = `
+        <div class="rounded-2xl border p-4 mt-4 sm:col-span-2 lg:col-span-2">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold text-slate-600">Daily Outcome Distribution</h3>
+            <span id="dailyOutcomeMeta" class="text-xs text-slate-500"></span>
+          </div>
+          <div id="dailyOutcomeChart" class="h-72 w-full"></div>
+        </div>`;
+      }
+
+      summary.innerHTML = gridHtml + tableHtml + chartHtml;
+      if (LAST_PORTFOLIO_RUN) {
+        requestAnimationFrame(() => renderDailyOutcomeChart(out));
+      } else if (dailyOutcomeChartInst) {
+        try { dailyOutcomeChartInst.dispose(); } catch {}
+        dailyOutcomeChartInst = null;
+      }
+    }
+
+    function renderDailyOutcomeChart(rows) {
+      const container = document.getElementById('dailyOutcomeChart');
+      const metaEl = document.getElementById('dailyOutcomeMeta');
+      if (!container) {
+        if (dailyOutcomeChartInst) {
+          try { dailyOutcomeChartInst.dispose(); } catch {}
+          dailyOutcomeChartInst = null;
+        }
+        return;
+      }
+      const distribution = computeDailyOutcomeDistribution(rows);
+      if (!distribution || !distribution.categories.length) {
+        if (metaEl) metaEl.textContent = 'Not enough data to chart daily outcomes.';
+        container.innerHTML = '<div class="text-sm text-slate-500">Not enough data to chart daily outcomes.</div>';
+        if (dailyOutcomeChartInst) {
+          try { dailyOutcomeChartInst.dispose(); } catch {}
+          dailyOutcomeChartInst = null;
+        }
+        return;
+      }
+
+      const { totalDays, maxTrades, categories } = distribution;
+      const metaParts = [];
+      metaParts.push(`${totalDays} day${totalDays === 1 ? '' : 's'}`);
+      if (maxTrades > 0) {
+        metaParts.push(`Up to ${maxTrades} trade${maxTrades === 1 ? '' : 's'}/day`);
+      }
+      metaParts.push('Zero-PnL trades excluded');
+      if (metaEl) metaEl.textContent = metaParts.join(' • ');
+
+      const labels = categories.map(item => item.label);
+      const rotation = labels.length > 6 ? 24 : 0;
+      const seriesData = categories.map(item => ({
+        value: Number(item.pct.toFixed(2)),
+        count: item.count,
+        wins: item.wins,
+        losses: item.losses
+      }));
+      const tooltipFormatter = (params) => {
+        if (!Array.isArray(params) || !params.length) return '';
+        const p = params[0];
+        const data = p.data || {};
+        const pctVal = Number.isFinite(p.value) ? Number(p.value).toFixed(2) : '0.00';
+        const count = Number.isFinite(data.count) ? data.count : 0;
+        const wins = Number.isFinite(data.wins) ? data.wins : 0;
+        const losses = Number.isFinite(data.losses) ? data.losses : 0;
+        const winLabel = `${wins} win${wins === 1 ? '' : 's'}`;
+        const lossLabel = `${losses} loss${losses === 1 ? '' : 's'}`;
+        return `
+          <div><strong>${p.name}</strong></div>
+          <div>${pctVal}% of days</div>
+          <div>${count} day${count === 1 ? '' : 's'} (${winLabel}, ${lossLabel})</div>
+        `;
+      };
+
+      if (dailyOutcomeChartInst && dailyOutcomeChartInst.getDom && dailyOutcomeChartInst.getDom() !== container) {
+        try { dailyOutcomeChartInst.dispose(); } catch {}
+        dailyOutcomeChartInst = null;
+      }
+      if (!dailyOutcomeChartInst) {
+        container.innerHTML = '';
+        dailyOutcomeChartInst = echarts.init(container);
+      }
+
+      const option = {
+        animation: true,
+        grid: { left: 60, right: 20, top: 40, bottom: 80 },
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: { type: 'shadow' },
+          formatter: tooltipFormatter
+        },
+        xAxis: {
+          type: 'category',
+          data: labels,
+          axisLabel: { interval: 0, rotate: rotation }
+        },
+        yAxis: {
+          type: 'value',
+          name: 'Percent of days',
+          axisLabel: { formatter: (val) => `${val}%` },
+          splitLine: { show: true, lineStyle: { type: 'dashed', color: '#cbd5f5' } }
+        },
+        series: [{
+          name: 'Daily outcomes',
+          type: 'bar',
+          data: seriesData,
+          barWidth: '50%',
+          itemStyle: {
+            borderRadius: [8, 8, 0, 0],
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: '#fbbf24' },
+              { offset: 0.6, color: '#f59e0b' },
+              { offset: 1, color: '#d97706' }
+            ])
+          },
+          label: {
+            show: true,
+            position: 'top',
+            formatter: ({ value }) => `${Number(value).toFixed(1)}%`,
+            color: '#334155',
+            fontSize: 11
+          }
+        }]
+      };
+
+      dailyOutcomeChartInst.setOption(option, true);
     }
 
     async function persistStrategyResult(params, out, opts = {}) {
@@ -4822,6 +5039,7 @@
       try { if (equityChartInst) equityChartInst.resize(); } catch {}
       try { if (drawdownChartInst) drawdownChartInst.resize(); } catch {}
       try { if (streakChartInst) streakChartInst.resize(); } catch {}
+      try { if (dailyOutcomeChartInst) dailyOutcomeChartInst.resize(); } catch {}
     });
 
     // -----------------------------
