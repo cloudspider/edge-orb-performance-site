@@ -1974,10 +1974,15 @@
       btn.classList.toggle('text-slate-500', !active);
       btn.classList.toggle('border-blue-500', active);
       btn.classList.toggle('border-transparent', !active);
-      const icon = btn.querySelector('span > svg');
-      if (icon) {
-        icon.classList.toggle('text-blue-500', active);
+      const iconWrapper = btn.querySelector('span.inline-flex');
+      if (iconWrapper) {
+        iconWrapper.classList.toggle('text-emerald-500', active);
+        iconWrapper.classList.toggle('text-slate-400', !active);
       }
+      btn.querySelectorAll('span > svg, span > ion-icon').forEach(icon => {
+        icon.classList.toggle('text-emerald-500', active);
+        icon.classList.toggle('text-slate-400', !active);
+      });
     });
     document.querySelectorAll('[data-tab-panel]').forEach(panel => {
       const active = panel.getAttribute('data-tab-panel') === name;
