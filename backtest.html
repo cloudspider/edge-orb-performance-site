@@ -346,19 +346,22 @@
             <div class="flex items-center gap-2 text-sm text-slate-600">
               <span>Rank by</span>
               <div class="relative min-w-[180px]">
-              <select id="autoSortSelect" class="appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-8 py-2 text-sm text-slate-600 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60 w-full">
-                  <option value="winPct">Win %</option>
-                  <option value="athDayPct">ATH Day %</option>
-                  <option value="sortino">Sortino</option>
-                  <option value="mar">MAR</option>
-                  <option value="totalPnL">Total PnL</option>
-                  <option value="cagr">CAGR</option>
-                  <option value="maxDD">Max DD</option>
-              </select>
+                <select id="autoSortSelect" class="appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-8 py-2 text-sm text-slate-600 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60 w-full">
+                    <option value="winPct">Win %</option>
+                    <option value="athDayPct">ATH Day %</option>
+                    <option value="sortino">Sortino</option>
+                    <option value="mar">MAR</option>
+                    <option value="totalPnL">Total PnL</option>
+                    <option value="cagr">CAGR</option>
+                    <option value="maxDD">Max DD</option>
+                </select>
                 <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
                 </span>
               </div>
+              <button id="btnAutoConfig" type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-emerald-500 hover:text-emerald-600 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" title="Configure" aria-pressed="false">
+                <ion-icon name="construct-outline" class="text-lg"></ion-icon>
+              </button>
             </div>
             <div class="flex items-center gap-2">
               <button type="button" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-indigo-500 hover:text-indigo-600 opacity-50 pointer-events-none" id="btnAutoBacktest" disabled data-state="idle">
@@ -374,6 +377,174 @@
           </div>
           <div class="text-xs text-slate-500" id="autoResultsStatus">No auto backtest results yet.</div>
         </div>
+      </div>
+      <div id="autoConfigPanel" class="hidden rounded-2xl border border-dashed border-emerald-300 bg-emerald-50/40 p-4">
+        <div class="mt-4">
+          <div class="mt-2 grid grid-cols-5 gap-4">
+
+            <!-- Column 1 -->
+            <div class="mt-2 space-y-2">
+              <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Configure ORB Window</h4>
+              <label class="block text-xs text-slate-600">
+                <span class="font-semibold text-slate-700">Min (minutes)</span>
+                <div class="mt-1 relative">
+                  <input id="autoOrbMin" type="number" min="1" max="120" step="1" value="5" class="w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm font-mono" />
+                  <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
+                    <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase ORB min" data-num-target="autoOrbMin" data-num-step="5">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd"/></svg>
+                    </button>
+                    <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease ORB min" data-num-target="autoOrbMin" data-num-step="-5">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </label>
+              <label class="block text-xs text-slate-600">
+                <span class="font-semibold text-slate-700">Max (minutes)</span>
+                <div class="mt-1 relative">
+                  <input id="autoOrbMax" type="number" min="5" max="240" step="5" value="60" class="w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm font-mono" />
+                  <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
+                    <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase ORB max" data-num-target="autoOrbMax" data-num-step="5">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd"/></svg>
+                    </button>
+                    <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease ORB max" data-num-target="autoOrbMax" data-num-step="-5">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </label>
+              <label class="block text-xs text-slate-600">
+                <span class="font-semibold text-slate-700">Step (minutes)</span>
+                <div class="mt-1 relative">
+                  <input id="autoOrbStep" type="number" min="1" max="30" step="1" value="5" class="w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm font-mono" />
+                  <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
+                    <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase ORB step" data-num-target="autoOrbStep" data-num-step="1">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd"/></svg>
+                    </button>
+                    <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease ORB step" data-num-target="autoOrbStep" data-num-step="-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </label>
+            </div>
+
+            <!-- Column 2 -->
+            <div class="mt-2 space-y-2">
+              <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Configure Target</h4>
+              <label class="block text-xs text-slate-600">
+                <span class="font-semibold text-slate-700">R</span>
+                <div class="mt-1 relative">
+                  <input id="autoTargetMin" type="number" min="0.1" max="20" step="0.1" value="0.3" class="w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm font-mono" />
+                  <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
+                    <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase ORB min" data-num-target="autoTargetMin" data-num-step="1">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd"/></svg>
+                    </button>
+                    <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease ORB min" data-num-target="autoTargetMin" data-num-step="-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </label>
+              <label class="block text-xs text-slate-600">
+                <span class="font-semibold text-slate-700">Stop</span>
+                <div class="mt-1 relative">
+                  <input id="autoTargetMax" type="number" min="0.1" max="20" step="0.1" value="2" class="w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm font-mono" />
+                  <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
+                    <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase ORB max" data-num-target="autoTargetMax" data-num-step="1">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd"/></svg>
+                    </button>
+                    <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease ORB max" data-num-target="autoTargetMax" data-num-step="-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </label>
+              <label class="block text-xs text-slate-600">
+                <span class="font-semibold text-slate-700">Step</span>
+                <div class="mt-1 relative">
+                  <input id="autoTargetStep" type="number" min="0.1" max="1" step="0.1" value="0.1" class="w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm font-mono" />
+                  <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
+                    <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase Target step" data-num-target="autoTargetStep" data-num-step="1">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd"/></svg>
+                    </button>
+                    <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease Target step" data-num-target="autoTargetStep" data-num-step="-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </label>
+            </div>
+
+            <!-- Column 3 -->
+            <div class="mt-2 space-y-2">
+              <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Configure Stop</h4>
+              <label class="block text-xs text-slate-600">
+                <span class="font-semibold text-slate-700">R</span>
+                <div class="mt-1 relative">
+                  <input id="autoStopMin" type="number" min="0.1" max="20" step="0.1" value="0.3" class="w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm font-mono" />
+                  <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
+                    <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase Stop min" data-num-target="autoStopMin" data-num-step="1">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd"/></svg>
+                    </button>
+                    <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease Stop min" data-num-target="autoStopMin" data-num-step="-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </label>
+              <label class="block text-xs text-slate-600">
+                <span class="font-semibold text-slate-700">Stop</span>
+                <div class="mt-1 relative">
+                  <input id="autoStopMax" type="number" min="0.1" max="20" step="0.1" value="2" class="w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm font-mono" />
+                  <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
+                    <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase Stop max" data-num-target="autoStopMax" data-num-step="1">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd"/></svg>
+                    </button>
+                    <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease Stop max" data-num-target="autoStopMax" data-num-step="-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </label>
+              <label class="block text-xs text-slate-600">
+                <span class="font-semibold text-slate-700">Step</span>
+                <div class="mt-1 relative">
+                  <input id="autoStopStep" type="number" min="0.1" max="1" step="0.1" value="0.1" class="w-full appearance-none bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm font-mono" />
+                  <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
+                    <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase Stop step" data-num-target="autoStopStep" data-num-step="0.1">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd"/></svg>
+                    </button>
+                    <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease Stop step" data-num-target="autoStopStep" data-num-step="-0.1">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </label>
+            </div>
+
+            <!-- Column 4 - Placeholder -->
+            <div>
+              <label class="block text-xs text-slate-600">
+                <span class="font-semibold text-slate-700">Placeholder 4</span>
+                <div class="mt-1">
+                  <div class="w-full h-[38px] bg-slate-100 rounded-xl border border-slate-300 flex items-center justify-center text-slate-400 text-sm">Placeholder</div>
+                </div>
+              </label>
+            </div>
+
+            <!-- Column 5 - Placeholder -->
+            <div>
+              <label class="block text-xs text-slate-600">
+                <span class="font-semibold text-slate-700">Placeholder 5</span>
+                <div class="mt-1">
+                  <div class="w-full h-[38px] bg-slate-100 rounded-xl border border-slate-300 flex items-center justify-center text-slate-400 text-sm">Placeholder</div>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+
       </div>
       <div class="overflow-x-auto border border-slate-200 rounded-xl max-h-96">
         <table class="min-w-full text-sm">
@@ -1018,6 +1189,7 @@
   const AUTO_INDET_CACHE = new WeakMap();
   let AUTO_BACKTEST_TOTAL_COUNT = 0;
   let LAST_PORTFOLIO_RUN = false;
+  let AUTO_CONFIG_EXPANDED = false;
   const PORTFOLIO_LIST_STORAGE_KEY = 'orbPortfolioList_v1';
   const PORTFOLIO_ACTIVE_STORAGE_KEY = 'orbPortfolioActive_v1';
   let PORTFOLIO_LIST = [];
@@ -2029,6 +2201,30 @@
       });
     });
     syncSecondaryNav(CURRENT_MODE_TAB);
+  }
+
+  function setAutoConfigExpanded(expanded) {
+    AUTO_CONFIG_EXPANDED = !!expanded;
+    const panel = document.getElementById('autoConfigPanel');
+    const btn = document.getElementById('btnAutoConfig');
+    if (panel) {
+      panel.classList.toggle('hidden', !AUTO_CONFIG_EXPANDED);
+    }
+    if (btn) {
+      btn.setAttribute('aria-pressed', AUTO_CONFIG_EXPANDED ? 'true' : 'false');
+      btn.classList.toggle('border-emerald-500', AUTO_CONFIG_EXPANDED);
+      btn.classList.toggle('text-emerald-600', AUTO_CONFIG_EXPANDED);
+      btn.classList.toggle('bg-emerald-50', AUTO_CONFIG_EXPANDED);
+    }
+  }
+
+  function initAutoConfigPanel() {
+    const btn = document.getElementById('btnAutoConfig');
+    setAutoConfigExpanded(false);
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      setAutoConfigExpanded(!AUTO_CONFIG_EXPANDED);
+    });
   }
 
   async function applyAutoResult(entry) {
@@ -5861,7 +6057,8 @@
     populateSessionSegment().catch(()=>{});
     populateTickerSegment().catch(()=>{});
     initModeTabs();
-  initSecondaryNav();
+    initSecondaryNav();
+    initAutoConfigPanel();
     initAutoSortSelect();
     syncFavoriteButton();
     loadFavoritesForSymbol(currentTicker).catch(()=>{});
