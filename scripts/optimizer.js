@@ -19,7 +19,7 @@ const TIME_HELPERS = (() => {
 })();
 
 export const PARAMETER_SPACE = {
-  orb_m: { type: 'int', min: 1, max: 60 },
+  orb_m: { type: 'int', min: 1, max: 60, step: 1 },
   tp_R: { type: 'float', min: 0.1, max: 8.0, step: 0.1 },
   sl_R: { type: 'float', min: 0.1, max: 8.0, step: 0.1 },
   start_ny: { type: 'time', min: '09:30', max: '15:59' },
@@ -191,7 +191,19 @@ class SobolSampler {
 function mapUnitToParams(unitVector) {
   const { toMinutes, toTimeString } = TIME_HELPERS;
   const [uOrb, uTp, uSl, uStart, uEnd, uDir] = unitVector;
-  const orb = Math.round(PARAMETER_SPACE.orb_m.min + uOrb * (PARAMETER_SPACE.orb_m.max - PARAMETER_SPACE.orb_m.min));
+  const orbRange = PARAMETER_SPACE.orb_m;
+  const orbMin = Number.isFinite(orbRange.min) ? orbRange.min : 1;
+  const orbMax = Number.isFinite(orbRange.max) ? orbRange.max : Math.max(orbMin, 60);
+  let orbStep = Number.isFinite(orbRange.step) && orbRange.step > 0 ? Math.round(orbRange.step) : 1;
+  if (orbStep <= 0) orbStep = 1;
+  const orbSpan = Math.max(orbMax - orbMin, 0);
+  let orb = orbMin;
+  if (orbSpan > 0) {
+    const orbRaw = orbMin + uOrb * orbSpan;
+    const stepsFromMin = Math.round((orbRaw - orbMin) / orbStep);
+    orb = orbMin + (stepsFromMin * orbStep);
+  }
+  orb = clamp(Math.round(orb), orbMin, orbMax);
   const tpRange = PARAMETER_SPACE.tp_R;
   const slRange = PARAMETER_SPACE.sl_R;
   const tpStep = tpRange.step || 0.1;

@@ -380,6 +380,10 @@
       </div>
       <div id="autoConfigPanel" class="hidden rounded-2xl border border-dashed border-emerald-300 bg-emerald-50/40 p-4">
         <div class="mt-4">
+          <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600 mb-3">
+            <span class="font-semibold tracking-wide uppercase text-slate-500">Parameter Space</span>
+            <span class="inline-flex items-center gap-1 font-semibold text-slate-800" id="autoComboEstimate" title="Estimated parameter combinations">—</span>
+          </div>
           <div class="mt-2 grid grid-cols-5 gap-4">
 
             <!-- Column 1 -->
@@ -2227,6 +2231,306 @@
     });
   }
 
+  function formatNumberString(value, decimals) {
+    if (!Number.isFinite(value)) return '';
+    if (!Number.isFinite(decimals) || decimals < 0) return String(value);
+    if (decimals === 0) return String(Math.round(value));
+    const fixed = value.toFixed(decimals);
+    return fixed.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+  }
+
+  function countDecimals(value) {
+    if (!Number.isFinite(value)) return 0;
+    const str = String(value).toLowerCase();
+    if (str.includes('e')) {
+      const [base, exp] = str.split('e');
+      const decimals = (base.split('.')[1] || '').length;
+      const exponent = parseInt(exp, 10);
+      if (!Number.isFinite(exponent)) return Math.max(0, decimals);
+      return Math.max(0, decimals - exponent);
+    }
+    return (str.split('.')[1] || '').length;
+  }
+
+  function buildIntSequence(min, max, step) {
+    const values = [];
+    const safeStep = Math.max(1, Math.round(step || 1));
+    const cappedMax = Math.max(min, max);
+    let guard = 0;
+    for (let v = min; v <= cappedMax && guard < 1000; v += safeStep, guard += 1) {
+      values.push(Math.round(v));
+    }
+    if (!values.length) values.push(Math.round(min));
+    if (values[values.length - 1] !== Math.round(cappedMax)) {
+      values.push(Math.round(cappedMax));
+    }
+    return Array.from(new Set(values)).sort((a, b) => a - b);
+  }
+
+  function getFloatStepInfo(stepValue, fallback) {
+    const raw = Number.isFinite(stepValue) && stepValue > 0 ? stepValue : fallback;
+    const decimals = Math.min(6, Math.max(countDecimals(raw), 1));
+    const scale = Math.pow(10, decimals);
+    const stepInt = Math.max(1, Math.round(raw * scale));
+    return {
+      decimals,
+      scale,
+      stepInt,
+      step: stepInt / scale
+    };
+  }
+
+  function alignFloat(value, info, direction) {
+    const { scale, stepInt } = info;
+    const valueInt = Math.round(value * scale);
+    let aligned;
+    if (direction === 'down') {
+      aligned = Math.floor(valueInt / stepInt) * stepInt;
+    } else if (direction === 'up') {
+      aligned = Math.ceil(valueInt / stepInt) * stepInt;
+    } else {
+      aligned = Math.round(valueInt / stepInt) * stepInt;
+    }
+    return aligned / scale;
+  }
+
+  function buildFloatSequence(min, max, info) {
+    const values = [];
+    const maxInt = Math.round(max * info.scale);
+    let current = Math.round(min * info.scale);
+    let guard = 0;
+    while (current <= maxInt && guard < 2000) {
+      values.push(Number((current / info.scale).toFixed(info.decimals)));
+      current += info.stepInt;
+      guard += 1;
+    }
+    const maxVal = Number(max.toFixed(info.decimals));
+    if (!values.length) {
+      values.push(Number(min.toFixed(info.decimals)));
+    }
+    if (!values.includes(maxVal)) {
+      values.push(maxVal);
+    }
+    return Array.from(new Set(values)).sort((a, b) => a - b);
+  }
+
+  function normalizeAutoOrbRange() {
+    const optimizer = window.ORBOptimizer;
+    const fallback = optimizer && optimizer.PARAMETER_SPACE && optimizer.PARAMETER_SPACE.orb_m
+      ? optimizer.PARAMETER_SPACE.orb_m
+      : { min: 5, max: 60, step: 5 };
+    const minEl = document.getElementById('autoOrbMin');
+    const maxEl = document.getElementById('autoOrbMax');
+    const stepEl = document.getElementById('autoOrbStep');
+    const attrMin = Number.parseFloat(minEl ? minEl.getAttribute('min') : '');
+    const attrMax = Number.parseFloat(maxEl ? maxEl.getAttribute('max') : '');
+    const defaultMin = Number.isFinite(attrMin) ? attrMin : (fallback.min ?? 5);
+    const defaultMax = Number.isFinite(attrMax) ? attrMax : (fallback.max ?? 60);
+    const defaultStep = fallback.step ?? 5;
+
+    if (!minEl || !maxEl || !stepEl) {
+      const minVal = Math.round(defaultMin);
+      const maxVal = Math.round(defaultMax);
+      const stepVal = Math.max(1, Math.round(defaultStep || 1));
+      return {
+        min: minVal,
+        max: maxVal,
+        step: stepVal,
+        values: buildIntSequence(minVal, maxVal, stepVal)
+      };
+    }
+
+    let minVal = Number.parseFloat(minEl.value);
+    let maxVal = Number.parseFloat(maxEl.value);
+    let stepVal = Number.parseFloat(stepEl.value);
+    if (!Number.isFinite(minVal)) minVal = defaultMin;
+    if (!Number.isFinite(maxVal)) maxVal = defaultMax;
+    if (!Number.isFinite(stepVal) || stepVal <= 0) stepVal = defaultStep;
+    minVal = Math.round(minVal);
+    maxVal = Math.round(maxVal);
+    stepVal = Math.max(1, Math.round(stepVal));
+    if (Number.isFinite(attrMin)) minVal = Math.max(minVal, Math.round(attrMin));
+    if (Number.isFinite(attrMax)) maxVal = Math.min(maxVal, Math.round(attrMax));
+    if (minVal > maxVal) [minVal, maxVal] = [maxVal, minVal];
+    const currentOrb = parseInt(document.getElementById('inp_orb_m')?.value, 10);
+    const alignDown = (value) => Math.floor(value / stepVal) * stepVal;
+    const alignUp = (value) => Math.ceil(value / stepVal) * stepVal;
+    const minLimit = Number.isFinite(attrMin) ? Math.round(attrMin) : 1;
+    const alignedMin = Math.max(minLimit, alignDown(minVal));
+    const alignedMax = Math.max(alignedMin, alignUp(maxVal));
+    let values = buildIntSequence(alignedMin, alignedMax, stepVal);
+    const orbRounded = Number.isFinite(currentOrb) ? Math.round(currentOrb) : null;
+    if (orbRounded != null && orbRounded >= alignedMin && orbRounded <= alignedMax && !values.includes(orbRounded)) {
+      values.push(orbRounded);
+    }
+    values = Array.from(new Set(values)).sort((a, b) => a - b);
+    if (minEl) minEl.value = formatNumberString(alignedMin, 0);
+    if (maxEl) maxEl.value = formatNumberString(alignedMax, 0);
+    if (stepEl) stepEl.value = formatNumberString(stepVal, 0);
+    return {
+      min: alignedMin,
+      max: alignedMax,
+      step: stepVal,
+      values
+    };
+  }
+
+  function normalizeAutoFloatRange(config) {
+    const {
+      minId,
+      maxId,
+      stepId,
+      fallbackMin,
+      fallbackMax,
+      fallbackStep,
+      manualValue,
+      minLimit,
+      maxLimit
+    } = config || {};
+    const optimizer = window.ORBOptimizer;
+    const minEl = document.getElementById(minId);
+    const maxEl = document.getElementById(maxId);
+    const stepEl = document.getElementById(stepId);
+    const minDefault = Number.isFinite(fallbackMin) ? fallbackMin : 0.3;
+    const maxDefault = Number.isFinite(fallbackMax) ? fallbackMax : 2;
+    const stepDefault = Number.isFinite(fallbackStep) && fallbackStep > 0 ? fallbackStep : 0.1;
+    const existing = optimizer && optimizer.PARAMETER_SPACE
+      ? (minId === 'autoTargetMin' ? optimizer.PARAMETER_SPACE.tp_R : optimizer.PARAMETER_SPACE.sl_R)
+      : null;
+
+    if (!minEl || !maxEl || !stepEl) {
+      const minVal = Number.isFinite(existing?.min) ? existing.min : minDefault;
+      const maxVal = Number.isFinite(existing?.max) ? existing.max : maxDefault;
+      const stepVal = Number.isFinite(existing?.step) && existing.step > 0 ? existing.step : stepDefault;
+      const info = getFloatStepInfo(stepVal, stepDefault);
+      const values = buildFloatSequence(minVal, maxVal, info);
+      return {
+        min: values[0],
+        max: values[values.length - 1],
+        step: info.step,
+        decimals: info.decimals,
+        values
+      };
+    }
+
+    let minVal = Number.parseFloat(minEl.value);
+    let maxVal = Number.parseFloat(maxEl.value);
+    let stepVal = Number.parseFloat(stepEl.value);
+    if (!Number.isFinite(minVal)) minVal = minDefault;
+    if (!Number.isFinite(maxVal)) maxVal = maxDefault;
+    if (!Number.isFinite(stepVal) || stepVal <= 0) {
+      stepVal = stepDefault;
+    }
+    const attrMin = Number.parseFloat(minEl.getAttribute('min'));
+    const attrMax = Number.parseFloat(maxEl.getAttribute('max'));
+    if (Number.isFinite(attrMin)) minVal = Math.max(minVal, attrMin);
+    if (Number.isFinite(attrMax)) maxVal = Math.min(maxVal, attrMax);
+    if (Number.isFinite(minLimit)) minVal = Math.max(minVal, minLimit);
+    if (Number.isFinite(maxLimit)) maxVal = Math.min(maxVal, maxLimit);
+    if (minVal > maxVal) [minVal, maxVal] = [maxVal, minVal];
+    const info = getFloatStepInfo(stepVal, stepDefault);
+    const alignedMin = alignFloat(minVal, info, 'down');
+    let alignedMax = alignFloat(maxVal, info, 'up');
+    if (alignedMax < alignedMin) alignedMax = alignedMin;
+    let values = buildFloatSequence(alignedMin, alignedMax, info);
+    if (Number.isFinite(manualValue) && manualValue >= alignedMin && manualValue <= alignedMax) {
+      const manualRounded = Number(manualValue.toFixed(info.decimals));
+      if (Number.isFinite(manualRounded) && !values.includes(manualRounded)) {
+        values.push(manualRounded);
+      }
+    }
+    values = Array.from(new Set(values.map(v => Number(v.toFixed(info.decimals))))).sort((a, b) => a - b);
+    if (minEl) minEl.value = formatNumberString(alignedMin, info.decimals);
+    if (maxEl) maxEl.value = formatNumberString(alignedMax, info.decimals);
+    if (stepEl) stepEl.value = formatNumberString(info.step, info.decimals);
+    return {
+      min: alignedMin,
+      max: alignedMax,
+      step: info.step,
+      decimals: info.decimals,
+      values
+    };
+  }
+
+  function syncAutoOptimizerSpace() {
+    const optimizer = window.ORBOptimizer;
+    if (!optimizer || !optimizer.PARAMETER_SPACE || !optimizer.INITIAL_GRID) return;
+    const orbRange = normalizeAutoOrbRange();
+    optimizer.PARAMETER_SPACE.orb_m.min = orbRange.min;
+    optimizer.PARAMETER_SPACE.orb_m.max = orbRange.max;
+    optimizer.PARAMETER_SPACE.orb_m.step = orbRange.step;
+    optimizer.INITIAL_GRID.orb_m = orbRange.values;
+
+    const targetManual = Number.parseFloat(document.getElementById('inp_target_R')?.value);
+    const targetRange = normalizeAutoFloatRange({
+      minId: 'autoTargetMin',
+      maxId: 'autoTargetMax',
+      stepId: 'autoTargetStep',
+      fallbackMin: 0.3,
+      fallbackMax: 2,
+      fallbackStep: 0.1,
+      manualValue: targetManual,
+      minLimit: 0.01
+    });
+    optimizer.PARAMETER_SPACE.tp_R.min = targetRange.min;
+    optimizer.PARAMETER_SPACE.tp_R.max = targetRange.max;
+    optimizer.PARAMETER_SPACE.tp_R.step = targetRange.step;
+    optimizer.INITIAL_GRID.tp_R = targetRange.values;
+
+    const stopManual = Number.parseFloat(document.getElementById('inp_stop_R')?.value);
+    const stopRange = normalizeAutoFloatRange({
+      minId: 'autoStopMin',
+      maxId: 'autoStopMax',
+      stepId: 'autoStopStep',
+      fallbackMin: 0.3,
+      fallbackMax: 2,
+      fallbackStep: 0.1,
+      manualValue: stopManual,
+      minLimit: 0.01
+    });
+    optimizer.PARAMETER_SPACE.sl_R.min = stopRange.min;
+    optimizer.PARAMETER_SPACE.sl_R.max = stopRange.max;
+    optimizer.PARAMETER_SPACE.sl_R.step = stopRange.step;
+    optimizer.INITIAL_GRID.sl_R = stopRange.values;
+    updateAutoComboEstimate();
+  }
+
+  function updateAutoComboEstimate() {
+    const el = document.getElementById('autoComboEstimate');
+    if (!el) return;
+    const optimizer = window.ORBOptimizer;
+    if (!optimizer || !optimizer.INITIAL_GRID) {
+      el.textContent = '—';
+      el.removeAttribute('data-count');
+      el.setAttribute('title', 'Estimated parameter combinations');
+      return;
+    }
+    const grid = optimizer.INITIAL_GRID;
+    const parts = [
+      { key: 'orb_m', label: 'ORB', count: Array.isArray(grid.orb_m) ? grid.orb_m.length : 0 },
+      { key: 'tp_R', label: 'Target', count: Array.isArray(grid.tp_R) ? grid.tp_R.length : 0 },
+      { key: 'sl_R', label: 'Stop', count: Array.isArray(grid.sl_R) ? grid.sl_R.length : 0 },
+      { key: 'start_ny', label: 'Start', count: Array.isArray(grid.start_ny) ? grid.start_ny.length : 0 },
+      { key: 'end_ny', label: 'End', count: Array.isArray(grid.end_ny) ? grid.end_ny.length : 0 },
+      { key: 'direction', label: 'Direction', count: Array.isArray(grid.direction) ? grid.direction.length : 0 }
+    ];
+    let total = 1;
+    let hasZero = false;
+    for (const part of parts) {
+      const count = Number.isFinite(part.count) ? part.count : 0;
+      if (count <= 0) {
+        hasZero = true;
+        break;
+      }
+      total *= count;
+    }
+    if (hasZero) total = 0;
+    el.textContent = total > 0 ? formatAutoRunCount(total) : '0';
+    el.dataset.count = String(total);
+    const detail = parts.map(part => `${part.label}: ${part.count || 0}`).join(' · ');
+    el.setAttribute('title', `Estimated parameter combinations\n${detail}`);
+  }
+
   async function applyAutoResult(entry) {
     if (AUTO_BACKTEST_RUNNING) {
       setAutoStatus('Wait for Auto Backtest to finish before loading a result.');
@@ -2264,6 +2568,7 @@
     highlightAutoResultRow();
     highlightPortfolioRow();
     highlightFavoriteRow();
+    syncAutoOptimizerSpace();
     await runBacktestIfReady();
   }
 
@@ -3097,6 +3402,7 @@
       if (select && canonicalId) {
         select.value = canonicalId;
       }
+      syncAutoOptimizerSpace();
       await runBacktestIfReady();
     }
 
@@ -3308,6 +3614,7 @@
         return;
       }
 
+      syncAutoOptimizerSpace();
       const baseParams = getBacktestParams();
       if (optimizer.configureTimeBounds && baseParams) {
         optimizer.configureTimeBounds({
@@ -5898,6 +6205,9 @@
       function onChangeNumber(el, def, min, max){
         const v = parseFloat(el.value);
         el.value = String(clamp(Number.isFinite(v) ? v : def, min, max));
+        if (el === orb || el === trg || el === stp) {
+          syncAutoOptimizerSpace();
+        }
         scheduleRun();
       }
       if (orb) {
@@ -6051,6 +6361,22 @@
       if (btnPct) btnPct.addEventListener('click', ()=>{ MONTHLY_PERF_MODE='pct'; syncUI(); renderMonthlyPerf(LAST_OUT||[]); });
       if (btnUsd) btnUsd.addEventListener('click', ()=>{ MONTHLY_PERF_MODE='usd'; syncUI(); renderMonthlyPerf(LAST_OUT||[]); });
       syncUI();
+    })();
+
+    (function(){
+      const ids = [
+        'autoOrbMin','autoOrbMax','autoOrbStep',
+        'autoTargetMin','autoTargetMax','autoTargetStep',
+        'autoStopMin','autoStopMax','autoStopStep'
+      ];
+      ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('change', () => {
+          syncAutoOptimizerSpace();
+        });
+      });
+      syncAutoOptimizerSpace();
     })();
 
     // init
