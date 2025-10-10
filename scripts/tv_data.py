@@ -1,8 +1,12 @@
 import contextlib
+import json
 import os
 import shutil
 import time
 import urllib.request
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Iterable, List
 
 from helium import set_driver
 from selenium import webdriver
@@ -14,13 +18,47 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import TimeoutException
 
-TRADINGVIEW_URL = "https://www.tradingview.com/chart/bvfM7ug3/"
+CONFIG_PATH = Path(__file__).with_suffix(".json")
+DOWNLOADS_DIR = Path.home() / "Downloads"
 REMOTE_DEBUG_ADDRESS = os.getenv("REMOTE_DEBUG_ADDRESS", "127.0.0.1:9222")
 SAVE_MENU_SELECTOR = "[data-name='save-load-menu']"
-SAVE_MENU_XPATH = "/html/body/div[2]/div/div[3]/div/div/div[3]/div[1]/div/div/div/div/div[14]/div/div/div/button"
+SAVE_MENU_XPATH = (
+    "/html/body/div[2]/div/div[3]/div/div/div[3]/div[1]/div/div/div/div/div[14]"
+    "/div/div/div/button"
+)
 EXPORT_MENU_CSS = "#overlap-manager-root div.menu-yyMUOAN9 div div div:nth-child(6)"
-EXPORT_MENU_XPATH = "//div[@data-role='menuitem' and .//span[contains(normalize-space(.), 'Export chart data')]]"
+EXPORT_MENU_XPATH = (
+    "//div[@data-role='menuitem' and .//span[contains(normalize-space(.), 'Export chart data')]]"
+)
 EXPORT_CONFIRM_SELECTOR = "[data-name='submit-button']"
+
+
+@dataclass
+class ChartConfig:
+    name: str
+    export_prefix: str
+    save_path: Path
+    url: str
+
+
+def load_chart_configs(path: Path) -> List[ChartConfig]:
+    if not path.exists():
+        raise FileNotFoundError(f"Configuration file not found: {path}")
+
+    with path.open("r", encoding="utf-8") as config_file:
+        raw_configs = json.load(config_file)
+
+    charts: List[ChartConfig] = []
+    for raw in raw_configs:
+        charts.append(
+            ChartConfig(
+                name=raw["name"],
+                export_prefix=raw["export_prefix"],
+                save_path=Path(raw["save_path"]),
+                url=raw["url"],
+            )
+        )
+    return charts
 
 
 def build_service() -> Service:
@@ -60,7 +98,10 @@ def attach_driver() -> webdriver.Chrome:
     wait_for_debugger(REMOTE_DEBUG_ADDRESS)
     options = Options()
     options.add_experimental_option("debuggerAddress", REMOTE_DEBUG_ADDRESS)
-    return webdriver.Chrome(service=build_service(), options=options)
+    driver = webdriver.Chrome(service=build_service(), options=options)
+    driver.set_window_position(0, 0)
+    driver.set_window_size(1920, 1080)
+    return driver
 
 
 def wait_for_page_ready(driver: webdriver.Chrome, timeout_seconds: int = 20) -> None:
@@ -124,36 +165,95 @@ def click_export_chart_data(driver: webdriver.Chrome) -> None:
 def click_export_confirm(driver: webdriver.Chrome) -> None:
     driver.switch_to.default_content()
     wait = WebDriverWait(driver, 10)
-    try:
-        button = wait.until(
-            EC.element_to_be_clickable((By.CSS_SELECTOR, EXPORT_CONFIRM_SELECTOR))
+    button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, EXPORT_CONFIRM_SELECTOR)))
+    driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
+    driver.execute_script("arguments[0].click();", button)
+
+
+def latest_export(prefix: str) -> Path:
+    candidates = sorted(
+        DOWNLOADS_DIR.glob(f"{prefix}*.csv"),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+    if not candidates:
+        raise FileNotFoundError(
+            f"No export CSV found in {DOWNLOADS_DIR} matching prefix '{prefix}'."
         )
-        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
-        driver.execute_script("arguments[0].click();", button)
-    except TimeoutException:
-        raise TimeoutException("Export confirmation button not found or not clickable.")
+    return candidates[0]
 
 
-browser = attach_driver()
-set_driver(browser)
-browser.get(TRADINGVIEW_URL)
-wait_for_page_ready(browser)
+def wait_for_export(prefix: str, timeout_seconds: int = 30) -> Path:
+    deadline = time.time() + timeout_seconds
+    last_size = None
+    export_path: Path
 
-time.sleep(5)  # Allow additional time for TradingView's dynamic content to load.
+    while time.time() < deadline:
+        try:
+            export_path = latest_export(prefix)
+        except FileNotFoundError:
+            time.sleep(1)
+            continue
 
-# Example interaction: click TradingView's save/load menu button if present.
-try:
-    button = find_save_menu_button(browser)
-    browser.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
-    browser.execute_script("arguments[0].click();", button)
-    click_export_chart_data(browser)
-    click_export_confirm(browser)
-except TimeoutException:
-    print("Save/load menu button not found or not clickable.")
-except Exception as exc:
-    print(f"Failed to click save/load menu button: {exc}")
-finally:
+        if export_path.suffix == ".crdownload":
+            time.sleep(1)
+            continue
+
+        size = export_path.stat().st_size
+        if size and size == last_size:
+            return export_path
+        last_size = size
+        time.sleep(1)
+
+    raise TimeoutException(f"Export file matching '{prefix}' did not finish downloading in time.")
+
+
+def move_exported_file(prefix: str, destination: Path) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    export_file = wait_for_export(prefix)
+    shutil.copy2(export_file, destination)
     try:
-        browser.switch_to.default_content()
-    except Exception:
-        pass
+        export_file.unlink()
+    except OSError as err:
+        print(f"{prefix}: copied to '{destination}', but failed to remove '{export_file}': {err}")
+    else:
+        print(f"{prefix}: moved '{export_file.name}' to '{destination}'.")
+
+
+def process_chart(chart: ChartConfig, driver: webdriver.Chrome) -> None:
+    print(f"Processing chart {chart.name} at {chart.url}")
+    driver.get(chart.url)
+    wait_for_page_ready(driver)
+    time.sleep(5)  # TradingView loads additional UI after readyState completes.
+
+    button = find_save_menu_button(driver)
+    driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
+    driver.execute_script("arguments[0].click();", button)
+    click_export_chart_data(driver)
+    click_export_confirm(driver)
+    move_exported_file(chart.export_prefix, chart.save_path)
+
+
+def run(charts: Iterable[ChartConfig]) -> None:
+    driver = attach_driver()
+    set_driver(driver)
+
+    try:
+        for chart in charts:
+            try:
+                process_chart(chart, driver)
+            except TimeoutException as exc:
+                print(f"{chart.name}: timeout - {exc}")
+            except Exception as exc:  # pylint: disable=broad-except
+                print(f"{chart.name}: failed with error - {exc}")
+                continue
+    finally:
+        try:
+            driver.switch_to.default_content()
+        except Exception:
+            pass
+
+
+if __name__ == "__main__":
+    chart_configs = load_chart_configs(CONFIG_PATH)
+    run(chart_configs)

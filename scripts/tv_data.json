@@ -1,0 +1,26 @@
+[
+    {
+        "name": "GC",
+        "export_prefix": "COMEX_GC1!",
+        "save_path": "/Users/guy/apps/app_orb/GC.csv",
+        "url": "https://www.tradingview.com/chart/bvfM7ug3/"
+    },
+    {
+        "name": "NQ",
+        "export_prefix": "CME_MINI_NQ1!",
+        "save_path": "/Users/guy/apps/app_orb/NQ.csv",
+        "url": "https://www.tradingview.com/chart/gMdnO2zW/"
+    },
+    {
+        "name": "ES",
+        "export_prefix": "CME_MINI_ES1!",
+        "save_path": "/Users/guy/apps/app_orb/ES.csv",
+        "url": "https://www.tradingview.com/chart/ZAj10sOD/"
+    },
+    {
+        "name": "YM",
+        "export_prefix": "CBOT_MINI_YM1!",
+        "save_path": "/Users/guy/apps/app_orb/YM.csv",
+        "url": "https://www.tradingview.com/chart/5RnTl1Wf/"
+    }
+]
