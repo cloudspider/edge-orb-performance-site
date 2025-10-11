@@ -5,6 +5,7 @@ import shutil
 import time
 import urllib.request
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 
@@ -13,10 +14,11 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import TimeoutException, StaleElementReferenceException
 
 CONFIG_PATH = Path(__file__).with_suffix(".json")
 DOWNLOADS_DIR = Path.home() / "Downloads"
@@ -31,6 +33,8 @@ EXPORT_MENU_XPATH = (
     "//div[@data-role='menuitem' and .//span[contains(normalize-space(.), 'Export chart data')]]"
 )
 EXPORT_CONFIRM_SELECTOR = "[data-name='submit-button']"
+EXPORT_DIALOG_SELECTOR = "[data-dialog-name='Export chart data']"
+EXPORT_DIALOG_SETTLE_SECONDS = 1.2
 UI_READY_TIMEOUT = 10
 
 
@@ -127,38 +131,47 @@ def wait_for_menu_ready(driver: webdriver.Chrome) -> None:
     wait.until(menu_present)
 
 
+def find_clickable_element(
+    driver: webdriver.Chrome,
+    locator: Tuple[str, str],
+    main_timeout: int = 10,
+    frame_timeout: int = 5,
+) -> WebElement:
+    driver.switch_to.default_content()
+    try:
+        return WebDriverWait(driver, main_timeout).until(EC.element_to_be_clickable(locator))
+    except TimeoutException:
+        frames = driver.find_elements(By.TAG_NAME, "iframe")
+        for frame in frames:
+            driver.switch_to.default_content()
+            driver.switch_to.frame(frame)
+            try:
+                return WebDriverWait(driver, frame_timeout).until(
+                    EC.element_to_be_clickable(locator)
+                )
+            except TimeoutException:
+                continue
+    driver.switch_to.default_content()
+    raise TimeoutException(f"Element {locator} not clickable in current context.")
+
+
 def find_save_menu_button(driver: webdriver.Chrome) -> WebElement:
     locators = [
         (By.CSS_SELECTOR, SAVE_MENU_SELECTOR),
         (By.XPATH, SAVE_MENU_XPATH),
     ]
 
-    driver.switch_to.default_content()
-    wait = WebDriverWait(driver, 15)
     for locator in locators:
         try:
-            return wait.until(EC.element_to_be_clickable(locator))
+            return find_clickable_element(driver, locator, main_timeout=15)
         except TimeoutException:
             continue
-
-    frames = driver.find_elements(By.TAG_NAME, "iframe")
-    for frame in frames:
-        driver.switch_to.default_content()
-        driver.switch_to.frame(frame)
-        inner_wait = WebDriverWait(driver, 5)
-        for locator in locators:
-            try:
-                return inner_wait.until(EC.element_to_be_clickable(locator))
-            except TimeoutException:
-                continue
 
     driver.switch_to.default_content()
     raise TimeoutException("Save/load menu button not found in page or iframes.")
 
 
 def click_export_chart_data(driver: webdriver.Chrome) -> None:
-    driver.switch_to.default_content()
-    wait = WebDriverWait(driver, 10)
     locators = [
         (By.CSS_SELECTOR, EXPORT_MENU_CSS),
         (By.XPATH, EXPORT_MENU_XPATH),
@@ -166,24 +179,94 @@ def click_export_chart_data(driver: webdriver.Chrome) -> None:
 
     for locator in locators:
         try:
-            menu_item = wait.until(EC.element_to_be_clickable(locator))
+            menu_item = find_clickable_element(driver, locator, main_timeout=10)
             driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", menu_item)
             driver.execute_script("arguments[0].click();", menu_item)
             return
         except TimeoutException:
             continue
 
+    driver.switch_to.default_content()
     raise TimeoutException("Export chart data menu item not found.")
 
 
 def click_export_confirm(driver: webdriver.Chrome) -> None:
-    driver.switch_to.default_content()
-    wait = WebDriverWait(driver, 10)
-    button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, EXPORT_CONFIRM_SELECTOR)))
+    try:
+        driver.switch_to.default_content()
+    except Exception:
+        pass
+
+    WebDriverWait(driver, 12).until(
+        EC.visibility_of_element_located((By.CSS_SELECTOR, EXPORT_DIALOG_SELECTOR))
+    )
+    time.sleep(EXPORT_DIALOG_SETTLE_SECONDS)
+
+    try:
+        button = find_clickable_element(
+            driver,
+            (By.CSS_SELECTOR, EXPORT_CONFIRM_SELECTOR),
+            main_timeout=12,
+            frame_timeout=6,
+        )
+    except TimeoutException as exc:
+        driver.switch_to.default_content()
+        raise TimeoutException("Export confirmation button not found or not clickable.") from exc
+
     driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
-    wait.until(EC.visibility_of(button))
-    time.sleep(0.3)
-    driver.execute_script("arguments[0].click();", button)
+
+    def button_ready(_: webdriver.Chrome) -> bool:
+        try:
+            if not button.is_displayed():
+                return False
+            if not button.is_enabled():
+                return False
+            aria_disabled = button.get_attribute("aria-disabled")
+            return aria_disabled not in ("true", "1")
+        except StaleElementReferenceException:
+            return False
+
+    WebDriverWait(driver, 5).until(button_ready)
+    time.sleep(0.2)
+    attempts = []
+
+    def record_failure(name: str, error: Exception) -> None:
+        attempts.append(f"{name}: {error}")
+
+    for name, action in (
+        ("direct click", lambda: button.click()),
+        ("js click", lambda: driver.execute_script("arguments[0].click();", button)),
+    ):
+        try:
+            action()
+            driver.switch_to.default_content()
+            return
+        except Exception as err:  # noqa: PERF203 - debugging fallback
+            record_failure(name, err)
+
+    try:
+        driver.execute_script("arguments[0].focus();", button)
+    except Exception as err:
+        record_failure("focus", err)
+
+    for name, action in (
+        ("enter on button", lambda: button.send_keys(Keys.ENTER)),
+        (
+            "enter on active element",
+            lambda: driver.switch_to.active_element.send_keys(Keys.ENTER),
+        ),
+    ):
+        try:
+            action()
+            driver.switch_to.default_content()
+            return
+        except Exception as err:
+            record_failure(name, err)
+
+    driver.switch_to.default_content()
+    raise TimeoutException(
+        "Export confirmation button did not respond to click or keyboard actions. "
+        f"Attempted: {attempts}"
+    )
 
 
 def latest_export(prefix: str) -> Path:
@@ -306,7 +389,7 @@ def interactive_session(charts: List[ChartConfig]) -> None:
 
     menu_lines = [
         "",
-        "Select a chart to export:",
+        "Select a chart to export (append '-loop' or '-l' to run every minute, e.g. 1 -loop or a -l):",
         *[
             f"  {index}. {chart.name} ({chart.export_prefix})"
             for index, chart in options.items()
@@ -319,46 +402,89 @@ def interactive_session(charts: List[ChartConfig]) -> None:
 
     print(menu_text)
 
+    metrics: List[float] = []
+
+    def print_overall_metrics() -> None:
+        if metrics:
+            avg_runtime = sum(metrics) / len(metrics)
+            print(
+                f"Overall average runtime: {avg_runtime:.0f} ms across {len(metrics)} chart runs."
+            )
+
+    def run_single_chart(selected_chart: ChartConfig) -> None:
+        success, elapsed_ms, _ = process_chart(selected_chart, driver)
+        if success:
+            metrics.append(elapsed_ms)
+            print_overall_metrics()
+
+    def run_all_charts() -> None:
+        batch_metrics: List[float] = []
+        for chart in charts:
+            success, elapsed_ms, _ = process_chart(chart, driver)
+            if success:
+                metrics.append(elapsed_ms)
+                batch_metrics.append(elapsed_ms)
+        if batch_metrics:
+            avg_batch = sum(batch_metrics) / len(batch_metrics)
+            print(f"Batch average runtime: {avg_batch:.0f} ms across {len(batch_metrics)} charts.")
+            print_overall_metrics()
+
     try:
-        metrics: List[float] = []
         while True:
-            choice = input("Enter option (1/2/3/... or x to exit): ").strip().lower()
+            raw_choice = input("Enter option (1/2/3/... or x to exit): ").strip().lower()
+            loop_every_minute = raw_choice.endswith("-loop") or raw_choice.endswith(" -loop")
+            loop_every_minute = loop_every_minute or raw_choice.endswith("-l") or raw_choice.endswith(" -l")
+
+            choice = raw_choice
+            for suffix in (" -loop", "-loop", " -l", "-l"):
+                if choice.endswith(suffix):
+                    choice = choice[: -len(suffix)]
+                    loop_every_minute = True
+            choice = choice.strip()
+
             if choice == "x":
                 print("Exiting.")
                 break
-            if choice == "a":
-                batch_metrics: List[float] = []
-                for chart in charts:
-                    success, elapsed_ms, _ = process_chart(chart, driver)
-                    if success:
-                        batch_metrics.append(elapsed_ms)
-                        metrics.append(elapsed_ms)
-                if batch_metrics:
-                    avg_batch = sum(batch_metrics) / len(batch_metrics)
-                    print(
-                        f"Batch average runtime: {avg_batch:.0f} ms across {len(batch_metrics)} charts."
-                    )
-                if metrics:
-                    overall_avg = sum(metrics) / len(metrics)
-                    print(
-                        f"Overall average runtime: {overall_avg:.0f} ms across {len(metrics)} chart runs."
-                    )
-                print(menu_text)
-                continue
 
-            chart = options.get(choice)
-            if not chart:
+            if not choice:
                 print("Invalid option. Try again.")
                 print(menu_text)
                 continue
 
-            success, elapsed_ms, _ = process_chart(chart, driver)
-            if success:
-                metrics.append(elapsed_ms)
-                avg_runtime = sum(metrics) / len(metrics)
-                print(
-                    f"Overall average runtime: {avg_runtime:.0f} ms across {len(metrics)} chart runs."
-                )
+            if choice != "a" and choice not in options:
+                print("Invalid option. Try again.")
+                print(menu_text)
+                continue
+
+            def perform_selection() -> None:
+                if choice == "a":
+                    run_all_charts()
+                else:
+                    run_single_chart(options[choice])
+
+            if loop_every_minute and choice != "x":
+                print("Starting scheduled loop. Press Ctrl+C to stop.")
+                try:
+                    while True:
+                        perform_selection()
+                        now = datetime.now()
+                        target = (now + timedelta(minutes=1)).replace(
+                            second=0, microsecond=0
+                        ) - timedelta(seconds=10)
+                        if target <= now:
+                            target += timedelta(minutes=1)
+                        wait_seconds = max((target - now).total_seconds(), 0)
+                        next_time_str = target.strftime("%H:%M:%S")
+                        print(
+                            f"Next run at {next_time_str} in {wait_seconds:.0f} seconds..."
+                        )
+                        time.sleep(wait_seconds)
+                except KeyboardInterrupt:
+                    print("Minute loop stopped. Returning to menu.")
+                print(menu_text)
+                continue
+
+            perform_selection()
             print(menu_text)
     finally:
         try:
