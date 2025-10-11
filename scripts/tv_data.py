@@ -6,7 +6,7 @@ import time
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Tuple
 
 from helium import set_driver
 from selenium import webdriver
@@ -31,6 +31,7 @@ EXPORT_MENU_XPATH = (
     "//div[@data-role='menuitem' and .//span[contains(normalize-space(.), 'Export chart data')]]"
 )
 EXPORT_CONFIRM_SELECTOR = "[data-name='submit-button']"
+UI_READY_TIMEOUT = 10
 
 
 @dataclass
@@ -113,6 +114,19 @@ def wait_for_page_ready(driver: webdriver.Chrome, timeout_seconds: int = 20) -> 
     raise RuntimeError("TradingView page did not finish loading in time.")
 
 
+def wait_for_menu_ready(driver: webdriver.Chrome) -> None:
+    wait = WebDriverWait(driver, UI_READY_TIMEOUT)
+
+    def menu_present(_driver: webdriver.Chrome) -> bool:
+        try:
+            _driver.switch_to.default_content()
+        except Exception:
+            pass
+        return bool(_driver.find_elements(By.CSS_SELECTOR, SAVE_MENU_SELECTOR))
+
+    wait.until(menu_present)
+
+
 def find_save_menu_button(driver: webdriver.Chrome) -> WebElement:
     locators = [
         (By.CSS_SELECTOR, SAVE_MENU_SELECTOR),
@@ -167,6 +181,8 @@ def click_export_confirm(driver: webdriver.Chrome) -> None:
     wait = WebDriverWait(driver, 10)
     button = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, EXPORT_CONFIRM_SELECTOR)))
     driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
+    wait.until(EC.visibility_of(button))
+    time.sleep(0.3)
     driver.execute_script("arguments[0].click();", button)
 
 
@@ -192,18 +208,18 @@ def wait_for_export(prefix: str, timeout_seconds: int = 30) -> Path:
         try:
             export_path = latest_export(prefix)
         except FileNotFoundError:
-            time.sleep(1)
+            time.sleep(0.5)
             continue
 
-        if export_path.suffix == ".crdownload":
-            time.sleep(1)
+        if export_path.suffix == ".crdownload" or export_path.name.endswith(".crdownload"):
+            time.sleep(0.5)
             continue
 
         size = export_path.stat().st_size
         if size and size == last_size:
             return export_path
         last_size = size
-        time.sleep(1)
+        time.sleep(0.5)
 
     raise TimeoutException(f"Export file matching '{prefix}' did not finish downloading in time.")
 
@@ -220,11 +236,16 @@ def move_exported_file(prefix: str, destination: Path) -> None:
         print(f"{prefix}: moved '{export_file.name}' to '{destination}'.")
 
 
-def process_chart(chart: ChartConfig, driver: webdriver.Chrome) -> None:
+def process_chart(chart: ChartConfig, driver: webdriver.Chrome) -> Tuple[bool, float, str]:
     print(f"Processing chart {chart.name} at {chart.url}")
+    start_time = time.perf_counter()
     driver.get(chart.url)
     wait_for_page_ready(driver)
-    time.sleep(5)  # TradingView loads additional UI after readyState completes.
+    wait_for_menu_ready(driver)
+
+    success = False
+    error_message = ""
+    elapsed_ms = 0.0
 
     try:
         button = find_save_menu_button(driver)
@@ -233,26 +254,41 @@ def process_chart(chart: ChartConfig, driver: webdriver.Chrome) -> None:
         click_export_chart_data(driver)
         click_export_confirm(driver)
         move_exported_file(chart.export_prefix, chart.save_path)
+        success = True
+    except TimeoutException as exc:
+        error_message = f"timeout - {exc}"
+    except Exception as exc:  # pylint: disable=broad-except
+        error_message = f"failed with error - {exc}"
     finally:
         try:
             driver.switch_to.default_content()
         except Exception:
             pass
 
+    elapsed_ms = (time.perf_counter() - start_time) * 1000
+
+    if success:
+        print(f"{chart.name}: completed in {elapsed_ms:.0f} ms.")
+    else:
+        print(f"{chart.name}: {error_message} (after {elapsed_ms:.0f} ms)")
+
+    return success, elapsed_ms, error_message
+
 
 def run(charts: Iterable[ChartConfig]) -> None:
     driver = attach_driver()
     set_driver(driver)
 
+    metrics: List[float] = []
+
     try:
         for chart in charts:
-            try:
-                process_chart(chart, driver)
-            except TimeoutException as exc:
-                print(f"{chart.name}: timeout - {exc}")
-            except Exception as exc:  # pylint: disable=broad-except
-                print(f"{chart.name}: failed with error - {exc}")
-                continue
+            success, elapsed_ms, _ = process_chart(chart, driver)
+            if success:
+                metrics.append(elapsed_ms)
+        if metrics:
+            average_ms = sum(metrics) / len(metrics)
+            print(f"Average runtime: {average_ms:.0f} ms across {len(metrics)} charts.")
     finally:
         try:
             driver.switch_to.default_content()
@@ -284,20 +320,29 @@ def interactive_session(charts: List[ChartConfig]) -> None:
     print(menu_text)
 
     try:
+        metrics: List[float] = []
         while True:
             choice = input("Enter option (1/2/3/... or x to exit): ").strip().lower()
             if choice == "x":
                 print("Exiting.")
                 break
             if choice == "a":
+                batch_metrics: List[float] = []
                 for chart in charts:
-                    try:
-                        process_chart(chart, driver)
-                    except TimeoutException as exc:
-                        print(f"{chart.name}: timeout - {exc}")
-                    except Exception as exc:  # pylint: disable=broad-except
-                        print(f"{chart.name}: failed with error - {exc}")
-                        continue
+                    success, elapsed_ms, _ = process_chart(chart, driver)
+                    if success:
+                        batch_metrics.append(elapsed_ms)
+                        metrics.append(elapsed_ms)
+                if batch_metrics:
+                    avg_batch = sum(batch_metrics) / len(batch_metrics)
+                    print(
+                        f"Batch average runtime: {avg_batch:.0f} ms across {len(batch_metrics)} charts."
+                    )
+                if metrics:
+                    overall_avg = sum(metrics) / len(metrics)
+                    print(
+                        f"Overall average runtime: {overall_avg:.0f} ms across {len(metrics)} chart runs."
+                    )
                 print(menu_text)
                 continue
 
@@ -307,13 +352,13 @@ def interactive_session(charts: List[ChartConfig]) -> None:
                 print(menu_text)
                 continue
 
-            try:
-                process_chart(chart, driver)
-            except TimeoutException as exc:
-                print(f"{chart.name}: timeout - {exc}")
-            except Exception as exc:  # pylint: disable=broad-except
-                print(f"{chart.name}: failed with error - {exc}")
-                continue
+            success, elapsed_ms, _ = process_chart(chart, driver)
+            if success:
+                metrics.append(elapsed_ms)
+                avg_runtime = sum(metrics) / len(metrics)
+                print(
+                    f"Overall average runtime: {avg_runtime:.0f} ms across {len(metrics)} chart runs."
+                )
             print(menu_text)
     finally:
         try:
