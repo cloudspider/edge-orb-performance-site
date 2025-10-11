@@ -6,7 +6,7 @@ import time
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List
+from typing import Dict, Iterable, List
 
 from helium import set_driver
 from selenium import webdriver
@@ -226,12 +226,18 @@ def process_chart(chart: ChartConfig, driver: webdriver.Chrome) -> None:
     wait_for_page_ready(driver)
     time.sleep(5)  # TradingView loads additional UI after readyState completes.
 
-    button = find_save_menu_button(driver)
-    driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
-    driver.execute_script("arguments[0].click();", button)
-    click_export_chart_data(driver)
-    click_export_confirm(driver)
-    move_exported_file(chart.export_prefix, chart.save_path)
+    try:
+        button = find_save_menu_button(driver)
+        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
+        driver.execute_script("arguments[0].click();", button)
+        click_export_chart_data(driver)
+        click_export_confirm(driver)
+        move_exported_file(chart.export_prefix, chart.save_path)
+    finally:
+        try:
+            driver.switch_to.default_content()
+        except Exception:
+            pass
 
 
 def run(charts: Iterable[ChartConfig]) -> None:
@@ -254,6 +260,68 @@ def run(charts: Iterable[ChartConfig]) -> None:
             pass
 
 
+def interactive_session(charts: List[ChartConfig]) -> None:
+    driver = attach_driver()
+    set_driver(driver)
+
+    options: Dict[str, ChartConfig] = {
+        str(index): chart for index, chart in enumerate(charts, start=1)
+    }
+
+    menu_lines = [
+        "",
+        "Select a chart to export:",
+        *[
+            f"  {index}. {chart.name} ({chart.export_prefix})"
+            for index, chart in options.items()
+        ],
+        "  a. Export all charts",
+        "  x. Exit",
+        "",
+    ]
+    menu_text = "\n".join(menu_lines)
+
+    print(menu_text)
+
+    try:
+        while True:
+            choice = input("Enter option (1/2/3/... or x to exit): ").strip().lower()
+            if choice == "x":
+                print("Exiting.")
+                break
+            if choice == "a":
+                for chart in charts:
+                    try:
+                        process_chart(chart, driver)
+                    except TimeoutException as exc:
+                        print(f"{chart.name}: timeout - {exc}")
+                    except Exception as exc:  # pylint: disable=broad-except
+                        print(f"{chart.name}: failed with error - {exc}")
+                        continue
+                print(menu_text)
+                continue
+
+            chart = options.get(choice)
+            if not chart:
+                print("Invalid option. Try again.")
+                print(menu_text)
+                continue
+
+            try:
+                process_chart(chart, driver)
+            except TimeoutException as exc:
+                print(f"{chart.name}: timeout - {exc}")
+            except Exception as exc:  # pylint: disable=broad-except
+                print(f"{chart.name}: failed with error - {exc}")
+                continue
+            print(menu_text)
+    finally:
+        try:
+            driver.switch_to.default_content()
+        except Exception:
+            pass
+
+
 if __name__ == "__main__":
     chart_configs = load_chart_configs(CONFIG_PATH)
-    run(chart_configs)
+    interactive_session(chart_configs)
