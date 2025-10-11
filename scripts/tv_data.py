@@ -2,12 +2,13 @@ import contextlib
 import json
 import os
 import shutil
+import subprocess
 import time
 import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from helium import set_driver
 from selenium import webdriver
@@ -23,6 +24,7 @@ from selenium.common.exceptions import TimeoutException, StaleElementReferenceEx
 CONFIG_PATH = Path(__file__).with_suffix(".json")
 DOWNLOADS_DIR = Path.home() / "Downloads"
 REMOTE_DEBUG_ADDRESS = os.getenv("REMOTE_DEBUG_ADDRESS", "127.0.0.1:9222")
+REMOTE_DEBUG_PROFILE_DIR = Path.home() / "Library" / "Application Support" / "Google" / "RemoteDebugProfile"
 SAVE_MENU_SELECTOR = "[data-name='save-load-menu']"
 SAVE_MENU_XPATH = (
     "/html/body/div[2]/div/div[3]/div/div/div[3]/div[1]/div/div/div/div/div[14]"
@@ -36,6 +38,17 @@ EXPORT_CONFIRM_SELECTOR = "[data-name='submit-button']"
 EXPORT_DIALOG_SELECTOR = "[data-dialog-name='Export chart data']"
 EXPORT_DIALOG_SETTLE_SECONDS = 1.2
 UI_READY_TIMEOUT = 10
+
+
+#
+# before launching this app, run this in the terminal in order for it to work...
+#
+#guy@Mac ~ % open -na "Google Chrome" --args \      
+#  --remote-debugging-port=9222 \
+#  --user-data-dir="$HOME/Library/Application Support/Google/RemoteDebugProfile"
+#
+#guy@Mac ~ % curl http://127.0.0.1:9222/json/version
+#
 
 
 @dataclass
@@ -79,6 +92,19 @@ def build_service() -> Service:
     return Service(ChromeDriverManager().install())
 
 
+def is_debugger_available(address: str, timeout_seconds: float = 1.0) -> bool:
+    host, _, port = address.partition(":")
+    if not host or not port:
+        return False
+
+    url = f"http://{host}:{port}/json/version"
+    try:
+        with contextlib.closing(urllib.request.urlopen(url, timeout=timeout_seconds)):
+            return True
+    except OSError:
+        return False
+
+
 def wait_for_debugger(address: str, timeout_seconds: int = 15) -> None:
     host, _, port = address.partition(":")
     if not host or not port:
@@ -97,6 +123,40 @@ def wait_for_debugger(address: str, timeout_seconds: int = 15) -> None:
         f"Chrome debugger not reachable at {address}. "
         "Start Chrome with --remote-debugging-port and ensure the port matches."
     )
+
+
+def launch_remote_debug_chrome() -> None:
+    if is_debugger_available(REMOTE_DEBUG_ADDRESS):
+        print("Chrome remote-debugger already running.")
+        return
+
+    host, _, port = REMOTE_DEBUG_ADDRESS.partition(":")
+    if not host or not port:
+        raise ValueError(
+            f"REMOTE_DEBUG_ADDRESS '{REMOTE_DEBUG_ADDRESS}' must be in host:port format."
+        )
+
+    REMOTE_DEBUG_PROFILE_DIR.mkdir(parents=True, exist_ok=True)
+
+    chrome_command = [
+        "open",
+        "-na",
+        "Google Chrome",
+        "--args",
+        f"--remote-debugging-port={port}",
+        f"--user-data-dir={REMOTE_DEBUG_PROFILE_DIR}",
+    ]
+    try:
+        subprocess.run(chrome_command, check=True)
+    except FileNotFoundError as exc:
+        raise RuntimeError("macOS 'open' command not found while launching Chrome.") from exc
+    except subprocess.CalledProcessError as exc:
+        raise RuntimeError("Failed to launch Google Chrome with remote debugging enabled.") from exc
+
+    print("Launching Chrome with remote debugging (this can take a moment)...")
+    time.sleep(1.5)
+    wait_for_debugger(REMOTE_DEBUG_ADDRESS, timeout_seconds=25)
+    print("Chrome remote-debugger ready.")
 
 
 def attach_driver() -> webdriver.Chrome:
@@ -343,10 +403,11 @@ def process_chart(chart: ChartConfig, driver: webdriver.Chrome) -> Tuple[bool, f
     except Exception as exc:  # pylint: disable=broad-except
         error_message = f"failed with error - {exc}"
     finally:
-        try:
-            driver.switch_to.default_content()
-        except Exception:
-            pass
+        if driver is not None:
+            try:
+                driver.switch_to.default_content()
+            except Exception:
+                pass
 
     elapsed_ms = (time.perf_counter() - start_time) * 1000
 
@@ -373,34 +434,55 @@ def run(charts: Iterable[ChartConfig]) -> None:
             average_ms = sum(metrics) / len(metrics)
             print(f"Average runtime: {average_ms:.0f} ms across {len(metrics)} charts.")
     finally:
-        try:
-            driver.switch_to.default_content()
-        except Exception:
-            pass
+        if driver is not None:
+            try:
+                driver.switch_to.default_content()
+            except Exception:
+                pass
 
 
 def interactive_session(charts: List[ChartConfig]) -> None:
-    driver = attach_driver()
-    set_driver(driver)
+    driver: Optional[webdriver.Chrome] = None
+
+    def ensure_driver() -> webdriver.Chrome:
+        nonlocal driver
+        if driver is None:
+            try:
+                driver = attach_driver()
+                set_driver(driver)
+            except Exception:
+                driver = None
+                raise
+        return driver
 
     options: Dict[str, ChartConfig] = {
         str(index): chart for index, chart in enumerate(charts, start=1)
     }
 
-    menu_lines = [
-        "",
-        "Select a chart to export (append '-loop' or '-l' to run every minute, e.g. 1 -loop or a -l):",
-        *[
-            f"  {index}. {chart.name} ({chart.export_prefix})"
-            for index, chart in options.items()
-        ],
-        "  a. Export all charts",
-        "  x. Exit",
-        "",
-    ]
-    menu_text = "\n".join(menu_lines)
+    def debugger_ready() -> bool:
+        if driver is not None:
+            return True
+        return is_debugger_available(REMOTE_DEBUG_ADDRESS)
 
-    print(menu_text)
+    def build_menu_text() -> str:
+        lines: List[str] = [""]
+        if debugger_ready():
+            lines.append(
+                "Select a chart to export (append '-loop' or '-l' to run every minute, e.g. 1 -loop or a -l):"
+            )
+            lines.extend(
+                [
+                    f"  {index}. {chart.name} ({chart.export_prefix})"
+                    for index, chart in options.items()
+                ]
+            )
+            lines.append("  a. Export all charts")
+        else:
+            lines.append("Launch Chrome with remote debugging to enable exports:")
+            lines.append("  l. Launch remote-debug Chrome window")
+        lines.append("  x. Exit")
+        lines.append("")
+        return "\n".join(lines)
 
     metrics: List[float] = []
 
@@ -412,15 +494,31 @@ def interactive_session(charts: List[ChartConfig]) -> None:
             )
 
     def run_single_chart(selected_chart: ChartConfig) -> None:
-        success, elapsed_ms, _ = process_chart(selected_chart, driver)
+        try:
+            active_driver = ensure_driver()
+        except Exception as exc:
+            print(f"Failed to attach to Chrome: {exc}")
+            if not is_debugger_available(REMOTE_DEBUG_ADDRESS):
+                print("Hint: choose option 'l' first to launch Chrome with remote debugging.")
+            return
+
+        success, elapsed_ms, _ = process_chart(selected_chart, active_driver)
         if success:
             metrics.append(elapsed_ms)
             print_overall_metrics()
 
     def run_all_charts() -> None:
+        try:
+            active_driver = ensure_driver()
+        except Exception as exc:
+            print(f"Failed to attach to Chrome: {exc}")
+            if not is_debugger_available(REMOTE_DEBUG_ADDRESS):
+                print("Hint: choose option 'l' first to launch Chrome with remote debugging.")
+            return
+
         batch_metrics: List[float] = []
         for chart in charts:
-            success, elapsed_ms, _ = process_chart(chart, driver)
+            success, elapsed_ms, _ = process_chart(chart, active_driver)
             if success:
                 metrics.append(elapsed_ms)
                 batch_metrics.append(elapsed_ms)
@@ -431,6 +529,9 @@ def interactive_session(charts: List[ChartConfig]) -> None:
 
     try:
         while True:
+            menu_text = build_menu_text()
+            print(menu_text)
+
             raw_choice = input("Enter option (1/2/3/... or x to exit): ").strip().lower()
             loop_every_minute = raw_choice.endswith("-loop") or raw_choice.endswith(" -loop")
             loop_every_minute = loop_every_minute or raw_choice.endswith("-l") or raw_choice.endswith(" -l")
@@ -448,12 +549,29 @@ def interactive_session(charts: List[ChartConfig]) -> None:
 
             if not choice:
                 print("Invalid option. Try again.")
-                print(menu_text)
                 continue
 
-            if choice != "a" and choice not in options:
+            ready = debugger_ready()
+
+            if choice == "l":
+                if loop_every_minute:
+                    print("Loop scheduling is not supported for the launch option.")
+                    continue
+                if ready:
+                    print("Chrome remote-debugger already running.")
+                else:
+                    try:
+                        launch_remote_debug_chrome()
+                    except Exception as exc:
+                        print(f"Failed to launch remote-debug Chrome: {exc}")
+                continue
+
+            if not ready:
+                print("Chrome with remote debugging is not running. Choose option 'l' to launch it.")
+                continue
+
+            if choice not in options and choice != "a":
                 print("Invalid option. Try again.")
-                print(menu_text)
                 continue
 
             def perform_selection() -> None:
@@ -481,16 +599,15 @@ def interactive_session(charts: List[ChartConfig]) -> None:
                         time.sleep(wait_seconds)
                 except KeyboardInterrupt:
                     print("Minute loop stopped. Returning to menu.")
-                print(menu_text)
                 continue
 
             perform_selection()
-            print(menu_text)
     finally:
-        try:
-            driver.switch_to.default_content()
-        except Exception:
-            pass
+        if driver is not None:
+            try:
+                driver.switch_to.default_content()
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":
