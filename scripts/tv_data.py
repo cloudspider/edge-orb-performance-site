@@ -9,8 +9,10 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
+from urllib.parse import urlsplit, urlunsplit
 
 from helium import set_driver
+import helium
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
@@ -36,8 +38,8 @@ EXPORT_MENU_XPATH = (
 )
 EXPORT_CONFIRM_SELECTOR = "[data-name='submit-button']"
 EXPORT_DIALOG_SELECTOR = "[data-dialog-name='Export chart data']"
-EXPORT_DIALOG_SETTLE_SECONDS = 1.2
 UI_READY_TIMEOUT = 10
+LOG_TIMESTAMP_FORMAT = "%H:%M:%S"
 
 
 #
@@ -77,6 +79,11 @@ def load_chart_configs(path: Path) -> List[ChartConfig]:
             )
         )
     return charts
+
+
+def log_stage(prefix: str, message: str) -> None:
+    timestamp = datetime.now().strftime(LOG_TIMESTAMP_FORMAT)
+    print(f"[{timestamp}] {prefix} {message}")
 
 
 def get_remote_browser_version(address: str) -> Optional[str]:
@@ -209,19 +216,28 @@ def attach_driver() -> webdriver.Chrome:
 
     last_error: Optional[Exception] = None
     for force_download in (False, True):
+        service = None
         try:
-            service = build_service(browser_version=browser_version, force_download=force_download)
+            service = build_service(
+                browser_version=browser_version, force_download=force_download
+            )
             driver = webdriver.Chrome(service=service, options=options)
             driver.set_window_position(0, 0)
             driver.set_window_size(1920, 1080)
             return driver
         except WebDriverException as exc:
             last_error = exc
+            if service is not None:
+                with contextlib.suppress(Exception):
+                    service.stop()
             if "Can not connect to the Service" in str(exc) and not force_download:
                 continue
             raise
         except Exception as exc:  # pragma: no cover - defensive
             last_error = exc
+            if service is not None:
+                with contextlib.suppress(Exception):
+                    service.stop()
             if not force_download:
                 continue
             raise
@@ -251,6 +267,68 @@ def wait_for_menu_ready(driver: webdriver.Chrome) -> None:
         return bool(_driver.find_elements(By.CSS_SELECTOR, SAVE_MENU_SELECTOR))
 
     wait.until(menu_present)
+
+
+def canonicalize_url(url: str) -> str:
+    parsed = urlsplit(url)
+    normalized_path = parsed.path.rstrip("/") or "/"
+    return urlunsplit((parsed.scheme, parsed.netloc, normalized_path, parsed.query, ""))
+
+
+def switch_to_existing_tab(driver: webdriver.Chrome, target_url: str) -> bool:
+    target = canonicalize_url(target_url)
+    current_handle = driver.current_window_handle if driver.window_handles else None
+
+    for handle in driver.window_handles:
+        try:
+            driver.switch_to.window(handle)
+        except Exception:
+            continue
+        try:
+            current_url = canonicalize_url(driver.current_url)
+        except Exception:
+            continue
+        if current_url == target:
+            try:
+                driver.execute_script("window.focus();")
+            except Exception:
+                pass
+            return True
+
+    if current_handle:
+        try:
+            driver.switch_to.window(current_handle)
+        except Exception:
+            pass
+    return False
+
+
+def ensure_chart_tab(
+    driver: webdriver.Chrome, target_url: str, log_prefix: Optional[str] = None
+) -> bool:
+    if switch_to_existing_tab(driver, target_url):
+        if log_prefix:
+            log_stage(log_prefix, "Reusing existing chart tab.")
+        return True
+
+    if log_prefix:
+        log_stage(log_prefix, "Opening new tab for chart.")
+
+    try:
+        driver.switch_to.new_window("tab")
+    except Exception:
+        driver.execute_script("window.open('about:blank','_blank');")
+        driver.switch_to.window(driver.window_handles[-1])
+
+    driver.get(target_url)
+    return False
+
+
+def next_loop_timestamp(now: datetime) -> datetime:
+    target = now.replace(second=50, microsecond=0)
+    if target <= now:
+        target = (target + timedelta(minutes=1)).replace(second=50, microsecond=0)
+    return target
 
 
 def find_clickable_element(
@@ -321,7 +399,6 @@ def click_export_confirm(driver: webdriver.Chrome) -> None:
     WebDriverWait(driver, 12).until(
         EC.visibility_of_element_located((By.CSS_SELECTOR, EXPORT_DIALOG_SELECTOR))
     )
-    time.sleep(EXPORT_DIALOG_SETTLE_SECONDS)
 
     try:
         button = find_clickable_element(
@@ -354,29 +431,47 @@ def click_export_confirm(driver: webdriver.Chrome) -> None:
     def record_failure(name: str, error: Exception) -> None:
         attempts.append(f"{name}: {error}")
 
-    for name, action in (
-        ("direct click", lambda: button.click()),
-        ("js click", lambda: driver.execute_script("arguments[0].click();", button)),
-    ):
-        try:
-            action()
-            driver.switch_to.default_content()
-            return
-        except Exception as err:  # noqa: PERF203 - debugging fallback
-            record_failure(name, err)
+    def try_click_sequence() -> bool:
+        nonlocal button
+        for name, action in (
+            ("direct click", lambda: button.click()),
+            ("js click", lambda: driver.execute_script("arguments[0].click();", button)),
+        ):
+            try:
+                action()
+                driver.switch_to.default_content()
+                return True
+            except Exception as err:  # noqa: PERF203 - debugging fallback
+                record_failure(name, err)
+        return False
 
     try:
         driver.execute_script("arguments[0].focus();", button)
     except Exception as err:
         record_failure("focus", err)
 
-    for name, action in (
-        ("enter on button", lambda: button.send_keys(Keys.ENTER)),
+    for delay in (0.0, 0.25, 0.5):
+        if delay:
+            time.sleep(delay)
+            try:
+                WebDriverWait(driver, 3).until(button_ready)
+            except TimeoutException:
+                pass
+        if try_click_sequence():
+            return
+
+    for delay, (name, action) in (
+        (0.0, ("enter on button", lambda: button.send_keys(Keys.ENTER))),
         (
-            "enter on active element",
-            lambda: driver.switch_to.active_element.send_keys(Keys.ENTER),
+            0.2,
+            (
+                "enter on active element",
+                lambda: driver.switch_to.active_element.send_keys(Keys.ENTER),
+            ),
         ),
     ):
+        if delay:
+            time.sleep(delay)
         try:
             action()
             driver.switch_to.default_content()
@@ -404,10 +499,13 @@ def latest_export(prefix: str) -> Path:
     return candidates[0]
 
 
-def wait_for_export(prefix: str, timeout_seconds: int = 30) -> Path:
+def wait_for_export(
+    prefix: str, timeout_seconds: int = 30, log_prefix: Optional[str] = None
+) -> Path:
     deadline = time.time() + timeout_seconds
     last_size = None
     export_path: Path
+    first_detection_logged = False
 
     while time.time() < deadline:
         try:
@@ -422,43 +520,79 @@ def wait_for_export(prefix: str, timeout_seconds: int = 30) -> Path:
 
         size = export_path.stat().st_size
         if size and size == last_size:
+            if log_prefix:
+                log_stage(
+                    log_prefix,
+                    f"Export download complete: {export_path.name} ({size} bytes).",
+                )
             return export_path
+        if size and log_prefix and not first_detection_logged:
+            log_stage(
+                log_prefix,
+                f"Detected download: {export_path.name} ({size} bytes). Waiting for completion.",
+            )
+            first_detection_logged = True
         last_size = size
         time.sleep(0.5)
 
+    if log_prefix:
+        log_stage(
+            log_prefix,
+            f"Timed out waiting for exported file matching '{prefix}' after {timeout_seconds}s.",
+        )
     raise TimeoutException(f"Export file matching '{prefix}' did not finish downloading in time.")
 
 
-def move_exported_file(prefix: str, destination: Path) -> None:
+def move_exported_file(
+    prefix: str, destination: Path, log_prefix: Optional[str] = None
+) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
-    export_file = wait_for_export(prefix)
+    if log_prefix:
+        log_stage(log_prefix, f"Waiting for exported file with prefix '{prefix}'.")
+    export_file = wait_for_export(prefix, log_prefix=log_prefix)
     shutil.copy2(export_file, destination)
     try:
         export_file.unlink()
     except OSError as err:
         print(f"{prefix}: copied to '{destination}', but failed to remove '{export_file}': {err}")
     else:
-        print(f"{prefix}: moved '{export_file.name}' to '{destination}'.")
+        if log_prefix:
+            log_stage(log_prefix, f"Moved '{export_file.name}' to '{destination}'.")
+        else:
+            print(f"{prefix}: moved '{export_file.name}' to '{destination}'.")
 
 
 def process_chart(chart: ChartConfig, driver: webdriver.Chrome) -> Tuple[bool, float, str]:
-    print(f"Processing chart {chart.name} at {chart.url}")
+    prefix = chart.export_prefix
+    log_stage(prefix, f"Starting export for {chart.name} ({chart.url}).")
     start_time = time.perf_counter()
-    driver.get(chart.url)
+
+    reused_tab = ensure_chart_tab(driver, chart.url, log_prefix=prefix)
+    if reused_tab:
+        log_stage(prefix, "Chart tab ready; continuing with existing session.")
+    else:
+        log_stage(prefix, "New chart tab opened.")
+
+    log_stage(prefix, "Waiting for page readiness.")
     wait_for_page_ready(driver)
+    log_stage(prefix, "Page ready. Waiting for save/load menu.")
     wait_for_menu_ready(driver)
+    log_stage(prefix, "Save/load menu available.")
 
     success = False
     error_message = ""
     elapsed_ms = 0.0
 
     try:
+        log_stage(prefix, "Locating save menu button.")
         button = find_save_menu_button(driver)
         driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
         driver.execute_script("arguments[0].click();", button)
+        log_stage(prefix, "Save menu opened. Selecting 'Export chart data'.")
         click_export_chart_data(driver)
+        log_stage(prefix, "Export dialog opened. Confirming export.")
         click_export_confirm(driver)
-        move_exported_file(chart.export_prefix, chart.save_path)
+        move_exported_file(chart.export_prefix, chart.save_path, log_prefix=prefix)
         success = True
     except TimeoutException as exc:
         error_message = f"timeout - {exc}"
@@ -474,9 +608,9 @@ def process_chart(chart: ChartConfig, driver: webdriver.Chrome) -> Tuple[bool, f
     elapsed_ms = (time.perf_counter() - start_time) * 1000
 
     if success:
-        print(f"{chart.name}: completed in {elapsed_ms:.0f} ms.")
+        log_stage(prefix, f"Export completed in {elapsed_ms:.0f} ms.")
     else:
-        print(f"{chart.name}: {error_message} (after {elapsed_ms:.0f} ms)")
+        log_stage(prefix, f"Export failed after {elapsed_ms:.0f} ms - {error_message}")
 
     return success, elapsed_ms, error_message
 
@@ -530,7 +664,7 @@ def interactive_session(charts: List[ChartConfig]) -> None:
         lines: List[str] = [""]
         if debugger_ready():
             lines.append(
-                "Select a chart to export (append '-loop' or '-l' to run every minute, e.g. 1 -loop or a -l):"
+                "Select chart numbers (comma-separated). Append '-loop' or '-l' to repeat every minute."
             )
             lines.extend(
                 [
@@ -555,7 +689,7 @@ def interactive_session(charts: List[ChartConfig]) -> None:
                 f"Overall average runtime: {avg_runtime:.0f} ms across {len(metrics)} chart runs."
             )
 
-    def run_single_chart(selected_chart: ChartConfig) -> None:
+    def run_chart_batch(batch_keys: List[str]) -> None:
         try:
             active_driver = ensure_driver()
         except Exception as exc:
@@ -563,38 +697,27 @@ def interactive_session(charts: List[ChartConfig]) -> None:
             if not is_debugger_available(REMOTE_DEBUG_ADDRESS):
                 print("Hint: choose option 'l' first to launch Chrome with remote debugging.")
             return
-
-        success, elapsed_ms, _ = process_chart(selected_chart, active_driver)
-        if success:
-            metrics.append(elapsed_ms)
-            print_overall_metrics()
-
-    def run_all_charts() -> None:
-        try:
-            active_driver = ensure_driver()
-        except Exception as exc:
-            print(f"Failed to attach to Chrome: {exc}")
-            if not is_debugger_available(REMOTE_DEBUG_ADDRESS):
-                print("Hint: choose option 'l' first to launch Chrome with remote debugging.")
-            return
-
         batch_metrics: List[float] = []
-        for chart in charts:
+        for key in batch_keys:
+            chart = options[key]
             success, elapsed_ms, _ = process_chart(chart, active_driver)
             if success:
                 metrics.append(elapsed_ms)
                 batch_metrics.append(elapsed_ms)
-        if batch_metrics:
+
+        if batch_metrics and len(batch_keys) > 1:
             avg_batch = sum(batch_metrics) / len(batch_metrics)
-            print(f"Batch average runtime: {avg_batch:.0f} ms across {len(batch_metrics)} charts.")
-            print_overall_metrics()
+            print(f"Selection average runtime: {avg_batch:.0f} ms across {len(batch_metrics)} charts.")
+        print_overall_metrics()
 
     try:
         while True:
             menu_text = build_menu_text()
             print(menu_text)
 
-            raw_choice = input("Enter option (1/2/3/... or x to exit): ").strip().lower()
+            raw_choice = input(
+                "Enter option (comma-separated numbers, a, l, or x): "
+            ).strip().lower()
             loop_every_minute = raw_choice.endswith("-loop") or raw_choice.endswith(" -loop")
             loop_every_minute = loop_every_minute or raw_choice.endswith("-l") or raw_choice.endswith(" -l")
 
@@ -614,6 +737,8 @@ def interactive_session(charts: List[ChartConfig]) -> None:
                 continue
 
             ready = debugger_ready()
+            run_all = False
+            selected_keys: List[str] = []
 
             if choice == "l":
                 if loop_every_minute:
@@ -628,31 +753,42 @@ def interactive_session(charts: List[ChartConfig]) -> None:
                         print(f"Failed to launch remote-debug Chrome: {exc}")
                 continue
 
+            if choice == "a":
+                run_all = True
+            else:
+                parts = [part.strip() for part in choice.split(",") if part.strip()]
+                if not parts:
+                    print("Invalid option. Try again.")
+                    continue
+                deduped = []
+                for part in parts:
+                    if part not in options:
+                        print(f"Unknown selection '{part}'. Try again.")
+                        deduped = []
+                        break
+                    if part not in deduped:
+                        deduped.append(part)
+                if not deduped:
+                    continue
+                selected_keys = deduped
+
             if not ready:
                 print("Chrome with remote debugging is not running. Choose option 'l' to launch it.")
                 continue
 
-            if choice not in options and choice != "a":
-                print("Invalid option. Try again.")
-                continue
-
             def perform_selection() -> None:
-                if choice == "a":
-                    run_all_charts()
+                if run_all:
+                    run_chart_batch(list(options.keys()))
                 else:
-                    run_single_chart(options[choice])
+                    run_chart_batch(selected_keys)
 
-            if loop_every_minute and choice != "x":
+            if loop_every_minute:
                 print("Starting scheduled loop. Press Ctrl+C to stop.")
                 try:
                     while True:
                         perform_selection()
                         now = datetime.now()
-                        target = (now + timedelta(minutes=1)).replace(
-                            second=0, microsecond=0
-                        ) - timedelta(seconds=10)
-                        if target <= now:
-                            target += timedelta(minutes=1)
+                        target = next_loop_timestamp(now)
                         wait_seconds = max((target - now).total_seconds(), 0)
                         next_time_str = target.strftime("%H:%M:%S")
                         print(

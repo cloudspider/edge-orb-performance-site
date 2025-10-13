@@ -22,5 +22,29 @@
         "export_prefix": "CBOT_MINI_YM1!",
         "save_path": "/Users/guy/apps/app_orb/YM.csv",
         "url": "https://www.tradingview.com/chart/5RnTl1Wf/"
+    },
+    {
+        "name": "MGC",
+        "export_prefix": "COMEX_MINI_MGC1!",
+        "save_path": "/Users/guy/apps/app_orb/MGC.csv",
+        "url": "https://www.tradingview.com/chart/28Bo53hs/"
+    },
+    {
+        "name": "MNQ",
+        "export_prefix": "CME_MINI_MNQ1!",
+        "save_path": "/Users/guy/apps/app_orb/MNQ.csv",
+        "url": "https://www.tradingview.com/chart/LUOs885A/"
+    },
+    {
+        "name": "MES",
+        "export_prefix": "CME_MINI_MES1!",
+        "save_path": "/Users/guy/apps/app_orb/MES.csv",
+        "url": "https://www.tradingview.com/chart/xG5mGkuT/"
+    },
+    {
+        "name": "MYM",
+        "export_prefix": "CBOT_MINI_MYM1!",
+        "save_path": "/Users/guy/apps/app_orb/MYM.csv",
+        "url": "https://www.tradingview.com/chart/kWAPUs6J/"
     }
 ]
