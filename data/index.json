@@ -85,6 +85,11 @@
     "multiplier": 5
   },
   {
+    "symbol": "MYM",
+    "name": "Micro E-mini Dow Futures",
+    "multiplier": 1
+  },
+  {
     "symbol": "HG",
     "name": "COMEX Copper Futures",
     "multiplier": 25000
