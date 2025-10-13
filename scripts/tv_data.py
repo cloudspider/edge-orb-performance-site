@@ -1,8 +1,10 @@
 import contextlib
 import json
 import os
+import select
 import shutil
 import subprocess
+import sys
 import time
 import urllib.request
 from dataclasses import dataclass
@@ -660,26 +662,6 @@ def interactive_session(charts: List[ChartConfig]) -> None:
             return True
         return is_debugger_available(REMOTE_DEBUG_ADDRESS)
 
-    def build_menu_text() -> str:
-        lines: List[str] = [""]
-        if debugger_ready():
-            lines.append(
-                "Select chart numbers (comma-separated). Append '-loop' or '-l' to repeat every minute."
-            )
-            lines.extend(
-                [
-                    f"  {index}. {chart.name} ({chart.export_prefix})"
-                    for index, chart in options.items()
-                ]
-            )
-            lines.append("  a. Export all charts")
-        else:
-            lines.append("Launch Chrome with remote debugging to enable exports:")
-            lines.append("  l. Launch remote-debug Chrome window")
-        lines.append("  x. Exit")
-        lines.append("")
-        return "\n".join(lines)
-
     metrics: List[float] = []
 
     def print_overall_metrics() -> None:
@@ -710,18 +692,109 @@ def interactive_session(charts: List[ChartConfig]) -> None:
             print(f"Selection average runtime: {avg_batch:.0f} ms across {len(batch_metrics)} charts.")
         print_overall_metrics()
 
+    def selection_description(run_all: bool, selected_keys: List[str]) -> str:
+        if run_all:
+            return "All charts"
+        names = [options[key].name for key in selected_keys]
+        return ", ".join(names)
+
+    def build_menu_text(paused: bool, loop_state: Optional[Dict[str, object]]) -> str:
+        status = "PAUSED" if paused else "READY"
+        lines: List[str] = ["", f"[Status: {status}]"]
+        if loop_state:
+            next_run = loop_state.get("next_run")
+            next_run_str = (
+                next_run.strftime("%H:%M:%S") if isinstance(next_run, datetime) else "n/a"
+            )
+            lines.append(
+                f"Active loop: {loop_state['description']} (next run {next_run_str})"
+            )
+        if debugger_ready():
+            lines.append(
+                "Select chart numbers (comma-separated). Append '-loop' or '-l' to repeat every minute."
+            )
+            lines.extend(
+                [
+                    f"  {index}. {chart.name} ({chart.export_prefix})"
+                    for index, chart in options.items()
+                ]
+            )
+            lines.append("  a. Export all charts")
+            lines.append("  l. Launch remote-debug Chrome window")
+            lines.append("  p. Pause active loop")
+            lines.append("  r. Resume active loop")
+            lines.append("  h. Show menu")
+        else:
+            lines.append("Launch Chrome with remote debugging to enable exports:")
+            lines.append("  l. Launch remote-debug Chrome window")
+        lines.append("  x. Exit")
+        lines.append("")
+        lines.append("Enter option (comma-separated numbers, a, l, p, r, h, or x):")
+        return "\n".join(lines)
+
+    loop_state: Optional[Dict[str, object]] = None
+    paused = False
+    menu_dirty = True
+
     try:
         while True:
-            menu_text = build_menu_text()
-            print(menu_text)
+            now = datetime.now()
+            due_run = False
+            timeout: Optional[float] = None
+            if loop_state and not paused:
+                next_run = loop_state.get("next_run")
+                if isinstance(next_run, datetime):
+                    delta = (next_run - now).total_seconds()
+                    if delta <= 0:
+                        due_run = True
+                    else:
+                        timeout = delta
 
-            raw_choice = input(
-                "Enter option (comma-separated numbers, a, l, or x): "
-            ).strip().lower()
-            loop_every_minute = raw_choice.endswith("-loop") or raw_choice.endswith(" -loop")
-            loop_every_minute = loop_every_minute or raw_choice.endswith("-l") or raw_choice.endswith(" -l")
+            if due_run and loop_state:
+                run_all = bool(loop_state.get("run_all"))
+                selected_keys = list(loop_state.get("selected_keys", []))  # type: ignore[arg-type]
+                log_stage("loop", f"Running scheduled selection: {loop_state['description']}")
+                if run_all:
+                    run_chart_batch(list(options.keys()))
+                else:
+                    run_chart_batch(selected_keys)
+                loop_state["next_run"] = next_loop_timestamp(datetime.now())
+                next_run = loop_state["next_run"]
+                if isinstance(next_run, datetime):
+                    log_stage("loop", f"Next run scheduled at {next_run.strftime('%H:%M:%S')}.")
+                menu_dirty = True
+                continue
 
-            choice = raw_choice
+            if menu_dirty:
+                print(build_menu_text(paused, loop_state))
+                sys.stdout.write("> ")
+                sys.stdout.flush()
+                menu_dirty = False
+
+            if timeout is None:
+                ready, _, _ = select.select([sys.stdin], [], [], None)
+            else:
+                ready, _, _ = select.select([sys.stdin], [], [], timeout)
+
+            if not ready:
+                # timeout expired; loop will run on next iteration
+                continue
+
+            raw_line = sys.stdin.readline()
+            if raw_line == "":
+                print("EOF received. Exiting.")
+                break
+
+            raw_choice = raw_line.strip()
+            if not raw_choice:
+                menu_dirty = True
+                continue
+
+            lower_choice = raw_choice.lower()
+            loop_every_minute = lower_choice.endswith("-loop") or lower_choice.endswith(" -loop")
+            loop_every_minute = loop_every_minute or lower_choice.endswith("-l") or lower_choice.endswith(" -l")
+
+            choice = lower_choice
             for suffix in (" -loop", "-loop", " -l", "-l"):
                 if choice.endswith(suffix):
                     choice = choice[: -len(suffix)]
@@ -732,26 +805,58 @@ def interactive_session(charts: List[ChartConfig]) -> None:
                 print("Exiting.")
                 break
 
-            if not choice:
-                print("Invalid option. Try again.")
+            if choice == "h":
+                menu_dirty = True
                 continue
-
-            ready = debugger_ready()
-            run_all = False
-            selected_keys: List[str] = []
 
             if choice == "l":
                 if loop_every_minute:
                     print("Loop scheduling is not supported for the launch option.")
                     continue
-                if ready:
+                if debugger_ready():
                     print("Chrome remote-debugger already running.")
                 else:
                     try:
                         launch_remote_debug_chrome()
                     except Exception as exc:
                         print(f"Failed to launch remote-debug Chrome: {exc}")
+                menu_dirty = True
                 continue
+
+            if choice == "p":
+                if loop_state:
+                    if paused:
+                        print("Loop already paused.")
+                    else:
+                        paused = True
+                        print("Loop paused.")
+                else:
+                    print("No active loop to pause.")
+                menu_dirty = True
+                continue
+
+            if choice == "r":
+                if loop_state:
+                    if not paused:
+                        print("Loop already running.")
+                    else:
+                        paused = False
+                        print("Loop resumed.")
+                        if loop_state.get("next_run"):
+                            loop_state["next_run"] = next_loop_timestamp(datetime.now())
+                else:
+                    print("No active loop to resume.")
+                menu_dirty = True
+                continue
+
+            ready = debugger_ready()
+            if not ready:
+                print("Chrome with remote debugging is not running. Choose option 'l' to launch it.")
+                menu_dirty = True
+                continue
+
+            run_all = False
+            selected_keys: List[str] = []
 
             if choice == "a":
                 run_all = True
@@ -759,47 +864,49 @@ def interactive_session(charts: List[ChartConfig]) -> None:
                 parts = [part.strip() for part in choice.split(",") if part.strip()]
                 if not parts:
                     print("Invalid option. Try again.")
+                    menu_dirty = True
                     continue
-                deduped = []
+                deduped: List[str] = []
+                unknown = False
                 for part in parts:
                     if part not in options:
                         print(f"Unknown selection '{part}'. Try again.")
-                        deduped = []
+                        unknown = True
                         break
                     if part not in deduped:
                         deduped.append(part)
-                if not deduped:
+                if unknown or not deduped:
+                    menu_dirty = True
                     continue
                 selected_keys = deduped
 
-            if not ready:
-                print("Chrome with remote debugging is not running. Choose option 'l' to launch it.")
-                continue
-
-            def perform_selection() -> None:
+            if loop_every_minute:
+                description = selection_description(run_all, selected_keys)
+                log_stage("loop", f"Running loop selection now: {description}")
                 if run_all:
                     run_chart_batch(list(options.keys()))
                 else:
                     run_chart_batch(selected_keys)
-
-            if loop_every_minute:
-                print("Starting scheduled loop. Press Ctrl+C to stop.")
-                try:
-                    while True:
-                        perform_selection()
-                        now = datetime.now()
-                        target = next_loop_timestamp(now)
-                        wait_seconds = max((target - now).total_seconds(), 0)
-                        next_time_str = target.strftime("%H:%M:%S")
-                        print(
-                            f"Next run at {next_time_str} in {wait_seconds:.0f} seconds..."
-                        )
-                        time.sleep(wait_seconds)
-                except KeyboardInterrupt:
-                    print("Minute loop stopped. Returning to menu.")
+                loop_state = {
+                    "run_all": run_all,
+                    "selected_keys": selected_keys,
+                    "description": description,
+                    "next_run": next_loop_timestamp(datetime.now()),
+                }
+                paused = False
+                next_run = loop_state["next_run"]
+                if isinstance(next_run, datetime):
+                    log_stage("loop", f"Loop scheduled. Next run at {next_run.strftime('%H:%M:%S')}.")
+                else:
+                    print("Loop scheduled.")
+                menu_dirty = True
                 continue
 
-            perform_selection()
+            if run_all:
+                run_chart_batch(list(options.keys()))
+            else:
+                run_chart_batch(selected_keys)
+            menu_dirty = True
     finally:
         if driver is not None:
             try:
