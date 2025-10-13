@@ -19,7 +19,7 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webelement import WebElement
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
-from selenium.common.exceptions import TimeoutException, StaleElementReferenceException
+from selenium.common.exceptions import TimeoutException, StaleElementReferenceException, WebDriverException
 
 CONFIG_PATH = Path(__file__).with_suffix(".json")
 DOWNLOADS_DIR = Path.home() / "Downloads"
@@ -79,17 +79,59 @@ def load_chart_configs(path: Path) -> List[ChartConfig]:
     return charts
 
 
-def build_service() -> Service:
+def get_remote_browser_version(address: str) -> Optional[str]:
+    host, _, port = address.partition(":")
+    if not host or not port:
+        return None
+
+    url = f"http://{host}:{port}/json/version"
+    try:
+        with contextlib.closing(urllib.request.urlopen(url, timeout=2)) as response:
+            payload = json.load(response)
+    except OSError:
+        return None
+
+    browser = payload.get("Browser") or payload.get("browser")
+    if isinstance(browser, str) and "/" in browser:
+        return browser.split("/", 1)[1]
+    return None
+
+
+def build_service(browser_version: Optional[str] = None, force_download: bool = False) -> Service:
+    env_path = os.getenv("CHROMEDRIVER_PATH")
+    if env_path:
+        if not Path(env_path).exists():
+            raise RuntimeError(f"CHROMEDRIVER_PATH is set but file does not exist: {env_path}")
+        return Service(executable_path=env_path)
+
+    chromedriver_path = shutil.which("chromedriver")
+    if chromedriver_path:
+        return Service(executable_path=chromedriver_path)
+
     try:
         from webdriver_manager.chrome import ChromeDriverManager  # type: ignore
     except ImportError:
-        chromedriver_path = os.getenv("CHROMEDRIVER_PATH") or shutil.which("chromedriver")
-        if not chromedriver_path:
-            raise RuntimeError(
-                "Chromedriver not found. Install webdriver-manager or set CHROMEDRIVER_PATH."
-            )
-        return Service(executable_path=chromedriver_path)
-    return Service(ChromeDriverManager().install())
+        raise RuntimeError(
+            "Chromedriver not found. Install webdriver-manager or set CHROMEDRIVER_PATH."
+        )
+
+    manager_kwargs = {}
+    if browser_version:
+        manager_kwargs["driver_version"] = browser_version
+    if force_download:
+        manager_kwargs["cache_valid_range"] = 0
+
+    try:
+        driver_path = ChromeDriverManager(**manager_kwargs).install()
+    except ValueError:
+        driver_path = ChromeDriverManager().install()
+
+    try:
+        Path(driver_path).chmod(0o755)
+    except OSError:
+        pass
+
+    return Service(executable_path=driver_path)
 
 
 def is_debugger_available(address: str, timeout_seconds: float = 1.0) -> bool:
@@ -161,12 +203,32 @@ def launch_remote_debug_chrome() -> None:
 
 def attach_driver() -> webdriver.Chrome:
     wait_for_debugger(REMOTE_DEBUG_ADDRESS)
+    browser_version = get_remote_browser_version(REMOTE_DEBUG_ADDRESS)
     options = Options()
     options.add_experimental_option("debuggerAddress", REMOTE_DEBUG_ADDRESS)
-    driver = webdriver.Chrome(service=build_service(), options=options)
-    driver.set_window_position(0, 0)
-    driver.set_window_size(1920, 1080)
-    return driver
+
+    last_error: Optional[Exception] = None
+    for force_download in (False, True):
+        try:
+            service = build_service(browser_version=browser_version, force_download=force_download)
+            driver = webdriver.Chrome(service=service, options=options)
+            driver.set_window_position(0, 0)
+            driver.set_window_size(1920, 1080)
+            return driver
+        except WebDriverException as exc:
+            last_error = exc
+            if "Can not connect to the Service" in str(exc) and not force_download:
+                continue
+            raise
+        except Exception as exc:  # pragma: no cover - defensive
+            last_error = exc
+            if not force_download:
+                continue
+            raise
+
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError("Failed to attach driver for unknown reasons.")
 
 
 def wait_for_page_ready(driver: webdriver.Chrome, timeout_seconds: int = 20) -> None:
