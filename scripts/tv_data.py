@@ -14,7 +14,6 @@ from typing import Dict, Iterable, List, Optional, Tuple
 from urllib.parse import urlsplit, urlunsplit
 
 from helium import set_driver
-import helium
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
@@ -47,6 +46,14 @@ LOG_TIMESTAMP_FORMAT = "%H:%M:%S"
 #
 # before launching this app, run this in the terminal in order for it to work...
 #
+# brew reinstall --cask chromedriver --no-quarantine
+#
+# CHROMEDRIVER_PATH=$(which chromedriver) 
+# export CHROMEDRIVER_PATH="/opt/homebrew/bin/chromedriver"
+# export PATH="/opt/homebrew/bin:$PATH"
+
+
+
 #guy@Mac ~ % open -na "Google Chrome" --args \      
 #  --remote-debugging-port=9222 \
 #  --user-data-dir="$HOME/Library/Application Support/Google/RemoteDebugProfile"
@@ -127,14 +134,15 @@ def build_service(browser_version: Optional[str] = None, force_download: bool = 
     manager_kwargs = {}
     if browser_version:
         manager_kwargs["driver_version"] = browser_version
-    if force_download:
-        manager_kwargs["cache_valid_range"] = 0
 
     try:
-        driver_path = ChromeDriverManager(**manager_kwargs).install()
+        if force_download:
+            driver_manager = ChromeDriverManager()
+            driver_path = driver_manager.install()
+        else:
+            driver_path = ChromeDriverManager(**manager_kwargs).install()
     except ValueError:
         driver_path = ChromeDriverManager().install()
-
     try:
         Path(driver_path).chmod(0o755)
     except OSError:
@@ -166,14 +174,18 @@ def wait_for_debugger(address: str, timeout_seconds: int = 15) -> None:
     while time.time() < deadline:
         try:
             with contextlib.closing(urllib.request.urlopen(url, timeout=2)):
+                log_stage("driver", f"Debugger reachable at {address}.")
                 return
         except OSError:
             time.sleep(0.5)
+            log_stage("driver", f"Waiting for debugger at {address} ...")
 
-    raise RuntimeError(
+    message = (
         f"Chrome debugger not reachable at {address}. "
         "Start Chrome with --remote-debugging-port and ensure the port matches."
     )
+    log_stage("driver", message)
+    raise RuntimeError(message)
 
 
 def launch_remote_debug_chrome() -> None:
@@ -211,8 +223,14 @@ def launch_remote_debug_chrome() -> None:
 
 
 def attach_driver() -> webdriver.Chrome:
+    log_stage("driver", f"Waiting for debugger at {REMOTE_DEBUG_ADDRESS}.")
     wait_for_debugger(REMOTE_DEBUG_ADDRESS)
+    log_stage("driver", "Debugger ready. Fetching remote browser version.")
     browser_version = get_remote_browser_version(REMOTE_DEBUG_ADDRESS)
+    if browser_version:
+        log_stage("driver", f"Remote browser version reported as {browser_version}.")
+    else:
+        log_stage("driver", "Remote browser version unavailable; using default driver resolution.")
     options = Options()
     options.add_experimental_option("debuggerAddress", REMOTE_DEBUG_ADDRESS)
 
@@ -220,23 +238,29 @@ def attach_driver() -> webdriver.Chrome:
     for force_download in (False, True):
         service = None
         try:
+            action = "existing driver" if not force_download else "fresh download"
+            log_stage("driver", f"Attempting to start ChromeDriver using {action}.")
             service = build_service(
                 browser_version=browser_version, force_download=force_download
             )
             driver = webdriver.Chrome(service=service, options=options)
             driver.set_window_position(0, 0)
             driver.set_window_size(1920, 1080)
+            log_stage("driver", "ChromeDriver session established.")
             return driver
         except WebDriverException as exc:
             last_error = exc
+            log_stage("driver", f"Driver start failed ({exc}).")
             if service is not None:
                 with contextlib.suppress(Exception):
                     service.stop()
             if "Can not connect to the Service" in str(exc) and not force_download:
+                log_stage("driver", "Retrying ChromeDriver setup with fresh download due to connection failure.")
                 continue
             raise
         except Exception as exc:  # pragma: no cover - defensive
             last_error = exc
+            log_stage("driver", f"Unexpected driver error ({exc}).")
             if service is not None:
                 with contextlib.suppress(Exception):
                     service.stop()
@@ -245,6 +269,7 @@ def attach_driver() -> webdriver.Chrome:
             raise
 
     if last_error is not None:
+        log_stage("driver", f"Failed to attach driver: {last_error}")
         raise last_error
     raise RuntimeError("Failed to attach driver for unknown reasons.")
 
@@ -646,8 +671,10 @@ def interactive_session(charts: List[ChartConfig]) -> None:
         nonlocal driver
         if driver is None:
             try:
+                log_stage("driver", "No active driver. Attaching to Chrome debugger.")
                 driver = attach_driver()
                 set_driver(driver)
+                log_stage("driver", "Chrome driver attached.")
             except Exception:
                 driver = None
                 raise
@@ -679,6 +706,14 @@ def interactive_session(charts: List[ChartConfig]) -> None:
             if not is_debugger_available(REMOTE_DEBUG_ADDRESS):
                 print("Hint: choose option 'l' first to launch Chrome with remote debugging.")
             return
+
+        if not batch_keys:
+            log_stage("batch", "No charts selected in batch.")
+            return
+
+        batch_names = ", ".join(options[key].name for key in batch_keys)
+        log_stage("batch", f"Starting batch for: {batch_names}")
+
         batch_metrics: List[float] = []
         for key in batch_keys:
             chart = options[key]
@@ -691,6 +726,7 @@ def interactive_session(charts: List[ChartConfig]) -> None:
             avg_batch = sum(batch_metrics) / len(batch_metrics)
             print(f"Selection average runtime: {avg_batch:.0f} ms across {len(batch_metrics)} charts.")
         print_overall_metrics()
+        log_stage("batch", f"Completed batch for: {batch_names}")
 
     def selection_description(run_all: bool, selected_keys: List[str]) -> str:
         if run_all:
@@ -739,31 +775,22 @@ def interactive_session(charts: List[ChartConfig]) -> None:
     try:
         while True:
             now = datetime.now()
-            due_run = False
-            timeout: Optional[float] = None
             if loop_state and not paused:
                 next_run = loop_state.get("next_run")
-                if isinstance(next_run, datetime):
-                    delta = (next_run - now).total_seconds()
-                    if delta <= 0:
-                        due_run = True
+                if isinstance(next_run, datetime) and next_run <= now:
+                    run_all = bool(loop_state.get("run_all"))
+                    selected_keys = list(loop_state.get("selected_keys", []))  # type: ignore[arg-type]
+                    log_stage("loop", f"Running scheduled selection: {loop_state['description']}")
+                    if run_all:
+                        run_chart_batch(list(options.keys()))
                     else:
-                        timeout = delta
-
-            if due_run and loop_state:
-                run_all = bool(loop_state.get("run_all"))
-                selected_keys = list(loop_state.get("selected_keys", []))  # type: ignore[arg-type]
-                log_stage("loop", f"Running scheduled selection: {loop_state['description']}")
-                if run_all:
-                    run_chart_batch(list(options.keys()))
-                else:
-                    run_chart_batch(selected_keys)
-                loop_state["next_run"] = next_loop_timestamp(datetime.now())
-                next_run = loop_state["next_run"]
-                if isinstance(next_run, datetime):
-                    log_stage("loop", f"Next run scheduled at {next_run.strftime('%H:%M:%S')}.")
-                menu_dirty = True
-                continue
+                        run_chart_batch(selected_keys)
+                    loop_state["next_run"] = next_loop_timestamp(datetime.now())
+                    updated_next = loop_state["next_run"]
+                    if isinstance(updated_next, datetime):
+                        log_stage("loop", f"Next run scheduled at {updated_next.strftime('%H:%M:%S')}.")
+                    menu_dirty = True
+                    continue
 
             if menu_dirty:
                 print(build_menu_text(paused, loop_state))
@@ -771,13 +798,19 @@ def interactive_session(charts: List[ChartConfig]) -> None:
                 sys.stdout.flush()
                 menu_dirty = False
 
-            if timeout is None:
-                ready, _, _ = select.select([sys.stdin], [], [], None)
-            else:
-                ready, _, _ = select.select([sys.stdin], [], [], timeout)
+            poll_timeout: Optional[float] = None
+            if loop_state and not paused:
+                next_run = loop_state.get("next_run")
+                if isinstance(next_run, datetime):
+                    delta = (next_run - datetime.now()).total_seconds()
+                    if delta <= 0:
+                        continue
+                    poll_timeout = max(min(delta, 1.0), 0.1)
+
+            ready, _, _ = select.select([sys.stdin], [], [], poll_timeout)
 
             if not ready:
-                # timeout expired; loop will run on next iteration
+                # timeout expired (waiting for scheduled run)
                 continue
 
             raw_line = sys.stdin.readline()
@@ -791,6 +824,7 @@ def interactive_session(charts: List[ChartConfig]) -> None:
                 continue
 
             lower_choice = raw_choice.lower()
+            log_stage("menu", f"Command received: {raw_choice}")
             loop_every_minute = lower_choice.endswith("-loop") or lower_choice.endswith(" -loop")
             loop_every_minute = loop_every_minute or lower_choice.endswith("-l") or lower_choice.endswith(" -l")
 
@@ -903,8 +937,10 @@ def interactive_session(charts: List[ChartConfig]) -> None:
                 continue
 
             if run_all:
+                log_stage("menu", "Running selection once: All charts")
                 run_chart_batch(list(options.keys()))
             else:
+                log_stage("menu", f"Running selection once: {selection_description(False, selected_keys)}")
                 run_chart_batch(selected_keys)
             menu_dirty = True
     finally:
