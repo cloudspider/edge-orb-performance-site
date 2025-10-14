@@ -21,7 +21,7 @@ If macOS still complains the first time you run it, clear the quarantine flag on
 xattr -d com.apple.quarantine /opt/homebrew/Caskroom/chromedriver/*/chromedriver-mac-arm64/chromedriver
 Finally, rerun your script:
 
-python3 scripts/tv_data.py
+python3 scripts/tv_downloader.py
 That should let Selenium attach to the Homebrew-installed chromedriver without the service error. Let me know if the reinstall still leaves the binary missing.
 
 
@@ -42,6 +42,5 @@ export CHROMEDRIVER_PATH="/opt/homebrew/bin/chromedriver"
 
 Run the script again:
 
-python3 scripts/tv_data.py
+python3 scripts/tv_downloader.py
 Choose a chart and see if it attaches cleanly. With the quarantine removed and the env vars set, Selenium should find and launch the Homebrew chromedriver.
-
