@@ -14,6 +14,28 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 from urllib.parse import urlsplit, urlunsplit
 
+LOG_TIMESTAMP_FORMAT = "%H:%M:%S"
+
+
+def resolve_config_path() -> Path:
+    if getattr(sys, "frozen", False):
+        exe_path = Path(sys.executable).resolve()
+        candidate = exe_path.with_name(f"{exe_path.stem}.json")
+        if candidate.exists():
+            return candidate
+        fallback = exe_path.parent / "tv_downloader.json"
+        if fallback.exists():
+            return fallback
+
+    script_path = Path(__file__).resolve()
+    candidate = script_path.with_suffix(".json")
+    if candidate.exists():
+        return candidate
+
+    return Path.cwd() / "tv_downloader.json"
+
+
+
 from helium import set_driver
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -25,7 +47,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.common.exceptions import TimeoutException, StaleElementReferenceException, WebDriverException
 
-CONFIG_PATH = Path(__file__).with_suffix(".json")
+CONFIG_PATH = resolve_config_path()
 DOWNLOADS_DIR = Path.home() / "Downloads"
 REMOTE_DEBUG_ADDRESS = os.getenv("REMOTE_DEBUG_ADDRESS", "127.0.0.1:9222")
 REMOTE_DEBUG_PROFILE_DIR = Path.home() / "Library" / "Application Support" / "Google" / "RemoteDebugProfile"
@@ -41,7 +63,6 @@ EXPORT_MENU_XPATH = (
 EXPORT_CONFIRM_SELECTOR = "[data-name='submit-button']"
 EXPORT_DIALOG_SELECTOR = "[data-dialog-name='Export chart data']"
 UI_READY_TIMEOUT = 10
-LOG_TIMESTAMP_FORMAT = "%H:%M:%S"
 
 
 #

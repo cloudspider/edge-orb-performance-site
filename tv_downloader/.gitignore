@@ -1,0 +1,10 @@
+# PyInstaller build artifacts
+/dist/
+/build/
+*.spec
+
+# Local build virtual environment
+/.venv_build/
+
+# macOS metadata
+.DS_Store

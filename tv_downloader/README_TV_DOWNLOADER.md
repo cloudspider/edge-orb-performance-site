@@ -1,3 +1,10 @@
+## Chromedriver location
+```
+/Users/guy/.wdm/drivers/chromedriver/mac64
+```
+
+## Installation and Debugging
+
 Looks like the chromedriver binary itself isn’t in that directory—only the license files remain—which explains why Selenium can’t start it. Let’s refresh the cask so we get a clean, notarized binary in place:
 
 Reinstall the Homebrew cask (this redownloads the bundle):
