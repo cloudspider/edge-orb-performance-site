@@ -7,18 +7,22 @@ import shutil
 import subprocess
 import sys
 import time
+import shlex
 import urllib.request
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time as dt_time
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 from urllib.parse import urlsplit, urlunsplit
+from zoneinfo import ZoneInfo
 
 LOG_TIMESTAMP_FORMAT = "%H:%M:%S"
 ANSI_RESET = "\033[0m"
 ANSI_GREEN = "\033[32m"
 ANSI_ORANGE = "\033[38;5;208m"
 ANSI_GREY = "\033[90m"
+NEW_YORK_TZ = ZoneInfo("America/New_York")
+AEST_TZ = ZoneInfo("Australia/Sydney")
 
 
 def resolve_config_path() -> Path:
@@ -418,11 +422,78 @@ def ensure_chart_tab(
     return False
 
 
-def next_loop_timestamp(now: datetime) -> datetime:
-    target = now.replace(second=50, microsecond=0)
-    if target <= now:
-        target = (target + timedelta(minutes=1)).replace(second=50, microsecond=0)
-    return target
+def _minutes_since_midnight(value: dt_time) -> int:
+    return value.hour * 60 + value.minute
+
+
+def _within_window(candidate: dt_time, start_time: Optional[dt_time], end_time: Optional[dt_time]) -> bool:
+    if start_time is None and end_time is None:
+        return True
+
+    candidate_minutes = _minutes_since_midnight(candidate)
+    start_minutes = _minutes_since_midnight(start_time) if start_time else None
+    end_minutes = _minutes_since_midnight(end_time) if end_time else None
+
+    if start_minutes is not None and end_minutes is not None:
+        if start_minutes == end_minutes:
+            return True
+        if start_minutes < end_minutes:
+            return start_minutes <= candidate_minutes <= end_minutes
+        return candidate_minutes >= start_minutes or candidate_minutes <= end_minutes
+
+    if start_minutes is not None:
+        return candidate_minutes >= start_minutes
+    if end_minutes is not None:
+        return candidate_minutes <= end_minutes
+    return True
+
+
+def next_loop_timestamp(
+    now: datetime,
+    start_time: Optional[dt_time] = None,
+    end_time: Optional[dt_time] = None,
+    tz: Optional[ZoneInfo] = None,
+) -> datetime:
+    tz = tz or now.tzinfo or NEW_YORK_TZ
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=tz)
+    else:
+        now = now.astimezone(tz)
+
+    candidate = now.replace(second=50, microsecond=0)
+    if candidate <= now:
+        candidate = (candidate + timedelta(minutes=1)).replace(second=50, microsecond=0)
+
+    for _ in range(2 * 24 * 60):
+        if _within_window(candidate.time(), start_time, end_time):
+            return candidate
+        candidate = (candidate + timedelta(minutes=1)).replace(second=50, microsecond=0)
+
+    raise RuntimeError("Unable to find the next loop timestamp within the configured window.")
+
+
+def parse_time_of_day(value: str) -> dt_time:
+    text = value.strip().lower()
+    if not text:
+        raise ValueError("Time value is empty.")
+
+    # Allow optional trailing timezone hint like "ny" or "et"
+    for suffix in ("ny", "et", "est", "edt"):
+        if text.endswith(suffix):
+            text = text[: -len(suffix)].strip()
+            break
+
+    text = text.replace(" ", "")
+
+    patterns = ("%I:%M%p", "%I%p", "%H:%M", "%H")
+    for pattern in patterns:
+        try:
+            parsed = datetime.strptime(text, pattern)
+            return parsed.time().replace(second=0, microsecond=0)
+        except ValueError:
+            continue
+
+    raise ValueError(f"Unable to parse time value '{value}'. Expected formats like 09:55 or 9:55am.")
 
 
 def find_clickable_element(
@@ -827,6 +898,7 @@ def interactive_session(charts: List[ChartConfig]) -> None:
         lines: List[str] = [
             "",
             f"{status_color}[Status: {status_text}]{ANSI_RESET}",
+            schedule_window_text(),
         ]
         if debugger_ready():
             lines.append(
@@ -842,7 +914,9 @@ def interactive_session(charts: List[ChartConfig]) -> None:
             lines.append("  l. Launch remote-debug Chrome window")
             lines.append("  p. Pause active loop")
             lines.append("  r. Resume active loop")
+            lines.append("  s. Stop and reset loop")
             lines.append("  h. Show menu")
+            lines.append("      Use '-start HH:MM' / '-end HH:MM' (Eastern) to adjust the loop window.")
         else:
             lines.append("Launch Chrome with remote debugging to enable exports:")
             lines.append("  l. Launch remote-debug Chrome window")
@@ -852,6 +926,8 @@ def interactive_session(charts: List[ChartConfig]) -> None:
         return "\n".join(lines)
 
     loop_state: Optional[Dict[str, object]] = None
+    loop_start_time: Optional[dt_time] = None
+    loop_end_time: Optional[dt_time] = None
     paused = False
     menu_dirty = True
     status_line_active = False
@@ -863,25 +939,60 @@ def interactive_session(charts: List[ChartConfig]) -> None:
         status_line_active = False
         last_status_line = ""
 
+    def schedule_window_text() -> str:
+        if loop_start_time or loop_end_time:
+            start_text = loop_start_time.strftime("%H:%M") if loop_start_time else "--:--"
+            end_text = loop_end_time.strftime("%H:%M") if loop_end_time else "--:--"
+            return f"Loop window (ET): {start_text} - {end_text}"
+        return "Loop window (ET): not set"
+
     def format_status_line(current_time: datetime, remaining_seconds: Optional[float]) -> str:
+        window_suffix = ""
+        if loop_start_time or loop_end_time:
+            window_suffix = f" | {schedule_window_text()}"
+        base_message: str
         if loop_state:
             description = str(loop_state.get("description", "n/a"))
             next_run_obj = loop_state.get("next_run")
             if paused:
                 if isinstance(next_run_obj, datetime):
-                    return (
+                    base_message = (
                         f"Loop paused: {description} "
-                        f"(scheduled at {next_run_obj.strftime('%H:%M:%S')})"
+                        f"(scheduled at {next_run_obj.astimezone(NEW_YORK_TZ).strftime('%H:%M:%S')})"
                     )
-                return f"Loop paused: {description}"
-            if isinstance(next_run_obj, datetime) and remaining_seconds is not None:
+                else:
+                    base_message = f"Loop paused: {description}"
+            elif isinstance(next_run_obj, datetime) and remaining_seconds is not None:
                 remaining_int = max(0, int(remaining_seconds))
-                return (
+                base_message = (
                     f"Active loop: {description} "
-                    f"(next run {next_run_obj.strftime('%H:%M:%S')} in {remaining_int:02d}s)"
+                    f"(next run {next_run_obj.astimezone(NEW_YORK_TZ).strftime('%H:%M:%S')} in {remaining_int:02d}s)"
                 )
-            return f"Active loop: {description} (next run n/a)"
-        return "No active loop scheduled."
+            else:
+                base_message = f"Active loop: {description} (next run n/a)"
+        else:
+            base_message = "No active loop scheduled."
+
+        current_et = current_time.astimezone(NEW_YORK_TZ).strftime("%H:%M:%S")
+        current_aest = current_time.astimezone(AEST_TZ).strftime("%H:%M:%S")
+        time_suffix = f" | Time: {current_et} ET / {current_aest} AEST"
+        return f"{base_message}{window_suffix}{time_suffix}"
+
+    def recalc_next_run() -> None:
+        if loop_state is not None:
+            loop_state["next_run"] = next_loop_timestamp(
+                datetime.now(NEW_YORK_TZ),
+                loop_start_time,
+                loop_end_time,
+                tz=NEW_YORK_TZ,
+            )
+
+    def strip_loop_suffix(token: str) -> Tuple[str, bool]:
+        lower = token.lower()
+        for suffix in ("-loop", "-l"):
+            if lower.endswith(suffix) and len(token) > len(suffix):
+                return token[: -len(suffix)], True
+        return token, False
 
     def update_status_line(message: str) -> None:
         nonlocal last_status_line
@@ -900,29 +1011,34 @@ def interactive_session(charts: List[ChartConfig]) -> None:
 
     try:
         while True:
-            now = datetime.now()
+            now = datetime.now(NEW_YORK_TZ)
             if loop_state and not paused:
-                next_run = loop_state.get("next_run")
-                if isinstance(next_run, datetime) and next_run <= now:
-                    run_all = bool(loop_state.get("run_all"))
-                    selected_keys = list(loop_state.get("selected_keys", []))  # type: ignore[arg-type]
-                    log_stage("loop", f"Running scheduled selection: {loop_state['description']}")
-                    if run_all:
-                        run_chart_batch(list(options.keys()))
-                    else:
-                        run_chart_batch(selected_keys)
-                    loop_state["next_run"] = next_loop_timestamp(datetime.now())
-                    updated_next = loop_state["next_run"]
-                    if isinstance(updated_next, datetime):
-                        log_stage("loop", f"Next run scheduled at {updated_next.strftime('%H:%M:%S')}.")
-                    invalidate_menu()
-                    continue
+                next_run_obj = loop_state.get("next_run")
+                if isinstance(next_run_obj, datetime):
+                    next_run_local = next_run_obj.astimezone(NEW_YORK_TZ)
+                    if next_run_local <= now:
+                        run_all = bool(loop_state.get("run_all"))
+                        selected_keys = list(loop_state.get("selected_keys", []))  # type: ignore[arg-type]
+                        log_stage("loop", f"Running scheduled selection: {loop_state['description']}")
+                        if run_all:
+                            run_chart_batch(list(options.keys()))
+                        else:
+                            run_chart_batch(selected_keys)
+                        recalc_next_run()
+                        updated_next = loop_state.get("next_run")
+                        if isinstance(updated_next, datetime):
+                            log_stage(
+                                "loop",
+                                f"Next run scheduled at {updated_next.astimezone(NEW_YORK_TZ).strftime('%H:%M:%S')}.",
+                            )
+                        invalidate_menu()
+                        continue
 
             remaining_seconds: Optional[float] = None
             if loop_state and not paused:
-                next_run = loop_state.get("next_run")
-                if isinstance(next_run, datetime):
-                    remaining_seconds = (next_run - now).total_seconds()
+                next_run_obj = loop_state.get("next_run")
+                if isinstance(next_run_obj, datetime):
+                    remaining_seconds = (next_run_obj.astimezone(NEW_YORK_TZ) - now).total_seconds()
 
             status_message = format_status_line(now, remaining_seconds)
 
@@ -960,98 +1076,215 @@ def interactive_session(charts: List[ChartConfig]) -> None:
                 invalidate_menu()
                 continue
 
-            lower_choice = raw_choice.lower()
             log_stage("menu", f"Command received: {raw_choice}")
-            loop_every_minute = lower_choice.endswith("-loop") or lower_choice.endswith(" -loop")
-            loop_every_minute = loop_every_minute or lower_choice.endswith("-l") or lower_choice.endswith(" -l")
 
-            choice = lower_choice
-            for suffix in (" -loop", "-loop", " -l", "-l"):
-                if choice.endswith(suffix):
-                    choice = choice[: -len(suffix)]
-                    loop_every_minute = True
-            choice = choice.strip()
-
-            if choice == "x":
-                print("Exiting.")
-                break
-
-            if choice == "h":
+            try:
+                tokens = shlex.split(raw_choice)
+            except ValueError as exc:
+                print(f"Invalid input: {exc}")
                 invalidate_menu()
                 continue
 
-            if choice == "l":
-                if loop_every_minute:
-                    print("Loop scheduling is not supported for the launch option.")
+            if not tokens:
+                invalidate_menu()
+                continue
+
+            single_token = tokens[0].lower()
+            if len(tokens) == 1 and single_token in {"x", "h", "l", "p", "r", "s"}:
+                if single_token == "x":
+                    print("Exiting.")
+                    break
+                if single_token == "h":
+                    invalidate_menu()
                     continue
-                if debugger_ready():
-                    print("Chrome remote-debugger already running.")
+                if single_token == "l":
+                    if debugger_ready():
+                        print("Chrome remote-debugger already running.")
+                    else:
+                        try:
+                            launch_remote_debug_chrome()
+                        except Exception as exc:
+                            print(f"Failed to launch remote-debug Chrome: {exc}")
+                        else:
+                            refocus_primary_app("post Chrome launch")
+                    invalidate_menu()
+                    continue
+                if single_token == "p":
+                    if loop_state:
+                        if paused:
+                            print("Loop already paused.")
+                        else:
+                            paused = True
+                            print("Loop paused.")
+                    else:
+                        print("No active loop to pause.")
+                    invalidate_menu()
+                    continue
+                if single_token == "r":
+                    if loop_state:
+                        if not paused:
+                            print("Loop already running.")
+                        else:
+                            paused = False
+                            print("Loop resumed.")
+                            recalc_next_run()
+                    else:
+                        print("No active loop to resume.")
+                    invalidate_menu()
+                    continue
+                if single_token == "s":
+                    loop_state = None
+                    loop_start_time = None
+                    loop_end_time = None
+                    paused = False
+                    metrics.clear()
+                    print("Loop stopped and schedule cleared.")
+                    invalidate_menu()
+                    continue
+
+            loop_every_minute = False
+            selection_tokens: List[str] = []
+            start_option_set = False
+            start_argument: Optional[str] = None
+            end_option_set = False
+            end_argument: Optional[str] = None
+
+            idx = 0
+            while idx < len(tokens):
+                token = tokens[idx]
+                token_lower = token.lower()
+
+                if token_lower in {"-l", "-loop"}:
+                    loop_every_minute = True
+                    idx += 1
+                    continue
+
+                if token_lower.startswith("-start"):
+                    argument = token[len("-start"):].lstrip("=").strip()
+                    if not argument and token_lower == "-start":
+                        if idx + 1 < len(tokens) and not tokens[idx + 1].startswith("-"):
+                            argument = tokens[idx + 1]
+                            idx += 1
+                    start_option_set = True
+                    start_argument = argument
+                    idx += 1
+                    continue
+
+                if token_lower.startswith("-end"):
+                    argument = token[len("-end"):].lstrip("=").strip()
+                    if not argument and token_lower == "-end":
+                        if idx + 1 < len(tokens) and not tokens[idx + 1].startswith("-"):
+                            argument = tokens[idx + 1]
+                            idx += 1
+                    end_option_set = True
+                    end_argument = argument
+                    idx += 1
+                    continue
+
+                stripped_token, had_loop_suffix = strip_loop_suffix(token)
+                if had_loop_suffix:
+                    loop_every_minute = True
+                    token = stripped_token
+                    if not token:
+                        idx += 1
+                        continue
+
+                selection_tokens.append(token)
+                idx += 1
+
+            schedule_changed = False
+            schedule_valid = True
+            cleared_values = {"", "clear", "none", "off", "reset"}
+
+            if start_option_set:
+                value = (start_argument or "").strip()
+                if value.lower() in cleared_values:
+                    loop_start_time = None
+                    print("Loop start cleared (Eastern).")
                 else:
                     try:
-                        launch_remote_debug_chrome()
-                    except Exception as exc:
-                        print(f"Failed to launch remote-debug Chrome: {exc}")
-                    else:
-                        refocus_primary_app("post Chrome launch")
-                invalidate_menu()
-                continue
+                        loop_start_time = parse_time_of_day(value)
+                    except ValueError as exc:
+                        print(str(exc))
+                        invalidate_menu()
+                        continue
+                    print(f"Loop start set to {loop_start_time.strftime('%H:%M')} ET.")
+                schedule_changed = True
 
-            if choice == "p":
-                if loop_state:
-                    if paused:
-                        print("Loop already paused.")
-                    else:
-                        paused = True
-                        print("Loop paused.")
+            if end_option_set:
+                value = (end_argument or "").strip()
+                if value.lower() in cleared_values:
+                    loop_end_time = None
+                    print("Loop end cleared (Eastern).")
                 else:
-                    print("No active loop to pause.")
-                invalidate_menu()
-                continue
+                    try:
+                        loop_end_time = parse_time_of_day(value)
+                    except ValueError as exc:
+                        print(str(exc))
+                        invalidate_menu()
+                        continue
+                    print(f"Loop end set to {loop_end_time.strftime('%H:%M')} ET.")
+                schedule_changed = True
 
-            if choice == "r":
-                if loop_state:
-                    if not paused:
-                        print("Loop already running.")
-                    else:
-                        paused = False
-                        print("Loop resumed.")
-                        if loop_state.get("next_run"):
-                            loop_state["next_run"] = next_loop_timestamp(datetime.now())
-                else:
-                    print("No active loop to resume.")
+            if schedule_changed:
+                try:
+                    recalc_next_run()
+                except RuntimeError as exc:
+                    print(str(exc))
+                    schedule_valid = False
                 invalidate_menu()
-                continue
+                # allow additional actions in same command
+                if not schedule_valid:
+                    continue
 
-            ready = debugger_ready()
-            if not ready:
-                print("Chrome with remote debugging is not running. Choose option 'l' to launch it.")
-                invalidate_menu()
-                continue
-
+            raw_selection_parts: List[str] = []
             run_all = False
             selected_keys: List[str] = []
 
-            if choice == "a":
-                run_all = True
-            else:
-                parts = [part.strip() for part in choice.split(",") if part.strip()]
-                if not parts:
-                    print("Invalid option. Try again.")
-                    invalidate_menu()
+            for token in selection_tokens:
+                clean_token = token.strip()
+                if not clean_token:
                     continue
+                for part in (segment.strip() for segment in clean_token.split(",") if segment.strip()):
+                    if part.lower() == "a":
+                        run_all = True
+                    else:
+                        raw_selection_parts.append(part)
+
+            if run_all:
+                selected_keys = []
+            elif raw_selection_parts:
                 deduped: List[str] = []
                 unknown = False
-                for part in parts:
+                for part in raw_selection_parts:
                     if part not in options:
                         print(f"Unknown selection '{part}'. Try again.")
                         unknown = True
                         break
                     if part not in deduped:
                         deduped.append(part)
-                if unknown or not deduped:
+                if unknown:
+                    invalidate_menu()
+                    continue
+                if not deduped:
+                    print("No charts selected. Try again.")
                     invalidate_menu()
                     continue
                 selected_keys = deduped
+            else:
+                selected_keys = []
+
+            if not (run_all or selected_keys):
+                if schedule_changed:
+                    continue
+                print("No charts selected. Try again.")
+                invalidate_menu()
+                continue
+
+            if not debugger_ready():
+                print("Chrome with remote debugging is not running. Choose option 'l' to launch it.")
+                invalidate_menu()
+                continue
 
             if loop_every_minute:
                 description = selection_description(run_all, selected_keys)
@@ -1064,12 +1297,20 @@ def interactive_session(charts: List[ChartConfig]) -> None:
                     "run_all": run_all,
                     "selected_keys": selected_keys,
                     "description": description,
-                    "next_run": next_loop_timestamp(datetime.now()),
+                    "next_run": next_loop_timestamp(
+                        datetime.now(NEW_YORK_TZ),
+                        loop_start_time,
+                        loop_end_time,
+                        tz=NEW_YORK_TZ,
+                    ),
                 }
                 paused = False
-                next_run = loop_state["next_run"]
-                if isinstance(next_run, datetime):
-                    log_stage("loop", f"Loop scheduled. Next run at {next_run.strftime('%H:%M:%S')}.")
+                next_run_obj = loop_state["next_run"]
+                if isinstance(next_run_obj, datetime):
+                    log_stage(
+                        "loop",
+                        f"Loop scheduled. Next run at {next_run_obj.astimezone(NEW_YORK_TZ).strftime('%H:%M:%S')}.",
+                    )
                 else:
                     print("Loop scheduled.")
                 invalidate_menu()
