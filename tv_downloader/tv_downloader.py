@@ -1,4 +1,5 @@
 import contextlib
+import ctypes
 import itertools
 import json
 import os
@@ -128,6 +129,31 @@ def load_chart_configs(path: Path) -> List[ChartConfig]:
 def log_stage(prefix: str, message: str) -> None:
     timestamp = datetime.now().strftime(LOG_TIMESTAMP_FORMAT)
     print(f"[{timestamp}] {prefix} {message}")
+
+
+def enable_virtual_terminal_processing() -> bool:
+    if not sys.stdout.isatty():
+        return False
+    if os.name != "nt":
+        return True
+
+    try:
+        kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+        handle = kernel32.GetStdHandle(-11)  # STD_OUTPUT_HANDLE
+        if handle in (0, -1):
+            return False
+        mode = ctypes.c_uint32()
+        if not kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
+            return False
+        enable_virtual_terminal = 0x0004  # ENABLE_VIRTUAL_TERMINAL_PROCESSING
+        disable_auto_return = 0x0008  # DISABLE_NEWLINE_AUTO_RETURN
+        new_mode = mode.value | enable_virtual_terminal | disable_auto_return
+        if not kernel32.SetConsoleMode(handle, new_mode):
+            return False
+        return True
+    except Exception as exc:  # pragma: no cover - best effort for Windows console
+        log_stage("console", f"ANSI enable failed: {exc}")
+        return False
 
 
 def run_osascript(commands: List[str]) -> subprocess.CompletedProcess[str]:
@@ -320,8 +346,7 @@ def attach_driver() -> webdriver.Chrome:
                 browser_version=browser_version, force_download=force_download
             )
             driver = webdriver.Chrome(service=service, options=options)
-            driver.set_window_position(0, 0)
-            driver.set_window_size(1920, 1080)
+            ensure_window_geometry(driver)
             log_stage("driver", "ChromeDriver session established.")
             return driver
         except WebDriverException as exc:
@@ -348,6 +373,17 @@ def attach_driver() -> webdriver.Chrome:
         log_stage("driver", f"Failed to attach driver: {last_error}")
         raise last_error
     raise RuntimeError("Failed to attach driver for unknown reasons.")
+
+
+def ensure_window_geometry(driver: webdriver.Chrome, *, x: int = 0, y: int = 0, width: int = 1920, height: int = 1080) -> None:
+    try:
+        driver.set_window_position(x, y)
+    except Exception as exc:
+        log_stage("window", f"Failed to set window position: {exc}")
+    try:
+        driver.set_window_size(width, height)
+    except Exception as exc:
+        log_stage("window", f"Failed to set window size: {exc}")
 
 
 def wait_for_page_ready(driver: webdriver.Chrome, timeout_seconds: int = 20) -> None:
@@ -853,7 +889,7 @@ def interactive_session(charts: List[ChartConfig]) -> None:
                 f"Overall average runtime: {avg_runtime:.0f} ms across {len(metrics)} chart runs."
             )
 
-    def run_chart_batch(batch_keys: List[str]) -> None:
+    def run_chart_batch(batch_keys: List[str], apply_geometry: bool = False) -> None:
         try:
             active_driver = ensure_driver()
         except Exception as exc:
@@ -861,6 +897,9 @@ def interactive_session(charts: List[ChartConfig]) -> None:
             if not is_debugger_available(REMOTE_DEBUG_ADDRESS):
                 print("Hint: choose option 'l' first to launch Chrome with remote debugging.")
             return
+
+        if apply_geometry:
+            ensure_window_geometry(active_driver)
 
         if not batch_keys:
             log_stage("batch", "No charts selected in batch.")
@@ -939,6 +978,21 @@ def interactive_session(charts: List[ChartConfig]) -> None:
     menu_dirty = True
     status_line_active = False
     last_status_line = ""
+    fallback_status_length = 0
+    ansi_cursor_supported = enable_virtual_terminal_processing()
+    if getattr(sys, "frozen", False) and ansi_cursor_supported:
+        ansi_cursor_supported = False
+        log_stage(
+            "console",
+            "Running as bundled executable; using carriage-return status updates for compatibility.",
+        )
+    if ansi_cursor_supported:
+        log_stage("console", "ANSI cursor control enabled.")
+    else:
+        log_stage(
+            "console",
+            "ANSI cursor control unavailable; live countdown updates will log as separate lines.",
+        )
 
     def invalidate_menu() -> None:
         nonlocal menu_dirty, status_line_active, last_status_line
@@ -987,7 +1041,14 @@ def interactive_session(charts: List[ChartConfig]) -> None:
         current_et = current_time.astimezone(NEW_YORK_TZ).strftime("%H:%M:%S")
         current_aest = current_time.astimezone(AEST_TZ).strftime("%H:%M:%S")
         time_suffix = f" | Time: {current_et} ET / {current_aest} AEST"
-        return f"{base_message}{window_suffix}{time_suffix}"
+        full_message = f"{base_message}{window_suffix}{time_suffix}"
+
+        columns = shutil.get_terminal_size((140, 24)).columns
+        # Leave a little space so we do not wrap onto a new row when the console is narrow.
+        max_len = max(20, columns - 2)
+        if len(full_message) > max_len:
+            full_message = full_message[: max_len - 3] + "..."
+        return full_message
 
     def recalc_next_run() -> None:
         if loop_state is not None:
@@ -1006,10 +1067,18 @@ def interactive_session(charts: List[ChartConfig]) -> None:
         return token, False
 
     def update_status_line(message: str) -> None:
-        nonlocal last_status_line
+        nonlocal last_status_line, fallback_status_length
         if not status_line_active:
             return
         if message == last_status_line:
+            return
+        if not ansi_cursor_supported:
+            display = f"{message} | > "
+            fallback_status_length = max(fallback_status_length, len(display))
+            padding = " " * (fallback_status_length - len(display))
+            sys.stdout.write("\r" + display + padding)
+            sys.stdout.flush()
+            last_status_line = message
             return
         sys.stdout.write("\x1b[s")  # save cursor
         sys.stdout.write("\x1b[F")  # move to beginning of previous line
@@ -1056,14 +1125,23 @@ def interactive_session(charts: List[ChartConfig]) -> None:
             if menu_dirty:
                 status_line_active = False
                 print(build_menu_text(paused, loop_state))
-                print(status_message)
-                last_status_line = status_message
-                status_line_active = True
-                sys.stdout.write("> ")
-                sys.stdout.flush()
+                if ansi_cursor_supported:
+                    print(status_message)
+                    last_status_line = status_message
+                    status_line_active = True
+                    sys.stdout.write("> ")
+                    sys.stdout.flush()
+                else:
+                    last_status_line = ""
+                    status_line_active = True
+                    fallback_status_length = 0
+                    update_status_line(status_message)
                 menu_dirty = False
             else:
-                update_status_line(status_message)
+                if ansi_cursor_supported:
+                    update_status_line(status_message)
+                elif status_line_active:
+                    update_status_line(status_message)
 
             poll_timeout: Optional[float] = None
             if remaining_seconds is not None:
@@ -1370,9 +1448,9 @@ def interactive_session(charts: List[ChartConfig]) -> None:
                 description = selection_description(run_all, selected_keys)
                 log_stage("loop", f"Running loop selection now: {description}")
                 if run_all:
-                    run_chart_batch(list(options.keys()))
+                    run_chart_batch(list(options.keys()), apply_geometry=True)
                 else:
-                    run_chart_batch(selected_keys)
+                    run_chart_batch(selected_keys, apply_geometry=True)
                 loop_state = {
                     "run_all": run_all,
                     "selected_keys": selected_keys,
@@ -1398,10 +1476,10 @@ def interactive_session(charts: List[ChartConfig]) -> None:
 
             if run_all:
                 log_stage("menu", "Running selection once: All charts")
-                run_chart_batch(list(options.keys()))
+                run_chart_batch(list(options.keys()), apply_geometry=True)
             else:
                 log_stage("menu", f"Running selection once: {selection_description(False, selected_keys)}")
-                run_chart_batch(selected_keys)
+                run_chart_batch(selected_keys, apply_geometry=True)
             invalidate_menu()
     finally:
         if driver is not None:
