@@ -15,6 +15,10 @@ from typing import Dict, Iterable, List, Optional, Tuple
 from urllib.parse import urlsplit, urlunsplit
 
 LOG_TIMESTAMP_FORMAT = "%H:%M:%S"
+ANSI_RESET = "\033[0m"
+ANSI_GREEN = "\033[32m"
+ANSI_ORANGE = "\033[38;5;208m"
+ANSI_GREY = "\033[90m"
 
 
 def resolve_config_path() -> Path:
@@ -811,16 +815,19 @@ def interactive_session(charts: List[ChartConfig]) -> None:
         return ", ".join(names)
 
     def build_menu_text(paused: bool, loop_state: Optional[Dict[str, object]]) -> str:
-        status = "PAUSED" if paused else "READY"
-        lines: List[str] = ["", f"[Status: {status}]"]
-        if loop_state:
-            next_run = loop_state.get("next_run")
-            next_run_str = (
-                next_run.strftime("%H:%M:%S") if isinstance(next_run, datetime) else "n/a"
-            )
-            lines.append(
-                f"Active loop: {loop_state['description']} (next run {next_run_str})"
-            )
+        if loop_state and not paused:
+            status_text = "RUNNING"
+            status_color = ANSI_GREEN
+        elif paused:
+            status_text = "PAUSED"
+            status_color = ANSI_ORANGE
+        else:
+            status_text = "READY"
+            status_color = ANSI_GREY
+        lines: List[str] = [
+            "",
+            f"{status_color}[Status: {status_text}]{ANSI_RESET}",
+        ]
         if debugger_ready():
             lines.append(
                 "Select chart numbers (comma-separated). Append '-loop' or '-l' to repeat every minute."
@@ -847,6 +854,49 @@ def interactive_session(charts: List[ChartConfig]) -> None:
     loop_state: Optional[Dict[str, object]] = None
     paused = False
     menu_dirty = True
+    status_line_active = False
+    last_status_line = ""
+
+    def invalidate_menu() -> None:
+        nonlocal menu_dirty, status_line_active, last_status_line
+        menu_dirty = True
+        status_line_active = False
+        last_status_line = ""
+
+    def format_status_line(current_time: datetime, remaining_seconds: Optional[float]) -> str:
+        if loop_state:
+            description = str(loop_state.get("description", "n/a"))
+            next_run_obj = loop_state.get("next_run")
+            if paused:
+                if isinstance(next_run_obj, datetime):
+                    return (
+                        f"Loop paused: {description} "
+                        f"(scheduled at {next_run_obj.strftime('%H:%M:%S')})"
+                    )
+                return f"Loop paused: {description}"
+            if isinstance(next_run_obj, datetime) and remaining_seconds is not None:
+                remaining_int = max(0, int(remaining_seconds))
+                return (
+                    f"Active loop: {description} "
+                    f"(next run {next_run_obj.strftime('%H:%M:%S')} in {remaining_int:02d}s)"
+                )
+            return f"Active loop: {description} (next run n/a)"
+        return "No active loop scheduled."
+
+    def update_status_line(message: str) -> None:
+        nonlocal last_status_line
+        if not status_line_active:
+            return
+        if message == last_status_line:
+            return
+        sys.stdout.write("\x1b[s")  # save cursor
+        sys.stdout.write("\x1b[F")  # move to beginning of previous line
+        sys.stdout.write("\r")
+        sys.stdout.write(message)
+        sys.stdout.write("\x1b[K")
+        sys.stdout.write("\x1b[u")  # restore cursor
+        sys.stdout.flush()
+        last_status_line = message
 
     try:
         while True:
@@ -865,23 +915,34 @@ def interactive_session(charts: List[ChartConfig]) -> None:
                     updated_next = loop_state["next_run"]
                     if isinstance(updated_next, datetime):
                         log_stage("loop", f"Next run scheduled at {updated_next.strftime('%H:%M:%S')}.")
-                    menu_dirty = True
+                    invalidate_menu()
                     continue
 
-            if menu_dirty:
-                print(build_menu_text(paused, loop_state))
-                sys.stdout.write("> ")
-                sys.stdout.flush()
-                menu_dirty = False
-
-            poll_timeout: Optional[float] = None
+            remaining_seconds: Optional[float] = None
             if loop_state and not paused:
                 next_run = loop_state.get("next_run")
                 if isinstance(next_run, datetime):
-                    delta = (next_run - datetime.now()).total_seconds()
-                    if delta <= 0:
-                        continue
-                    poll_timeout = max(min(delta, 1.0), 0.1)
+                    remaining_seconds = (next_run - now).total_seconds()
+
+            status_message = format_status_line(now, remaining_seconds)
+
+            if menu_dirty:
+                status_line_active = False
+                print(build_menu_text(paused, loop_state))
+                print(status_message)
+                last_status_line = status_message
+                status_line_active = True
+                sys.stdout.write("> ")
+                sys.stdout.flush()
+                menu_dirty = False
+            else:
+                update_status_line(status_message)
+
+            poll_timeout: Optional[float] = None
+            if remaining_seconds is not None:
+                if remaining_seconds <= 0:
+                    continue
+                poll_timeout = max(min(remaining_seconds, 1.0), 0.1)
 
             ready, _, _ = select.select([sys.stdin], [], [], poll_timeout)
 
@@ -896,7 +957,7 @@ def interactive_session(charts: List[ChartConfig]) -> None:
 
             raw_choice = raw_line.strip()
             if not raw_choice:
-                menu_dirty = True
+                invalidate_menu()
                 continue
 
             lower_choice = raw_choice.lower()
@@ -916,7 +977,7 @@ def interactive_session(charts: List[ChartConfig]) -> None:
                 break
 
             if choice == "h":
-                menu_dirty = True
+                invalidate_menu()
                 continue
 
             if choice == "l":
@@ -932,7 +993,7 @@ def interactive_session(charts: List[ChartConfig]) -> None:
                         print(f"Failed to launch remote-debug Chrome: {exc}")
                     else:
                         refocus_primary_app("post Chrome launch")
-                menu_dirty = True
+                invalidate_menu()
                 continue
 
             if choice == "p":
@@ -944,7 +1005,7 @@ def interactive_session(charts: List[ChartConfig]) -> None:
                         print("Loop paused.")
                 else:
                     print("No active loop to pause.")
-                menu_dirty = True
+                invalidate_menu()
                 continue
 
             if choice == "r":
@@ -958,13 +1019,13 @@ def interactive_session(charts: List[ChartConfig]) -> None:
                             loop_state["next_run"] = next_loop_timestamp(datetime.now())
                 else:
                     print("No active loop to resume.")
-                menu_dirty = True
+                invalidate_menu()
                 continue
 
             ready = debugger_ready()
             if not ready:
                 print("Chrome with remote debugging is not running. Choose option 'l' to launch it.")
-                menu_dirty = True
+                invalidate_menu()
                 continue
 
             run_all = False
@@ -976,7 +1037,7 @@ def interactive_session(charts: List[ChartConfig]) -> None:
                 parts = [part.strip() for part in choice.split(",") if part.strip()]
                 if not parts:
                     print("Invalid option. Try again.")
-                    menu_dirty = True
+                    invalidate_menu()
                     continue
                 deduped: List[str] = []
                 unknown = False
@@ -988,7 +1049,7 @@ def interactive_session(charts: List[ChartConfig]) -> None:
                     if part not in deduped:
                         deduped.append(part)
                 if unknown or not deduped:
-                    menu_dirty = True
+                    invalidate_menu()
                     continue
                 selected_keys = deduped
 
@@ -1011,7 +1072,7 @@ def interactive_session(charts: List[ChartConfig]) -> None:
                     log_stage("loop", f"Loop scheduled. Next run at {next_run.strftime('%H:%M:%S')}.")
                 else:
                     print("Loop scheduled.")
-                menu_dirty = True
+                invalidate_menu()
                 continue
 
             if run_all:
@@ -1020,7 +1081,7 @@ def interactive_session(charts: List[ChartConfig]) -> None:
             else:
                 log_stage("menu", f"Running selection once: {selection_description(False, selected_keys)}")
                 run_chart_batch(selected_keys)
-            menu_dirty = True
+            invalidate_menu()
     finally:
         if driver is not None:
             try:
