@@ -23,6 +23,11 @@ ANSI_ORANGE = "\033[38;5;208m"
 ANSI_GREY = "\033[90m"
 NEW_YORK_TZ = ZoneInfo("America/New_York")
 AEST_TZ = ZoneInfo("Australia/Sydney")
+SESSION_PRESETS: Dict[str, Tuple[str, str]] = {
+    "ny": ("09:25", "10:00"),
+    "lon": ("03:00", "11:30"),
+    "asia": ("19:00", "03:00"),
+}
 
 
 def resolve_config_path() -> Path:
@@ -916,6 +921,7 @@ def interactive_session(charts: List[ChartConfig]) -> None:
             lines.append("  r. Resume active loop")
             lines.append("  s. Stop and reset loop")
             lines.append("  h. Show menu")
+            lines.append("      Use '--session NAME' (NY, LON, ASIA) for presets.")
             lines.append("      Use '-start HH:MM' / '-end HH:MM' (Eastern) to adjust the loop window.")
         else:
             lines.append("Launch Chrome with remote debugging to enable exports:")
@@ -928,6 +934,7 @@ def interactive_session(charts: List[ChartConfig]) -> None:
     loop_state: Optional[Dict[str, object]] = None
     loop_start_time: Optional[dt_time] = None
     loop_end_time: Optional[dt_time] = None
+    loop_session_name: Optional[str] = None
     paused = False
     menu_dirty = True
     status_line_active = False
@@ -943,8 +950,12 @@ def interactive_session(charts: List[ChartConfig]) -> None:
         if loop_start_time or loop_end_time:
             start_text = loop_start_time.strftime("%H:%M") if loop_start_time else "--:--"
             end_text = loop_end_time.strftime("%H:%M") if loop_end_time else "--:--"
-            return f"Loop window (ET): {start_text} - {end_text}"
-        return "Loop window (ET): not set"
+            details = f"Loop window (ET): {start_text} - {end_text}"
+        else:
+            details = "Loop window (ET): not set"
+        if loop_session_name:
+            details = f"{details} (session: {loop_session_name})"
+        return details
 
     def format_status_line(current_time: datetime, remaining_seconds: Optional[float]) -> str:
         window_suffix = ""
@@ -1136,6 +1147,7 @@ def interactive_session(charts: List[ChartConfig]) -> None:
                     loop_state = None
                     loop_start_time = None
                     loop_end_time = None
+                    loop_session_name = None
                     paused = False
                     metrics.clear()
                     print("Loop stopped and schedule cleared.")
@@ -1148,6 +1160,9 @@ def interactive_session(charts: List[ChartConfig]) -> None:
             start_argument: Optional[str] = None
             end_option_set = False
             end_argument: Optional[str] = None
+            session_option_set = False
+            session_argument: Optional[str] = None
+            schedule_valid = True
 
             idx = 0
             while idx < len(tokens):
@@ -1167,6 +1182,40 @@ def interactive_session(charts: List[ChartConfig]) -> None:
                             idx += 1
                     start_option_set = True
                     start_argument = argument
+                    idx += 1
+                    continue
+
+                if token_lower in SESSION_PRESETS:
+                    session_option_set = True
+                    session_argument = token_lower
+                    idx += 1
+                    continue
+
+                if token_lower == "-s":
+                    if idx + 1 < len(tokens):
+                        session_option_set = True
+                        session_argument = tokens[idx + 1]
+                        idx += 2
+                    else:
+                        print("Session shortcut '-s' requires a value (e.g. -s NY).")
+                        invalidate_menu()
+                        schedule_valid = False
+                        break
+                    continue
+
+                if token_lower.startswith("--session") or token_lower.startswith("-session"):
+                    argument = token.split("=", 1)[1].strip() if "=" in token else ""
+                    if not argument:
+                        if idx + 1 < len(tokens) and not tokens[idx + 1].startswith("-"):
+                            argument = tokens[idx + 1]
+                            idx += 1
+                        else:
+                            print("Session option requires a value (e.g. --session NY).")
+                            invalidate_menu()
+                            schedule_valid = False
+                            break
+                    session_option_set = True
+                    session_argument = argument
                     idx += 1
                     continue
 
@@ -1193,8 +1242,37 @@ def interactive_session(charts: List[ChartConfig]) -> None:
                 idx += 1
 
             schedule_changed = False
-            schedule_valid = True
+            if not schedule_valid:
+                continue
             cleared_values = {"", "clear", "none", "off", "reset"}
+
+            available_sessions = ", ".join(sorted(name.upper() for name in SESSION_PRESETS))
+
+            if session_option_set:
+                value = (session_argument or "").strip().lower()
+                if not value:
+                    print("Session option requires a value (e.g. --session NY).")
+                    invalidate_menu()
+                    continue
+                preset = SESSION_PRESETS.get(value)
+                if not preset:
+                    print(f"Unknown session '{session_argument}'. Available: {available_sessions}")
+                    invalidate_menu()
+                    continue
+                try:
+                    start_str, end_str = preset
+                    loop_start_time = parse_time_of_day(start_str)
+                    loop_end_time = parse_time_of_day(end_str)
+                except ValueError as exc:
+                    print(f"Failed to apply session '{session_argument}': {exc}")
+                    invalidate_menu()
+                    continue
+                loop_session_name = value.upper()
+                print(
+                    f"Session {loop_session_name} applied ({loop_start_time.strftime('%H:%M')} - "
+                    f"{loop_end_time.strftime('%H:%M')} ET)."
+                )
+                schedule_changed = True
 
             if start_option_set:
                 value = (start_argument or "").strip()
@@ -1209,6 +1287,7 @@ def interactive_session(charts: List[ChartConfig]) -> None:
                         invalidate_menu()
                         continue
                     print(f"Loop start set to {loop_start_time.strftime('%H:%M')} ET.")
+                loop_session_name = None
                 schedule_changed = True
 
             if end_option_set:
@@ -1224,6 +1303,7 @@ def interactive_session(charts: List[ChartConfig]) -> None:
                         invalidate_menu()
                         continue
                     print(f"Loop end set to {loop_end_time.strftime('%H:%M')} ET.")
+                loop_session_name = None
                 schedule_changed = True
 
             if schedule_changed:
