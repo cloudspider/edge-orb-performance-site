@@ -357,6 +357,22 @@
               </div>
             </div>
           </label>
+          <label class="block col-span-3 md:col-span-2">
+            <span class="text-sm text-slate-600">Breakout Mode</span>
+            <div class="mt-1 relative">
+              <select id="sel_breakout_mode" class="w-full appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-9 py-2 text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60">
+                <option value="first-any" data-desc="Take the very first breakout, long or short, then stop trading for the day.">First Breakout (Either Side)</option>
+                <option value="dual" data-desc="Allow at most one long and one short per day, whichever order they appear.">Dual Breakouts (One Long + One Short)</option>
+                <option value="first-long-strict" data-desc="Trade only if the first breakout is long; a short firing first cancels the day.">First Breakout (Must Be Long)</option>
+                <option value="first-short-strict" data-desc="Trade only if the first breakout is short; a long firing first cancels the day.">First Breakout (Must Be Short)</option>
+                <option value="single-long" data-desc="Ignore shorts entirely and take the first valid long breakout any time during the day.">Single Breakout (Long Only)</option>
+                <option value="single-short" data-desc="Ignore longs entirely and take the first valid short breakout any time during the day.">Single Breakout (Short Only)</option>
+              </select>
+              <span class="pointer-events-none absolute inset-y-0 right-3 inline-flex items-center text-slate-400">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
+              </span>
+            </div>
+          </label>
         </div>
       </div>
     </section>
@@ -1081,6 +1097,43 @@
     };
 
     const DEFAULT_PRICE_PRECISION = 2;
+    const breakoutModeConst = 'first-any';
+    const BREAKOUT_MODE_OPTIONS = new Set([
+      'first-any',
+      'dual',
+      'first-long-strict',
+      'first-short-strict',
+      'single-long',
+      'single-short'
+    ]);
+    const BREAKOUT_MODE_ALIASES = new Map([
+      ['first', 'first-any'],
+      ['both-sides', 'dual'],
+      ['first-long', 'single-long'],
+      ['first-short', 'single-short']
+    ]);
+    const BREAKOUT_MODE_DESCRIPTIONS = {
+      'first-any': 'Take the very first breakout, long or short, then stop trading for the day.',
+      'dual': 'Allow at most one long and one short per day, whichever order they appear.',
+      'first-long-strict': 'Trade only if the first breakout is long; a short firing first cancels the day.',
+      'first-short-strict': 'Trade only if the first breakout is short; a long firing first cancels the day.',
+      'single-long': 'Ignore shorts entirely and take the first valid long breakout any time during the day.',
+      'single-short': 'Ignore longs entirely and take the first valid short breakout any time during the day.'
+    };
+    const BREAKOUT_MODE_KEY_SEGMENTS = {
+      'dual': 'B2',
+      'first-long-strict': 'L1S',
+      'first-short-strict': 'S1S',
+      'single-long': 'L1',
+      'single-short': 'S1'
+    };
+
+    function normalizeBreakoutMode(mode) {
+      const raw = typeof mode === 'string' ? mode.toLowerCase() : '';
+      if (BREAKOUT_MODE_OPTIONS.has(raw)) return raw;
+      if (BREAKOUT_MODE_ALIASES.has(raw)) return BREAKOUT_MODE_ALIASES.get(raw);
+      return breakoutModeConst;
+    }
 
     const getContractSpec = (symbol) => {
       const sym = (symbol || '').toUpperCase();
@@ -2586,11 +2639,12 @@
     const autoMin = normalizeMinOr(autoMinRaw);
     const effectiveAutoMin = autoMin != null ? autoMin : DEFAULT_MIN_OR_PERC;
     setInputValue('inp_min_or_perc', effectiveAutoMin);
+    const normalizedMode = setBreakoutMode(params.breakout_mode);
     syncSessionSelectionFromInputs();
     setDirectionFromFavorite(params.direction);
     const canonicalId = canonicalizeStrategyKey(entry.strategyId || '') || null;
     CURRENT_STRATEGY_ID = canonicalId;
-    CURRENT_STRATEGY_PARAMS = { ...params, min_or_perc: effectiveAutoMin };
+    CURRENT_STRATEGY_PARAMS = { ...params, min_or_perc: effectiveAutoMin, breakout_mode: normalizedMode };
     CURRENT_STRATEGY_FAVORITE = false;
     CURRENT_STRATEGY_LIVE = false;
     syncFavoriteButton();
@@ -2796,16 +2850,21 @@
     const riskPct = Number.isFinite(params.risk) ? params.risk * 100 : 0;
     const hasMinOrParam = hasOwn(params, 'min_or_perc') || hasOwn(params, 'min_or_pct');
     const normalizedMinOr = hasMinOrParam ? normalizeMinOr(params.min_or_perc ?? params.min_or_pct) : null;
+    const modeNormalized = normalizeBreakoutMode(params.breakout_mode);
+    const modeSegment = BREAKOUT_MODE_KEY_SEGMENTS[modeNormalized] || null;
     const parts = [
       (params.symbol || '').toUpperCase(),
-      dirLetter,
+      dirLetter
+    ];
+    if (modeSegment) parts.push(modeSegment);
+    parts.push(
       formatNumberForKey(params.orb_m),
       formatNumberForKey(params.target_R),
       formatNumberForKey(params.stop_R),
       formatTimeForKey(params.orb_start_time),
       formatTimeForKey(params.orb_end_time),
       formatTimeForKey(params.entry_cutoff_time)
-    ];
+    );
     if (normalizedMinOr != null && Math.abs(normalizedMinOr - DEFAULT_MIN_OR_PERC) > 1e-9) {
       parts.push(formatNumberForKey(normalizedMinOr));
     }
@@ -2828,7 +2887,8 @@
       AUM_0: params.AUM_0,
       commission: params.commission,
       breakout_buffer: params.breakout_buffer,
-      min_or_perc: normalizeMinOr(params.min_or_perc)
+      min_or_perc: normalizeMinOr(params.min_or_perc),
+      breakout_mode: normalizeBreakoutMode(params.breakout_mode)
     };
   }
 
@@ -3257,6 +3317,21 @@
       });
     }
 
+  function setBreakoutMode(mode) {
+    const select = document.getElementById('sel_breakout_mode');
+    const value = normalizeBreakoutMode(mode);
+    if (select) {
+      select.value = value;
+      const option = select.querySelector(`option[value="${value}"]`);
+      const desc = option && option.dataset && option.dataset.desc
+        ? option.dataset.desc
+        : BREAKOUT_MODE_DESCRIPTIONS[value] || '';
+      if (desc) select.setAttribute('title', desc);
+      else select.removeAttribute('title');
+    }
+    return value;
+  }
+
     function setInputValue(id, value) {
       const el = document.getElementById(id);
       if (!el || value === undefined || value === null || value === '') return;
@@ -3417,11 +3492,12 @@
       const normalizedMin = normalizeMinOr(favoriteMin);
       const effectiveMin = normalizedMin != null ? normalizedMin : DEFAULT_MIN_OR_PERC;
       setInputValue('inp_min_or_perc', effectiveMin);
+      const normalizedMode = setBreakoutMode(params.breakout_mode);
       syncSessionSelectionFromInputs();
       setDirectionFromFavorite(params.direction);
       const canonicalId = canonicalizeStrategyKey(record.id || '') || null;
       CURRENT_STRATEGY_ID = canonicalId;
-      CURRENT_STRATEGY_PARAMS = { ...params, min_or_perc: effectiveMin };
+      CURRENT_STRATEGY_PARAMS = { ...params, min_or_perc: effectiveMin, breakout_mode: normalizedMode };
       CURRENT_STRATEGY_FAVORITE = !!record.favorite;
       CURRENT_STRATEGY_LIVE = CURRENT_STRATEGY_FAVORITE && !!record.live;
       syncFavoriteButton();
@@ -3775,49 +3851,73 @@
       entry_cutoff_time = '12:00',
       breakout_buffer = 0.01,
       min_or_perc = 0.2,
+      breakout_mode = breakoutModeConst,
     }) {
       const out = [];
 
-      // Convert time strings to minutes-of-day format
       const orbStartMin = parseTimeHHMM(orb_start_time);
       const orbEndMin = parseTimeHHMM(orb_end_time);
       const entryCutoffMin = parseTimeHHMM(entry_cutoff_time);
 
       const { multiplier: contractMultiplier } = getContractSpec(symbol);
+      const normalizedDirection = typeof direction === 'string' ? direction.toLowerCase() : 'both';
+      const allowDirectionLong = normalizedDirection !== 'short';
+      const allowDirectionShort = normalizedDirection !== 'long';
+      const dayMode = normalizeBreakoutMode(breakout_mode);
+
+      const getPrevAUM = () => {
+        if (!out.length) return AUM_0;
+        const prev = out[out.length - 1];
+        const val = Number(prev && prev.AUM);
+        return Number.isFinite(val) ? val : AUM_0;
+      };
+
+      const createBaseRow = (dayKey, prevAUM, orh, orl) => ({
+        Date: dayKey,
+        ORH: Number.isFinite(orh) ? orh : NaN,
+        ORL: Number.isFinite(orl) ? orl : NaN,
+        Side: '',
+        EntryTime: null,
+        Entry: NaN,
+        ExitTime: null,
+        Exit: NaN,
+        StopPrice: NaN,
+        TPPrice: NaN,
+        HitType: '',
+        Shares: 0,
+        PnL: NaN,
+        pnl_R: 0,
+        AUM: prevAUM,
+        DailyReturn: 0,
+        StartAUM: prevAUM
+      });
 
       for (let t = 0; t < days.length; t++) {
         const dayKey = days[t];
-        const prev_AUM = t > 0 && out[t - 1]?.AUM != null ? out[t - 1].AUM : AUM_0;
-
-        const rowOut = {
-          Date: dayKey, ORH: NaN, ORL: NaN, Side: '',
-          EntryTime: null, Entry: NaN, ExitTime: null, Exit: NaN,
-          StopPrice: NaN, TPPrice: NaN, HitType: '', Shares: NaN,
-          PnL: NaN, pnl_R: 0, AUM: prev_AUM, DailyReturn: 0,
-        };
-
         const rawDay = dayGroups && typeof dayGroups.get === 'function' ? dayGroups.get(dayKey) : null;
         const df_day = Array.isArray(rawDay)
           ? rawDay.filter(bar => bar && bar.caldt instanceof Date && !isNaN(bar.caldt.getTime()))
           : [];
+
         if (!df_day.length) {
+          const prevAUM = getPrevAUM();
+          const rowOut = createBaseRow(dayKey, prevAUM, NaN, NaN);
           rowOut.HitType = 'NotEnoughBars';
-          rowOut.Shares = 0;
           out.push(rowOut);
           continue;
         }
 
-        // Identify the ORB (Opening Range Breakout) window
         const startIdx = df_day.findIndex(r => minutesOfDay(r.caldt) >= orbStartMin);
         if (startIdx < 0 || (startIdx + orb_m) > df_day.length) {
+          const prevAUM = getPrevAUM();
+          const rowOut = createBaseRow(dayKey, prevAUM, NaN, NaN);
           rowOut.HitType = 'NotEnoughBars';
-          rowOut.Shares = 0;
           out.push(rowOut);
           continue;
         }
 
-        // Calculate Opening Range High (ORH) and Low (ORL)
-        let ORH = -Infinity, ORL = Infinity;
+        let ORH = -Infinity;
+        let ORL = Infinity;
         let windowValid = true;
         for (let k = startIdx; k < startIdx + orb_m; k++) {
           const bar = df_day[k];
@@ -3829,162 +3929,271 @@
           ORL = Math.min(ORL, bar.low);
         }
         if (!windowValid || !Number.isFinite(ORH) || !Number.isFinite(ORL)) {
+          const prevAUM = getPrevAUM();
+          const rowOut = createBaseRow(dayKey, prevAUM, NaN, NaN);
           rowOut.HitType = 'NotEnoughBars';
-          rowOut.Shares = 0;
           out.push(rowOut);
           continue;
         }
-        rowOut.ORH = ORH;
-        rowOut.ORL = ORL;
 
-        // Check if Opening Range % is too small
         const OR_range = ORH - ORL;
         const OR_perc = OR_range / ORL;
-
         if (OR_perc < (min_or_perc / 100)) {
+          const prevAUM = getPrevAUM();
+          const rowOut = createBaseRow(dayKey, prevAUM, ORH, ORL);
           rowOut.HitType = 'ORTooSmall';
-          rowOut.Shares = 0;
           out.push(rowOut);
           continue;
         }
 
-        // Entry logic
-        let entryIdx = null, entry_side = 0, entry_price = NaN, entry_time = null;
+        const modeNormalized = dayMode;
+        let canTradeLong = allowDirectionLong;
+        let canTradeShort = allowDirectionShort;
+        switch (modeNormalized) {
+          case 'single-long':
+            canTradeShort = false;
+            break;
+          case 'single-short':
+            canTradeLong = false;
+            break;
+          case 'first-long-strict':
+            canTradeShort = false;
+            break;
+          case 'first-short-strict':
+            canTradeLong = false;
+            break;
+          case 'dual':
+          case 'first-any':
+          default:
+            break;
+        }
+        const sidesAllowed = (canTradeLong ? 1 : 0) + (canTradeShort ? 1 : 0);
+        if (sidesAllowed === 0) {
+          const prevAUM = getPrevAUM();
+          const rowOut = createBaseRow(dayKey, prevAUM, ORH, ORL);
+          rowOut.HitType = 'NoBreak';
+          out.push(rowOut);
+          continue;
+        }
+        const maxTrades = modeNormalized === 'dual' ? sidesAllowed : 1;
+        let availableLong = canTradeLong;
+        let availableShort = canTradeShort;
+        let tradesTaken = 0;
+        let searchIdx = startIdx + orb_m;
+        let producedRow = false;
+        let abortDay = false;
+        const abortOnShortFirst = modeNormalized === 'first-long-strict' && allowDirectionShort;
+        const abortOnLongFirst = modeNormalized === 'first-short-strict' && allowDirectionLong;
 
-        for (let i = startIdx + orb_m; i < df_day.length; i++) {
-          const r = df_day[i];
-          if (!r || !(r.caldt instanceof Date)) continue;
-          if (!Number.isFinite(r.high) || !Number.isFinite(r.low)) continue;
-          if (minutesOfDay(r.caldt) >= entryCutoffMin) break;
+        while (searchIdx < df_day.length && tradesTaken < maxTrades && (availableLong || availableShort)) {
+          let entryIdx = null;
+          let entrySide = 0;
+          let entryPrice = NaN;
+          let entryTime = null;
+          let cutoffReached = false;
+          let dayCancelled = false;
 
-          const long_hit = r.high > (ORH + breakout_buffer);
-          const short_hit = r.low < (ORL - breakout_buffer);
+          for (let i = searchIdx; i < df_day.length; i++) {
+            const r = df_day[i];
+            if (!r || !(r.caldt instanceof Date)) continue;
+            if (!Number.isFinite(r.high) || !Number.isFinite(r.low)) continue;
+            const minute = minutesOfDay(r.caldt);
+            if (minute >= entryCutoffMin) {
+              cutoffReached = true;
+              searchIdx = df_day.length;
+              break;
+            }
+            const rawLongHit = r.high > (ORH + breakout_buffer);
+            const rawShortHit = r.low < (ORL - breakout_buffer);
+            const bothHit = rawLongHit && rawShortHit;
 
-          if (
-            (direction === 'long' && !long_hit) ||
-            (direction === 'short' && !short_hit) ||
-            (direction === 'both' && !(long_hit || short_hit))
-          ) {
+            if (!bothHit && rawShortHit && abortOnShortFirst) {
+              const prevAUM = getPrevAUM();
+              const skipRow = createBaseRow(dayKey, prevAUM, ORH, ORL);
+              skipRow.HitType = 'FirstBreakWasShort';
+              out.push(skipRow);
+              producedRow = true;
+              tradesTaken = maxTrades;
+              availableLong = false;
+              availableShort = false;
+              searchIdx = df_day.length;
+              dayCancelled = true;
+              abortDay = true;
+              break;
+            }
+            if (!bothHit && rawLongHit && abortOnLongFirst) {
+              const prevAUM = getPrevAUM();
+              const skipRow = createBaseRow(dayKey, prevAUM, ORH, ORL);
+              skipRow.HitType = 'FirstBreakWasLong';
+              out.push(skipRow);
+              producedRow = true;
+              tradesTaken = maxTrades;
+              availableLong = false;
+              availableShort = false;
+              searchIdx = df_day.length;
+              dayCancelled = true;
+              abortDay = true;
+              break;
+            }
+
+            if (!bothHit && !rawLongHit && !rawShortHit) continue;
+
+            if (bothHit) {
+              if (modeNormalized === 'first-long-strict') {
+                if (availableLong) entrySide = 1;
+                else if (availableShort) entrySide = -1;
+              } else if (modeNormalized === 'first-short-strict') {
+                if (availableShort) entrySide = -1;
+                else if (availableLong) entrySide = 1;
+              } else if (availableLong && !availableShort) {
+                entrySide = 1;
+              } else if (!availableLong && availableShort) {
+                entrySide = -1;
+              } else {
+                entrySide = normalizedDirection === 'short' ? -1 : 1;
+                if (entrySide === 1 && !availableLong && availableShort) entrySide = -1;
+                if (entrySide === -1 && !availableShort && availableLong) entrySide = 1;
+              }
+            } else if (rawLongHit && availableLong) {
+              entrySide = 1;
+            } else if (rawShortHit && availableShort) {
+              entrySide = -1;
+            } else {
+              continue;
+            }
+
+            if (entrySide === 0) continue;
+
+            entryIdx = i;
+            entryTime = new Date(r.caldt);
+            entryPrice = entrySide === 1 ? (ORH + breakout_buffer) : (ORL - breakout_buffer);
+            searchIdx = i + 1;
+            break;
+          }
+
+          if (abortDay) break;
+          if (dayCancelled) break;
+
+          if (entryIdx == null) {
+            if (!producedRow && cutoffReached) break;
+            if (!producedRow) break;
+            break;
+          }
+
+          const prevAUM = getPrevAUM();
+          const rowOut = createBaseRow(dayKey, prevAUM, ORH, ORL);
+          rowOut.Side = entrySide === 1 ? 'Long' : 'Short';
+          rowOut.EntryTime = entryTime;
+          rowOut.Entry = entryPrice;
+
+          const R_price = (ORH - ORL) / 2;
+          const stopPrice = entrySide === 1 ? entryPrice - stop_R * R_price : entryPrice + stop_R * R_price;
+          const targetPrice = entrySide === 1 ? entryPrice + target_R * R_price : entryPrice - target_R * R_price;
+          rowOut.StopPrice = stopPrice;
+          rowOut.TPPrice = targetPrice;
+
+          const stopFrac = (stop_R * R_price) / entryPrice;
+          const maxContracts = stopFrac > 0
+            ? (prevAUM * risk) / (entryPrice * stopFrac * contractMultiplier)
+            : 0;
+          const shares = Math.floor(maxContracts);
+          rowOut.Shares = shares;
+
+          if (!(shares > 0)) {
+            rowOut.HitType = 'NoSize';
+            rowOut.AUM = prevAUM;
+            rowOut.pnl_R = 0;
+            rowOut.DailyReturn = 0;
+            out.push(rowOut);
+            producedRow = true;
+            tradesTaken += 1;
+            if (entrySide === 1) allowLong = false; else allowShort = false;
             continue;
           }
 
-          // Decide direction
-          if (long_hit && !short_hit) entry_side = 1;
-          else if (short_hit && !long_hit) entry_side = -1;
-          else entry_side = direction === 'short' ? -1 : 1;
+          let exitIdx = null;
+          let hit = 'EOD';
+          let exitTime = null;
+          let exitPrice = NaN;
+          let indeterminate = false;
 
-          entry_price = entry_side === 1 ? (ORH + breakout_buffer) : (ORL - breakout_buffer);
-          entryIdx = i;
-          entry_time = new Date(r.caldt);
+          for (let j = entryIdx + 1; j < df_day.length; j++) {
+            const r2 = df_day[j];
+            if (!r2 || !(r2.caldt instanceof Date)) continue;
+            if (!Number.isFinite(r2.high) || !Number.isFinite(r2.low)) continue;
+            const tpHit = entrySide === 1 ? r2.high >= targetPrice : r2.low <= targetPrice;
+            const stHit = entrySide === 1 ? r2.low <= stopPrice : r2.high >= stopPrice;
+            if (tpHit && stHit) {
+              exitIdx = j;
+              hit = 'Indeterminate';
+              indeterminate = true;
+              break;
+            }
+            if (tpHit) { exitIdx = j; hit = 'TP'; break; }
+            if (stHit) { exitIdx = j; hit = 'Stop'; break; }
+          }
 
-          rowOut.Side = entry_side === 1 ? 'Long' : 'Short';
-          rowOut.EntryTime = entry_time;
-          rowOut.Entry = entry_price;
-          break;
-        }
-
-        if (entryIdx == null) {
-          rowOut.HitType = 'NoBreak';
-          rowOut.Shares = 0;
-          out.push(rowOut);
-          continue;
-        }
-
-        // Calculate stop loss and target levels
-        const R_price = (ORH - ORL) / 2;
-        const stop_price = entry_side === 1 ? entry_price - stop_R * R_price : entry_price + stop_R * R_price;
-        const target_price = entry_side === 1 ? entry_price + target_R * R_price : entry_price - target_R * R_price;
-
-        rowOut.StopPrice = stop_price;
-        rowOut.TPPrice = target_price;
-
-        // Risk management: position sizing
-        const stop_frac = (stop_R * R_price) / entry_price;
-        const max_risk_contracts = stop_frac > 0
-          ? (prev_AUM * risk) / (entry_price * stop_frac * contractMultiplier)
-          : 0;
-
-        const shares = Math.floor(max_risk_contracts);
-
-        rowOut.Shares = shares;
-        if (!(shares > 0)) {
-          rowOut.HitType = 'NoSize';
-          out.push(rowOut);
-          continue;
-        }
-
-        // Exit logic
-        let exitIdx = null, hit = 'EOD', exit_time = null, exit_price = NaN;
-        let indeterminate = false;
-
-        for (let j = entryIdx + 1; j < df_day.length; j++) {
-          const r2 = df_day[j];
-          if (!r2 || !(r2.caldt instanceof Date)) continue;
-          if (!Number.isFinite(r2.high) || !Number.isFinite(r2.low)) continue;
-          const tp_hit = entry_side === 1 ? r2.high >= target_price : r2.low <= target_price;
-          const st_hit = entry_side === 1 ? r2.low <= stop_price : r2.high >= stop_price;
-
-          if (tp_hit && st_hit) {
-            exitIdx = j;
-            hit = 'Indeterminate';
-            indeterminate = true;
+          if (indeterminate) {
+            const bar = df_day[exitIdx];
+            rowOut.ExitTime = bar && bar.caldt instanceof Date ? new Date(bar.caldt) : null;
+            rowOut.HitType = 'Indeterminate';
+            rowOut.AUM = prevAUM;
+            rowOut.pnl_R = 0;
+            rowOut.DailyReturn = 0;
+            out.push(rowOut);
+            producedRow = true;
+            tradesTaken += 1;
+            if (entrySide === 1) allowLong = false; else allowShort = false;
             break;
           }
-          if (tp_hit) { exitIdx = j; hit = 'TP'; break; }
-          if (st_hit) { exitIdx = j; hit = 'Stop'; break; }
-        }
 
-        if (indeterminate) {
-          const bar = df_day[exitIdx];
-          if (bar && bar.caldt instanceof Date) {
-            rowOut.ExitTime = new Date(bar.caldt);
+          if (exitIdx == null) {
+            const eodIdx = df_day.findLastIndex(r => r && r.caldt instanceof Date && minutesOfDay(r.caldt) === orbEndMin);
+            exitIdx = eodIdx >= 0 ? eodIdx : df_day.length - 1;
+            const r_eod = df_day[exitIdx];
+            exitTime = r_eod && r_eod.caldt instanceof Date ? new Date(r_eod.caldt) : entryTime;
+            exitPrice = r_eod && Number.isFinite(r_eod.close) ? r_eod.close : entryPrice;
           } else {
-            rowOut.ExitTime = null;
+            const r_exit = df_day[exitIdx];
+            exitTime = r_exit && r_exit.caldt instanceof Date ? new Date(r_exit.caldt) : entryTime;
+            const fallbackExit = Number.isFinite(exitPrice) ? exitPrice : entryPrice;
+            const o_exit = r_exit && Number.isFinite(r_exit.open) ? r_exit.open : fallbackExit;
+            exitPrice = (hit === 'TP')
+              ? (entrySide === 1 ? Math.max(targetPrice, o_exit) : Math.min(targetPrice, o_exit))
+              : (entrySide === 1 ? Math.min(stopPrice, o_exit) : Math.max(stopPrice, o_exit));
           }
-          rowOut.HitType = 'Indeterminate';
+
+          rowOut.ExitTime = exitTime;
+          rowOut.Exit = exitPrice;
+          rowOut.HitType = hit;
+
+          const pnl = entrySide === 1
+            ? (exitPrice - entryPrice) * shares * contractMultiplier
+            : (entryPrice - exitPrice) * shares * contractMultiplier;
+          const newAUM = prevAUM + pnl - (shares * commission * 2);
+
+          rowOut.PnL = pnl;
+          rowOut.AUM = newAUM;
+          rowOut.pnl_R = risk * prevAUM !== 0 ? Number((pnl / (risk * prevAUM)).toFixed(2)) : 0;
+          rowOut.DailyReturn = prevAUM !== 0 ? Number(((pnl / prevAUM) * 100).toFixed(2)) : 0;
+
           out.push(rowOut);
-          continue;
-        }
-
-        // No exit signal: exit at EOD
-        if (exitIdx == null) {
-          const eodIdx = df_day.findLastIndex(r => r && r.caldt instanceof Date && minutesOfDay(r.caldt) === orbEndMin);
-          exitIdx = eodIdx >= 0 ? eodIdx : df_day.length - 1;
-          const r_eod = df_day[exitIdx];
-          if (r_eod && r_eod.caldt instanceof Date) {
-            exit_time = new Date(r_eod.caldt);
-          } else {
-            exit_time = entry_time;
+          producedRow = true;
+          tradesTaken += 1;
+          if (entrySide === 1) {
+            availableLong = false;
+          } else if (entrySide === -1) {
+            availableShort = false;
           }
-          exit_price = r_eod && Number.isFinite(r_eod.close) ? r_eod.close : entry_price;
-        } else {
-          const r_exit = df_day[exitIdx];
-          exit_time = r_exit && r_exit.caldt instanceof Date ? new Date(r_exit.caldt) : entry_time;
-          const fallbackExit = Number.isFinite(exit_price) ? exit_price : entry_price;
-          const o_exit = r_exit && Number.isFinite(r_exit.open) ? r_exit.open : fallbackExit;
-
-          exit_price = (hit === 'TP')
-            ? (entry_side === 1 ? Math.max(target_price, o_exit) : Math.min(target_price, o_exit))
-            : (entry_side === 1 ? Math.min(stop_price, o_exit) : Math.max(stop_price, o_exit));
+          searchIdx = exitIdx != null ? Math.max(exitIdx + 1, entryIdx + 1) : df_day.length;
         }
 
-        rowOut.ExitTime = exit_time;
-        rowOut.Exit = exit_price;
-        rowOut.HitType = hit;
-
-        // PnL calculation
-        const pnl = entry_side === 1
-          ? (exit_price - entry_price) * shares * contractMultiplier
-          : (entry_price - exit_price) * shares * contractMultiplier;
-
-        const new_AUM = prev_AUM + pnl - (shares * commission * 2);
-
-        rowOut.PnL = pnl;
-        rowOut.AUM = new_AUM;
-        rowOut.pnl_R = risk * prev_AUM !== 0 ? Number((pnl / (risk * prev_AUM)).toFixed(2)) : 0;
-        rowOut.DailyReturn = prev_AUM !== 0 ? Number(((pnl / prev_AUM) * 100).toFixed(2)) : 0;
-
-        out.push(rowOut);
+        if (!producedRow && !abortDay) {
+          const prevAUM = getPrevAUM();
+          const rowOut = createBaseRow(dayKey, prevAUM, ORH, ORL);
+          rowOut.HitType = 'NoBreak';
+          out.push(rowOut);
+        }
       }
 
       return out;
@@ -4017,16 +4226,63 @@
       const losses = stops + eodLoss;
 
       let totalPnL = 0;
+      for (const row of out) {
+        if (Number.isFinite(row.PnL)) totalPnL += row.PnL;
+      }
+
+      const dailyMap = new Map();
+      const dayOrder = [];
+      for (const row of out) {
+        if (!row || !row.Date) continue;
+        const dayKey = row.Date;
+        if (!dailyMap.has(dayKey)) {
+          const startAUM = Number.isFinite(row.StartAUM) ? row.StartAUM : null;
+          dailyMap.set(dayKey, {
+            startAUM,
+            endAUM: Number.isFinite(row.AUM) ? row.AUM : null,
+            pnl: Number.isFinite(row.PnL) ? row.PnL : 0
+          });
+          dayOrder.push(dayKey);
+        } else {
+          const rec = dailyMap.get(dayKey);
+          if (Number.isFinite(row.PnL)) rec.pnl += row.PnL;
+          if (Number.isFinite(row.AUM)) rec.endAUM = row.AUM;
+          if (!Number.isFinite(rec.startAUM) && Number.isFinite(row.StartAUM)) {
+            rec.startAUM = row.StartAUM;
+          }
+        }
+      }
+
+      let previousEnd = null;
+      for (const dayKey of dayOrder) {
+        const rec = dailyMap.get(dayKey);
+        if (!Number.isFinite(rec.startAUM)) {
+          if (Number.isFinite(previousEnd)) {
+            rec.startAUM = previousEnd;
+          } else if (Number.isFinite(rec.endAUM) && Number.isFinite(rec.pnl)) {
+            rec.startAUM = rec.endAUM - rec.pnl;
+          }
+        }
+        if (!Number.isFinite(rec.pnl)) rec.pnl = 0;
+        previousEnd = Number.isFinite(rec.endAUM) ? rec.endAUM : previousEnd;
+      }
+
       let totalDailyReturn = 0;
       let dailyReturnCount = 0;
       let sumDailyReturnDecimal = 0;
       let downsideSumSquares = 0;
-      for (const row of out) {
-        if (Number.isFinite(row.PnL)) totalPnL += row.PnL;
-        if (Number.isFinite(row.DailyReturn)) {
-          totalDailyReturn += row.DailyReturn;
+      for (const dayKey of dayOrder) {
+        const rec = dailyMap.get(dayKey);
+        const start = rec.startAUM;
+        const end = rec.endAUM;
+        let dailyRetPct = 0;
+        if (Number.isFinite(start) && start !== 0 && Number.isFinite(end)) {
+          dailyRetPct = ((end - start) / start) * 100;
+        }
+        if (Number.isFinite(dailyRetPct)) {
+          totalDailyReturn += dailyRetPct;
           dailyReturnCount += 1;
-          const dailyDec = Number(row.DailyReturn) / 100;
+          const dailyDec = dailyRetPct / 100;
           if (Number.isFinite(dailyDec)) {
             sumDailyReturnDecimal += dailyDec;
             if (dailyDec < 0) {
@@ -4042,65 +4298,62 @@
         ? (avgDailyRetDecimal * Math.sqrt(252)) / downsideDeviation
         : null;
 
-      const lastRow = out[out.length - 1] || {};
-      const lastAUM = Number.isFinite(lastRow.AUM) ? lastRow.AUM : null;
+      const firstDayKey = dayOrder[0] || null;
+      const lastDayKey = dayOrder[dayOrder.length - 1] || null;
+      const firstDay = firstDayKey ? dailyMap.get(firstDayKey) : null;
+      const lastDay = lastDayKey ? dailyMap.get(lastDayKey) : null;
+      const firstAUM = firstDay && Number.isFinite(firstDay.startAUM)
+        ? firstDay.startAUM
+        : firstDay && Number.isFinite(firstDay.endAUM) ? firstDay.endAUM : null;
+      const lastAUM = lastDay && Number.isFinite(lastDay.endAUM) ? lastDay.endAUM : null;
 
       let cagrPct = 0;
       let maxDDPct = 0;
       let athDays = 0;
       let athDayPct = null;
-      if (out.length > 1) {
-        const firstRow = out[0] || {};
-        const startAUM = Number.isFinite(firstRow.AUM) ? firstRow.AUM : null;
-        const endAUM = Number.isFinite(lastRow.AUM) ? lastRow.AUM : null;
-        const firstDate = firstRow.Date ? new Date(firstRow.Date) : null;
-        const lastDate = lastRow.Date ? new Date(lastRow.Date) : null;
-        const firstDateValid = firstDate && !isNaN(firstDate);
-        const lastDateValid = lastDate && !isNaN(lastDate);
-        if (startAUM !== null && endAUM !== null && startAUM > 0 && endAUM > 0 && firstDateValid && lastDateValid) {
-          const days = (lastDate - firstDate) / (1000 * 60 * 60 * 24);
-          const years = days / 365.25;
+      if (dayOrder.length > 1 && firstDayKey && lastDayKey && firstAUM && lastAUM && firstAUM > 0 && lastAUM > 0) {
+        const firstDate = new Date(firstDayKey);
+        const lastDate = new Date(lastDayKey);
+        if (!isNaN(firstDate) && !isNaN(lastDate)) {
+          const dayDiff = (lastDate - firstDate) / (1000 * 60 * 60 * 24);
+          const years = dayDiff / 365.25;
           if (years > 0) {
-            cagrPct = (Math.pow(endAUM / startAUM, 1 / years) - 1) * 100;
+            cagrPct = (Math.pow(lastAUM / firstAUM, 1 / years) - 1) * 100;
           }
         }
-        let peak = Number.isFinite(startAUM) ? startAUM : null;
+        let peak = Number.isFinite(firstAUM) ? firstAUM : null;
         let mdd = 0;
-        let totalEquityPoints = 0;
         let athCounter = 0;
-        for (const row of out) {
-          const a = Number(row.AUM);
-          if (!Number.isFinite(a)) continue;
-          totalEquityPoints += 1;
-          if (!Number.isFinite(peak) || a > peak) {
-            peak = a;
+        for (const dayKey of dayOrder) {
+          const rec = dailyMap.get(dayKey);
+          const end = Number(rec && rec.endAUM);
+          if (!Number.isFinite(end)) continue;
+          if (!Number.isFinite(peak) || end > peak) {
+            peak = end;
           }
           const peakValid = Number.isFinite(peak) && peak !== 0;
           const tolerance = peakValid ? Math.max(Math.abs(peak) * 1e-8, 1e-6) : 1e-6;
-          if (peakValid && Math.abs(a - peak) <= tolerance) {
+          if (peakValid && Math.abs(end - peak) <= tolerance) {
             athCounter += 1;
           }
           if (peakValid) {
-            const ddPct = ((a / peak) - 1) * 100;
+            const ddPct = ((end / peak) - 1) * 100;
             if (ddPct < mdd) mdd = ddPct;
           }
         }
-        if (totalEquityPoints > 0 && totalTrades > 0) {
+        const equityPoints = dayOrder.length;
+        if (equityPoints > 0) {
           athDays = athCounter;
-          athDayPct = (athCounter / totalEquityPoints) * 100;
-        } else {
-          athDays = 0;
-          athDayPct = null;
+          athDayPct = (athCounter / equityPoints) * 100;
         }
         maxDDPct = mdd;
       }
 
       const mar = (Number.isFinite(cagrPct) && maxDDPct < 0) ? cagrPct / Math.abs(maxDDPct) : null;
-
       const pctOrZero = (count) => totalTrades > 0 ? Number(((count / totalTrades) * 100).toFixed(2)) : 0;
 
       return {
-        totalDays: out.length,
+        totalDays: dayOrder.length,
         finalAUM: lastAUM,
         totalPnL,
         avgDailyRet,
@@ -5444,6 +5697,7 @@
       const tEnd = document.getElementById('inp_orb_end');
       const tCut = document.getElementById('inp_entry_cutoff');
       const minOr = document.getElementById('inp_min_or_perc');
+      const breakoutMode = document.getElementById('sel_breakout_mode');
       const filteredDays = computeFilteredDays();
       return {
         symbol: currentTicker,
@@ -5461,6 +5715,7 @@
         entry_cutoff_time: (tCut && tCut.value) ? tCut.value : entryCutoffConst,
         breakout_buffer: breakoutBufferConst,
         min_or_perc: (()=>{ const v = minOr ? parseFloat(minOr.value) : NaN; return Number.isFinite(v) ? v : minOrConst; })(),
+        breakout_mode: (()=>{ const raw = breakoutMode ? breakoutMode.value : breakoutModeConst; return normalizeBreakoutMode(raw); })(),
       };
     }
 
@@ -5536,7 +5791,8 @@
       const t0 = performance.now();
       const out = backtest(params);
       const t1 = performance.now();
-      setStatus(`Ran ${out.length} day(s) in ${(t1 - t0).toFixed(0)} ms.`);
+      const uniqueDays = new Set(out.map(row => row && row.Date)).size;
+      setStatus(`Ran ${uniqueDays} day(s) / ${out.length} record(s) in ${(t1 - t0).toFixed(0)} ms.`);
       setPortfolioContext(false);
       renderSummary(out);
       LAST_OUT = out;
@@ -6219,6 +6475,7 @@
       const tStart = document.getElementById('inp_orb_start');
       const tEnd = document.getElementById('inp_orb_end');
       const tCut = document.getElementById('inp_entry_cutoff');
+      const breakoutMode = document.getElementById('sel_breakout_mode');
       const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
       function onInputNumber(el, def, min, max){
         const raw = el.value;
@@ -6282,6 +6539,14 @@
       if (tCut) {
         tCut.addEventListener('input', onTimeInput);
         tCut.addEventListener('change', onTimeChange);
+      }
+      if (breakoutMode) {
+        setBreakoutMode(breakoutMode.value);
+        breakoutMode.addEventListener('change', () => {
+          const normalized = setBreakoutMode(breakoutMode.value);
+          breakoutMode.value = normalized;
+          scheduleRun();
+        });
       }
     })();
 

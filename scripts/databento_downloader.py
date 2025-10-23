@@ -57,6 +57,36 @@ DATABENTO_TARGETS: Dict[str, Dict[str, str]] = {
 }
 
 
+def _normalize_iso8601(raw: str) -> str:
+    value = raw.strip().replace(" ", "T")
+    if value.endswith("Z"):
+        value = value[:-1] + "+00:00"
+    if "." in value:
+        head, tail = value.split(".", 1)
+        offset_start: Optional[int] = None
+        for idx, ch in enumerate(tail):
+            if ch in "+-" and idx != 0:
+                offset_start = idx
+                break
+        if offset_start is not None:
+            frac = tail[:offset_start]
+            offset = tail[offset_start:]
+        else:
+            frac = tail
+            offset = ""
+        frac = (frac + "000000")[:6]
+        value = f"{head}.{frac}{offset}"
+    return value
+
+
+def _parse_databento_timestamp(raw: str) -> datetime:
+    normalized = _normalize_iso8601(raw)
+    dt = datetime.fromisoformat(normalized)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
 def get_last_data_date(path: Path) -> Optional[date]:
     """Read the final row's date from an existing CSV file."""
 
@@ -188,7 +218,14 @@ def download_and_process_range(
     """Request the missing range from Databento and normalize it."""
 
     start_str = start_date.strftime("%Y-%m-%d")
-    end_dt = datetime.combine(end_date + timedelta(days=1), time.min).replace(tzinfo=timezone.utc)
+    effective_end_date = max(start_date, end_date - timedelta(days=1))
+    if effective_end_date < end_date:
+        print(
+            f"{symbol}: requested end_date {end_date} trimmed to {effective_end_date} "
+            "to stay within Databento availability window."
+        )
+
+    end_dt = datetime.combine(effective_end_date + timedelta(days=1), time.min).replace(tzinfo=timezone.utc)
 
     adjusted = False
     while True:
@@ -210,12 +247,7 @@ def download_and_process_range(
                 match = re.search(r"available up to '([^']+)'", message)
                 if match:
                     available_end_raw = match.group(1)
-                    try:
-                        available_end_dt = datetime.fromisoformat(available_end_raw.replace(" ", "T"))
-                    except ValueError:
-                        available_end_dt = datetime.fromisoformat(available_end_raw)
-
-                    available_end_dt = available_end_dt.astimezone(timezone.utc)
+                    available_end_dt = _parse_databento_timestamp(available_end_raw)
                     if available_end_dt.date() < start_date:
                         print(
                             f"{symbol}: available data ends on {available_end_dt.date()}, "
@@ -234,6 +266,35 @@ def download_and_process_range(
                     end_dt = available_end_dt
                     adjusted = True
                     continue
+            elif "dataset_unavailable_range" in message:
+                match = re.search(r"before ([0-9T:\.\-\+\:]+Z?)", message)
+                if match:
+                    limit_raw = match.group(1).rstrip(".")
+                    try:
+                        limit_dt = _parse_databento_timestamp(limit_raw)
+                    except ValueError:
+                        limit_dt = None
+
+                    if limit_dt is not None:
+                        limit_dt = limit_dt.astimezone(timezone.utc)
+                        if limit_dt.date() < start_date:
+                            print(
+                                f"{symbol}: Databento limit {limit_dt.date()} precedes start {start_date}; skipping."
+                            )
+                            return pd.DataFrame()
+
+                        # Step back a minute to ensure we are strictly before the limit.
+                        new_end_dt = limit_dt - timedelta(minutes=1)
+                        if new_end_dt <= datetime.combine(start_date, time.min).replace(tzinfo=timezone.utc):
+                            new_end_dt = datetime.combine(start_date, time.min).replace(tzinfo=timezone.utc) + timedelta(minutes=1)
+
+                        print(
+                            f"{symbol}: adjusting end parameter to {new_end_dt.isoformat()} "
+                            "based on Databento subscription limits."
+                        )
+                        end_dt = new_end_dt
+                        adjusted = True
+                        continue
 
             print(f"Databento request failed for {symbol}: {exc}")
             return pd.DataFrame()
@@ -244,7 +305,13 @@ def download_and_process_range(
     if processed.empty:
         return processed
 
-    mask = processed["caldt"].dt.date.between(start_date, end_date)
+    end_dt_floor = end_dt - timedelta(seconds=1)
+    if end_dt_floor <= datetime.combine(start_date, time.min).replace(tzinfo=timezone.utc):
+        final_end_date = start_date
+    else:
+        final_end_date = end_dt_floor.date()
+    requested_end_date = min(end_date, final_end_date)
+    mask = processed["caldt"].dt.date.between(start_date, requested_end_date)
     filtered = processed.loc[mask]
     print(f"Retained {len(filtered)} rows within target range.")
     return filtered
