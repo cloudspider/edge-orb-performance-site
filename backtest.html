@@ -929,6 +929,12 @@
                 </button>
               </th>
               <th class="px-3 py-2 text-right">
+                <button type="button" class="inline-flex w-full items-center justify-end gap-1 text-slate-600 hover:text-slate-800" data-trade-sort="pdc">
+                  <span>PDC</span>
+                  <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
+                </button>
+              </th>
+              <th class="px-3 py-2 text-right">
                 <button type="button" class="inline-flex w-full items-center justify-end gap-1 text-slate-600 hover:text-slate-800" data-trade-sort="orh">
                   <span>ORH</span>
                   <span class="text-xs text-slate-400" data-sort-indicator style="opacity:0">▲</span>
@@ -1239,6 +1245,7 @@
   let TRADES_SORT = { key: 'date', direction: 'desc' };
   const TRADE_SORT_DEFAULT_DIRECTION = {
     date: 'desc',
+    pdc: 'desc',
     side: 'asc',
     entryTime: 'asc',
     exitTime: 'asc',
@@ -3872,36 +3879,64 @@
         return Number.isFinite(val) ? val : AUM_0;
       };
 
-      const createBaseRow = (dayKey, prevAUM, orh, orl) => ({
-        Date: dayKey,
-        ORH: Number.isFinite(orh) ? orh : NaN,
-        ORL: Number.isFinite(orl) ? orl : NaN,
-        Side: '',
-        EntryTime: null,
-        Entry: NaN,
-        ExitTime: null,
-        Exit: NaN,
-        StopPrice: NaN,
-        TPPrice: NaN,
-        HitType: '',
-        Shares: 0,
-        PnL: NaN,
-        pnl_R: 0,
-        AUM: prevAUM,
-        DailyReturn: 0,
-        StartAUM: prevAUM
-      });
+      const sanitizeDayRows = (rows) => Array.isArray(rows)
+        ? rows.filter(bar => bar && bar.caldt instanceof Date && !isNaN(bar.caldt.getTime()))
+        : [];
+
+      const regularCloseMinutes = 16 * 60; // 16:00 ET close
+      const getPrevDayClose = (index) => {
+        if (!Array.isArray(days) || index <= 0) return NaN;
+        const prevKey = days[index - 1];
+        if (!prevKey) return NaN;
+        const prevRows = sanitizeDayRows(dayGroups && typeof dayGroups.get === 'function' ? dayGroups.get(prevKey) : null);
+        if (!prevRows.length) return NaN;
+        for (let i = prevRows.length - 1; i >= 0; i--) {
+          const bar = prevRows[i];
+          if (!bar || !Number.isFinite(bar.close) || !(bar.caldt instanceof Date)) continue;
+          if (minutesOfDay(bar.caldt) === regularCloseMinutes) return bar.close;
+        }
+        for (let i = prevRows.length - 1; i >= 0; i--) {
+          const bar = prevRows[i];
+          if (!bar || !Number.isFinite(bar.close) || !(bar.caldt instanceof Date)) continue;
+          if (minutesOfDay(bar.caldt) <= regularCloseMinutes) return bar.close;
+        }
+        const fallback = prevRows[prevRows.length - 1];
+        return fallback && Number.isFinite(fallback.close) ? fallback.close : NaN;
+      };
+
+      const createBaseRow = (dayKey, prevAUM, orh, orl, pdc = NaN) => {
+        const pdcValue = Number(pdc);
+        return {
+          Date: dayKey,
+          PDC: Number.isFinite(pdcValue) ? pdcValue : NaN,
+          ORH: Number.isFinite(orh) ? orh : NaN,
+          ORL: Number.isFinite(orl) ? orl : NaN,
+          Side: '',
+          EntryTime: null,
+          Entry: NaN,
+          ExitTime: null,
+          Exit: NaN,
+          StopPrice: NaN,
+          TPPrice: NaN,
+          HitType: '',
+          Shares: 0,
+          PnL: NaN,
+          pnl_R: 0,
+          AUM: prevAUM,
+          DailyReturn: 0,
+          StartAUM: prevAUM
+        };
+      };
 
       for (let t = 0; t < days.length; t++) {
         const dayKey = days[t];
+        const prevClose = getPrevDayClose(t);
         const rawDay = dayGroups && typeof dayGroups.get === 'function' ? dayGroups.get(dayKey) : null;
-        const df_day = Array.isArray(rawDay)
-          ? rawDay.filter(bar => bar && bar.caldt instanceof Date && !isNaN(bar.caldt.getTime()))
-          : [];
+        const df_day = sanitizeDayRows(rawDay);
 
         if (!df_day.length) {
           const prevAUM = getPrevAUM();
-          const rowOut = createBaseRow(dayKey, prevAUM, NaN, NaN);
+          const rowOut = createBaseRow(dayKey, prevAUM, NaN, NaN, prevClose);
           rowOut.HitType = 'NotEnoughBars';
           out.push(rowOut);
           continue;
@@ -3910,7 +3945,7 @@
         const startIdx = df_day.findIndex(r => minutesOfDay(r.caldt) >= orbStartMin);
         if (startIdx < 0 || (startIdx + orb_m) > df_day.length) {
           const prevAUM = getPrevAUM();
-          const rowOut = createBaseRow(dayKey, prevAUM, NaN, NaN);
+          const rowOut = createBaseRow(dayKey, prevAUM, NaN, NaN, prevClose);
           rowOut.HitType = 'NotEnoughBars';
           out.push(rowOut);
           continue;
@@ -3930,7 +3965,7 @@
         }
         if (!windowValid || !Number.isFinite(ORH) || !Number.isFinite(ORL)) {
           const prevAUM = getPrevAUM();
-          const rowOut = createBaseRow(dayKey, prevAUM, NaN, NaN);
+          const rowOut = createBaseRow(dayKey, prevAUM, NaN, NaN, prevClose);
           rowOut.HitType = 'NotEnoughBars';
           out.push(rowOut);
           continue;
@@ -3940,7 +3975,7 @@
         const OR_perc = OR_range / ORL;
         if (OR_perc < (min_or_perc / 100)) {
           const prevAUM = getPrevAUM();
-          const rowOut = createBaseRow(dayKey, prevAUM, ORH, ORL);
+          const rowOut = createBaseRow(dayKey, prevAUM, ORH, ORL, prevClose);
           rowOut.HitType = 'ORTooSmall';
           out.push(rowOut);
           continue;
@@ -3970,7 +4005,7 @@
         const sidesAllowed = (canTradeLong ? 1 : 0) + (canTradeShort ? 1 : 0);
         if (sidesAllowed === 0) {
           const prevAUM = getPrevAUM();
-          const rowOut = createBaseRow(dayKey, prevAUM, ORH, ORL);
+          const rowOut = createBaseRow(dayKey, prevAUM, ORH, ORL, prevClose);
           rowOut.HitType = 'NoBreak';
           out.push(rowOut);
           continue;
@@ -4009,7 +4044,7 @@
 
             if (!bothHit && rawShortHit && abortOnShortFirst) {
               const prevAUM = getPrevAUM();
-              const skipRow = createBaseRow(dayKey, prevAUM, ORH, ORL);
+              const skipRow = createBaseRow(dayKey, prevAUM, ORH, ORL, prevClose);
               skipRow.HitType = 'FirstBreakWasShort';
               out.push(skipRow);
               producedRow = true;
@@ -4023,7 +4058,7 @@
             }
             if (!bothHit && rawLongHit && abortOnLongFirst) {
               const prevAUM = getPrevAUM();
-              const skipRow = createBaseRow(dayKey, prevAUM, ORH, ORL);
+              const skipRow = createBaseRow(dayKey, prevAUM, ORH, ORL, prevClose);
               skipRow.HitType = 'FirstBreakWasLong';
               out.push(skipRow);
               producedRow = true;
@@ -4081,7 +4116,7 @@
           }
 
           const prevAUM = getPrevAUM();
-          const rowOut = createBaseRow(dayKey, prevAUM, ORH, ORL);
+          const rowOut = createBaseRow(dayKey, prevAUM, ORH, ORL, prevClose);
           rowOut.Side = entrySide === 1 ? 'Long' : 'Short';
           rowOut.EntryTime = entryTime;
           rowOut.Entry = entryPrice;
@@ -4190,7 +4225,7 @@
 
         if (!producedRow && !abortDay) {
           const prevAUM = getPrevAUM();
-          const rowOut = createBaseRow(dayKey, prevAUM, ORH, ORL);
+          const rowOut = createBaseRow(dayKey, prevAUM, ORH, ORL, prevClose);
           rowOut.HitType = 'NoBreak';
           out.push(rowOut);
         }
@@ -5104,6 +5139,8 @@
     switch (key) {
       case 'date':
         return row.Date || '';
+      case 'pdc':
+        return num(row.PDC);
       case 'orh':
         return num(row.ORH);
       case 'orl':
@@ -5235,9 +5272,11 @@
   const orLow = Number(r.ORL);
   const OR_val = (Number.isFinite(orHigh) && Number.isFinite(orLow)) ? (orHigh - orLow) : NaN;
   const OR_pct = (Number.isFinite(OR_val) && Number.isFinite(orLow) && orLow !== 0) ? ((OR_val / orLow) * 100) : NaN;
+  const prevClose = Number(r.PDC);
   const strategyLabel = r.SourceStrategyId || r.StrategyId || '';
   tr.innerHTML = `
   <td class="px-3 py-2">${r.Date}</td>
+  <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtPrice(prevClose)}</td>
   <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtPrice(r.ORH)}</td>
   <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtPrice(r.ORL)}</td>
   <td class="px-3 py-2 text-right tabular-nums font-mono">${fmtPrice(OR_val)}</td>
@@ -5519,13 +5558,14 @@
     }
 
     function buildAoaFromRows(rows) {
-  const headers = ['Date','ORH','ORL','OR','OR%','Side','EntryTime','ExitTime','Entry','Exit','LossPrice','TPPrice','HitType','Shares','PnL','pnl_R','AUM','DailyReturn %','Strategy'];
+  const headers = ['Date','PDC','ORH','ORL','OR','OR%','Side','EntryTime','ExitTime','Entry','Exit','LossPrice','TPPrice','HitType','Shares','PnL','pnl_R','AUM','DailyReturn %','Strategy'];
       const aoa = [headers];
       for (const r of rows) {
         const OR_val = (Number.isFinite(r.ORH) && Number.isFinite(r.ORL)) ? (r.ORH - r.ORL) : NaN;
         const OR_pct = (Number.isFinite(OR_val) && Number.isFinite(r.ORL) && r.ORL !== 0) ? Number(((OR_val / r.ORL) * 100).toFixed(2)) : '';
         aoa.push([
           r.Date,
+          Number.isFinite(r.PDC) ? Number(r.PDC) : '',
           Number.isFinite(r.ORH) ? Number(r.ORH) : '',
           Number.isFinite(r.ORL) ? Number(r.ORL) : '',
           Number.isFinite(OR_val) ? Number(OR_val) : '',
