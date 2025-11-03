@@ -708,7 +708,9 @@
 
       const activeBuys = new Map();
       const activeSells = new Map();
+      const queuedBuyActivations = [];
       let orderSeq = 1;
+      let highestSeededBuyLevel = Number.NEGATIVE_INFINITY;
 
       const removeOrder = (map, order) => {
         if (!order || !Number.isFinite(order.level)) return;
@@ -724,9 +726,13 @@
         const price = normalizeLevel(level);
         if (!Number.isFinite(price) || price <= 0) return null;
         const key = keyFor(price);
-        if (!activeBuys.has(key)) activeBuys.set(key, []);
+        const existing = activeBuys.get(key);
+        if (existing && existing.length) return existing[0];
         const order = { id: orderSeq++, level: price };
-        activeBuys.get(key).push(order);
+        activeBuys.set(key, [order]);
+        if (!Number.isFinite(highestSeededBuyLevel) || price > highestSeededBuyLevel) {
+          highestSeededBuyLevel = price;
+        }
         return order;
       };
 
@@ -752,6 +758,10 @@
           addBuyOrder(price);
         }
       }
+      if (!Number.isFinite(highestSeededBuyLevel) || highestSeededBuyLevel === Number.NEGATIVE_INFINITY) {
+        addBuyOrder(firstPrice - gridSize);
+        highestSeededBuyLevel = normalizeLevel(firstPrice - gridSize);
+      }
 
       let cash = Number.isFinite(initialCash) ? initialCash : GRID_DEFAULTS.initialCash;
       let shares = 0;
@@ -759,6 +769,53 @@
       let cumulativeRetained = 0;
       let prevPrice = firstPrice;
       const EPS = 1e-9;
+
+      const hasActiveBuy = (level) => {
+        const price = normalizeLevel(level);
+        const key = keyFor(price);
+        const arr = activeBuys.get(key);
+        return Array.isArray(arr) && arr.length > 0;
+      };
+
+      const hasQueuedBuyActivation = (level) => {
+        const price = normalizeLevel(level);
+        return queuedBuyActivations.some(entry => Math.abs(entry.buyLevel - price) < EPS);
+      };
+
+      const queueDelayedBuy = (sellPrice) => {
+        const buyPrice = normalizeLevel(sellPrice);
+        if (!Number.isFinite(buyPrice) || buyPrice <= 0) return;
+        if (hasActiveBuy(buyPrice) || hasQueuedBuyActivation(buyPrice)) return;
+        const triggerLevel = normalizeLevel(buyPrice + gridSize);
+        queuedBuyActivations.push({ buyLevel: buyPrice, trigger: triggerLevel });
+      };
+
+      const ensureRunupBuys = (maxPrice) => {
+        if (!Number.isFinite(maxPrice)) return;
+        if (!Number.isFinite(highestSeededBuyLevel) || !Number.isFinite(gridSize)) return;
+        let safety = 0;
+        while (maxPrice >= (highestSeededBuyLevel + gridSize * 2) - EPS && safety < 1000) {
+          const nextLevel = normalizeLevel(highestSeededBuyLevel + gridSize);
+          if (!hasActiveBuy(nextLevel) && !hasQueuedBuyActivation(nextLevel)) {
+            addBuyOrder(nextLevel);
+          }
+          if (nextLevel <= highestSeededBuyLevel + EPS) break;
+          highestSeededBuyLevel = nextLevel;
+          safety += 1;
+        }
+      };
+
+      const activateQueuedBuys = (maxPrice) => {
+        if (!Number.isFinite(maxPrice) || !queuedBuyActivations.length) return;
+        for (let i = queuedBuyActivations.length - 1; i >= 0; i--) {
+          const entry = queuedBuyActivations[i];
+          if (!entry) continue;
+          if (maxPrice >= entry.trigger - EPS) {
+            addBuyOrder(entry.buyLevel);
+            queuedBuyActivations.splice(i, 1);
+          }
+        }
+      };
 
       const executeBuy = (order, timestamp) => {
         if (!order) return false;
@@ -821,6 +878,7 @@
           roiPct: costBasis > 0 ? (profit / costBasis) * 100 : 0
         });
         addBuyOrder(price - gridSize);
+        queueDelayedBuy(price);
         return true;
       };
 
@@ -833,6 +891,9 @@
           const buys = collectOrdersInRange(activeBuys, end, start, false);
           for (const order of buys) executeBuy(order, timestamp);
         }
+        const maxVal = Math.max(start, end);
+        ensureRunupBuys(maxVal);
+        activateQueuedBuys(maxVal);
       };
 
       const buildPath = (fromPrice, row) => {
