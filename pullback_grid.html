@@ -174,22 +174,158 @@
       </div>
     </section>
 
-    <section class="bg-white rounded-2xl shadow-soft p-3 md:p-4">
-      <div class="space-y-2">
+    <section class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-3">
+      <div class="flex flex-col gap-1">
         <h2 class="font-semibold text-slate-700">Dataset</h2>
         <p id="dataSummary" class="text-sm text-slate-500">Select a symbol to load intraday data.</p>
       </div>
+      <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500 leading-relaxed">
+        <p>Files must contain 1-minute OHLC data with columns for <code>caldt</code>, <code>day</code>, <code>open</code>, <code>high</code>, <code>low</code>, and <code>close</code>. The pullback grid simulation evaluates each minute to detect fills, so ensure the CSV spans the period you want to test.</p>
+      </div>
     </section>
 
-    <section class="bg-white rounded-2xl shadow-soft p-3 md:p-4">
-      <div class="text-slate-500 text-sm">
-        Add pullback grid configuration controls, charts, and tables in this layout container.
+    <section id="gridParameters" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
+      <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h2 class="font-semibold text-slate-700">Grid Parameters</h2>
+          <p class="text-sm text-slate-500">Adjust spacing and sizing, then run the backtest on the loaded symbol.</p>
+        </div>
+        <button
+          type="button"
+          id="btnRunGridBacktest"
+          class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+          disabled
+        >
+          <ion-icon name="play-outline" class="text-lg"></ion-icon>
+          <span>Run Backtest</span>
+        </button>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-4">
+        <label class="block">
+          <span class="text-sm text-slate-600">Grid Size ($)</span>
+          <input
+            id="inpGridSize"
+            type="number"
+            step="0.01"
+            min="0.01"
+            value="5"
+            class="mt-1 w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+          />
+        </label>
+        <label class="block">
+          <span class="text-sm text-slate-600">Trade Value ($)</span>
+          <input
+            id="inpTradeValue"
+            type="number"
+            step="1"
+            min="1"
+            value="1000"
+            class="mt-1 w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+          />
+        </label>
+        <label class="block">
+          <span class="text-sm text-slate-600">Initial Cash ($)</span>
+          <input
+            id="inpInitialCash"
+            type="number"
+            step="100"
+            min="0"
+            value="10000"
+            class="mt-1 w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+          />
+        </label>
+        <label class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 shadow-sm transition focus-within:ring-2 focus-within:ring-emerald-500/60">
+          <input
+            id="inpFractionalShares"
+            type="checkbox"
+            class="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+            checked
+          />
+          <span>Allow fractional shares</span>
+        </label>
+      </div>
+    </section>
+
+    <section id="gridSummarySection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
+      <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h2 class="font-semibold text-slate-700">Summary</h2>
+          <p id="gridStatus" class="text-sm text-slate-500">Load data and run the backtest to populate results.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-slate-500">
+          <span>Cash:</span>
+          <span id="summaryCash" class="text-sm font-semibold text-slate-800">$0.00</span>
+          <span>Shares:</span>
+          <span id="summaryShares" class="text-sm font-semibold text-slate-800">0</span>
+        </div>
+      </div>
+      <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div class="rounded-xl border border-slate-200 p-4 shadow-sm">
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Completed Trades</dt>
+          <dd id="summaryTotalTrades" class="mt-2 text-xl font-semibold text-slate-800">0</dd>
+        </div>
+        <div class="rounded-xl border border-slate-200 p-4 shadow-sm">
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Net Profit</dt>
+          <dd id="summaryNetProfit" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
+        </div>
+        <div class="rounded-xl border border-slate-200 p-4 shadow-sm">
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Final Equity</dt>
+          <dd id="summaryFinalEquity" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
+        </div>
+        <div class="rounded-xl border border-slate-200 p-4 shadow-sm">
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Total Retained Shares</dt>
+          <dd id="summaryRetained" class="mt-2 text-xl font-semibold text-slate-800">0</dd>
+        </div>
+        <div class="rounded-xl border border-slate-200 p-4 shadow-sm">
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Average ROI %</dt>
+          <dd id="summaryAvgRoi" class="mt-2 text-xl font-semibold text-slate-800">0.00%</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section id="gridTradesSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
+      <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <h2 class="font-semibold text-slate-700">Trade Log</h2>
+        <span id="tradeCountLabel" class="text-sm text-slate-500"></span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-slate-200 text-sm">
+          <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <tr>
+              <th class="px-3 py-2">Buy Time</th>
+              <th class="px-3 py-2 text-right">Buy Price</th>
+              <th class="px-3 py-2 text-right">Buy Qty</th>
+              <th class="px-3 py-2">Sell Time</th>
+              <th class="px-3 py-2 text-right">Sell Price</th>
+              <th class="px-3 py-2 text-right">Sell Qty</th>
+              <th class="px-3 py-2 text-right">Qty Retained</th>
+              <th class="px-3 py-2 text-right">Cum Retained</th>
+              <th class="px-3 py-2 text-right">Days Held</th>
+              <th class="px-3 py-2 text-right">Profit $</th>
+              <th class="px-3 py-2 text-right">ROI %</th>
+            </tr>
+          </thead>
+          <tbody id="gridTradeRows" class="divide-y divide-slate-100"></tbody>
+        </table>
+        <div id="gridTradesEmpty" class="py-6 text-center text-sm text-slate-500">Run the backtest to see individual trades.</div>
       </div>
     </section>
   </div>
 <script>
   (function(){
     const DEFAULT_PRICE_PRECISION = 2;
+    const GRID_DEFAULTS = {
+      gridSize: 5,
+      tradeValue: 1000,
+      initialCash: 10000,
+      fractionalShares: true
+    };
+    const CURRENCY_FORMAT = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const NUMBER_FORMAT = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const NUMBER_FORMAT_4 = new Intl.NumberFormat(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+    const PERCENT_FORMAT = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
     const pad2 = (n) => String(n).padStart(2, '0');
     const dateKeyFromStr = (val) => {
       if (val == null) return null;
@@ -207,10 +343,23 @@
     let DAY_GROUPS = new Map();
     let DAYS = [];
     let SYMBOL_META = new Map();
+    let GRID_STATE = { trades: [], summary: null, equitySeries: [] };
 
     function setStatus(msg) {
       const el = document.getElementById('status');
       if (el) el.textContent = msg || '';
+    }
+
+    function setGridStatus(msg) {
+      const el = document.getElementById('gridStatus');
+      if (el) el.textContent = msg || '';
+    }
+
+    function setRunButtonEnabled(enabled) {
+      const btn = document.getElementById('btnRunGridBacktest');
+      if (!btn) return;
+      btn.disabled = !enabled;
+      btn.classList.toggle('opacity-70', !enabled);
     }
 
     function ensureSymbolMetaEntry(symbol) {
@@ -259,6 +408,145 @@
         meta.precision = precision;
         SYMBOL_META.set(sym, meta);
       }
+    }
+
+    function countDecimals(value) {
+      if (!Number.isFinite(value)) return 0;
+      const s = String(value);
+      if (!s.includes('.')) return 0;
+      const trimmed = s.replace(/0+$/, '');
+      const idx = trimmed.indexOf('.');
+      return idx >= 0 ? (trimmed.length - idx - 1) : 0;
+    }
+
+    function formatCurrency(value) {
+      if (!Number.isFinite(value)) return '$0.00';
+      return CURRENCY_FORMAT.format(value);
+    }
+
+    function formatNumber(value, digits = 2) {
+      if (!Number.isFinite(value)) return digits === 4 ? '0.0000' : '0.00';
+      if (digits === 4) return NUMBER_FORMAT_4.format(value);
+      return NUMBER_FORMAT.format(value);
+    }
+
+    function formatPercent(value) {
+      if (!Number.isFinite(value)) return '0.00%';
+      return `${PERCENT_FORMAT.format(value)}%`;
+    }
+
+    function formatDateTime(value) {
+      if (!(value instanceof Date) || isNaN(value)) return '';
+      const year = value.getFullYear();
+      const month = pad2(value.getMonth() + 1);
+      const day = pad2(value.getDate());
+      const hour = pad2(value.getHours());
+      const minute = pad2(value.getMinutes());
+      return `${year}-${month}-${day} ${hour}:${minute}`;
+    }
+
+    function getGridParamsFromUI() {
+      const gridSize = Number(document.getElementById('inpGridSize')?.value ?? GRID_DEFAULTS.gridSize);
+      const tradeValue = Number(document.getElementById('inpTradeValue')?.value ?? GRID_DEFAULTS.tradeValue);
+      const initialCash = Number(document.getElementById('inpInitialCash')?.value ?? GRID_DEFAULTS.initialCash);
+      const fractionalShares = !!document.getElementById('inpFractionalShares')?.checked;
+      return {
+        gridSize: Number.isFinite(gridSize) ? gridSize : GRID_DEFAULTS.gridSize,
+        tradeValue: Number.isFinite(tradeValue) ? tradeValue : GRID_DEFAULTS.tradeValue,
+        initialCash: Number.isFinite(initialCash) ? initialCash : GRID_DEFAULTS.initialCash,
+        fractionalShares
+      };
+    }
+
+    function renderGridSummary(summary) {
+      const totalTradesEl = document.getElementById('summaryTotalTrades');
+      const netProfitEl = document.getElementById('summaryNetProfit');
+      const finalEquityEl = document.getElementById('summaryFinalEquity');
+      const retainedEl = document.getElementById('summaryRetained');
+      const avgRoiEl = document.getElementById('summaryAvgRoi');
+      const cashEl = document.getElementById('summaryCash');
+      const sharesEl = document.getElementById('summaryShares');
+      if (!summary) {
+        if (totalTradesEl) totalTradesEl.textContent = '0';
+        if (netProfitEl) {
+          netProfitEl.textContent = '$0.00';
+          netProfitEl.classList.remove('text-emerald-600', 'text-red-600');
+          netProfitEl.classList.add('text-slate-800');
+        }
+        if (finalEquityEl) finalEquityEl.textContent = '$0.00';
+        if (retainedEl) retainedEl.textContent = '0';
+        if (avgRoiEl) {
+          avgRoiEl.textContent = '0.00%';
+          avgRoiEl.classList.remove('text-emerald-600', 'text-red-600');
+          avgRoiEl.classList.add('text-slate-800');
+        }
+        if (cashEl) cashEl.textContent = '$0.00';
+        if (sharesEl) sharesEl.textContent = '0';
+        return;
+      }
+      if (totalTradesEl) totalTradesEl.textContent = String(summary.totalTrades ?? 0);
+      if (netProfitEl) {
+        const net = summary.netProfit ?? 0;
+        netProfitEl.textContent = formatCurrency(net);
+        netProfitEl.classList.remove('text-slate-800', 'text-emerald-600', 'text-red-600');
+        if (net > 1e-8) {
+          netProfitEl.classList.add('text-emerald-600');
+        } else if (net < -1e-8) {
+          netProfitEl.classList.add('text-red-600');
+        } else {
+          netProfitEl.classList.add('text-slate-800');
+        }
+      }
+      if (finalEquityEl) finalEquityEl.textContent = formatCurrency(summary.finalEquity ?? 0);
+      if (retainedEl) retainedEl.textContent = formatNumber(summary.totalRetainedShares ?? 0, 4);
+      if (avgRoiEl) {
+        const roi = summary.avgRoi ?? 0;
+        avgRoiEl.textContent = formatPercent(roi);
+        avgRoiEl.classList.remove('text-slate-800', 'text-emerald-600', 'text-red-600');
+        if (roi > 1e-8) {
+          avgRoiEl.classList.add('text-emerald-600');
+        } else if (roi < -1e-8) {
+          avgRoiEl.classList.add('text-red-600');
+        } else {
+          avgRoiEl.classList.add('text-slate-800');
+        }
+      }
+      if (cashEl) cashEl.textContent = formatCurrency(summary.cash ?? 0);
+      if (sharesEl) sharesEl.textContent = formatNumber(summary.shares ?? 0, 4);
+    }
+
+    function renderGridTrades(trades) {
+      const tbody = document.getElementById('gridTradeRows');
+      const emptyState = document.getElementById('gridTradesEmpty');
+      const label = document.getElementById('tradeCountLabel');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      if (!Array.isArray(trades) || !trades.length) {
+        if (emptyState) emptyState.classList.remove('hidden');
+        if (label) label.textContent = '0 trades';
+        return;
+      }
+      if (emptyState) emptyState.classList.add('hidden');
+      const frag = document.createDocumentFragment();
+      for (const trade of trades) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="px-3 py-2 whitespace-nowrap">${formatDateTime(trade.buyTime)}</td>
+          <td class="px-3 py-2 text-right">${formatNumber(trade.buyPrice, 4)}</td>
+          <td class="px-3 py-2 text-right">${formatNumber(trade.buyQty, 4)}</td>
+          <td class="px-3 py-2 whitespace-nowrap">${formatDateTime(trade.sellTime)}</td>
+          <td class="px-3 py-2 text-right">${formatNumber(trade.sellPrice, 4)}</td>
+          <td class="px-3 py-2 text-right">${formatNumber(trade.sellQty, 4)}</td>
+          <td class="px-3 py-2 text-right">${formatNumber(trade.qtyRetained ?? 0, 4)}</td>
+          <td class="px-3 py-2 text-right">${formatNumber(trade.cumQtyRetained ?? 0, 4)}</td>
+          <td class="px-3 py-2 text-right">${formatNumber(trade.daysHeld ?? 0, 2)}</td>
+          <td class="px-3 py-2 text-right ${trade.profit >= 0 ? 'text-emerald-600' : 'text-red-600'}">${formatCurrency(trade.profit)}</td>
+          <td class="px-3 py-2 text-right ${trade.roiPct >= 0 ? 'text-emerald-600' : 'text-red-600'}">${formatPercent(trade.roiPct)}</td>
+        `;
+        frag.appendChild(tr);
+      }
+      tbody.appendChild(frag);
+      if (label) label.textContent = `${trades.length} trade${trades.length === 1 ? '' : 's'}`;
     }
 
     function highlightTickerButton(symbol) {
@@ -310,7 +598,17 @@
       if (titleEl) titleEl.textContent = fullTitle;
       document.title = fullTitle;
       highlightTickerButton(currentTicker);
+      const loadingMsg = currentTicker ? `Loading data for ${currentTicker}…` : 'Load data and run the backtest to populate results.';
+      resetGridOutputs(loadingMsg);
+      setRunButtonEnabled(false);
       renderDataSummary();
+    }
+
+    function resetGridOutputs(message) {
+      GRID_STATE = { trades: [], summary: null, equitySeries: [] };
+      renderGridSummary(null);
+      renderGridTrades([]);
+      setGridStatus(message || 'Load data and run the backtest to populate results.');
     }
 
     function normalizeAndIndex(rows) {
@@ -342,10 +640,298 @@
       DAYS = Array.from(DAY_GROUPS.keys()).sort();
     }
 
+    function collectOrdersInRange(map, minVal, maxVal, ascending) {
+      const out = [];
+      if (!map || !map.size) return out;
+      const lower = Math.min(minVal, maxVal);
+      const upper = Math.max(minVal, maxVal);
+      const EPS = 1e-9;
+      for (const arr of map.values()) {
+        if (!Array.isArray(arr) || !arr.length) continue;
+        for (const order of arr) {
+          if (!order || !Number.isFinite(order.level)) continue;
+          if (order.level >= (lower - EPS) && order.level <= (upper + EPS)) {
+            out.push(order);
+          }
+        }
+      }
+      out.sort((a, b) => ascending ? (a.level - b.level) : (b.level - a.level));
+      return out;
+    }
+
+    function runPullbackGridSimulation(rows, params) {
+      const trades = [];
+      const equitySeries = [];
+      const summary = {
+        totalTrades: 0,
+        netProfit: 0,
+        finalEquity: 0,
+        totalRetainedShares: 0,
+        avgRoi: 0,
+        cash: Number(params?.initialCash) || 0,
+        shares: 0
+      };
+      if (!Array.isArray(rows) || !rows.length) {
+        return { trades, summary, equitySeries };
+      }
+      const gridSize = Number(params?.gridSize);
+      const tradeValue = Number(params?.tradeValue);
+      const initialCash = Number(params?.initialCash);
+      const fractional = !!params?.fractionalShares;
+      if (!Number.isFinite(gridSize) || gridSize <= 0 || !Number.isFinite(tradeValue) || tradeValue <= 0) {
+        return { trades, summary, equitySeries };
+      }
+      let firstPrice = [rows[0]?.open, rows[0]?.close, rows[0]?.high, rows[0]?.low].map(Number).find(Number.isFinite);
+      if (!Number.isFinite(firstPrice) || firstPrice <= 0) {
+        return { trades, summary, equitySeries };
+      }
+      let minPrice = firstPrice;
+      let maxPrice = firstPrice;
+      for (const row of rows) {
+        if (!row) continue;
+        const low = Number(row.low);
+        const high = Number(row.high);
+        if (Number.isFinite(low)) minPrice = Math.min(minPrice, low);
+        if (Number.isFinite(high)) maxPrice = Math.max(maxPrice, high);
+      }
+      if (!Number.isFinite(minPrice) || !Number.isFinite(maxPrice) || minPrice <= 0 || maxPrice <= 0) {
+        return { trades, summary, equitySeries };
+      }
+
+      const decimals = Math.min(Math.max(countDecimals(gridSize), 0), 4);
+      const scale = Math.pow(10, Math.min(decimals + 2, 8));
+      const scaledStep = Math.max(1, Math.round(gridSize * scale));
+      const normalizeLevel = (value) => Math.round(value * scale) / scale;
+      const keyFor = (value) => normalizeLevel(value).toFixed(6);
+      const gridMin = Math.floor((minPrice * scale) / scaledStep) * scaledStep;
+      const gridMax = Math.ceil((maxPrice * scale) / scaledStep) * scaledStep;
+
+      const activeBuys = new Map();
+      const activeSells = new Map();
+      let orderSeq = 1;
+
+      const removeOrder = (map, order) => {
+        if (!order || !Number.isFinite(order.level)) return;
+        const key = keyFor(order.level);
+        const arr = map.get(key);
+        if (!arr) return;
+        const idx = arr.indexOf(order);
+        if (idx >= 0) arr.splice(idx, 1);
+        if (!arr.length) map.delete(key);
+      };
+
+      const addBuyOrder = (level) => {
+        const price = normalizeLevel(level);
+        if (!Number.isFinite(price) || price <= 0) return null;
+        const key = keyFor(price);
+        if (!activeBuys.has(key)) activeBuys.set(key, []);
+        const order = { id: orderSeq++, level: price };
+        activeBuys.get(key).push(order);
+        return order;
+      };
+
+      const addSellOrder = (level, buyInfo) => {
+        const price = normalizeLevel(level);
+        if (!Number.isFinite(price) || price <= 0) return null;
+        const key = keyFor(price);
+        if (!activeSells.has(key)) activeSells.set(key, []);
+        const order = {
+          id: orderSeq++,
+          level: price,
+          buyPrice: Number(buyInfo?.price),
+          buyQty: Number(buyInfo?.qty),
+          buyTime: buyInfo?.time instanceof Date ? new Date(buyInfo.time.getTime()) : new Date()
+        };
+        activeSells.get(key).push(order);
+        return order;
+      };
+
+      for (let level = gridMin; level <= gridMax; level += scaledStep) {
+        const price = level / scale;
+        if (price < firstPrice - 1e-9) {
+          addBuyOrder(price);
+        }
+      }
+
+      let cash = Number.isFinite(initialCash) ? initialCash : GRID_DEFAULTS.initialCash;
+      let shares = 0;
+      let realizedProfit = 0;
+      let cumulativeRetained = 0;
+      let prevPrice = firstPrice;
+      const EPS = 1e-9;
+
+      const executeBuy = (order, timestamp) => {
+        if (!order) return false;
+        const price = order.level;
+        const qtyRaw = tradeValue / price;
+        let qty = fractional ? qtyRaw : Math.floor(qtyRaw);
+        if (!Number.isFinite(qty) || qty <= 0) {
+          removeOrder(activeBuys, order);
+          return false;
+        }
+        const cost = qty * price;
+        if (cost > cash + EPS) {
+          return false;
+        }
+        cash -= cost;
+        shares += qty;
+        removeOrder(activeBuys, order);
+        addSellOrder(price + gridSize, { price, qty, time: timestamp });
+        return true;
+      };
+
+      const executeSell = (order, timestamp) => {
+        if (!order) return false;
+        const price = order.level;
+        const desiredQtyRaw = tradeValue / price;
+        let qty = fractional ? desiredQtyRaw : Math.floor(desiredQtyRaw);
+        if (!Number.isFinite(qty) || qty <= 0) {
+          removeOrder(activeSells, order);
+          return false;
+        }
+        qty = Math.min(qty, order.buyQty, shares);
+        if (qty <= 0) {
+          removeOrder(activeSells, order);
+          return false;
+        }
+        const revenue = qty * price;
+        const costBasis = qty * order.buyPrice;
+        cash += revenue;
+        shares -= qty;
+        removeOrder(activeSells, order);
+        const profit = revenue - costBasis;
+        realizedProfit += profit;
+        const qtyRetained = order.buyQty - qty;
+        cumulativeRetained += qtyRetained;
+        const sellTime = timestamp instanceof Date ? new Date(timestamp.getTime()) : new Date();
+        const buyTime = order.buyTime instanceof Date ? new Date(order.buyTime.getTime()) : new Date();
+        const msHeld = sellTime.getTime() - buyTime.getTime();
+        const daysHeld = Number.isFinite(msHeld) ? Math.max(0, msHeld / 86400000) : 0;
+        trades.push({
+          buyTime,
+          buyPrice: order.buyPrice,
+          buyQty: order.buyQty,
+          sellTime,
+          sellPrice: price,
+          sellQty: qty,
+          qtyRetained,
+          cumQtyRetained: cumulativeRetained,
+          daysHeld,
+          profit,
+          roiPct: costBasis > 0 ? (profit / costBasis) * 100 : 0
+        });
+        addBuyOrder(price - gridSize);
+        return true;
+      };
+
+      const processMove = (start, end, timestamp) => {
+        if (!Number.isFinite(start) || !Number.isFinite(end)) return;
+        if (end > start + EPS) {
+          const sells = collectOrdersInRange(activeSells, start, end, true);
+          for (const order of sells) executeSell(order, timestamp);
+        } else if (end < start - EPS) {
+          const buys = collectOrdersInRange(activeBuys, end, start, false);
+          for (const order of buys) executeBuy(order, timestamp);
+        }
+      };
+
+      const buildPath = (fromPrice, row) => {
+        const path = [];
+        let start = Number(fromPrice);
+        if (!Number.isFinite(start)) start = Number(row.open) || Number(row.close) || 0;
+        path.push(start);
+        const addPoint = (value) => {
+          const num = Number(value);
+          if (!Number.isFinite(num)) return;
+          if (Math.abs(num - path[path.length - 1]) < EPS) return;
+          path.push(num);
+        };
+        const open = Number(row.open);
+        const high = Number(row.high);
+        const low = Number(row.low);
+        const close = Number(row.close);
+        if (Number.isFinite(open)) addPoint(open);
+        const upBar = Number.isFinite(close) && Number.isFinite(open) ? (close >= open) : true;
+        if (upBar) {
+          if (Number.isFinite(high)) addPoint(high);
+          if (Number.isFinite(low)) addPoint(low);
+        } else {
+          if (Number.isFinite(low)) addPoint(low);
+          if (Number.isFinite(high)) addPoint(high);
+        }
+        if (Number.isFinite(close)) addPoint(close);
+        return path;
+      };
+
+      for (const row of rows) {
+        if (!row || !(row.caldt instanceof Date)) continue;
+        const path = buildPath(prevPrice, row);
+        for (let i = 1; i < path.length; i++) {
+          const from = path[i - 1];
+          const to = path[i];
+          processMove(from, to, row.caldt);
+        }
+        prevPrice = path[path.length - 1];
+        equitySeries.push({
+          time: new Date(row.caldt.getTime()),
+          equity: cash + shares * prevPrice
+        });
+      }
+
+      const finalEquity = cash + shares * prevPrice;
+      const avgRoi = trades.length
+        ? trades.reduce((acc, trade) => acc + (Number.isFinite(trade.roiPct) ? trade.roiPct : 0), 0) / trades.length
+        : 0;
+      summary.totalTrades = trades.length;
+      summary.netProfit = realizedProfit;
+      summary.finalEquity = finalEquity;
+      summary.totalRetainedShares = shares;
+      summary.avgRoi = avgRoi;
+      summary.cash = cash;
+      summary.shares = shares;
+      return { trades, summary, equitySeries };
+    }
+
+    function runGridBacktest() {
+      if (!Array.isArray(ROWS) || !ROWS.length) {
+        setGridStatus('Load symbol data before running the backtest.');
+        return;
+      }
+      const params = getGridParamsFromUI();
+      setGridStatus('Running backtest…');
+      try {
+        const result = runPullbackGridSimulation(ROWS, params);
+        GRID_STATE = result;
+        renderGridSummary(result.summary);
+        renderGridTrades(result.trades);
+        if (result.trades.length) {
+          const profitLabel = formatCurrency(result.summary?.netProfit ?? 0);
+          setGridStatus(`Backtest completed with ${result.trades.length} trade${result.trades.length === 1 ? '' : 's'}. Net profit ${profitLabel}.`);
+        } else {
+          setGridStatus('No completed trades for the selected parameters.');
+        }
+      } catch (err) {
+        console.error('Pullback grid backtest error', err);
+        setGridStatus('Failed to run backtest. See console for details.');
+      }
+    }
+
+    function initGridControls() {
+      const btn = document.getElementById('btnRunGridBacktest');
+      if (btn) {
+        btn.addEventListener('click', () => runGridBacktest());
+      }
+      resetGridOutputs('Load data and run the backtest to populate results.');
+      setRunButtonEnabled(false);
+    }
+
+
     async function loadSymbolData(sym) {
       const baseSymbol = (sym || '').trim();
       if (!baseSymbol) return false;
       setStatus(`Loading data for ${baseSymbol}…`);
+      setGridStatus(`Loading data for ${baseSymbol}…`);
+      setRunButtonEnabled(false);
       const candidates = Array.from(new Set([
         baseSymbol,
         baseSymbol.toUpperCase(),
@@ -366,9 +952,18 @@
             console.warn('CSV parse warnings:', parsed.errors.slice(0, 3));
           }
           normalizeAndIndex(parsed.data);
+          if (!ROWS.length) {
+            lastError = 'No valid rows in dataset.';
+            continue;
+          }
           updateSymbolPrecisionFromRows(baseSymbol, parsed.data);
           setStatus(`Loaded ${ROWS.length} rows across ${DAYS.length} day(s).`);
+          renderGridSummary(null);
+          renderGridTrades([]);
           renderDataSummary();
+          setGridStatus(`Loaded ${ROWS.length.toLocaleString()} bars across ${DAYS.length.toLocaleString()} day(s). Running backtest…`);
+          setRunButtonEnabled(true);
+          runGridBacktest();
           return true;
         } catch (err) {
           lastError = err && err.message ? err.message : String(err);
@@ -376,9 +971,13 @@
       }
       console.error(`Failed to load ${baseSymbol}: ${lastError || 'not found'}`);
       setStatus(`Error loading ${baseSymbol}: ${lastError || 'File not found.'}`);
+      setGridStatus(`Error loading ${baseSymbol}: ${lastError || 'File not found.'}`);
       ROWS = [];
       DAY_GROUPS = new Map();
       DAYS = [];
+      renderGridSummary(null);
+      renderGridTrades([]);
+      setRunButtonEnabled(false);
       renderDataSummary();
       return false;
     }
@@ -504,6 +1103,7 @@
     });
 
     document.addEventListener('DOMContentLoaded', () => {
+      initGridControls();
       populateTickerSegment();
     });
   })();
