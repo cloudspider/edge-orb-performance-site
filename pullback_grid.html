@@ -1,0 +1,512 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pullback Grid Backtest</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailframes.com/releases/latest/tailframes.min.js" defer></script>
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"
+  />
+  <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+  <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+  <!-- Apache ECharts for interactive charts (mobile pinch-zoom supported) -->
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <!-- PapaParse for CSV parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    .num-pos { color: #119d6e !important; }
+    .num-neg { color: #ff0000 !important; }
+    .pnl-strong { font-size: 1.8rem !important; }
+    .sticky-th { position: sticky; top: 0; background: white; z-index: 1; }
+    .shadow-soft { box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
+    thead th { position: sticky; top: 0; background: white; z-index: 1; }
+
+    /* Hide native spin buttons for key numeric inputs */
+    #inp_orb_m::-webkit-outer-spin-button,
+    #inp_orb_m::-webkit-inner-spin-button,
+    #inp_target_R::-webkit-outer-spin-button,
+    #inp_target_R::-webkit-inner-spin-button,
+    #inp_stop_R::-webkit-outer-spin-button,
+    #inp_stop_R::-webkit-inner-spin-button,
+    #inp_risk_pct::-webkit-outer-spin-button,
+    #inp_risk_pct::-webkit-inner-spin-button,
+    #inp_aum0::-webkit-outer-spin-button,
+    #inp_aum0::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    #inp_orb_m,
+    #inp_target_R,
+    #inp_stop_R,
+    #inp_risk_pct,
+    #inp_aum0 {
+      -moz-appearance: textfield;
+      appearance: textfield;
+    }
+
+    /* Generic: hide spinners for any future number input */
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type="number"] {
+      -moz-appearance: textfield;
+      appearance: textfield;
+    }
+
+    /* Segment controls responsive layout */
+    #tickerSegment {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      grid-auto-rows: 1fr;
+      width: 100%;
+      gap: 1px;
+    }
+    #tickerSegment button {
+      width: 100%;
+      height: 100%;
+    }
+    #sessionSegment {
+      display: flex;
+      flex-wrap: wrap;
+      max-width: 100%;
+      min-width: 0;
+      white-space: normal;
+    }
+    #sessionSegment button {
+      flex: 0 0 auto;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+  <!-- Site navigation -->
+  <nav class="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+    <div class="max-w-screen-2xl mx-auto px-6 py-3 flex items-center gap-4">
+      <div class="flex items-center gap-6 flex-1 min-w-0">
+        <div class="flex items-center gap-2 font-semibold text-slate-800">
+          <svg class="h-5 w-5 text-emerald-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M192 384L88.5 384C63.6 384 48.3 356.9 61.1 335.5L114 247.3C122.7 232.8 138.3 224 155.2 224L250.2 224C326.3 95.1 439.8 88.6 515.7 99.7C528.5 101.6 538.5 111.6 540.3 124.3C551.4 200.2 544.9 313.7 416 389.8L416 484.8C416 501.7 407.2 517.3 392.7 526L304.5 578.9C283.2 591.7 256 576.3 256 551.5L256 448C256 412.7 227.3 384 192 384L191.9 384zM464 224C464 197.5 442.5 176 416 176C389.5 176 368 197.5 368 224C368 250.5 389.5 272 416 272C442.5 272 464 250.5 464 224z"/></svg>
+          <span>ORB</span>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <a data-nav href="index.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Performance</a>
+          <a data-nav href="backtest.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Backtest</a>
+          <a data-nav href="results.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Results</a>
+          <a data-nav href="pullback_grid.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Pullback Grid</a>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          id="btnExportData"
+          class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-emerald-500 hover:text-emerald-600"
+          title="Export saved backtest data"
+        >
+          <i class="fa fa-download"></i>
+          <span>Export</span>
+        </button>
+        <button
+          type="button"
+          id="btnImportData"
+          class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-emerald-500 hover:text-emerald-600"
+          title="Import saved backtest data"
+        >
+          <i class="fa fa-upload"></i>
+          <span>Import</span>
+        </button>
+        <input
+          type="file"
+          id="inputImportData"
+          accept="application/json"
+          class="hidden"
+        />
+      </div>
+    </div>
+  </nav>
+  <script>
+    // Activate nav item for current page
+    (function(){
+      try {
+        const file = (location.pathname.split('/').pop() || 'pullback_grid.html').toLowerCase();
+        document.querySelectorAll('a[data-nav]').forEach(a => {
+          const href = (a.getAttribute('href') || '').toLowerCase();
+          const active = href === file || (file === '' && href.endsWith('index.html'));
+          a.classList.toggle('bg-slate-800', active);
+          a.classList.toggle('text-white', active);
+          a.classList.toggle('hover:bg-slate-100', !active);
+          if (active) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current');
+        });
+      } catch {}
+    })();
+  </script>
+
+  <div class="max-w-screen-2xl mx-auto p-6 space-y-6">
+    <header class="mb-2">
+      <h1 id="mainTitle" class="text-2xl md:text-3xl font-semibold">Pullback Grid Backtest</h1>
+      <p class="text-slate-600 mt-1">Under construction. Hook up pullback grid datasets and controls here.</p>
+    </header>
+
+    <section id="symbolPicker" class="bg-white rounded-2xl shadow-soft p-3 md:p-4">
+      <div class="overflow-x-auto -mx-3 md:mx-0 px-3 md:px-0">
+        <nav class="flex min-w-max border-b border-slate-200 gap-1" role="tablist">
+          <button type="button" class="inline-flex items-center gap-2 border-b-2 border-blue-500 px-3 py-2 text-sm font-medium text-slate-900 transition">
+            <span class="inline-flex h-8 w-8 items-center justify-center text-emerald-500">
+              <ion-icon name="grid-outline" class="text-2xl"></ion-icon>
+            </span>
+            <span>Pullback Grid</span>
+          </button>
+        </nav>
+      </div>
+
+      <div class="flex-1 min-w-0 mt-4">
+        <div class="flex items-center gap-2 mb-2">
+          <div class="flex-1 min-w-0">
+            <div id="tickerSegment" class="w-full rounded-xl border border-slate-200 bg-slate-200 p-px overflow-hidden">
+              <span class="px-3 py-1.5 text-sm text-slate-500">Loading…</span>
+            </div>
+          </div>
+        </div>
+        <div id="status" class="text-xs text-slate-500"></div>
+      </div>
+    </section>
+
+    <section class="bg-white rounded-2xl shadow-soft p-3 md:p-4">
+      <div class="space-y-2">
+        <h2 class="font-semibold text-slate-700">Dataset</h2>
+        <p id="dataSummary" class="text-sm text-slate-500">Select a symbol to load intraday data.</p>
+      </div>
+    </section>
+
+    <section class="bg-white rounded-2xl shadow-soft p-3 md:p-4">
+      <div class="text-slate-500 text-sm">
+        Add pullback grid configuration controls, charts, and tables in this layout container.
+      </div>
+    </section>
+  </div>
+<script>
+  (function(){
+    const DEFAULT_PRICE_PRECISION = 2;
+    const pad2 = (n) => String(n).padStart(2, '0');
+    const dateKeyFromStr = (val) => {
+      if (val == null) return null;
+      if (typeof val === 'string') {
+        const m = val.trim().match(/^(\d{4}-\d{2}-\d{2})/);
+        if (m) return m[1];
+      }
+      const d = new Date(val);
+      if (isNaN(d)) return null;
+      return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+    };
+
+    let currentTicker = '';
+    let ROWS = [];
+    let DAY_GROUPS = new Map();
+    let DAYS = [];
+    let SYMBOL_META = new Map();
+
+    function setStatus(msg) {
+      const el = document.getElementById('status');
+      if (el) el.textContent = msg || '';
+    }
+
+    function ensureSymbolMetaEntry(symbol) {
+      const sym = (symbol || '').toUpperCase();
+      if (!sym) return null;
+      if (!SYMBOL_META.has(sym)) {
+        SYMBOL_META.set(sym, { symbol: sym, name: sym, multiplier: 1, precision: DEFAULT_PRICE_PRECISION });
+      }
+      const meta = SYMBOL_META.get(sym);
+      if (meta && !meta.symbol) meta.symbol = sym;
+      return meta || null;
+    }
+
+    function countPriceDecimals(value) {
+      if (!Number.isFinite(value)) return 0;
+      const str = Number(value).toFixed(8).replace(/0+$/,'').replace(/\.$/,'');
+      const idx = str.indexOf('.');
+      return idx >= 0 ? (str.length - idx - 1) : 0;
+    }
+
+    function inferPricePrecisionFromRows(rows) {
+      if (!Array.isArray(rows)) return DEFAULT_PRICE_PRECISION;
+      let maxDecimals = 0;
+      const limit = Math.min(rows.length, 400);
+      for (let i = 0; i < limit; i++) {
+        const row = rows[i];
+        if (!row) continue;
+        const values = [row.open, row.high, row.low, row.close];
+        for (const val of values) {
+          const decimals = countPriceDecimals(val);
+          if (decimals > maxDecimals) {
+            maxDecimals = decimals;
+            if (maxDecimals >= 6) return 6;
+          }
+        }
+      }
+      return Math.min(Math.max(maxDecimals, DEFAULT_PRICE_PRECISION), 8);
+    }
+
+    function updateSymbolPrecisionFromRows(symbol, rows) {
+      const sym = (symbol || '').toUpperCase();
+      if (!sym) return;
+      const precision = inferPricePrecisionFromRows(rows);
+      const meta = ensureSymbolMetaEntry(sym);
+      if (meta) {
+        meta.precision = precision;
+        SYMBOL_META.set(sym, meta);
+      }
+    }
+
+    function highlightTickerButton(symbol) {
+      const seg = document.getElementById('tickerSegment');
+      if (!seg) return;
+      const upper = (symbol || '').toUpperCase();
+      seg.querySelectorAll('button[data-symbol]').forEach(btn => {
+        const active = (btn.getAttribute('data-symbol') || '').toUpperCase() === upper;
+        btn.classList.toggle('bg-emerald-600', active);
+        btn.classList.toggle('text-white', active);
+        btn.classList.toggle('hover:bg-emerald-600', active);
+        btn.classList.toggle('bg-white', !active);
+        btn.classList.toggle('hover:bg-emerald-50', !active);
+        const nameSpan = btn.querySelector('[data-symbol-name]');
+        if (nameSpan) {
+          nameSpan.classList.toggle('text-emerald-100', active);
+          nameSpan.classList.toggle('text-slate-500', !active);
+        }
+      });
+    }
+
+    function renderDataSummary() {
+      const summaryEl = document.getElementById('dataSummary');
+      if (!summaryEl) return;
+      if (!currentTicker) {
+        summaryEl.textContent = 'Select a symbol to load intraday data.';
+        return;
+      }
+      if (!ROWS.length) {
+        summaryEl.innerHTML = `<span class="font-semibold">${currentTicker}</span> selected. Choose another symbol or verify data files exist in the <code>data/</code> folder.`;
+        return;
+      }
+      const firstDay = DAYS[0];
+      const lastDay = DAYS[DAYS.length - 1];
+      summaryEl.innerHTML = `
+        <span class="font-semibold">${currentTicker}</span> loaded
+        <span class="font-medium">${ROWS.length.toLocaleString()}</span> bars across
+        <span class="font-medium">${DAYS.length.toLocaleString()}</span> trading day(s)
+        (${firstDay || 'n/a'} → ${lastDay || 'n/a'}).
+      `;
+    }
+
+    function setTicker(sym) {
+      currentTicker = (sym || '').toUpperCase();
+      const titleEl = document.getElementById('mainTitle');
+      const meta = ensureSymbolMetaEntry(currentTicker);
+      const friendlyName = meta && meta.name && meta.name.toUpperCase() !== currentTicker ? ` · ${meta.name}` : '';
+      const fullTitle = currentTicker ? `${currentTicker}${friendlyName} - Pullback Grid Backtest` : 'Pullback Grid Backtest';
+      if (titleEl) titleEl.textContent = fullTitle;
+      document.title = fullTitle;
+      highlightTickerButton(currentTicker);
+      renderDataSummary();
+    }
+
+    function normalizeAndIndex(rows) {
+      if (!rows || !rows.length) {
+        ROWS = [];
+        DAY_GROUPS = new Map();
+        DAYS = [];
+        return;
+      }
+      const required = ['caldt', 'day', 'open', 'high', 'low', 'close'];
+      const missing = required.filter(c => !(c in rows[0]));
+      if (missing.length) throw new Error('Missing columns: ' + missing.join(', '));
+
+      ROWS = rows.map(r => {
+        const caldt = new Date(r.caldt);
+        const dayKey = dateKeyFromStr(r.day);
+        const open = Number(r.open), high = Number(r.high), low = Number(r.low), close = Number(r.close);
+        if (!dayKey || isNaN(caldt)) return null;
+        if ([open, high, low, close].some(v => !Number.isFinite(v))) return null;
+        return { caldt, dayKey, open, high, low, close };
+      }).filter(Boolean);
+
+      DAY_GROUPS = new Map();
+      for (const row of ROWS) {
+        if (!DAY_GROUPS.has(row.dayKey)) DAY_GROUPS.set(row.dayKey, []);
+        DAY_GROUPS.get(row.dayKey).push(row);
+      }
+      for (const [key, arr] of DAY_GROUPS.entries()) arr.sort((a, b) => a.caldt - b.caldt);
+      DAYS = Array.from(DAY_GROUPS.keys()).sort();
+    }
+
+    async function loadSymbolData(sym) {
+      const baseSymbol = (sym || '').trim();
+      if (!baseSymbol) return false;
+      setStatus(`Loading data for ${baseSymbol}…`);
+      const candidates = Array.from(new Set([
+        baseSymbol,
+        baseSymbol.toUpperCase(),
+        baseSymbol.toLowerCase()
+      ])).filter(Boolean);
+      let lastError = null;
+      for (const candidate of candidates) {
+        const path = `data/${candidate}_1m.csv`;
+        try {
+          const res = await fetch(path, { cache: 'no-cache' });
+          if (!res.ok) {
+            lastError = `HTTP ${res.status} loading ${path}`;
+            continue;
+          }
+          const text = await res.text();
+          const parsed = Papa.parse(text, { header: true, dynamicTyping: true, skipEmptyLines: true });
+          if (parsed.errors && parsed.errors.length) {
+            console.warn('CSV parse warnings:', parsed.errors.slice(0, 3));
+          }
+          normalizeAndIndex(parsed.data);
+          updateSymbolPrecisionFromRows(baseSymbol, parsed.data);
+          setStatus(`Loaded ${ROWS.length} rows across ${DAYS.length} day(s).`);
+          renderDataSummary();
+          return true;
+        } catch (err) {
+          lastError = err && err.message ? err.message : String(err);
+        }
+      }
+      console.error(`Failed to load ${baseSymbol}: ${lastError || 'not found'}`);
+      setStatus(`Error loading ${baseSymbol}: ${lastError || 'File not found.'}`);
+      ROWS = [];
+      DAY_GROUPS = new Map();
+      DAYS = [];
+      renderDataSummary();
+      return false;
+    }
+
+    function normalizeSymbolEntries(entries) {
+      const map = new Map();
+      const ordered = [];
+      if (!Array.isArray(entries)) return { list: ordered, map };
+      for (const entry of entries) {
+        let symbol = '';
+        let name = '';
+        let multiplier = null;
+        if (typeof entry === 'string') {
+          symbol = entry;
+          name = entry;
+        } else if (entry && typeof entry === 'object') {
+          symbol = entry.symbol;
+          name = entry.name || entry.symbol || '';
+          multiplier = entry.multiplier;
+        } else {
+          continue;
+        }
+        symbol = (symbol || '').toUpperCase().trim();
+        if (!symbol || map.has(symbol)) continue;
+        const existing = SYMBOL_META.get(symbol) || null;
+        const parsedMultiplier = Number(multiplier);
+        const finalMultiplier = Number.isFinite(parsedMultiplier) && parsedMultiplier > 0
+          ? parsedMultiplier
+          : (existing && Number.isFinite(existing.multiplier) ? existing.multiplier : 1);
+        const providedPrecision = entry && typeof entry === 'object' && Number.isInteger(entry.precision) && entry.precision >= 0
+          ? Math.min(entry.precision, 8)
+          : null;
+        const meta = {
+          symbol,
+          name: (typeof name === 'string' && name.trim()) ? name.trim() : (existing && existing.name ? existing.name : symbol),
+          multiplier: finalMultiplier,
+          precision: providedPrecision != null
+            ? providedPrecision
+            : (existing && Number.isInteger(existing.precision) ? existing.precision : null)
+        };
+        map.set(symbol, meta);
+        ordered.push(meta);
+      }
+      return { list: ordered, map };
+    }
+
+    async function populateTickerSegment() {
+      const container = document.getElementById('tickerSegment');
+      if (!container) return;
+      container.innerHTML = '<span class="px-3 py-1.5 text-sm text-slate-500">Loading…</span>';
+      const render = (entries) => {
+        const normalized = normalizeSymbolEntries(entries);
+        SYMBOL_META = normalized.map instanceof Map ? normalized.map : new Map();
+        const list = Array.isArray(normalized.list) ? normalized.list : [];
+        container.innerHTML = '';
+        if (!list.length) {
+          container.innerHTML = '<span class="px-3 py-1.5 text-sm text-slate-500">No symbols available.</span>';
+          highlightTickerButton(currentTicker);
+          return;
+        }
+        list.forEach((meta) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'w-full h-full px-3 py-2 text-left bg-white hover:bg-emerald-50 transition flex flex-col justify-center gap-0.5 leading-tight';
+          btn.setAttribute('data-symbol', meta.symbol);
+          btn.setAttribute('title', meta.name);
+          btn.dataset.multiplier = String(meta.multiplier);
+          btn.innerHTML = `
+            <span class="text-sm font-semibold">${meta.symbol}</span>
+            <span class="text-xs text-slate-500" data-symbol-name>${meta.name}</span>
+          `;
+          container.appendChild(btn);
+        });
+        highlightTickerButton(currentTicker);
+        if (!currentTicker && list[0]) {
+          setTicker(list[0].symbol);
+          loadSymbolData(list[0].symbol);
+        }
+      };
+      try {
+        const res = await fetch('data/index.json', { cache: 'no-cache' });
+        if (res.ok) {
+          const list = await res.json();
+          if (Array.isArray(list) && list.length) { render(list); return; }
+        }
+      } catch (err) {
+        console.warn('Failed to load index.json', err);
+      }
+      try {
+        const res = await fetch('data/', { cache: 'no-cache' });
+        if (res.ok) {
+          const text = await res.text();
+          const ct = (res.headers.get('content-type') || '').toLowerCase();
+          let files = [];
+          if (ct.includes('text/html')) {
+            const doc = new DOMParser().parseFromString(text, 'text/html');
+            files = Array.from(doc.querySelectorAll('a')).map(a => a.getAttribute('href')).filter(Boolean);
+          } else {
+            files = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+          }
+          const regex = /^([A-Za-z0-9-]+)_1m\.csv$/i;
+          const syms = [];
+          for (const f of files) {
+            const name = (f || '').split('/').pop();
+            const m = name.match(regex);
+            if (m) syms.push({ symbol: m[1].toUpperCase(), name: m[1].toUpperCase(), multiplier: undefined });
+          }
+          if (syms.length) { render(syms); return; }
+        }
+      } catch (err) {
+        console.warn('Failed to enumerate data directory', err);
+      }
+      render(['TQQQ', 'TSLA', 'PLTR', 'UVXY']);
+    }
+
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('#tickerSegment button[data-symbol]');
+      if (!btn) return;
+      const symbol = btn.getAttribute('data-symbol');
+      if (!symbol) return;
+      setTicker(symbol);
+      loadSymbolData(symbol);
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+      populateTickerSegment();
+    });
+  })();
+</script>
+</body>
+</html>
