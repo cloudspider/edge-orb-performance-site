@@ -260,7 +260,7 @@
           <span id="summaryShares" class="text-sm font-semibold text-slate-800">0</span>
         </div>
       </div>
-      <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-7">
         <div class="rounded-xl border border-slate-200 p-4 shadow-sm">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Completed Trades</dt>
           <dd id="summaryTotalTrades" class="mt-2 text-xl font-semibold text-slate-800">0</dd>
@@ -274,14 +274,35 @@
           <dd id="summaryFinalEquity" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
         </div>
         <div class="rounded-xl border border-slate-200 p-4 shadow-sm">
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">CAGR</dt>
+          <dd id="summaryCagr" class="mt-2 text-xl font-semibold text-slate-800">0.00%</dd>
+        </div>
+        <div class="rounded-xl border border-slate-200 p-4 shadow-sm">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Total Retained Shares</dt>
           <dd id="summaryRetained" class="mt-2 text-xl font-semibold text-slate-800">0</dd>
         </div>
         <div class="rounded-xl border border-slate-200 p-4 shadow-sm">
-          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Average ROI %</dt>
-          <dd id="summaryAvgRoi" class="mt-2 text-xl font-semibold text-slate-800">0.00%</dd>
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Drawdown</dt>
+          <dd id="summaryMaxDD" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
+        </div>
+        <div class="rounded-xl border border-slate-200 p-4 shadow-sm">
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Shares Held</dt>
+          <dd id="summaryMaxShares" class="mt-2 text-xl font-semibold text-slate-800">0</dd>
         </div>
       </dl>
+    </section>
+
+    <section id="gridEquitySection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
+      <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <h2 class="font-semibold text-slate-700">Equity Curve</h2>
+        <span id="equitySummaryLabel" class="text-sm text-slate-500"></span>
+      </div>
+      <div class="relative">
+        <div id="gridEquityChart" class="w-full h-72 md:h-96"></div>
+        <div id="gridEquityEmpty" class="absolute inset-0 flex items-center justify-center text-sm text-slate-500">
+          Run the backtest to plot equity over time.
+        </div>
+      </div>
     </section>
 
     <section id="gridTradesSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
@@ -344,6 +365,7 @@
     let DAYS = [];
     let SYMBOL_META = new Map();
     let GRID_STATE = { trades: [], summary: null, equitySeries: [] };
+    let gridEquityChartInst = null;
 
     function setStatus(msg) {
       const el = document.getElementById('status');
@@ -463,7 +485,9 @@
       const netProfitEl = document.getElementById('summaryNetProfit');
       const finalEquityEl = document.getElementById('summaryFinalEquity');
       const retainedEl = document.getElementById('summaryRetained');
-      const avgRoiEl = document.getElementById('summaryAvgRoi');
+      const cagrEl = document.getElementById('summaryCagr');
+      const maxDdEl = document.getElementById('summaryMaxDD');
+      const maxSharesEl = document.getElementById('summaryMaxShares');
       const cashEl = document.getElementById('summaryCash');
       const sharesEl = document.getElementById('summaryShares');
       if (!summary) {
@@ -475,11 +499,17 @@
         }
         if (finalEquityEl) finalEquityEl.textContent = '$0.00';
         if (retainedEl) retainedEl.textContent = '0';
-        if (avgRoiEl) {
-          avgRoiEl.textContent = '0.00%';
-          avgRoiEl.classList.remove('text-emerald-600', 'text-red-600');
-          avgRoiEl.classList.add('text-slate-800');
+        if (cagrEl) {
+          cagrEl.textContent = '0.00%';
+          cagrEl.classList.remove('text-emerald-600', 'text-red-600');
+          cagrEl.classList.add('text-slate-800');
         }
+        if (maxDdEl) {
+          maxDdEl.textContent = '$0.00';
+          maxDdEl.classList.remove('text-red-600');
+          maxDdEl.classList.add('text-slate-800');
+        }
+        if (maxSharesEl) maxSharesEl.textContent = '0';
         if (cashEl) cashEl.textContent = '$0.00';
         if (sharesEl) sharesEl.textContent = '0';
         return;
@@ -499,18 +529,30 @@
       }
       if (finalEquityEl) finalEquityEl.textContent = formatCurrency(summary.finalEquity ?? 0);
       if (retainedEl) retainedEl.textContent = formatNumber(summary.totalRetainedShares ?? 0, 4);
-      if (avgRoiEl) {
-        const roi = summary.avgRoi ?? 0;
-        avgRoiEl.textContent = formatPercent(roi);
-        avgRoiEl.classList.remove('text-slate-800', 'text-emerald-600', 'text-red-600');
-        if (roi > 1e-8) {
-          avgRoiEl.classList.add('text-emerald-600');
-        } else if (roi < -1e-8) {
-          avgRoiEl.classList.add('text-red-600');
+      if (cagrEl) {
+        const cagr = summary.cagr ?? 0;
+        const pct = cagr * 100;
+        cagrEl.textContent = formatPercent(pct);
+        cagrEl.classList.remove('text-slate-800', 'text-emerald-600', 'text-red-600');
+        if (cagr > 1e-6) {
+          cagrEl.classList.add('text-emerald-600');
+        } else if (cagr < -1e-6) {
+          cagrEl.classList.add('text-red-600');
         } else {
-          avgRoiEl.classList.add('text-slate-800');
+          cagrEl.classList.add('text-slate-800');
         }
       }
+      if (maxDdEl) {
+        const maxDd = summary.maxDrawdown ?? 0;
+        maxDdEl.textContent = formatCurrency(maxDd);
+        maxDdEl.classList.remove('text-slate-800', 'text-red-600');
+        if (maxDd < -1e-8) {
+          maxDdEl.classList.add('text-red-600');
+        } else {
+          maxDdEl.classList.add('text-slate-800');
+        }
+      }
+      if (maxSharesEl) maxSharesEl.textContent = formatNumber(summary.maxSharesHeld ?? 0, 4);
       if (cashEl) cashEl.textContent = formatCurrency(summary.cash ?? 0);
       if (sharesEl) sharesEl.textContent = formatNumber(summary.shares ?? 0, 4);
     }
@@ -547,6 +589,79 @@
       }
       tbody.appendChild(frag);
       if (label) label.textContent = `${trades.length} trade${trades.length === 1 ? '' : 's'}`;
+    }
+
+    function renderGridEquityChart(series) {
+      const container = document.getElementById('gridEquityChart');
+      const emptyState = document.getElementById('gridEquityEmpty');
+      const label = document.getElementById('equitySummaryLabel');
+      if (!container) return;
+      if (typeof echarts === 'undefined' || !echarts.init) return;
+      if (!gridEquityChartInst) {
+        gridEquityChartInst = echarts.init(container);
+      }
+      if (!Array.isArray(series) || !series.length) {
+        if (emptyState) emptyState.classList.remove('hidden');
+        if (label) label.textContent = '';
+        gridEquityChartInst.clear();
+        return;
+      }
+      if (emptyState) emptyState.classList.add('hidden');
+      const data = series.map(point => {
+        const time = point.time instanceof Date ? point.time : new Date(point.time);
+        return [time.getTime(), Number(point.equity) || 0];
+      }).filter(item => Number.isFinite(item[0]) && Number.isFinite(item[1]));
+      data.sort((a, b) => a[0] - b[0]);
+      if (!data.length) {
+        gridEquityChartInst.clear();
+        if (label) label.textContent = '';
+        if (emptyState) emptyState.classList.remove('hidden');
+        return;
+      }
+      const first = data[0];
+      const last = data[data.length - 1];
+      if (label && first && last) {
+        const start = new Date(first[0]);
+        const end = new Date(last[0]);
+        label.textContent = `${start.toISOString().slice(0, 10)} → ${end.toISOString().slice(0, 10)} (${data.length.toLocaleString()} points)`;
+      }
+      const gradient = (echarts.graphic && echarts.graphic.LinearGradient)
+        ? new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(15, 118, 110, 0.25)' },
+            { offset: 1, color: 'rgba(15, 118, 110, 0)' }
+          ])
+        : 'rgba(15, 118, 110, 0.1)';
+      gridEquityChartInst.setOption({
+        grid: { left: '3%', right: '3%', top: 40, bottom: 40, containLabel: true },
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: { type: 'cross' },
+          valueFormatter: (val) => formatCurrency(val)
+        },
+        xAxis: {
+          type: 'time',
+          boundaryGap: false,
+          axisLabel: { color: '#64748b' }
+        },
+        yAxis: {
+          type: 'value',
+          scale: true,
+          axisLabel: {
+            formatter: (val) => formatCurrency(val).replace('$', ''),
+            color: '#64748b'
+          },
+          splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.2)' } }
+        },
+        series: [{
+          name: 'Equity',
+          type: 'line',
+          smooth: true,
+          showSymbol: false,
+          lineStyle: { color: '#0f766e', width: 2 },
+          areaStyle: gradient ? { color: gradient } : undefined,
+          data
+        }]
+      }, true);
     }
 
     function highlightTickerButton(symbol) {
@@ -609,6 +724,7 @@
       renderGridSummary(null);
       renderGridTrades([]);
       setGridStatus(message || 'Load data and run the backtest to populate results.');
+      renderGridEquityChart(null);
     }
 
     function normalizeAndIndex(rows) {
@@ -667,9 +783,11 @@
         netProfit: 0,
         finalEquity: 0,
         totalRetainedShares: 0,
-        avgRoi: 0,
         cash: Number(params?.initialCash) || 0,
-        shares: 0
+        shares: 0,
+        maxDrawdown: 0,
+        maxSharesHeld: 0,
+        cagr: 0
       };
       if (!Array.isArray(rows) || !rows.length) {
         return { trades, summary, equitySeries };
@@ -764,11 +882,17 @@
       }
 
       let cash = Number.isFinite(initialCash) ? initialCash : GRID_DEFAULTS.initialCash;
+      const initialEquity = cash;
+      const firstEquityTime = rows[0]?.caldt instanceof Date ? new Date(rows[0].caldt.getTime()) : null;
+      let lastEquityTime = firstEquityTime;
       let shares = 0;
       let realizedProfit = 0;
       let cumulativeRetained = 0;
       let prevPrice = firstPrice;
       const EPS = 1e-9;
+      let peakEquity = cash + shares * firstPrice;
+      let maxDrawdown = 0;
+      let maxSharesHeld = shares;
 
       const hasActiveBuy = (level) => {
         const price = normalizeLevel(level);
@@ -832,6 +956,7 @@
         }
         cash -= cost;
         shares += qty;
+        if (shares > maxSharesHeld) maxSharesHeld = shares;
         removeOrder(activeBuys, order);
         addSellOrder(price + gridSize, { price, qty, time: timestamp });
         return true;
@@ -933,23 +1058,32 @@
           processMove(from, to, row.caldt);
         }
         prevPrice = path[path.length - 1];
+        const equity = cash + shares * prevPrice;
+        if (equity > peakEquity) peakEquity = equity;
+        const drawdown = equity - peakEquity;
+        if (drawdown < maxDrawdown) maxDrawdown = drawdown;
+        lastEquityTime = new Date(row.caldt.getTime());
         equitySeries.push({
           time: new Date(row.caldt.getTime()),
-          equity: cash + shares * prevPrice
+          equity
         });
       }
 
       const finalEquity = cash + shares * prevPrice;
-      const avgRoi = trades.length
-        ? trades.reduce((acc, trade) => acc + (Number.isFinite(trade.roiPct) ? trade.roiPct : 0), 0) / trades.length
+      const millis = firstEquityTime && lastEquityTime ? (lastEquityTime.getTime() - firstEquityTime.getTime()) : 0;
+      const years = millis > 0 ? (millis / (365.25 * 24 * 60 * 60 * 1000)) : 0;
+      const cagr = (years > 0 && initialEquity > 0 && finalEquity > 0)
+        ? Math.pow(finalEquity / initialEquity, 1 / years) - 1
         : 0;
       summary.totalTrades = trades.length;
       summary.netProfit = realizedProfit;
       summary.finalEquity = finalEquity;
       summary.totalRetainedShares = shares;
-      summary.avgRoi = avgRoi;
       summary.cash = cash;
       summary.shares = shares;
+      summary.maxDrawdown = maxDrawdown;
+      summary.maxSharesHeld = maxSharesHeld;
+      summary.cagr = cagr;
       return { trades, summary, equitySeries };
     }
 
@@ -965,6 +1099,7 @@
         GRID_STATE = result;
         renderGridSummary(result.summary);
         renderGridTrades(result.trades);
+        renderGridEquityChart(result.equitySeries);
         if (result.trades.length) {
           const profitLabel = formatCurrency(result.summary?.netProfit ?? 0);
           setGridStatus(`Backtest completed with ${result.trades.length} trade${result.trades.length === 1 ? '' : 's'}. Net profit ${profitLabel}.`);
@@ -1021,6 +1156,7 @@
           setStatus(`Loaded ${ROWS.length} rows across ${DAYS.length} day(s).`);
           renderGridSummary(null);
           renderGridTrades([]);
+          renderGridEquityChart(null);
           renderDataSummary();
           setGridStatus(`Loaded ${ROWS.length.toLocaleString()} bars across ${DAYS.length.toLocaleString()} day(s). Running backtest…`);
           setRunButtonEnabled(true);
@@ -1038,6 +1174,7 @@
       DAYS = [];
       renderGridSummary(null);
       renderGridTrades([]);
+      renderGridEquityChart(null);
       setRunButtonEnabled(false);
       renderDataSummary();
       return false;
@@ -1166,6 +1303,12 @@
     document.addEventListener('DOMContentLoaded', () => {
       initGridControls();
       populateTickerSegment();
+    });
+
+    window.addEventListener('resize', () => {
+      if (gridEquityChartInst) {
+        try { gridEquityChartInst.resize(); } catch {}
+      }
     });
   })();
 </script>
