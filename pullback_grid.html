@@ -6,7 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Pullback Grid Backtest</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.tailframes.com/releases/latest/tailframes.min.js" defer></script>
   <link
     rel="stylesheet"
     href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"
@@ -201,7 +200,7 @@
         </button>
       </div>
 
-      <div class="grid gap-4 md:grid-cols-6">
+      <div class="grid gap-4 md:grid-cols-8">
         <label class="block">
           <span class="text-sm text-slate-600">Grid Type</span>
           <div class="relative mt-1">
@@ -211,6 +210,25 @@
             >
               <option value="pullback" selected>Pullback Grid</option>
               <option value="progressive">Progressive Grid</option>
+            </select>
+            <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.06 1.06l-4.24 4.39a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
+              </svg>
+            </span>
+          </div>
+        </label>
+        <label class="block">
+          <span class="text-sm text-slate-600">Retained Shares</span>
+          <div class="relative mt-1" title="Choose how much of a profitable leg to leave on after selling the trade-value portion.">
+            <select
+              id="selRetentionMode"
+              class="w-full appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-9 py-2 text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+            >
+              <option value="none">None</option>
+              <option value="profit" selected>Profit Portion</option>
+              <option value="profit_plus_5">Profit + 5%</option>
+              <option value="profit_plus_10">Profit + 10%</option>
             </select>
             <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -290,6 +308,15 @@
             checked
           />
           <span>Allow fractional shares</span>
+        </label>
+        <label class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 shadow-sm transition focus-within:ring-2 focus-within:ring-emerald-500/60">
+          <input
+            id="inpAllowMargin"
+            type="checkbox"
+            class="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+            checked
+          />
+          <span>Allow margin (borrow cash)</span>
         </label>
       </div>
     </section>
@@ -555,20 +582,66 @@
       });
     })();
 
+    const RETENTION_EXTRA_PCT = {
+      none: 0,
+      profit: 0,
+      profit_plus_5: 0.05,
+      profit_plus_10: 0.10
+    };
+
+    function computeSellExecution({ baseQty, desiredQty, sharesAvailable, mode, fractional }) {
+      const normalizedMode = (mode || 'profit').toLowerCase();
+      const safeDesired = Number.isFinite(desiredQty) && desiredQty > 0 ? desiredQty : baseQty;
+      let desiredSell = Math.min(baseQty, safeDesired);
+      if (!Number.isFinite(desiredSell) || desiredSell < 0) desiredSell = baseQty;
+      const baseRetained = Math.max(0, baseQty - desiredSell);
+      let targetRetained;
+      switch (normalizedMode) {
+        case 'none':
+          targetRetained = 0;
+          break;
+        case 'profit':
+          targetRetained = baseRetained;
+          break;
+        case 'profit_plus_5':
+        case 'profit_plus_10':
+          targetRetained = baseRetained + (RETENTION_EXTRA_PCT[normalizedMode] || 0) * baseQty;
+          break;
+        default:
+          targetRetained = baseRetained;
+          break;
+      }
+      targetRetained = Math.min(baseQty, Math.max(0, targetRetained));
+      let targetSell = baseQty - targetRetained;
+      let qty = Math.max(0, Math.min(targetSell, baseQty, Number.isFinite(sharesAvailable) ? sharesAvailable : baseQty));
+      if (!fractional) {
+        qty = Math.floor(qty);
+        if (qty <= 0 && baseQty > 0 && (Number.isFinite(sharesAvailable) ? sharesAvailable : baseQty) > 0) {
+          qty = Math.min(baseQty, Number.isFinite(sharesAvailable) ? sharesAvailable : baseQty, 1);
+        }
+      }
+      const retained = Math.max(0, baseQty - qty);
+      return { qty, retained };
+    }
+
     function getGridParamsFromUI() {
       const gridSize = Number(document.getElementById('inpGridSize')?.value ?? GRID_DEFAULTS.gridSize);
       const gridOffset = Number(document.getElementById('inpGridOffset')?.value ?? 0);
       const tradeValue = Number(document.getElementById('inpTradeValue')?.value ?? GRID_DEFAULTS.tradeValue);
       const initialCash = Number(document.getElementById('inpInitialCash')?.value ?? GRID_DEFAULTS.initialCash);
       const fractionalShares = !!document.getElementById('inpFractionalShares')?.checked;
+      const allowMargin = !!document.getElementById('inpAllowMargin')?.checked;
       const gridType = (document.getElementById('selGridType')?.value || 'pullback').toLowerCase();
+      const retentionMode = (document.getElementById('selRetentionMode')?.value || 'profit').toLowerCase();
       return {
         gridSize: Number.isFinite(gridSize) ? gridSize : GRID_DEFAULTS.gridSize,
         gridOffset: Number.isFinite(gridOffset) ? gridOffset : 0,
         tradeValue: Number.isFinite(tradeValue) ? tradeValue : GRID_DEFAULTS.tradeValue,
         initialCash: Number.isFinite(initialCash) ? initialCash : GRID_DEFAULTS.initialCash,
         fractionalShares,
-        gridType
+        allowMargin,
+        gridType,
+        retentionMode
       };
     }
 
@@ -911,6 +984,8 @@
       const tradeValue = Number(params?.tradeValue);
       const initialCash = Number(params?.initialCash);
       const fractional = !!params?.fractionalShares;
+      const allowMargin = !!params?.allowMargin;
+      const retentionMode = (params?.retentionMode || 'profit').toLowerCase();
       if (!Number.isFinite(gridSize) || gridSize <= 0 || !Number.isFinite(tradeValue) || tradeValue <= 0) {
         return { trades, summary, equitySeries };
       }
@@ -1074,8 +1149,16 @@
           removeOrder(activeBuys, order);
           return false;
         }
+        if (!allowMargin) {
+          const affordable = fractional ? (cash / price) : Math.floor(cash / price);
+          qty = Math.min(qty, affordable);
+          if (!Number.isFinite(qty) || qty <= 0) {
+            removeOrder(activeBuys, order);
+            return false;
+          }
+        }
         const cost = qty * price;
-        if (cost > cash + EPS) {
+        if (!allowMargin && cost > cash + EPS) {
           return false;
         }
         cash -= cost;
@@ -1089,14 +1172,17 @@
       const executeSell = (order, timestamp) => {
         if (!order) return false;
         const price = order.level;
-        const desiredQtyRaw = tradeValue / price;
-        let qty = fractional ? desiredQtyRaw : Math.floor(desiredQtyRaw);
+        const desiredRaw = tradeValue / price;
+        let desired = fractional ? desiredRaw : Math.floor(desiredRaw);
+        const exec = computeSellExecution({
+          baseQty: order.buyQty,
+          desiredQty: desired,
+          sharesAvailable: shares,
+          mode: retentionMode,
+          fractional
+        });
+        let qty = exec.qty;
         if (!Number.isFinite(qty) || qty <= 0) {
-          removeOrder(activeSells, order);
-          return false;
-        }
-        qty = Math.min(qty, order.buyQty, shares);
-        if (qty <= 0) {
           removeOrder(activeSells, order);
           return false;
         }
@@ -1107,7 +1193,7 @@
         removeOrder(activeSells, order);
         const profit = revenue - costBasis;
         realizedProfit += profit;
-        const qtyRetained = order.buyQty - qty;
+        const qtyRetained = Math.max(0, exec.retained);
         cumulativeRetained += qtyRetained;
         const sellTime = timestamp instanceof Date ? new Date(timestamp.getTime()) : new Date();
         const buyTime = order.buyTime instanceof Date ? new Date(order.buyTime.getTime()) : new Date();
@@ -1236,6 +1322,8 @@
       const tradeValue = Number(params?.tradeValue);
       const initialCash = Number(params?.initialCash);
       const fractional = !!params?.fractionalShares;
+      const allowMargin = !!params?.allowMargin;
+      const retentionMode = (params?.retentionMode || 'profit').toLowerCase();
       if (!Number.isFinite(gridSize) || gridSize <= 0 || !Number.isFinite(tradeValue) || tradeValue <= 0) {
         return { trades, summary, equitySeries };
       }
@@ -1338,8 +1426,13 @@
         const qtyRaw = tradeValue / price;
         let qty = fractional ? qtyRaw : Math.floor(qtyRaw);
         if (!Number.isFinite(qty) || qty <= 0) return false;
+        if (!allowMargin) {
+          const affordable = fractional ? (cash / price) : Math.floor(cash / price);
+          qty = Math.min(qty, affordable);
+          if (!Number.isFinite(qty) || qty <= 0) return false;
+        }
         const cost = qty * price;
-        if (cost > cash + EPS) return false;
+        if (!allowMargin && cost > cash + EPS) return false;
         pendingBuys.delete(entry.key);
         if (entry.groupId > 0 && entry.direction === 'down') {
           const keysToRemove = [];
@@ -1375,9 +1468,14 @@
         const price = entry.level;
         const desiredRaw = tradeValue / price;
         let desired = fractional ? desiredRaw : Math.floor(desiredRaw);
-        if (!Number.isFinite(desired) || desired <= 0) desired = entry.qty;
-        let qty = Math.min(desired, entry.qty);
-        if (shares + EPS < qty) qty = shares;
+        const execution = computeSellExecution({
+          baseQty: entry.qty,
+          desiredQty: desired,
+          sharesAvailable: shares,
+          mode: retentionMode,
+          fractional
+        });
+        let qty = execution.qty;
         if (qty <= 0) return false;
         const revenue = qty * price;
         const costBasis = qty * entry.buyPrice;
@@ -1385,7 +1483,7 @@
         shares -= qty;
         const profit = revenue - costBasis;
         realizedProfit += profit;
-        const qtyRetained = Math.max(0, entry.qty - qty);
+        const qtyRetained = execution.retained;
         cumulativeRetained += qtyRetained;
         const sellTime = timestamp instanceof Date ? new Date(timestamp.getTime()) : new Date();
         const buyTime = entry.buyTime instanceof Date ? new Date(entry.buyTime.getTime()) : new Date();
@@ -1600,11 +1698,13 @@
       }
       const inputs = [
         document.getElementById('selGridType'),
+        document.getElementById('selRetentionMode'),
         document.getElementById('inpGridSize'),
         document.getElementById('inpGridOffset'),
         document.getElementById('inpTradeValue'),
         document.getElementById('inpInitialCash'),
-        document.getElementById('inpFractionalShares')
+        document.getElementById('inpFractionalShares'),
+        document.getElementById('inpAllowMargin')
       ];
       inputs.forEach(el => {
         if (!el) return;

@@ -20,6 +20,8 @@ grid_offset	0	Shift applied to every rung (e.g. offset 2.5 → 47.5, 52.5, … w
 trade_value	1000	Dollar amount per trade leg.
 initial_cash	10000	Starting cash balance.
 fractional_shares	true	Allow fractional quantities.
+retention_mode	profit	Controls post-sell leftovers: none, profit-only, profit+5 %, profit+10 %.
+allow_margin	true	Permit buys to borrow cash (run negative balance) instead of being capped by cash on hand.
 
 Grid Types
 
@@ -33,7 +35,7 @@ Progressive Grid (ratcheting)
 - Always keeps at most one active sell and a set of buy resting orders.
 - Initial action: buy at the closest snapped level to the first price, then queue a sell one grid step higher.
 - When the sell fills, immediately queue **two** buys in a group: one grid step above (to keep chasing the trend) and one grid step below (to catch the pullback). Both orders are snapped to the offset ladder.
-- Whichever buy fills first keeps the pullback ladder alive: an upper-fill immediately ensures a buy one step below stays queued, while a lower-fill automatically seeds the next rung down. In both cases a new sell is placed one grid step above the fill.
+- Whichever buy fills first keeps the pullback ladder alive: an upper-fill immediately ensures a buy one step below stays queued (and respects the retention setting), while a lower-fill automatically seeds the next rung down. In both cases a new sell is placed one grid step above the fill.
 - Results include full trade logs, equity series, drawdown, retained-share tracking, and realized PnL as with the pullback mode.
 
 Shared Outputs
@@ -75,6 +77,8 @@ Final equity
 Total retained shares
 
 Average ROI %
+
+Max drawdown (currency and %)
 
 3. Charts
 
