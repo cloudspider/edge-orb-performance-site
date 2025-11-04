@@ -906,6 +906,18 @@
             Cash: false
           }
         },
+        dataZoom: [
+          {
+            type: 'inside',
+            xAxisIndex: 0,
+            filterMode: 'filter'
+          },
+          {
+            type: 'inside',
+            yAxisIndex: 0,
+            filterMode: 'weakFilter'
+          }
+        ],
         tooltip: {
           trigger: 'axis',
           axisPointer: { type: 'cross' },
