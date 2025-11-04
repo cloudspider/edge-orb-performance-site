@@ -1254,21 +1254,22 @@
       let maxDrawdown = 0;
       let maxSharesHeld = shares;
 
-      const pendingBuys = new Map(); // key -> { key, level, groupId }
+      const pendingBuys = new Map(); // key -> { key, level, groupId, direction }
       const pendingSells = new Set(); // entries with level, qty, buyPrice, buyTime
       let sellSeq = 1;
       let buyGroupSeq = 1;
 
-      const queueBuy = (price, groupId = 0) => {
+      const queueBuy = (price, groupId = 0, direction = 'neutral') => {
         const level = snapToGrid(price, gridOffset);
         if (!Number.isFinite(level) || level <= 0) return null;
         const key = level.toFixed(6);
         if (pendingBuys.has(key)) {
           const existing = pendingBuys.get(key);
           existing.groupId = groupId;
+          if (direction) existing.direction = direction;
           return existing;
         }
-        const entry = { key, level, groupId };
+        const entry = { key, level, groupId, direction };
         pendingBuys.set(key, entry);
         return entry;
       };
@@ -1307,7 +1308,10 @@
         shares += qty;
         if (shares > maxSharesHeld) maxSharesHeld = shares;
         const buyTime = timestamp instanceof Date ? new Date(timestamp.getTime()) : new Date();
-      queueSell(price + gridSize, qty, price, buyTime);
+        queueSell(price + gridSize, qty, price, buyTime);
+        if (entry.direction === 'down') {
+          queueBuy(price - gridSize, buyGroupSeq++, 'down');
+        }
         return true;
       };
 
@@ -1345,8 +1349,8 @@
           roiPct: costBasis > 0 ? (profit / costBasis) * 100 : 0
         });
         const groupId = buyGroupSeq++;
-        queueBuy(price + gridSize, groupId);
-        queueBuy(price - gridSize, groupId);
+        queueBuy(price + gridSize, groupId, 'up');
+        queueBuy(price - gridSize, groupId, 'down');
         return true;
       };
 
@@ -1462,7 +1466,7 @@
       };
 
       const initialTime = rows[0]?.caldt instanceof Date ? new Date(rows[0].caldt.getTime()) : new Date();
-      const initialBuy = queueBuy(firstPrice, buyGroupSeq++);
+      const initialBuy = queueBuy(firstPrice, buyGroupSeq++, 'down');
       if (initialBuy) executeBuy(initialBuy, initialTime);
 
       for (const row of rows) {
