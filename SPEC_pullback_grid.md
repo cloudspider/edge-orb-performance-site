@@ -33,7 +33,7 @@ Progressive Grid (ratcheting)
 - Always keeps at most one active sell and a set of buy resting orders.
 - Initial action: buy at the closest snapped level to the first price, then queue a sell one grid step higher.
 - When the sell fills, immediately queue **two** buys in a group: one grid step above (to keep chasing the trend) and one grid step below (to catch the pullback). Both orders are snapped to the offset ladder.
-- If the higher buy fills first, the grouped lower buy is cancelled; if the lower buy fills first it re-queues the next lower level (allowing a continuous ladder on deeper pullbacks) while a new sell is placed one step higher.
+- Whichever buy fills first keeps the pullback ladder alive: an upper-fill immediately ensures a buy one step below stays queued, while a lower-fill automatically seeds the next rung down. In both cases a new sell is placed one grid step above the fill.
 - Results include full trade logs, equity series, drawdown, retained-share tracking, and realized PnL as with the pullback mode.
 
 Shared Outputs

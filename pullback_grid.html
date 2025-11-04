@@ -1298,11 +1298,13 @@
         if (cost > cash + EPS) return false;
         pendingBuys.delete(entry.key);
         if (entry.groupId) {
-          const keysToRemove = [];
-          for (const [otherKey, otherEntry] of pendingBuys.entries()) {
-            if (otherEntry.groupId === entry.groupId) keysToRemove.push(otherKey);
+          if (entry.direction === 'down') {
+            const keysToRemove = [];
+            for (const [otherKey, otherEntry] of pendingBuys.entries()) {
+              if (otherEntry.groupId === entry.groupId) keysToRemove.push(otherKey);
+            }
+            for (const key of keysToRemove) pendingBuys.delete(key);
           }
-          for (const key of keysToRemove) pendingBuys.delete(key);
         }
         cash -= cost;
         shares += qty;
@@ -1311,6 +1313,15 @@
         queueSell(price + gridSize, qty, price, buyTime);
         if (entry.direction === 'down') {
           queueBuy(price - gridSize, buyGroupSeq++, 'down');
+        } else if (entry.direction === 'up') {
+          const desired = price - gridSize;
+          const snapped = snapToGrid(desired, gridOffset);
+          if (Number.isFinite(snapped)) {
+            const key = snapped.toFixed(6);
+            if (!pendingBuys.has(key)) {
+              queueBuy(desired, buyGroupSeq++, 'down');
+            }
+          }
         }
         return true;
       };
