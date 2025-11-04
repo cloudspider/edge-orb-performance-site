@@ -219,6 +219,24 @@
           </div>
         </label>
         <label class="block">
+          <span class="text-sm text-slate-600">Entry Filter</span>
+          <div class="relative mt-1">
+            <select
+              id="selEntryFilter"
+              class="w-full appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-9 py-2 text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+            >
+              <option value="none" selected>None</option>
+              <option value="sma20">20 SMA</option>
+              <option value="sma50">50 SMA</option>
+            </select>
+            <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.06 1.06l-4.24 4.39a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
+              </svg>
+            </span>
+          </div>
+        </label>
+        <label class="block">
           <span class="text-sm text-slate-600">Retained Shares</span>
           <div class="relative mt-1" title="Choose how much of a profitable leg to leave on after selling the trade-value portion.">
             <select
@@ -418,12 +436,19 @@
       gridSize: 5,
       tradeValue: 1000,
       initialCash: 10000,
-      fractionalShares: true
+      fractionalShares: true,
+      entryFilter: 'none'
     };
     const CURRENCY_FORMAT = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const NUMBER_FORMAT = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const NUMBER_FORMAT_4 = new Intl.NumberFormat(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 });
     const PERCENT_FORMAT = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const DAILY_SMA_WINDOWS = [20, 50];
+    const SMA_FILTER_LOOKUP = {
+      sma20: 20,
+      sma50: 50
+    };
+    const RESAMPLE_INTERVAL_MINUTES = 10;
 
     const pad2 = (n) => String(n).padStart(2, '0');
     const dateKeyFromStr = (val) => {
@@ -441,6 +466,8 @@
     let ROWS = [];
     let DAY_GROUPS = new Map();
     let DAYS = [];
+    let DAY_SMA_MAPS = new Map();
+    let SMA_METADATA = new Map();
     let SYMBOL_META = new Map();
     let GRID_STATE = { trades: [], summary: null, equitySeries: [] };
     let gridEquityChartInst = null;
@@ -624,6 +651,55 @@
       return { qty, retained };
     }
 
+    function passesEntryFilter(price, row, filter) {
+      const normalized = (filter || 'none').toLowerCase();
+      if (normalized === 'none') return true;
+      if (!row) return false;
+      const candidates = [
+        Number(price),
+        Number(row.open),
+        Number(row.high),
+        Number(row.close)
+      ].filter(Number.isFinite);
+      if (!candidates.length) return false;
+      const priceNum = Math.max(...candidates);
+      let comparison = null;
+      switch (normalized) {
+        case 'sma20':
+          comparison = row.sma20;
+          break;
+        case 'sma50':
+          comparison = row.sma50;
+          break;
+        default:
+          comparison = null;
+          break;
+      }
+      if (!Number.isFinite(comparison) || Math.abs(comparison) < 1e-9) return true;
+      return priceNum > comparison;
+    }
+
+    function getEntryFilterWindow(filter) {
+      const key = (filter || '').toLowerCase();
+      return SMA_FILTER_LOOKUP[key] || null;
+    }
+
+    function describeSmaAvailability(filter) {
+      const window = getEntryFilterWindow(filter);
+      if (!window) return null;
+      if (!(SMA_METADATA instanceof Map) || !SMA_METADATA.size) return null;
+      const meta = SMA_METADATA.get(window);
+      if (!meta) return null;
+      const remaining = Math.max(0, window - (meta.totalDays || 0));
+      return {
+        window,
+        totalDays: meta.totalDays || 0,
+        availableDays: meta.availableDays || 0,
+        required: window,
+        remaining
+      };
+    }
+
     function getGridParamsFromUI() {
       const gridSize = Number(document.getElementById('inpGridSize')?.value ?? GRID_DEFAULTS.gridSize);
       const gridOffset = Number(document.getElementById('inpGridOffset')?.value ?? 0);
@@ -633,6 +709,7 @@
       const allowMargin = !!document.getElementById('inpAllowMargin')?.checked;
       const gridType = (document.getElementById('selGridType')?.value || 'pullback').toLowerCase();
       const retentionMode = (document.getElementById('selRetentionMode')?.value || 'profit').toLowerCase();
+      const entryFilter = (document.getElementById('selEntryFilter')?.value || GRID_DEFAULTS.entryFilter).toLowerCase();
       return {
         gridSize: Number.isFinite(gridSize) ? gridSize : GRID_DEFAULTS.gridSize,
         gridOffset: Number.isFinite(gridOffset) ? gridOffset : 0,
@@ -641,7 +718,8 @@
         fractionalShares,
         allowMargin,
         gridType,
-        retentionMode
+        retentionMode,
+        entryFilter
       };
     }
 
@@ -920,14 +998,17 @@
       const missing = required.filter(c => !(c in rows[0]));
       if (missing.length) throw new Error('Missing columns: ' + missing.join(', '));
 
-      ROWS = rows.map(r => {
+      const cleanRows = rows.map(r => {
         const caldt = new Date(r.caldt);
         const dayKey = dateKeyFromStr(r.day);
         const open = Number(r.open), high = Number(r.high), low = Number(r.low), close = Number(r.close);
         if (!dayKey || isNaN(caldt)) return null;
         if ([open, high, low, close].some(v => !Number.isFinite(v))) return null;
-        return { caldt, dayKey, open, high, low, close };
+        return { caldt, dayKey, open, high, low, close, sma20: null, sma50: null };
       }).filter(Boolean);
+      cleanRows.sort((a, b) => a.caldt - b.caldt);
+
+      ROWS = resampleIntradayRows(cleanRows, RESAMPLE_INTERVAL_MINUTES);
 
       DAY_GROUPS = new Map();
       for (const row of ROWS) {
@@ -936,6 +1017,115 @@
       }
       for (const [key, arr] of DAY_GROUPS.entries()) arr.sort((a, b) => a.caldt - b.caldt);
       DAYS = Array.from(DAY_GROUPS.keys()).sort();
+      computeDailySmaMaps();
+    }
+
+    function resampleIntradayRows(rows, minutes) {
+      if (!Array.isArray(rows) || !rows.length) return [];
+      const interval = Number(minutes);
+      if (!Number.isFinite(interval) || interval <= 1) {
+        return [...rows];
+      }
+      const intervalMs = Math.max(1, Math.floor(interval)) * 60000;
+      const aggregated = [];
+      let current = null;
+
+      const flush = () => {
+        if (!current) return;
+        const caldt = current.lastTimeMs != null ? new Date(current.lastTimeMs) : new Date(current.bucketStartMs);
+        aggregated.push({
+          caldt,
+          dayKey: current.dayKey,
+          open: current.open,
+          high: current.high,
+          low: current.low,
+          close: current.close,
+          sma20: null,
+          sma50: null
+        });
+        current = null;
+      };
+
+      for (const row of rows) {
+        if (!row || !(row.caldt instanceof Date)) continue;
+        const timeMs = row.caldt.getTime();
+        const bucketStartMs = Math.floor(timeMs / intervalMs) * intervalMs;
+        if (!current || current.dayKey !== row.dayKey || current.bucketStartMs !== bucketStartMs) {
+          flush();
+          current = {
+            dayKey: row.dayKey,
+            bucketStartMs,
+            open: row.open,
+            high: row.high,
+            low: row.low,
+            close: row.close,
+            lastTimeMs: timeMs
+          };
+          continue;
+        }
+        if (row.high > current.high) current.high = row.high;
+        if (row.low < current.low) current.low = row.low;
+        current.close = row.close;
+        current.lastTimeMs = timeMs;
+      }
+      flush();
+      aggregated.sort((a, b) => a.caldt - b.caldt);
+      return aggregated;
+    }
+
+    function computeDailySmaMaps() {
+      DAY_SMA_MAPS = new Map();
+      SMA_METADATA = new Map();
+      if (!Array.isArray(DAYS) || !DAYS.length) return;
+      const windows = Array.isArray(DAILY_SMA_WINDOWS) && DAILY_SMA_WINDOWS.length ? DAILY_SMA_WINDOWS : [];
+      if (!windows.length) return;
+      windows.forEach(win => DAY_SMA_MAPS.set(win, new Map()));
+      const dailyCloses = [];
+      for (const dayKey of DAYS) {
+        const rows = DAY_GROUPS.get(dayKey);
+        if (!Array.isArray(rows) || !rows.length) continue;
+        const lastRow = rows[rows.length - 1];
+        if (!lastRow) continue;
+        const close = Number(lastRow.close);
+        if (!Number.isFinite(close)) continue;
+        dailyCloses.push({ dayKey, close });
+      }
+      for (const window of windows) {
+        const target = DAY_SMA_MAPS.get(window);
+        if (!target) continue;
+        let firstIdx = null;
+        for (let i = 0; i < dailyCloses.length; i++) {
+          if (i + 1 < window) continue;
+          let sum = 0;
+          for (let j = i - window + 1; j <= i; j++) {
+            sum += dailyCloses[j].close;
+          }
+          const avg = sum / window;
+          target.set(dailyCloses[i].dayKey, avg);
+          if (firstIdx == null) firstIdx = i;
+        }
+        const totalDays = dailyCloses.length;
+        const availableDays = firstIdx == null ? 0 : (totalDays - firstIdx);
+        SMA_METADATA.set(window, {
+          totalDays,
+          availableDays,
+          firstDay: firstIdx != null ? dailyCloses[firstIdx].dayKey : null,
+          required: window
+        });
+      }
+      for (const row of ROWS) {
+        if (!row) continue;
+        const dayKey = row.dayKey;
+        row.sma20 = null;
+        row.sma50 = null;
+        for (const window of windows) {
+          const map = DAY_SMA_MAPS.get(window);
+          if (!map) continue;
+          const value = map.get(dayKey);
+          if (window === 20) row.sma20 = Number.isFinite(value) ? value : null;
+          if (window === 50) row.sma50 = Number.isFinite(value) ? value : null;
+        }
+      }
     }
 
     function collectOrdersInRange(map, minVal, maxVal, ascending) {
@@ -986,6 +1176,7 @@
       const fractional = !!params?.fractionalShares;
       const allowMargin = !!params?.allowMargin;
       const retentionMode = (params?.retentionMode || 'profit').toLowerCase();
+      const entryFilter = (params?.entryFilter || 'none').toLowerCase();
       if (!Number.isFinite(gridSize) || gridSize <= 0 || !Number.isFinite(tradeValue) || tradeValue <= 0) {
         return { trades, summary, equitySeries };
       }
@@ -1140,9 +1331,12 @@
         }
       };
 
-      const executeBuy = (order, timestamp) => {
+      const executeBuy = (order, timestamp, contextRow) => {
         if (!order) return false;
         const price = order.level;
+        if (!passesEntryFilter(price, contextRow, entryFilter)) {
+          return false;
+        }
         const qtyRaw = tradeValue / price;
         let qty = fractional ? qtyRaw : Math.floor(qtyRaw);
         if (!Number.isFinite(qty) || qty <= 0) {
@@ -1217,14 +1411,14 @@
         return true;
       };
 
-      const processMove = (start, end, timestamp) => {
+      const processMove = (start, end, timestamp, contextRow) => {
         if (!Number.isFinite(start) || !Number.isFinite(end)) return;
         if (end > start + EPS) {
           const sells = collectOrdersInRange(activeSells, start, end, true);
           for (const order of sells) executeSell(order, timestamp);
         } else if (end < start - EPS) {
           const buys = collectOrdersInRange(activeBuys, end, start, false);
-          for (const order of buys) executeBuy(order, timestamp);
+          for (const order of buys) executeBuy(order, timestamp, contextRow);
         }
         const maxVal = Math.max(start, end);
         ensureRunupBuys(maxVal);
@@ -1265,7 +1459,7 @@
         for (let i = 1; i < path.length; i++) {
           const from = path[i - 1];
           const to = path[i];
-          processMove(from, to, row.caldt);
+          processMove(from, to, row.caldt, row);
         }
         prevPrice = path[path.length - 1];
         const equity = cash + shares * prevPrice;
@@ -1324,6 +1518,7 @@
       const fractional = !!params?.fractionalShares;
       const allowMargin = !!params?.allowMargin;
       const retentionMode = (params?.retentionMode || 'profit').toLowerCase();
+      const entryFilter = (params?.entryFilter || 'none').toLowerCase();
       if (!Number.isFinite(gridSize) || gridSize <= 0 || !Number.isFinite(tradeValue) || tradeValue <= 0) {
         return { trades, summary, equitySeries };
       }
@@ -1420,9 +1615,12 @@
         }
       };
 
-      const executeBuy = (entry, timestamp) => {
+      const executeBuy = (entry, timestamp, contextRow) => {
         if (!entry) return false;
         const price = entry.level;
+        if (!passesEntryFilter(price, contextRow, entryFilter)) {
+          return false;
+        }
         const qtyRaw = tradeValue / price;
         let qty = fractional ? qtyRaw : Math.floor(qtyRaw);
         if (!Number.isFinite(qty) || qty <= 0) return false;
@@ -1542,7 +1740,7 @@
         return best;
       };
 
-      const processMove = (start, end, timestamp) => {
+      const processMove = (start, end, timestamp, contextRow) => {
         const eventTime = timestamp instanceof Date ? new Date(timestamp.getTime()) : new Date();
         if (end > start + EPS) {
           let cursor = start;
@@ -1575,7 +1773,7 @@
             if (type === 'sell') {
               if (!executeSell(nextEntry, eventTime)) break;
             } else {
-              if (!executeBuy(nextEntry, eventTime)) break;
+              if (!executeBuy(nextEntry, eventTime, contextRow)) break;
             }
           }
         } else if (end < start - EPS) {
@@ -1587,7 +1785,7 @@
             const nextBuy = getNextBuyBelow(target, cursor);
             if (!nextBuy) break;
             cursor = nextBuy.level;
-            if (!executeBuy(nextBuy, eventTime)) break;
+            if (!executeBuy(nextBuy, eventTime, contextRow)) break;
           }
         }
       };
@@ -1620,9 +1818,10 @@
         return path;
       };
 
-      const initialTime = rows[0]?.caldt instanceof Date ? new Date(rows[0].caldt.getTime()) : new Date();
+      const firstRow = Array.isArray(rows) && rows.length ? rows[0] : null;
+      const initialTime = firstRow?.caldt instanceof Date ? new Date(firstRow.caldt.getTime()) : new Date();
       const initialBuy = queueBuy(firstPrice, buyGroupSeq++, 'down');
-      if (initialBuy) executeBuy(initialBuy, initialTime);
+      if (initialBuy) executeBuy(initialBuy, initialTime, firstRow);
       ensureDownCoverage(firstPrice - gridSize);
 
       for (const row of rows) {
@@ -1631,7 +1830,7 @@
         for (let i = 1; i < path.length; i++) {
           const from = path[i - 1];
           const to = path[i];
-          processMove(from, to, row.caldt);
+          processMove(from, to, row.caldt, row);
         }
         prevPrice = path[path.length - 1];
         const equity = cash + shares * prevPrice;
@@ -1672,6 +1871,20 @@
         return;
       }
       const params = getGridParamsFromUI();
+      const entryFilter = params?.entryFilter || 'none';
+      const window = getEntryFilterWindow(entryFilter);
+      if (window) {
+        const info = describeSmaAvailability(entryFilter);
+        const available = info?.availableDays || 0;
+        if (available <= 0) {
+          const totalDays = info?.totalDays ?? DAYS.length;
+          setGridStatus(`Entry filter (${window}-day SMA) needs ${window} completed days. Dataset has ${totalDays.toLocaleString()} day${totalDays === 1 ? '' : 's'} — insufficient for this filter.`);
+          renderGridSummary(null);
+          renderGridTrades([]);
+          renderGridEquityChart(null);
+          return;
+        }
+      }
       setGridStatus('Running backtest…');
       try {
         const result = runPullbackGridSimulation(ROWS, params);
@@ -1698,6 +1911,7 @@
       }
       const inputs = [
         document.getElementById('selGridType'),
+        document.getElementById('selEntryFilter'),
         document.getElementById('selRetentionMode'),
         document.getElementById('inpGridSize'),
         document.getElementById('inpGridOffset'),
@@ -1751,12 +1965,12 @@
             continue;
           }
           updateSymbolPrecisionFromRows(baseSymbol, parsed.data);
-          setStatus(`Loaded ${ROWS.length} rows across ${DAYS.length} day(s).`);
+          setStatus(`Loaded ${ROWS.length.toLocaleString()} 10-minute bars across ${DAYS.length.toLocaleString()} day(s).`);
           renderGridSummary(null);
           renderGridTrades([]);
           renderGridEquityChart(null);
           renderDataSummary();
-          setGridStatus(`Loaded ${ROWS.length.toLocaleString()} bars across ${DAYS.length.toLocaleString()} day(s). Running backtest…`);
+          setGridStatus(`Loaded ${ROWS.length.toLocaleString()} 10-minute bars across ${DAYS.length.toLocaleString()} day(s). Running backtest…`);
           setRunButtonEnabled(true);
           runGridBacktest();
           return true;
