@@ -1533,6 +1533,23 @@
       if (btn) {
         btn.addEventListener('click', () => runGridBacktest());
       }
+      const inputs = [
+        document.getElementById('selGridType'),
+        document.getElementById('inpGridSize'),
+        document.getElementById('inpGridOffset'),
+        document.getElementById('inpTradeValue'),
+        document.getElementById('inpInitialCash'),
+        document.getElementById('inpFractionalShares')
+      ];
+      inputs.forEach(el => {
+        if (!el) return;
+        const handler = () => {
+          if (!Array.isArray(ROWS) || !ROWS.length) return;
+          runGridBacktest();
+        };
+        const eventName = el.tagName === 'SELECT' || el.type === 'checkbox' ? 'change' : 'input';
+        el.addEventListener(eventName, handler);
+      });
       resetGridOutputs('Load data and run the backtest to populate results.');
       setRunButtonEnabled(false);
     }
