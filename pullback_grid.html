@@ -201,27 +201,64 @@
         </button>
       </div>
 
-      <div class="grid gap-4 md:grid-cols-5">
+      <div class="grid gap-4 md:grid-cols-6">
         <label class="block">
           <span class="text-sm text-slate-600">Grid Type</span>
-          <select
-            id="selGridType"
-            class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
-          >
-            <option value="pullback" selected>Pullback Grid</option>
-            <option value="progressive">Progressive Grid</option>
-          </select>
+          <div class="relative mt-1">
+            <select
+              id="selGridType"
+              class="w-full appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-9 py-2 text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+            >
+              <option value="pullback" selected>Pullback Grid</option>
+              <option value="progressive">Progressive Grid</option>
+            </select>
+            <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.06 1.06l-4.24 4.39a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
+              </svg>
+            </span>
+          </div>
         </label>
         <label class="block">
           <span class="text-sm text-slate-600">Grid Size ($)</span>
-          <input
-            id="inpGridSize"
-            type="number"
-            step="0.01"
-            min="0.01"
-            value="5"
-            class="mt-1 w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
-          />
+          <div class="mt-1 relative">
+            <input
+              id="inpGridSize"
+              type="number"
+              step="0.5"
+              min="0.5"
+              value="5"
+              class="w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+            />
+            <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
+              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase grid size" data-num-target="inpGridSize" data-num-step="1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd" /></svg>
+              </button>
+              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease grid size" data-num-target="inpGridSize" data-num-step="-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd" /></svg>
+              </button>
+            </div>
+          </div>
+        </label>
+        <label class="block">
+          <span class="text-sm text-slate-600">Grid Offset ($)</span>
+          <div class="mt-1 relative">
+            <input
+              id="inpGridOffset"
+              type="number"
+              step="0.5"
+              value="0"
+              class="w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+            />
+            <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
+              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase grid offset" data-num-target="inpGridOffset" data-num-step="1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd" /></svg>
+              </button>
+              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease grid offset" data-num-target="inpGridOffset" data-num-step="-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd" /></svg>
+              </button>
+            </div>
+          </div>
         </label>
         <label class="block">
           <span class="text-sm text-slate-600">Trade Value ($)</span>
@@ -477,14 +514,53 @@
       return `${year}-${month}-${day} ${hour}:${minute}`;
     }
 
+    // Numeric steppers for grid controls
+    (function(){
+      function decimals(stepStr){
+        if (!stepStr) return 0;
+        const s = String(stepStr);
+        const idx = s.indexOf('.');
+        return idx === -1 ? 0 : (s.length - idx - 1);
+      }
+      function roundTo(value, step){
+        const d = decimals(step);
+        return Number(value.toFixed(d));
+      }
+      function adjustNumberInput(id, deltaUnits){
+        const el = document.getElementById(id);
+        if (!el) return;
+        const stepAttr = parseFloat(el.getAttribute('step') || '1');
+        const step = Number.isFinite(stepAttr) && stepAttr > 0 ? stepAttr : 1;
+        const minAttr = parseFloat(el.getAttribute('min'));
+        const maxAttr = parseFloat(el.getAttribute('max'));
+        const defAttr = parseFloat(el.getAttribute('data-default'));
+        const curVal = parseFloat(el.value);
+        const base = Number.isFinite(curVal) ? curVal : (Number.isFinite(defAttr) ? defAttr : 0);
+        const next = base + (Number(deltaUnits) || 0) * step;
+        const clamped = Math.min(Number.isFinite(maxAttr) ? maxAttr : Infinity, Math.max(Number.isFinite(minAttr) ? minAttr : -Infinity, next));
+        const rounded = roundTo(clamped, step);
+        el.value = String(rounded);
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      document.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-num-target][data-num-step]');
+        if (!btn) return;
+        const id = btn.getAttribute('data-num-target');
+        const delta = parseFloat(btn.getAttribute('data-num-step')) || 0;
+        adjustNumberInput(id, delta);
+      });
+    })();
+
     function getGridParamsFromUI() {
       const gridSize = Number(document.getElementById('inpGridSize')?.value ?? GRID_DEFAULTS.gridSize);
+      const gridOffset = Number(document.getElementById('inpGridOffset')?.value ?? 0);
       const tradeValue = Number(document.getElementById('inpTradeValue')?.value ?? GRID_DEFAULTS.tradeValue);
       const initialCash = Number(document.getElementById('inpInitialCash')?.value ?? GRID_DEFAULTS.initialCash);
       const fractionalShares = !!document.getElementById('inpFractionalShares')?.checked;
       const gridType = (document.getElementById('selGridType')?.value || 'pullback').toLowerCase();
       return {
         gridSize: Number.isFinite(gridSize) ? gridSize : GRID_DEFAULTS.gridSize,
+        gridOffset: Number.isFinite(gridOffset) ? gridOffset : 0,
         tradeValue: Number.isFinite(tradeValue) ? tradeValue : GRID_DEFAULTS.tradeValue,
         initialCash: Number.isFinite(initialCash) ? initialCash : GRID_DEFAULTS.initialCash,
         fractionalShares,
@@ -810,6 +886,7 @@
         return { trades, summary, equitySeries };
       }
       const gridSize = Number(params?.gridSize);
+      const gridOffset = Number(params?.gridOffset) || 0;
       const tradeValue = Number(params?.tradeValue);
       const initialCash = Number(params?.initialCash);
       const fractional = !!params?.fractionalShares;
@@ -835,11 +912,15 @@
 
       const decimals = Math.min(Math.max(countDecimals(gridSize), 0), 4);
       const scale = Math.pow(10, Math.min(decimals + 2, 8));
-      const scaledStep = Math.max(1, Math.round(gridSize * scale));
-      const normalizeLevel = (value) => Math.round(value * scale) / scale;
-      const keyFor = (value) => normalizeLevel(value).toFixed(6);
-      const gridMin = Math.floor((minPrice * scale) / scaledStep) * scaledStep;
-      const gridMax = Math.ceil((maxPrice * scale) / scaledStep) * scaledStep;
+      const roundToDecimals = (value) => Math.round(value * scale) / scale;
+      const snapLevel = (value) => {
+        if (!Number.isFinite(value)) return NaN;
+        const snapped = gridOffset + Math.round((value - gridOffset) / gridSize) * gridSize;
+        return roundToDecimals(snapped);
+      };
+      const keyFor = (value) => snapLevel(value).toFixed(6);
+      const gridMin = snapLevel(Math.floor((minPrice - gridOffset) / gridSize) * gridSize + gridOffset);
+      const gridMax = snapLevel(Math.ceil((maxPrice - gridOffset) / gridSize) * gridSize + gridOffset);
 
       const activeBuys = new Map();
       const activeSells = new Map();
@@ -858,7 +939,7 @@
       };
 
       const addBuyOrder = (level) => {
-        const price = normalizeLevel(level);
+        const price = snapLevel(level);
         if (!Number.isFinite(price) || price <= 0) return null;
         const key = keyFor(price);
         const existing = activeBuys.get(key);
@@ -872,7 +953,7 @@
       };
 
       const addSellOrder = (level, buyInfo) => {
-        const price = normalizeLevel(level);
+        const price = snapLevel(level);
         if (!Number.isFinite(price) || price <= 0) return null;
         const key = keyFor(price);
         if (!activeSells.has(key)) activeSells.set(key, []);
@@ -887,15 +968,19 @@
         return order;
       };
 
-      for (let level = gridMin; level <= gridMax; level += scaledStep) {
-        const price = level / scale;
+      for (let level = gridMin; level <= gridMax + gridSize / 2; ) {
+        const price = snapLevel(level);
         if (price < firstPrice - 1e-9) {
           addBuyOrder(price);
         }
+        const nextLevel = snapLevel(price + gridSize);
+        if (!Number.isFinite(nextLevel) || nextLevel <= price) break;
+        level = nextLevel;
       }
       if (!Number.isFinite(highestSeededBuyLevel) || highestSeededBuyLevel === Number.NEGATIVE_INFINITY) {
-        addBuyOrder(firstPrice - gridSize);
-        highestSeededBuyLevel = normalizeLevel(firstPrice - gridSize);
+        const seedLevel = snapLevel(firstPrice - gridSize);
+        addBuyOrder(seedLevel);
+        highestSeededBuyLevel = seedLevel;
       }
 
       let cash = Number.isFinite(initialCash) ? initialCash : GRID_DEFAULTS.initialCash;
@@ -912,22 +997,22 @@
       let maxSharesHeld = shares;
 
       const hasActiveBuy = (level) => {
-        const price = normalizeLevel(level);
+        const price = snapLevel(level);
         const key = keyFor(price);
         const arr = activeBuys.get(key);
         return Array.isArray(arr) && arr.length > 0;
       };
 
       const hasQueuedBuyActivation = (level) => {
-        const price = normalizeLevel(level);
+        const price = snapLevel(level);
         return queuedBuyActivations.some(entry => Math.abs(entry.buyLevel - price) < EPS);
       };
 
       const queueDelayedBuy = (sellPrice) => {
-        const buyPrice = normalizeLevel(sellPrice);
+        const buyPrice = snapLevel(sellPrice);
         if (!Number.isFinite(buyPrice) || buyPrice <= 0) return;
         if (hasActiveBuy(buyPrice) || hasQueuedBuyActivation(buyPrice)) return;
-        const triggerLevel = normalizeLevel(buyPrice + gridSize);
+        const triggerLevel = snapLevel(buyPrice + gridSize);
         queuedBuyActivations.push({ buyLevel: buyPrice, trigger: triggerLevel });
       };
 
@@ -936,7 +1021,7 @@
         if (!Number.isFinite(highestSeededBuyLevel) || !Number.isFinite(gridSize)) return;
         let safety = 0;
         while (maxPrice >= (highestSeededBuyLevel + gridSize * 2) - EPS && safety < 1000) {
-          const nextLevel = normalizeLevel(highestSeededBuyLevel + gridSize);
+          const nextLevel = snapLevel(highestSeededBuyLevel + gridSize);
           if (!hasActiveBuy(nextLevel) && !hasQueuedBuyActivation(nextLevel)) {
             addBuyOrder(nextLevel);
           }
@@ -1122,6 +1207,7 @@
         return { trades, summary, equitySeries };
       }
       const gridSize = Number(params?.gridSize);
+      const gridOffset = Number(params?.gridOffset) || 0;
       const tradeValue = Number(params?.tradeValue);
       const initialCash = Number(params?.initialCash);
       const fractional = !!params?.fractionalShares;
@@ -1149,9 +1235,9 @@
       const decimals = Math.min(Math.max(countDecimals(gridSize), 0), 4);
       const scale = Math.pow(10, Math.min(decimals + 2, 8));
       const normalizeLevel = (value) => Math.round(value * scale) / scale;
-      const snapToGrid = (value) => {
+      const snapToGrid = (value, offset) => {
         if (!Number.isFinite(value)) return NaN;
-        const snapped = Math.round(value / gridSize) * gridSize;
+        const snapped = Math.round((value - offset) / gridSize) * gridSize + offset;
         return normalizeLevel(snapped);
       };
       const EPS = 1e-9;
@@ -1174,7 +1260,7 @@
       let buyGroupSeq = 1;
 
       const queueBuy = (price, groupId = 0) => {
-        const level = snapToGrid(price);
+        const level = snapToGrid(price, gridOffset);
         if (!Number.isFinite(level) || level <= 0) return null;
         const key = level.toFixed(6);
         if (pendingBuys.has(key)) {
@@ -1188,7 +1274,7 @@
       };
 
       const queueSell = (price, qty, buyPrice, buyTime) => {
-        const level = snapToGrid(price);
+        const level = snapToGrid(price, gridOffset);
         if (!Number.isFinite(level) || level <= 0) return null;
         const entry = {
           id: sellSeq++,
@@ -1221,7 +1307,7 @@
         shares += qty;
         if (shares > maxSharesHeld) maxSharesHeld = shares;
         const buyTime = timestamp instanceof Date ? new Date(timestamp.getTime()) : new Date();
-        queueSell(price + gridSize, qty, price, buyTime);
+      queueSell(price + gridSize, qty, price, buyTime);
         return true;
       };
 
