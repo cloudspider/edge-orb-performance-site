@@ -867,23 +867,28 @@
         return;
       }
       if (emptyState) emptyState.classList.add('hidden');
-      const data = series.map(point => {
+      const equityData = series.map(point => {
         const time = point.time instanceof Date ? point.time : new Date(point.time);
         return [time.getTime(), Number(point.equity) || 0];
       }).filter(item => Number.isFinite(item[0]) && Number.isFinite(item[1]));
-      data.sort((a, b) => a[0] - b[0]);
-      if (!data.length) {
+      equityData.sort((a, b) => a[0] - b[0]);
+      const cashData = series.map(point => {
+        const time = point.time instanceof Date ? point.time : new Date(point.time);
+        return [time.getTime(), Number(point.cash)];
+      }).filter(item => Number.isFinite(item[0]) && Number.isFinite(item[1]));
+      cashData.sort((a, b) => a[0] - b[0]);
+      if (!equityData.length) {
         gridEquityChartInst.clear();
         if (label) label.textContent = '';
         if (emptyState) emptyState.classList.remove('hidden');
         return;
       }
-      const first = data[0];
-      const last = data[data.length - 1];
+      const first = equityData[0];
+      const last = equityData[equityData.length - 1];
       if (label && first && last) {
         const start = new Date(first[0]);
         const end = new Date(last[0]);
-        label.textContent = `${start.toISOString().slice(0, 10)} → ${end.toISOString().slice(0, 10)} (${data.length.toLocaleString()} points)`;
+        label.textContent = `${start.toISOString().slice(0, 10)} → ${end.toISOString().slice(0, 10)} (${equityData.length.toLocaleString()} points)`;
       }
       const gradient = (echarts.graphic && echarts.graphic.LinearGradient)
         ? new echarts.graphic.LinearGradient(0, 0, 0, 1, [
@@ -893,6 +898,14 @@
         : 'rgba(15, 118, 110, 0.1)';
       gridEquityChartInst.setOption({
         grid: { left: '3%', right: '3%', top: 40, bottom: 40, containLabel: true },
+        legend: {
+          data: ['Equity', 'Cash'],
+          textStyle: { color: '#475569' },
+          selected: {
+            Equity: true,
+            Cash: false
+          }
+        },
         tooltip: {
           trigger: 'axis',
           axisPointer: { type: 'cross' },
@@ -912,15 +925,25 @@
           },
           splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.2)' } }
         },
-        series: [{
-          name: 'Equity',
-          type: 'line',
-          smooth: true,
-          showSymbol: false,
-          lineStyle: { color: '#0f766e', width: 2 },
-          areaStyle: gradient ? { color: gradient } : undefined,
-          data
-        }]
+        series: [
+          {
+            name: 'Equity',
+            type: 'line',
+            smooth: true,
+            showSymbol: false,
+            lineStyle: { color: '#0f766e', width: 2 },
+            areaStyle: gradient ? { color: gradient } : undefined,
+            data: equityData
+          },
+          {
+            name: 'Cash',
+            type: 'line',
+            smooth: true,
+            showSymbol: false,
+            lineStyle: { color: '#64748b', width: 1.5, type: 'dashed' },
+            data: cashData
+          }
+        ]
       }, true);
     }
 
@@ -1471,7 +1494,8 @@
         lastEquityTime = new Date(row.caldt.getTime());
         equitySeries.push({
           time: new Date(row.caldt.getTime()),
-          equity
+          equity,
+          cash: cash
         });
       }
 
@@ -1842,7 +1866,8 @@
         lastEquityTime = new Date(row.caldt.getTime());
         equitySeries.push({
           time: new Date(row.caldt.getTime()),
-          equity
+          equity,
+          cash: cash
         });
       }
 
