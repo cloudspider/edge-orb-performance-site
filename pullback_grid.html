@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Pullback Grid Backtest</title>
+  <title>Buy-the-Dip Grid Backtest</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link
     rel="stylesheet"
@@ -95,7 +95,7 @@
           <a data-nav href="index.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Performance</a>
           <a data-nav href="backtest.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Backtest</a>
           <a data-nav href="results.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Results</a>
-          <a data-nav href="pullback_grid.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Pullback Grid</a>
+          <a data-nav href="pullback_grid.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Buy-the-Dip Grid</a>
         </div>
       </div>
       <div class="flex items-center gap-2">
@@ -145,8 +145,8 @@
 
   <div class="max-w-screen-2xl mx-auto p-6 space-y-6">
     <header class="mb-2">
-      <h1 id="mainTitle" class="text-2xl md:text-3xl font-semibold">Pullback Grid Backtest</h1>
-      <p class="text-slate-600 mt-1">Under construction. Hook up pullback grid datasets and controls here.</p>
+      <h1 id="mainTitle" class="text-2xl md:text-3xl font-semibold">Buy-the-Dip Grid Backtest</h1>
+      <p class="text-slate-600 mt-1">Under construction. Hook up buy-the-dip grid datasets and controls here.</p>
     </header>
 
     <section id="symbolPicker" class="bg-white rounded-2xl shadow-soft p-3 md:p-4">
@@ -156,7 +156,7 @@
             <span class="inline-flex h-8 w-8 items-center justify-center text-emerald-500">
               <ion-icon name="grid-outline" class="text-2xl"></ion-icon>
             </span>
-            <span>Pullback Grid</span>
+            <span>Buy-the-Dip Grid</span>
           </button>
         </nav>
       </div>
@@ -179,7 +179,7 @@
         <p id="dataSummary" class="text-sm text-slate-500">Select a symbol to load intraday data.</p>
       </div>
       <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500 leading-relaxed">
-        <p>Files must contain 1-minute OHLC data with columns for <code>caldt</code>, <code>day</code>, <code>open</code>, <code>high</code>, <code>low</code>, and <code>close</code>. The pullback grid simulation evaluates each minute to detect fills, so ensure the CSV spans the period you want to test.</p>
+        <p>Files must contain 1-minute OHLC data with columns for <code>caldt</code>, <code>day</code>, <code>open</code>, <code>high</code>, <code>low</code>, and <code>close</code>. The buy-the-dip grid simulation evaluates each minute to detect fills, so ensure the CSV spans the period you want to test.</p>
       </div>
     </section>
 
@@ -208,7 +208,7 @@
               id="selGridType"
               class="w-full appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-9 py-2 text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
             >
-              <option value="pullback" selected>Pullback Grid</option>
+              <option value="pullback" selected>Buy-the-Dip Grid</option>
               <option value="progressive">Progressive Grid</option>
             </select>
             <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
@@ -1004,7 +1004,7 @@
       const titleEl = document.getElementById('mainTitle');
       const meta = ensureSymbolMetaEntry(currentTicker);
       const friendlyName = meta && meta.name && meta.name.toUpperCase() !== currentTicker ? ` · ${meta.name}` : '';
-      const fullTitle = currentTicker ? `${currentTicker}${friendlyName} - Pullback Grid Backtest` : 'Pullback Grid Backtest';
+      const fullTitle = currentTicker ? `${currentTicker}${friendlyName} - Buy-the-Dip Grid Backtest` : 'Buy-the-Dip Grid Backtest';
       if (titleEl) titleEl.textContent = fullTitle;
       document.title = fullTitle;
       highlightTickerButton(currentTicker);
@@ -1936,7 +1936,7 @@
           setGridStatus('No completed trades for the selected parameters.');
         }
       } catch (err) {
-        console.error('Pullback grid backtest error', err);
+        console.error('Buy-the-dip grid backtest error', err);
         setGridStatus('Failed to run backtest. See console for details.');
       }
     }
