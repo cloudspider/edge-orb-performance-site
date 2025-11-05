@@ -258,7 +258,24 @@
           </div>
         </label>
         <label class="block">
-          <span class="text-sm text-slate-600">Grid Size ($)</span>
+          <span class="text-sm text-slate-600">Grid Spacing</span>
+          <div class="relative mt-1">
+            <select
+              id="selGridSpacing"
+              class="w-full appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-9 py-2 text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+            >
+              <option value="fixed" selected>Fixed Price</option>
+              <option value="percent">Percentage</option>
+            </select>
+            <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.06 1.06l-4.24 4.39a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
+              </svg>
+            </span>
+          </div>
+        </label>
+        <label class="block">
+          <span id="gridSizeLabel" class="text-sm text-slate-600">Grid Size ($)</span>
           <div class="mt-1 relative">
             <input
               id="inpGridSize"
@@ -449,6 +466,7 @@
     const DEFAULT_PRICE_PRECISION = 2;
     const GRID_DEFAULTS = {
       gridSize: 5,
+      gridSpacingType: 'fixed',
       tradeValue: 1000,
       initialCash: 10000,
       fractionalShares: true,
@@ -512,6 +530,23 @@
       if (!btn) return;
       btn.disabled = !enabled;
       btn.classList.toggle('opacity-70', !enabled);
+    }
+
+    function updateGridSizeLabel() {
+      const label = document.getElementById('gridSizeLabel');
+      if (!label) return;
+      const spacingType = (document.getElementById('selGridSpacing')?.value || GRID_DEFAULTS.gridSpacingType).toLowerCase();
+      label.textContent = spacingType === 'percent' ? 'Grid Size (%)' : 'Grid Size ($)';
+      const input = document.getElementById('inpGridSize');
+      if (input) {
+        if (spacingType === 'percent') {
+          input.min = '0.1';
+          input.step = '0.1';
+        } else {
+          input.min = '0.5';
+          input.step = '0.5';
+        }
+      }
     }
 
     function ensureSymbolMetaEntry(symbol) {
@@ -676,6 +711,115 @@
       return { qty, retained };
     }
 
+    function createGridSpacingHelpers({ spacingType, gridSize, gridOffset, firstPrice }) {
+      const type = (spacingType || 'fixed').toLowerCase();
+      if (type === 'percent') {
+        const rawPercent = Number(gridSize);
+        const percent = rawPercent / 100;
+        if (!Number.isFinite(percent) || percent <= 0 || percent >= 1) {
+          return { error: 'invalid_percent' };
+        }
+        const anchorOffset = Number(gridOffset);
+        const anchorBase = Number.isFinite(anchorOffset) && anchorOffset > 0 ? anchorOffset : null;
+        const anchor = Math.max(anchorBase != null ? anchorBase : Number(firstPrice) || 0, 1e-9);
+        const ratio = 1 + percent;
+        const logRatio = Math.log(ratio);
+        const priceTolerance = 1e-6;
+        const snap = (value) => {
+          if (!Number.isFinite(value) || value <= 0) return NaN;
+          const idx = Math.round(Math.log(value / anchor) / logRatio);
+          return anchor * Math.pow(ratio, idx);
+        };
+        const move = (value, steps = 1) => {
+          if (!Number.isFinite(value) || value <= 0) return NaN;
+          return snap(value * Math.pow(ratio, steps));
+        };
+        const nextUp = (value) => move(value, 1);
+        const nextDown = (value) => move(value, -1);
+        const stepsBetween = (from, to) => {
+          if (!Number.isFinite(from) || !Number.isFinite(to) || from <= 0 || to <= 0) return 0;
+          return Math.log(to / from) / logRatio;
+        };
+        const key = (value) => {
+          if (!Number.isFinite(value) || value <= 0) return 'nan';
+          const idx = Math.round(Math.log(value / anchor) / logRatio * 1e6) / 1e6;
+          return `p${idx}`;
+        };
+        const floor = (value) => {
+          if (!Number.isFinite(value) || value <= 0) return NaN;
+          const idx = Math.floor(Math.log(value / anchor) / logRatio);
+          return anchor * Math.pow(ratio, idx);
+        };
+        const ceil = (value) => {
+          if (!Number.isFinite(value) || value <= 0) return NaN;
+          const idx = Math.ceil(Math.log(value / anchor) / logRatio);
+          return anchor * Math.pow(ratio, idx);
+        };
+        return {
+          type,
+          gridSize: rawPercent,
+          percent,
+          anchor,
+          ratio,
+          logRatio,
+          snap,
+          move,
+          nextUp,
+          nextDown,
+          stepsBetween,
+          key,
+          floor,
+          ceil,
+          priceTolerance
+        };
+      }
+      const size = Number(gridSize);
+      if (!Number.isFinite(size) || size <= 0) {
+        return { error: 'invalid_fixed' };
+      }
+      const offset = Number(gridOffset) || 0;
+      const decimals = Math.min(Math.max(countDecimals(size), 0), 4);
+      const scale = Math.pow(10, Math.min(decimals + 2, 8));
+      const round = (value) => Math.round(value * scale) / scale;
+      const snap = (value) => {
+        if (!Number.isFinite(value)) return NaN;
+        const snapped = offset + Math.round((value - offset) / size) * size;
+        return round(snapped);
+      };
+      const move = (value, steps = 1) => snap(value + steps * size);
+      const nextUp = (value) => move(value, 1);
+      const nextDown = (value) => move(value, -1);
+      const stepsBetween = (from, to) => {
+        if (!Number.isFinite(from) || !Number.isFinite(to)) return 0;
+        return (to - from) / size;
+      };
+      const key = (value) => snap(value).toFixed(6);
+      const floor = (value) => {
+        if (!Number.isFinite(value)) return NaN;
+        return snap(offset + Math.floor((value - offset) / size) * size);
+      };
+      const ceil = (value) => {
+        if (!Number.isFinite(value)) return NaN;
+        return snap(offset + Math.ceil((value - offset) / size) * size);
+      };
+      return {
+        type: 'fixed',
+        gridSize: size,
+        snap,
+        move,
+        nextUp,
+        nextDown,
+        stepsBetween,
+        key,
+        floor,
+        ceil,
+        priceTolerance: 1e-9,
+        decimals,
+        scale,
+        round
+      };
+    }
+
     function passesEntryFilter(price, row, filter) {
       const normalized = (filter || 'none').toLowerCase();
       if (normalized === 'none') return true;
@@ -725,6 +869,7 @@
       const fractionalShares = !!document.getElementById('inpFractionalShares')?.checked;
       const allowMargin = !!document.getElementById('inpAllowMargin')?.checked;
       const gridType = (document.getElementById('selGridType')?.value || 'pullback').toLowerCase();
+      const gridSpacingType = (document.getElementById('selGridSpacing')?.value || GRID_DEFAULTS.gridSpacingType).toLowerCase();
       const retentionMode = (document.getElementById('selRetentionMode')?.value || 'profit').toLowerCase();
       const entryFilter = (document.getElementById('selEntryFilter')?.value || GRID_DEFAULTS.entryFilter).toLowerCase();
       return {
@@ -735,6 +880,7 @@
         fractionalShares,
         allowMargin,
         gridType,
+        gridSpacingType,
         retentionMode,
         entryFilter
       };
@@ -1213,8 +1359,10 @@
           high: current.high,
           low: current.low,
           close: current.close,
+          sma10: null,
           sma20: null,
-          sma50: null
+          sma50: null,
+          sma100: null
         });
         current = null;
       };
@@ -1307,12 +1455,12 @@
       if (!map || !map.size) return out;
       const lower = Math.min(minVal, maxVal);
       const upper = Math.max(minVal, maxVal);
-      const EPS = 1e-9;
       for (const arr of map.values()) {
         if (!Array.isArray(arr) || !arr.length) continue;
         for (const order of arr) {
           if (!order || !Number.isFinite(order.level)) continue;
-          if (order.level >= (lower - EPS) && order.level <= (upper + EPS)) {
+          const tolerance = 1e-9 * Math.max(1, Math.abs(order.level), Math.abs(lower), Math.abs(upper));
+          if (order.level >= (lower - tolerance) && order.level <= (upper + tolerance)) {
             out.push(order);
           }
         }
@@ -1343,15 +1491,16 @@
       if (!Array.isArray(rows) || !rows.length) {
         return { trades, summary, equitySeries };
       }
-      const gridSize = Number(params?.gridSize);
+      const rawGridSize = Number(params?.gridSize);
       const gridOffset = Number(params?.gridOffset) || 0;
+      const gridSpacingType = (params?.gridSpacingType || 'fixed').toLowerCase();
       const tradeValue = Number(params?.tradeValue);
       const initialCash = Number(params?.initialCash);
       const fractional = !!params?.fractionalShares;
       const allowMargin = !!params?.allowMargin;
       const retentionMode = (params?.retentionMode || 'profit').toLowerCase();
       const entryFilter = (params?.entryFilter || 'none').toLowerCase();
-      if (!Number.isFinite(gridSize) || gridSize <= 0 || !Number.isFinite(tradeValue) || tradeValue <= 0) {
+      if (!Number.isFinite(rawGridSize) || rawGridSize <= 0 || !Number.isFinite(tradeValue) || tradeValue <= 0) {
         return { trades, summary, equitySeries };
       }
       let firstPrice = [rows[0]?.open, rows[0]?.close, rows[0]?.high, rows[0]?.low].map(Number).find(Number.isFinite);
@@ -1371,17 +1520,23 @@
         return { trades, summary, equitySeries };
       }
 
-      const decimals = Math.min(Math.max(countDecimals(gridSize), 0), 4);
-      const scale = Math.pow(10, Math.min(decimals + 2, 8));
-      const roundToDecimals = (value) => Math.round(value * scale) / scale;
-      const snapLevel = (value) => {
-        if (!Number.isFinite(value)) return NaN;
-        const snapped = gridOffset + Math.round((value - gridOffset) / gridSize) * gridSize;
-        return roundToDecimals(snapped);
-      };
-      const keyFor = (value) => snapLevel(value).toFixed(6);
-      const gridMin = snapLevel(Math.floor((minPrice - gridOffset) / gridSize) * gridSize + gridOffset);
-      const gridMax = snapLevel(Math.ceil((maxPrice - gridOffset) / gridSize) * gridSize + gridOffset);
+      const spacing = createGridSpacingHelpers({
+        spacingType: gridSpacingType,
+        gridSize: rawGridSize,
+        gridOffset,
+        firstPrice
+      });
+      if (spacing.error) {
+        console.warn('Grid spacing configuration invalid:', spacing.error);
+        return { trades, summary, equitySeries };
+      }
+      const snapLevel = spacing.snap;
+      const keyFor = spacing.key;
+      const nextUpLevel = spacing.nextUp;
+      const nextDownLevel = spacing.nextDown;
+      const stepsBetween = spacing.stepsBetween;
+      const priceTolerance = spacing.priceTolerance ?? 1e-9;
+      const usePercentSpacing = spacing.type === 'percent';
 
       const activeBuys = new Map();
       const activeSells = new Map();
@@ -1429,19 +1584,36 @@
         return order;
       };
 
-      for (let level = gridMin; level <= gridMax + gridSize / 2; ) {
-        const price = snapLevel(level);
-        if (price < firstPrice - 1e-9) {
-          addBuyOrder(price);
+      if (!usePercentSpacing) {
+        const gridMin = spacing.floor(minPrice);
+        const gridMax = spacing.ceil(maxPrice);
+        if (Number.isFinite(gridMin) && Number.isFinite(gridMax)) {
+          for (let level = gridMin; Number.isFinite(level) && level <= gridMax + priceTolerance * Math.max(1, level); ) {
+            if (level < firstPrice - priceTolerance * Math.max(1, level)) {
+              addBuyOrder(level);
+            }
+            const nextLevel = nextUpLevel(level);
+            if (!Number.isFinite(nextLevel) || Math.abs(nextLevel - level) <= priceTolerance * Math.max(1, nextLevel)) break;
+            level = nextLevel;
+          }
         }
-        const nextLevel = snapLevel(price + gridSize);
-        if (!Number.isFinite(nextLevel) || nextLevel <= price) break;
-        level = nextLevel;
+      } else {
+        let level = nextDownLevel(snapLevel(firstPrice));
+        let safety = 0;
+        while (Number.isFinite(level) && level > 0 && level >= minPrice - priceTolerance * Math.max(1, level) && safety < 2000) {
+          addBuyOrder(level);
+          const nextLevel = nextDownLevel(level);
+          if (!Number.isFinite(nextLevel) || Math.abs(nextLevel - level) <= priceTolerance * Math.max(1, level)) break;
+          level = nextLevel;
+          safety += 1;
+        }
       }
       if (!Number.isFinite(highestSeededBuyLevel) || highestSeededBuyLevel === Number.NEGATIVE_INFINITY) {
-        const seedLevel = snapLevel(firstPrice - gridSize);
-        addBuyOrder(seedLevel);
-        highestSeededBuyLevel = seedLevel;
+        const seedLevel = nextDownLevel(firstPrice);
+        if (Number.isFinite(seedLevel) && seedLevel > 0) {
+          const order = addBuyOrder(seedLevel);
+          if (order) highestSeededBuyLevel = order.level;
+        }
       }
 
       let cash = Number.isFinite(initialCash) ? initialCash : GRID_DEFAULTS.initialCash;
@@ -1467,27 +1639,34 @@
 
       const hasQueuedBuyActivation = (level) => {
         const price = snapLevel(level);
-        return queuedBuyActivations.some(entry => Math.abs(entry.buyLevel - price) < EPS);
+        if (!Number.isFinite(price)) return false;
+        return queuedBuyActivations.some(entry => {
+          const diff = Math.abs(entry.buyLevel - price);
+          return diff <= priceTolerance * Math.max(1, entry.buyLevel);
+        });
       };
 
       const queueDelayedBuy = (sellPrice) => {
         const buyPrice = snapLevel(sellPrice);
         if (!Number.isFinite(buyPrice) || buyPrice <= 0) return;
         if (hasActiveBuy(buyPrice) || hasQueuedBuyActivation(buyPrice)) return;
-        const triggerLevel = snapLevel(buyPrice + gridSize);
+        const triggerLevel = nextUpLevel(buyPrice);
+        if (!Number.isFinite(triggerLevel) || triggerLevel <= 0) return;
+        if (Math.abs(triggerLevel - buyPrice) <= priceTolerance * Math.max(1, triggerLevel)) return;
         queuedBuyActivations.push({ buyLevel: buyPrice, trigger: triggerLevel });
       };
 
       const ensureRunupBuys = (maxPrice) => {
         if (!Number.isFinite(maxPrice)) return;
-        if (!Number.isFinite(highestSeededBuyLevel) || !Number.isFinite(gridSize)) return;
+        if (!Number.isFinite(highestSeededBuyLevel)) return;
         let safety = 0;
-        while (maxPrice >= (highestSeededBuyLevel + gridSize * 2) - EPS && safety < 1000) {
-          const nextLevel = snapLevel(highestSeededBuyLevel + gridSize);
+        while (stepsBetween(highestSeededBuyLevel, Math.max(maxPrice, highestSeededBuyLevel)) >= 2 - 1e-9 && safety < 1000) {
+          const nextLevel = nextUpLevel(highestSeededBuyLevel);
+          if (!Number.isFinite(nextLevel) || nextLevel <= 0) break;
           if (!hasActiveBuy(nextLevel) && !hasQueuedBuyActivation(nextLevel)) {
             addBuyOrder(nextLevel);
           }
-          if (nextLevel <= highestSeededBuyLevel + EPS) break;
+          if (Math.abs(nextLevel - highestSeededBuyLevel) <= priceTolerance * Math.max(1, nextLevel)) break;
           highestSeededBuyLevel = nextLevel;
           safety += 1;
         }
@@ -1498,7 +1677,8 @@
         for (let i = queuedBuyActivations.length - 1; i >= 0; i--) {
           const entry = queuedBuyActivations[i];
           if (!entry) continue;
-          if (maxPrice >= entry.trigger - EPS) {
+          const tolerance = priceTolerance * Math.max(1, entry.trigger);
+          if (maxPrice >= entry.trigger - tolerance) {
             addBuyOrder(entry.buyLevel);
             queuedBuyActivations.splice(i, 1);
           }
@@ -1533,7 +1713,10 @@
         shares += qty;
         if (shares > maxSharesHeld) maxSharesHeld = shares;
         removeOrder(activeBuys, order);
-        addSellOrder(price + gridSize, { price, qty, time: timestamp });
+        const sellLevel = nextUpLevel(price);
+        if (Number.isFinite(sellLevel) && sellLevel > 0) {
+          addSellOrder(sellLevel, { price, qty, time: timestamp });
+        }
         return true;
       };
 
@@ -1580,17 +1763,22 @@
           profit,
           roiPct: costBasis > 0 ? (profit / costBasis) * 100 : 0
         });
-        addBuyOrder(price - gridSize);
+        const buyLevel = nextDownLevel(price);
+        if (Number.isFinite(buyLevel) && buyLevel > 0) {
+          addBuyOrder(buyLevel);
+        }
         queueDelayedBuy(price);
         return true;
       };
 
       const processMove = (start, end, timestamp, contextRow) => {
         if (!Number.isFinite(start) || !Number.isFinite(end)) return;
-        if (end > start + EPS) {
+        const scale = Math.max(1, Math.abs(start), Math.abs(end));
+        const threshold = priceTolerance * scale;
+        if (end > start + threshold) {
           const sells = collectOrdersInRange(activeSells, start, end, true);
           for (const order of sells) executeSell(order, timestamp);
-        } else if (end < start - EPS) {
+        } else if (end < start - threshold) {
           const buys = collectOrdersInRange(activeBuys, end, start, false);
           for (const order of buys) executeBuy(order, timestamp, contextRow);
         }
@@ -1607,7 +1795,7 @@
         const addPoint = (value) => {
           const num = Number(value);
           if (!Number.isFinite(num)) return;
-          if (Math.abs(num - path[path.length - 1]) < EPS) return;
+          if (Math.abs(num - path[path.length - 1]) < priceTolerance * Math.max(1, num)) return;
           path.push(num);
         };
         const open = Number(row.open);
@@ -1686,15 +1874,16 @@
       if (!Array.isArray(rows) || !rows.length) {
         return { trades, summary, equitySeries };
       }
-      const gridSize = Number(params?.gridSize);
+      const rawGridSize = Number(params?.gridSize);
       const gridOffset = Number(params?.gridOffset) || 0;
+      const gridSpacingType = (params?.gridSpacingType || 'fixed').toLowerCase();
       const tradeValue = Number(params?.tradeValue);
       const initialCash = Number(params?.initialCash);
       const fractional = !!params?.fractionalShares;
       const allowMargin = !!params?.allowMargin;
       const retentionMode = (params?.retentionMode || 'profit').toLowerCase();
       const entryFilter = (params?.entryFilter || 'none').toLowerCase();
-      if (!Number.isFinite(gridSize) || gridSize <= 0 || !Number.isFinite(tradeValue) || tradeValue <= 0) {
+      if (!Number.isFinite(rawGridSize) || rawGridSize <= 0 || !Number.isFinite(tradeValue) || tradeValue <= 0) {
         return { trades, summary, equitySeries };
       }
       let firstPrice = [rows[0]?.open, rows[0]?.close, rows[0]?.high, rows[0]?.low].map(Number).find(Number.isFinite);
@@ -1715,22 +1904,26 @@
         return { trades, summary, equitySeries };
       }
 
-      const decimals = Math.min(Math.max(countDecimals(gridSize), 0), 4);
-      const scale = Math.pow(10, Math.min(decimals + 2, 8));
-      const roundToScale = (value) => Math.round(value * scale) / scale;
-      const snapToGrid = (value, offset) => {
-        if (!Number.isFinite(value)) return NaN;
-        const snapped = Math.round((value - offset) / gridSize) * gridSize + offset;
-        return roundToScale(snapped);
-      };
-      const floorToGrid = (value, offset) => {
-        if (!Number.isFinite(value)) return NaN;
-        const snapped = Math.floor((value - offset) / gridSize) * gridSize + offset;
-        return roundToScale(snapped);
-      };
+      const spacing = createGridSpacingHelpers({
+        spacingType: gridSpacingType,
+        gridSize: rawGridSize,
+        gridOffset,
+        firstPrice
+      });
+      if (spacing.error) {
+        console.warn('Grid spacing configuration invalid:', spacing.error);
+        return { trades, summary, equitySeries };
+      }
+      const snapLevel = spacing.snap;
+      const keyFor = spacing.key;
+      const nextUpLevel = spacing.nextUp;
+      const nextDownLevel = spacing.nextDown;
+      const stepsBetween = spacing.stepsBetween;
+      const priceTolerance = spacing.priceTolerance ?? 1e-9;
+      const usePercentSpacing = spacing.type === 'percent';
       const EPS = 1e-9;
 
-      const minGridLevel = floorToGrid(minPrice, gridOffset);
+      const minGridLevel = spacing.floor(minPrice);
 
       let cash = Number.isFinite(initialCash) ? initialCash : GRID_DEFAULTS.initialCash;
       const initialEquity = cash;
@@ -1751,9 +1944,9 @@
       let buyGroupSeq = 1;
 
       const queueBuy = (price, groupId = 0, direction = 'neutral') => {
-        const level = snapToGrid(price, gridOffset);
+        const level = snapLevel(price);
         if (!Number.isFinite(level) || level <= 0) return null;
-        const key = level.toFixed(6);
+        const key = keyFor(level);
         if (pendingBuys.has(key)) {
           const existing = pendingBuys.get(key);
           if (groupId > 0) existing.groupId = groupId;
@@ -1766,7 +1959,7 @@
       };
 
       const queueSell = (price, qty, buyPrice, buyTime) => {
-        const level = snapToGrid(price, gridOffset);
+        const level = snapLevel(price);
         if (!Number.isFinite(level) || level <= 0) return null;
         const entry = {
           id: sellSeq++,
@@ -1780,13 +1973,15 @@
       };
 
       const ensureDownCoverage = (fromLevel) => {
-        let level = snapToGrid(fromLevel, gridOffset);
+        let level = snapLevel(fromLevel);
         if (!Number.isFinite(level)) return;
-        while (level >= minGridLevel - EPS) {
+        let safety = 0;
+        while (Number.isFinite(level) && level >= minGridLevel - priceTolerance * Math.max(1, level) && safety < 2000) {
           queueBuy(level, 0, 'down');
-          const nextLevel = snapToGrid(level - gridSize, gridOffset);
-          if (!Number.isFinite(nextLevel) || nextLevel >= level - EPS) break;
+          const nextLevel = nextDownLevel(level);
+          if (!Number.isFinite(nextLevel) || Math.abs(nextLevel - level) <= priceTolerance * Math.max(1, level)) break;
           level = nextLevel;
+          safety += 1;
         }
       };
 
@@ -1818,20 +2013,28 @@
         shares += qty;
         if (shares > maxSharesHeld) maxSharesHeld = shares;
         const buyTime = timestamp instanceof Date ? new Date(timestamp.getTime()) : new Date();
-        queueSell(price + gridSize, qty, price, buyTime);
+        const sellLevel = nextUpLevel(price);
+        if (Number.isFinite(sellLevel) && sellLevel > 0) {
+          queueSell(sellLevel, qty, price, buyTime);
+        }
         if (entry.direction === 'down') {
-          queueBuy(price - gridSize, buyGroupSeq++, 'down');
+          const downLevel = nextDownLevel(price);
+          if (Number.isFinite(downLevel) && downLevel > 0) {
+            queueBuy(downLevel, buyGroupSeq++, 'down');
+          }
         } else if (entry.direction === 'up') {
-          const desired = price - gridSize;
-          const snapped = snapToGrid(desired, gridOffset);
-          if (Number.isFinite(snapped)) {
-            const key = snapped.toFixed(6);
+          const desired = nextDownLevel(price);
+          if (Number.isFinite(desired) && desired > 0) {
+            const key = keyFor(desired);
             if (!pendingBuys.has(key)) {
               queueBuy(desired, buyGroupSeq++, 'down');
             }
           }
         }
-        ensureDownCoverage(price - gridSize);
+        const coverageOrigin = nextDownLevel(price);
+        if (Number.isFinite(coverageOrigin)) {
+          ensureDownCoverage(coverageOrigin);
+        }
         return true;
       };
 
@@ -1876,9 +2079,11 @@
           roiPct: costBasis > 0 ? (profit / costBasis) * 100 : 0
         });
         const groupId = buyGroupSeq++;
-        queueBuy(price + gridSize, groupId, 'up');
-        queueBuy(price - gridSize, groupId, 'down');
-        ensureDownCoverage(price - gridSize);
+        const upLevel = nextUpLevel(price);
+        if (Number.isFinite(upLevel) && upLevel > 0) queueBuy(upLevel, groupId, 'up');
+        const downLevel = nextDownLevel(price);
+        if (Number.isFinite(downLevel) && downLevel > 0) queueBuy(downLevel, groupId, 'down');
+        if (Number.isFinite(downLevel)) ensureDownCoverage(downLevel);
         return true;
       };
 
@@ -1886,7 +2091,9 @@
         let best = null;
         for (const entry of pendingSells) {
           const lvl = entry.level;
-          if (lvl > cursor + EPS && lvl <= target + EPS) {
+          const lowerTol = priceTolerance * Math.max(1, Math.abs(lvl), Math.abs(cursor));
+          const upperTol = priceTolerance * Math.max(1, Math.abs(lvl), Math.abs(target));
+          if (lvl > cursor + lowerTol && lvl <= target + upperTol) {
             if (!best || lvl < best.level) best = entry;
           }
         }
@@ -1897,7 +2104,9 @@
         let best = null;
         for (const entry of pendingBuys.values()) {
           const lvl = entry.level;
-          if (lvl > cursor + EPS && lvl <= target + EPS) {
+          const lowerTol = priceTolerance * Math.max(1, Math.abs(lvl), Math.abs(cursor));
+          const upperTol = priceTolerance * Math.max(1, Math.abs(lvl), Math.abs(target));
+          if (lvl > cursor + lowerTol && lvl <= target + upperTol) {
             if (!best || lvl < best.level) best = entry;
           }
         }
@@ -1908,7 +2117,9 @@
         let best = null;
         for (const entry of pendingBuys.values()) {
           const lvl = entry.level;
-          if (lvl < cursor - EPS && lvl >= target - EPS) {
+          const upperTol = priceTolerance * Math.max(1, Math.abs(lvl), Math.abs(cursor));
+          const lowerTol = priceTolerance * Math.max(1, Math.abs(lvl), Math.abs(target));
+          if (lvl < cursor - upperTol && lvl >= target - lowerTol) {
             if (!best || lvl > best.level) best = entry;
           }
         }
@@ -1917,7 +2128,9 @@
 
       const processMove = (start, end, timestamp, contextRow) => {
         const eventTime = timestamp instanceof Date ? new Date(timestamp.getTime()) : new Date();
-        if (end > start + EPS) {
+        const scale = Math.max(1, Math.abs(start), Math.abs(end));
+        const threshold = priceTolerance * scale;
+        if (end > start + threshold) {
           let cursor = start;
           const target = end;
           let guard = 0;
@@ -1928,7 +2141,8 @@
             let nextEntry = null;
             let type = null;
             if (nextSell && nextBuy) {
-              if (nextSell.level <= nextBuy.level + EPS) {
+              const compareTol = priceTolerance * Math.max(1, Math.abs(nextSell.level), Math.abs(nextBuy.level));
+              if (nextSell.level <= nextBuy.level + compareTol) {
                 nextEntry = nextSell;
                 type = 'sell';
               } else {
@@ -1951,7 +2165,7 @@
               if (!executeBuy(nextEntry, eventTime, contextRow)) break;
             }
           }
-        } else if (end < start - EPS) {
+        } else if (end < start - threshold) {
           let cursor = start;
           const target = end;
           let guard = 0;
@@ -1973,7 +2187,7 @@
         const addPoint = (value) => {
           const num = Number(value);
           if (!Number.isFinite(num)) return;
-          if (Math.abs(num - path[path.length - 1]) < EPS) return;
+          if (Math.abs(num - path[path.length - 1]) < priceTolerance * Math.max(1, num)) return;
           path.push(num);
         };
         const open = Number(row.open);
@@ -1997,7 +2211,10 @@
       const initialTime = firstRow?.caldt instanceof Date ? new Date(firstRow.caldt.getTime()) : new Date();
       const initialBuy = queueBuy(firstPrice, buyGroupSeq++, 'down');
       if (initialBuy) executeBuy(initialBuy, initialTime, firstRow);
-      ensureDownCoverage(firstPrice - gridSize);
+      const initialCoverageLevel = nextDownLevel(firstPrice);
+      if (Number.isFinite(initialCoverageLevel)) {
+        ensureDownCoverage(initialCoverageLevel);
+      }
 
       for (const row of rows) {
         if (!row || !(row.caldt instanceof Date)) continue;
@@ -2079,6 +2296,7 @@
       } catch (err) {
         console.error('Buy-the-dip grid backtest error', err);
         setGridStatus('Failed to run backtest. See console for details.');
+        renderLadderChart([]);
       }
     }
 
@@ -2089,6 +2307,7 @@
       }
       const inputs = [
         document.getElementById('selGridType'),
+        document.getElementById('selGridSpacing'),
         document.getElementById('selEntryFilter'),
         document.getElementById('selRetentionMode'),
         document.getElementById('inpGridSize'),
@@ -2101,12 +2320,14 @@
       inputs.forEach(el => {
         if (!el) return;
         const handler = () => {
+          if (el.id === 'selGridSpacing') updateGridSizeLabel();
           if (!Array.isArray(ROWS) || !ROWS.length) return;
           runGridBacktest();
         };
         const eventName = el.tagName === 'SELECT' || el.type === 'checkbox' ? 'change' : 'input';
         el.addEventListener(eventName, handler);
       });
+      updateGridSizeLabel();
       resetGridOutputs('Load data and run the backtest to populate results.');
       setRunButtonEnabled(false);
     }
