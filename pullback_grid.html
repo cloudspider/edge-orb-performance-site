@@ -226,8 +226,10 @@
               class="w-full appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-9 py-2 text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
             >
               <option value="none" selected>None</option>
+              <option value="sma10">10 SMA</option>
               <option value="sma20">20 SMA</option>
               <option value="sma50">50 SMA</option>
+              <option value="sma100">100 SMA</option>
             </select>
             <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -401,6 +403,19 @@
       </div>
     </section>
 
+    <section id="gridLadderSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
+      <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <h2 class="font-semibold text-slate-700">Ladder Activity</h2>
+        <span id="ladderSummaryLabel" class="text-sm text-slate-500"></span>
+      </div>
+      <div class="relative">
+        <div id="gridLadderChart" class="w-full h-72 md:h-80"></div>
+        <div id="gridLadderEmpty" class="absolute inset-0 flex items-center justify-center text-sm text-slate-500">
+          Run the backtest to visualize ladder entries and exits.
+        </div>
+      </div>
+    </section>
+
     <section id="gridTradesSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
       <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <h2 class="font-semibold text-slate-700">Trade Log</h2>
@@ -443,12 +458,21 @@
     const NUMBER_FORMAT = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const NUMBER_FORMAT_4 = new Intl.NumberFormat(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 });
     const PERCENT_FORMAT = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const DAILY_SMA_WINDOWS = [20, 50];
+    const DAILY_SMA_WINDOWS = [10, 20, 50, 100];
     const SMA_FILTER_LOOKUP = {
+      sma10: 10,
       sma20: 20,
-      sma50: 50
+      sma50: 50,
+      sma100: 100
     };
     const RESAMPLE_INTERVAL_MINUTES = 10;
+    const SMA_PROPERTY_BY_WINDOW = {
+      10: 'sma10',
+      20: 'sma20',
+      50: 'sma50',
+      100: 'sma100'
+    };
+    const SMA_PROPERTIES = Object.values(SMA_PROPERTY_BY_WINDOW);
 
     const pad2 = (n) => String(n).padStart(2, '0');
     const dateKeyFromStr = (val) => {
@@ -471,6 +495,7 @@
     let SYMBOL_META = new Map();
     let GRID_STATE = { trades: [], summary: null, equitySeries: [] };
     let gridEquityChartInst = null;
+    let gridLadderChartInst = null;
 
     function setStatus(msg) {
       const el = document.getElementById('status');
@@ -662,21 +687,13 @@
         Number(row.close)
       ].filter(Number.isFinite);
       if (!candidates.length) return false;
-      const priceNum = Math.max(...candidates);
-      let comparison = null;
-      switch (normalized) {
-        case 'sma20':
-          comparison = row.sma20;
-          break;
-        case 'sma50':
-          comparison = row.sma50;
-          break;
-        default:
-          comparison = null;
-          break;
-      }
+      const priceNum = Math.min(...candidates);
+      const windowLength = SMA_FILTER_LOOKUP[normalized];
+      if (!windowLength) return true;
+      const prop = SMA_PROPERTY_BY_WINDOW[windowLength];
+      const comparison = prop ? row[prop] : null;
       if (!Number.isFinite(comparison) || Math.abs(comparison) < 1e-9) return true;
-      return priceNum > comparison;
+      return priceNum < comparison;
     }
 
     function getEntryFilterWindow(filter) {
@@ -959,6 +976,126 @@
       }, true);
     }
 
+    function renderLadderChart(trades) {
+      const container = document.getElementById('gridLadderChart');
+      const emptyState = document.getElementById('gridLadderEmpty');
+      const label = document.getElementById('ladderSummaryLabel');
+      if (!container) return;
+      if (typeof echarts === 'undefined' || !echarts.init) return;
+      if (!gridLadderChartInst) {
+        gridLadderChartInst = echarts.init(container);
+      }
+      if (!Array.isArray(trades) || !trades.length) {
+        if (emptyState) emptyState.classList.remove('hidden');
+        if (label) label.textContent = '';
+        gridLadderChartInst.clear();
+        return;
+      }
+      if (emptyState) emptyState.classList.add('hidden');
+      const buyPoints = [];
+      const sellPoints = [];
+      trades.forEach((trade) => {
+        if (trade?.buyTime) {
+          const time = trade.buyTime instanceof Date ? trade.buyTime : new Date(trade.buyTime);
+          if (time instanceof Date && !isNaN(time)) {
+            buyPoints.push([
+              time.getTime(),
+              Number(trade.buyPrice) || 0,
+              Number(trade.buyQty) || 0
+            ]);
+          }
+        }
+        if (trade?.sellTime) {
+          const time = trade.sellTime instanceof Date ? trade.sellTime : new Date(trade.sellTime);
+          if (time instanceof Date && !isNaN(time)) {
+            sellPoints.push([
+              time.getTime(),
+              Number(trade.sellPrice) || 0,
+              Number(trade.sellQty) || 0
+            ]);
+          }
+        }
+      });
+      buyPoints.sort((a, b) => a[0] - b[0]);
+      sellPoints.sort((a, b) => a[0] - b[0]);
+      if (!buyPoints.length && !sellPoints.length) {
+        gridLadderChartInst.clear();
+        if (label) label.textContent = '';
+        if (emptyState) emptyState.classList.remove('hidden');
+        return;
+      }
+      if (label) {
+        const totalPoints = buyPoints.length + sellPoints.length;
+        label.textContent = `${totalPoints.toLocaleString()} fills (${buyPoints.length.toLocaleString()} buys · ${sellPoints.length.toLocaleString()} sells)`;
+      }
+      const formatter = (params) => {
+        if (!params || !params.value) return '';
+        const [ts, price, qty] = params.value;
+        const date = new Date(ts);
+        const timeStr = Number.isFinite(ts) ? formatDateTime(date) : '';
+        return `
+          <div class="text-xs">
+            <div class="font-semibold">${params.seriesName}</div>
+            <div>${timeStr}</div>
+            <div>Price: ${formatNumber(price, 4)}</div>
+            <div>Qty: ${formatNumber(qty, 4)}</div>
+          </div>
+        `;
+      };
+      gridLadderChartInst.setOption({
+        grid: { left: '3%', right: '3%', top: 40, bottom: 40, containLabel: true },
+        legend: {
+          data: ['Buy fills', 'Sell fills'],
+          textStyle: { color: '#475569' }
+        },
+        tooltip: {
+          trigger: 'item',
+          formatter
+        },
+        dataZoom: [
+          {
+            type: 'inside',
+            xAxisIndex: 0,
+            filterMode: 'filter'
+          },
+          {
+            type: 'inside',
+            yAxisIndex: 0,
+            filterMode: 'weakFilter'
+          }
+        ],
+        xAxis: {
+          type: 'time',
+          axisLabel: { color: '#64748b' }
+        },
+        yAxis: {
+          type: 'value',
+          scale: true,
+          axisLabel: {
+            formatter: (val) => formatNumber(val, 4),
+            color: '#64748b'
+          },
+          splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.2)' } }
+        },
+        series: [
+          {
+            name: 'Buy fills',
+            type: 'scatter',
+            symbolSize: 4,
+            itemStyle: { color: '#0f766e' },
+            data: buyPoints
+          },
+          {
+            name: 'Sell fills',
+            type: 'scatter',
+            symbolSize: 4,
+            itemStyle: { color: '#dc2626' },
+            data: sellPoints
+          }
+        ]
+      }, true);
+    }
+
     function highlightTickerButton(symbol) {
       const seg = document.getElementById('tickerSegment');
       if (!seg) return;
@@ -1020,6 +1157,7 @@
       renderGridTrades([]);
       setGridStatus(message || 'Load data and run the backtest to populate results.');
       renderGridEquityChart(null);
+      renderLadderChart([]);
     }
 
     function normalizeAndIndex(rows) {
@@ -1039,7 +1177,7 @@
         const open = Number(r.open), high = Number(r.high), low = Number(r.low), close = Number(r.close);
         if (!dayKey || isNaN(caldt)) return null;
         if ([open, high, low, close].some(v => !Number.isFinite(v))) return null;
-        return { caldt, dayKey, open, high, low, close, sma20: null, sma50: null };
+        return { caldt, dayKey, open, high, low, close, sma10: null, sma20: null, sma50: null, sma100: null };
       }).filter(Boolean);
       cleanRows.sort((a, b) => a.caldt - b.caldt);
 
@@ -1151,14 +1289,15 @@
       for (const row of ROWS) {
         if (!row) continue;
         const dayKey = row.dayKey;
-        row.sma20 = null;
-        row.sma50 = null;
+        for (const prop of SMA_PROPERTIES) {
+          row[prop] = null;
+        }
         for (const window of windows) {
           const map = DAY_SMA_MAPS.get(window);
           if (!map) continue;
           const value = map.get(dayKey);
-          if (window === 20) row.sma20 = Number.isFinite(value) ? value : null;
-          if (window === 50) row.sma50 = Number.isFinite(value) ? value : null;
+          const prop = SMA_PROPERTY_BY_WINDOW[window];
+          if (prop) row[prop] = Number.isFinite(value) ? value : null;
         }
       }
     }
@@ -1919,6 +2058,7 @@
           renderGridSummary(null);
           renderGridTrades([]);
           renderGridEquityChart(null);
+          renderLadderChart([]);
           return;
         }
       }
@@ -1929,6 +2069,7 @@
         renderGridSummary(result.summary);
         renderGridTrades(result.trades);
         renderGridEquityChart(result.equitySeries);
+        renderLadderChart(result.trades);
         if (result.trades.length) {
           const profitLabel = formatCurrency(result.summary?.netProfit ?? 0);
           setGridStatus(`Backtest completed with ${result.trades.length} trade${result.trades.length === 1 ? '' : 's'}. Net profit ${profitLabel}.`);
@@ -2006,6 +2147,7 @@
           renderGridSummary(null);
           renderGridTrades([]);
           renderGridEquityChart(null);
+          renderLadderChart([]);
           renderDataSummary();
           setGridStatus(`Loaded ${ROWS.length.toLocaleString()} 10-minute bars across ${DAYS.length.toLocaleString()} day(s). Running backtest…`);
           setRunButtonEnabled(true);
@@ -2024,6 +2166,7 @@
       renderGridSummary(null);
       renderGridTrades([]);
       renderGridEquityChart(null);
+      renderLadderChart([]);
       setRunButtonEnabled(false);
       renderDataSummary();
       return false;
