@@ -15,7 +15,8 @@ No external servers or Python required.
 Grid Parameters
 Parameter	Default	Description
 grid_type	pullback	Buy-the-dip grid (classic) or progressive ratchet.
-grid_size	5	Dollar spacing between grid levels.
+grid_spacing	fixed	Spacing model: fixed price or percentage-based ladder.
+grid_size	5	Spacing magnitude (dollars for fixed grids, percent for percentage grids).
 grid_offset	0	Shift applied to every rung (e.g. offset 2.5 → 47.5, 52.5, … when size is 5).
 trade_value	1000	Dollar amount per trade leg.
 initial_cash	10000	Starting cash balance.
