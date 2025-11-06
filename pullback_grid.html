@@ -264,8 +264,8 @@
               id="selGridSpacing"
               class="w-full appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-9 py-2 text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
             >
-              <option value="fixed" selected>Fixed Price</option>
-              <option value="percent">Percentage</option>
+              <option value="fixed">Fixed Price</option>
+              <option value="percent" selected>Percentage</option>
             </select>
             <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -466,7 +466,7 @@
     const DEFAULT_PRICE_PRECISION = 2;
     const GRID_DEFAULTS = {
       gridSize: 5,
-      gridSpacingType: 'fixed',
+      gridSpacingType: 'percent',
       tradeValue: 1000,
       initialCash: 10000,
       fractionalShares: true,
@@ -511,7 +511,7 @@
     let DAY_SMA_MAPS = new Map();
     let SMA_METADATA = new Map();
     let SYMBOL_META = new Map();
-    let GRID_STATE = { trades: [], summary: null, equitySeries: [] };
+    let GRID_STATE = { trades: [], summary: null, equitySeries: [], ladderHistory: [] };
     let gridEquityChartInst = null;
     let gridLadderChartInst = null;
 
@@ -1042,6 +1042,24 @@
         return [time.getTime(), Number(point.cash)];
       }).filter(item => Number.isFinite(item[0]) && Number.isFinite(item[1]));
       cashData.sort((a, b) => a[0] - b[0]);
+      const fallbackInitialCash = (() => {
+        const raw = Number(series?.[0]?.initialCash);
+        return Number.isFinite(raw) && raw > 0 ? raw : GRID_DEFAULTS.initialCash;
+      })();
+      const investedData = [];
+      series.forEach(point => {
+        const time = point.time instanceof Date ? point.time : new Date(point.time);
+        const timestamp = time.getTime();
+        if (!Number.isFinite(timestamp)) return;
+        const invested = Number(point.cashDeployed);
+        const investedVal = Number.isFinite(invested) ? invested : 0;
+        const thresholdRaw = Number(point.initialCash);
+        const threshold = Number.isFinite(thresholdRaw) && thresholdRaw > 0 ? thresholdRaw : fallbackInitialCash;
+        const flag = investedVal > threshold ? 1 : 0;
+        investedData.push([timestamp, investedVal, flag]);
+      });
+      investedData.sort((a, b) => a[0] - b[0]);
+
       if (!equityData.length) {
         gridEquityChartInst.clear();
         if (label) label.textContent = '';
@@ -1064,11 +1082,12 @@
       gridEquityChartInst.setOption({
         grid: { left: '3%', right: '3%', top: 40, bottom: 40, containLabel: true },
         legend: {
-          data: ['Equity', 'Cash'],
+          data: ['Equity', 'Cash Balance', 'Cash Deployed'],
           textStyle: { color: '#475569' },
           selected: {
             Equity: true,
-            Cash: false
+            'Cash Balance': false,
+            'Cash Deployed': true
           }
         },
         dataZoom: [
@@ -1083,6 +1102,16 @@
             filterMode: 'weakFilter'
           }
         ],
+        visualMap: [{
+          show: false,
+          type: 'piecewise',
+          dimension: 2,
+          seriesIndex: 2,
+          pieces: [
+            { value: 0, color: '#1d4ed8' },
+            { value: 1, color: '#dc2626' }
+          ]
+        }],
         tooltip: {
           trigger: 'axis',
           axisPointer: { type: 'cross' },
@@ -1113,12 +1142,20 @@
             data: equityData
           },
           {
-            name: 'Cash',
+            name: 'Cash Balance',
             type: 'line',
             smooth: true,
             showSymbol: false,
             lineStyle: { color: '#64748b', width: 1.5, type: 'dashed' },
             data: cashData
+          },
+          {
+            name: 'Cash Deployed',
+            type: 'line',
+            smooth: true,
+            showSymbol: false,
+            lineStyle: { color: '#1d4ed8', width: 1.5, type: 'dotted' },
+            data: investedData
           }
         ]
       }, true);
@@ -1300,7 +1337,7 @@
     }
 
     function resetGridOutputs(message) {
-      GRID_STATE = { trades: [], summary: null, equitySeries: [] };
+      GRID_STATE = { trades: [], summary: null, equitySeries: [], ladderSnapshot: [] };
       renderGridSummary(null);
       renderGridTrades([]);
       setGridStatus(message || 'Load data and run the backtest to populate results.');
@@ -1474,6 +1511,7 @@
     function runPullbackGridSimulation(rows, params) {
       const trades = [];
       const equitySeries = [];
+      const ladderHistory = [];
       const mode = (params?.gridType || 'pullback').toLowerCase();
       if (mode === 'progressive') {
         return runProgressiveGrid(rows, params);
@@ -1491,11 +1529,11 @@
         cagr: 0
       };
       if (!Array.isArray(rows) || !rows.length) {
-        return { trades, summary, equitySeries };
+        return { trades, summary, equitySeries, ladderHistory };
       }
       const rawGridSize = Number(params?.gridSize);
       const gridOffset = Number(params?.gridOffset) || 0;
-      const gridSpacingType = (params?.gridSpacingType || 'fixed').toLowerCase();
+      const gridSpacingType = (params?.gridSpacingType || GRID_DEFAULTS.gridSpacingType).toLowerCase();
       const tradeValue = Number(params?.tradeValue);
       const initialCash = Number(params?.initialCash);
       const fractional = !!params?.fractionalShares;
@@ -1503,11 +1541,11 @@
       const retentionMode = (params?.retentionMode || 'profit').toLowerCase();
       const entryFilter = (params?.entryFilter || 'none').toLowerCase();
       if (!Number.isFinite(rawGridSize) || rawGridSize <= 0 || !Number.isFinite(tradeValue) || tradeValue <= 0) {
-        return { trades, summary, equitySeries };
+        return { trades, summary, equitySeries, ladderHistory };
       }
       let firstPrice = [rows[0]?.open, rows[0]?.close, rows[0]?.high, rows[0]?.low].map(Number).find(Number.isFinite);
       if (!Number.isFinite(firstPrice) || firstPrice <= 0) {
-        return { trades, summary, equitySeries };
+        return { trades, summary, equitySeries, ladderHistory };
       }
       let minPrice = firstPrice;
       let maxPrice = firstPrice;
@@ -1519,7 +1557,7 @@
         if (Number.isFinite(high)) maxPrice = Math.max(maxPrice, high);
       }
       if (!Number.isFinite(minPrice) || !Number.isFinite(maxPrice) || minPrice <= 0 || maxPrice <= 0) {
-        return { trades, summary, equitySeries };
+        return { trades, summary, equitySeries, ladderHistory };
       }
 
       const spacing = createGridSpacingHelpers({
@@ -1530,7 +1568,7 @@
       });
       if (spacing.error) {
         console.warn('Grid spacing configuration invalid:', spacing.error);
-        return { trades, summary, equitySeries };
+        return { trades, summary, equitySeries, ladderHistory };
       }
       const snapLevel = spacing.snap;
       const keyFor = spacing.key;
@@ -1787,6 +1825,14 @@
         const maxVal = Math.max(start, end);
         ensureRunupBuys(maxVal);
         activateQueuedBuys(maxVal);
+        if (timestamp instanceof Date) {
+          ladderHistory.push({
+            time: new Date(timestamp.getTime()),
+            buys: activeBuys.size,
+            sells: activeSells.size,
+            queued: queuedBuyActivations.length
+          });
+        }
       };
 
       const buildPath = (fromPrice, row) => {
@@ -1827,6 +1873,7 @@
         }
         prevPrice = path[path.length - 1];
         const equity = cash + shares * prevPrice;
+        const openBuyOrders = Array.from(activeBuys.values()).reduce((acc, arr) => acc + (Array.isArray(arr) ? arr.length : 0), 0);
         if (equity > peakEquity) peakEquity = equity;
         const drawdown = equity - peakEquity;
         if (drawdown < maxDrawdown) maxDrawdown = drawdown;
@@ -1836,7 +1883,9 @@
         equitySeries.push({
           time: new Date(row.caldt.getTime()),
           equity,
-          cash: cash
+          cash: cash,
+          cashDeployed: openBuyOrders * tradeValue,
+          initialCash
         });
       }
 
@@ -1856,12 +1905,13 @@
       summary.maxDrawdownPct = maxDrawdownPct * 100;
       summary.maxSharesHeld = maxSharesHeld;
       summary.cagr = cagr;
-      return { trades, summary, equitySeries };
+      return { trades, summary, equitySeries, ladderHistory };
     }
 
     function runProgressiveGrid(rows, params) {
       const trades = [];
       const equitySeries = [];
+      const ladderHistory = [];
       const summary = {
         totalTrades: 0,
         netProfit: 0,
@@ -1874,11 +1924,11 @@
         cagr: 0
       };
       if (!Array.isArray(rows) || !rows.length) {
-        return { trades, summary, equitySeries };
+        return { trades, summary, equitySeries, ladderHistory };
       }
       const rawGridSize = Number(params?.gridSize);
       const gridOffset = Number(params?.gridOffset) || 0;
-      const gridSpacingType = (params?.gridSpacingType || 'fixed').toLowerCase();
+      const gridSpacingType = (params?.gridSpacingType || GRID_DEFAULTS.gridSpacingType).toLowerCase();
       const tradeValue = Number(params?.tradeValue);
       const initialCash = Number(params?.initialCash);
       const fractional = !!params?.fractionalShares;
@@ -1886,11 +1936,11 @@
       const retentionMode = (params?.retentionMode || 'profit').toLowerCase();
       const entryFilter = (params?.entryFilter || 'none').toLowerCase();
       if (!Number.isFinite(rawGridSize) || rawGridSize <= 0 || !Number.isFinite(tradeValue) || tradeValue <= 0) {
-        return { trades, summary, equitySeries };
+        return { trades, summary, equitySeries, ladderHistory };
       }
       let firstPrice = [rows[0]?.open, rows[0]?.close, rows[0]?.high, rows[0]?.low].map(Number).find(Number.isFinite);
       if (!Number.isFinite(firstPrice) || firstPrice <= 0) {
-        return { trades, summary, equitySeries };
+        return { trades, summary, equitySeries, ladderHistory };
       }
 
       let minPrice = firstPrice;
@@ -1903,7 +1953,7 @@
         if (Number.isFinite(high)) maxPrice = Math.max(maxPrice, high);
       }
       if (!Number.isFinite(minPrice) || !Number.isFinite(maxPrice) || minPrice <= 0 || maxPrice <= 0) {
-        return { trades, summary, equitySeries };
+        return { trades, summary, equitySeries, ladderHistory };
       }
 
       const spacing = createGridSpacingHelpers({
@@ -1914,7 +1964,7 @@
       });
       if (spacing.error) {
         console.warn('Grid spacing configuration invalid:', spacing.error);
-        return { trades, summary, equitySeries };
+        return { trades, summary, equitySeries, ladderHistory };
       }
       const snapLevel = spacing.snap;
       const keyFor = spacing.key;
@@ -2228,16 +2278,25 @@
         }
         prevPrice = path[path.length - 1];
         const equity = cash + shares * prevPrice;
+        const openBuyOrders = pendingBuys.size;
         if (equity > peakEquity) peakEquity = equity;
         const drawdown = equity - peakEquity;
         if (drawdown < maxDrawdown) maxDrawdown = drawdown;
         const drawdownPct = peakEquity > 0 ? drawdown / peakEquity : 0;
         if (drawdownPct < maxDrawdownPct) maxDrawdownPct = drawdownPct;
         lastEquityTime = new Date(row.caldt.getTime());
+        ladderHistory.push({
+          time: new Date(row.caldt.getTime()),
+          buys: pendingBuys.size,
+          sells: pendingSells.size,
+          queued: 0
+        });
         equitySeries.push({
           time: new Date(row.caldt.getTime()),
           equity,
-          cash: cash
+          cash: cash,
+          cashDeployed: openBuyOrders * tradeValue,
+          initialCash
         });
       }
 
@@ -2257,7 +2316,7 @@
       summary.maxDrawdownPct = maxDrawdownPct * 100;
       summary.maxSharesHeld = maxSharesHeld;
       summary.cagr = cagr;
-      return { trades, summary, equitySeries };
+      return { trades, summary, equitySeries, ladderHistory };
     }
 
     function runGridBacktest() {
