@@ -1042,24 +1042,6 @@
         return [time.getTime(), Number(point.cash)];
       }).filter(item => Number.isFinite(item[0]) && Number.isFinite(item[1]));
       cashData.sort((a, b) => a[0] - b[0]);
-      const fallbackInitialCash = (() => {
-        const raw = Number(series?.[0]?.initialCash);
-        return Number.isFinite(raw) && raw > 0 ? raw : GRID_DEFAULTS.initialCash;
-      })();
-      const investedData = [];
-      series.forEach(point => {
-        const time = point.time instanceof Date ? point.time : new Date(point.time);
-        const timestamp = time.getTime();
-        if (!Number.isFinite(timestamp)) return;
-        const invested = Number(point.cashDeployed);
-        const investedVal = Number.isFinite(invested) ? invested : 0;
-        const thresholdRaw = Number(point.initialCash);
-        const threshold = Number.isFinite(thresholdRaw) && thresholdRaw > 0 ? thresholdRaw : fallbackInitialCash;
-        const flag = investedVal > threshold ? 1 : 0;
-        investedData.push([timestamp, investedVal, flag]);
-      });
-      investedData.sort((a, b) => a[0] - b[0]);
-
       if (!equityData.length) {
         gridEquityChartInst.clear();
         if (label) label.textContent = '';
@@ -1082,12 +1064,11 @@
       gridEquityChartInst.setOption({
         grid: { left: '3%', right: '3%', top: 40, bottom: 40, containLabel: true },
         legend: {
-          data: ['Equity', 'Cash Balance', 'Cash Deployed'],
+          data: ['Equity', 'Cash Balance'],
           textStyle: { color: '#475569' },
           selected: {
             Equity: true,
-            'Cash Balance': false,
-            'Cash Deployed': true
+            'Cash Balance': true
           }
         },
         dataZoom: [
@@ -1102,16 +1083,7 @@
             filterMode: 'weakFilter'
           }
         ],
-        visualMap: [{
-          show: false,
-          type: 'piecewise',
-          dimension: 2,
-          seriesIndex: 2,
-          pieces: [
-            { value: 0, color: '#1d4ed8' },
-            { value: 1, color: '#dc2626' }
-          ]
-        }],
+        visualMap: undefined,
         tooltip: {
           trigger: 'axis',
           axisPointer: { type: 'cross' },
@@ -1148,14 +1120,6 @@
             showSymbol: false,
             lineStyle: { color: '#64748b', width: 1.5, type: 'dashed' },
             data: cashData
-          },
-          {
-            name: 'Cash Deployed',
-            type: 'line',
-            smooth: true,
-            showSymbol: false,
-            lineStyle: { color: '#1d4ed8', width: 1.5, type: 'dotted' },
-            data: investedData
           }
         ]
       }, true);
