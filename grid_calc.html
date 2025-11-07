@@ -150,7 +150,7 @@
         <h2 class="font-semibold text-slate-700">Grid Parameters</h2>
         <p id="dataSummary" class="text-sm text-slate-500">Select a symbol to load intraday data.</p>
       </div>
-      <div class="grid gap-4 md:grid-cols-4">
+      <div class="grid gap-4 md:grid-cols-6">
         <label class="block">
           <span class="text-sm text-slate-600">Start Price ($)</span>
           <div class="mt-1 relative">
@@ -227,12 +227,105 @@
             </div>
           </div>
         </label>
+        <label class="block">
+          <span class="text-sm text-slate-600">Rungs per Side</span>
+          <div class="mt-1 relative">
+            <input
+              id="inpRungCount"
+              type="number"
+              min="1"
+              max="20"
+              step="1"
+              value="5"
+              class="w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+            />
+            <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
+              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase rung count" data-num-target="inpRungCount" data-num-step="1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd" /></svg>
+              </button>
+              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease rung count" data-num-target="inpRungCount" data-num-step="-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd" /></svg>
+              </button>
+            </div>
+          </div>
+        </label>
+        <label class="block">
+          <span class="text-sm text-slate-600">Initial Capital ($)</span>
+          <div class="mt-1 relative">
+            <input
+              id="inpInitialCapital"
+              type="number"
+              min="0"
+              step="100"
+              value="10000"
+              class="w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+            />
+            <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
+              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase initial capital" data-num-target="inpInitialCapital" data-num-step="1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd" /></svg>
+              </button>
+              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease initial capital" data-num-target="inpInitialCapital" data-num-step="-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd" /></svg>
+              </button>
+            </div>
+          </div>
+        </label>
+        <label class="block">
+          <span class="text-sm text-slate-600">Trade Amount ($)</span>
+          <div class="mt-1 relative">
+            <input
+              id="inpTradeAmount"
+              type="number"
+              min="0"
+              step="50"
+              value="1000"
+              class="w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+            />
+            <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
+              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase trade amount" data-num-target="inpTradeAmount" data-num-step="1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd" /></svg>
+              </button>
+              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease trade amount" data-num-target="inpTradeAmount" data-num-step="-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd" /></svg>
+              </button>
+            </div>
+          </div>
+        </label>
       </div>
     </section>
 
-    <section class="bg-white rounded-2xl shadow-soft p-3 md:p-4">
-      <div class="text-slate-500 text-sm">
-        Add pullback grid configuration controls, charts, and tables in this layout container.
+    <section id="gridLadderSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-3">
+      <div class="flex flex-col gap-1">
+        <h2 class="font-semibold text-slate-700">Grid Ladder Preview</h2>
+        <p id="gridLadderSummary" class="text-sm text-slate-500">Adjust the grid parameters to preview ladder levels around the starting price.</p>
+      </div>
+      <div class="overflow-x-auto">
+        <div id="gridLadderContainer" class="min-w-full rounded-xl border border-slate-200 bg-white">
+          <div class="p-4 text-sm text-slate-500">Enter a valid starting price, grid size, and rung count to draw the ladder.</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="gridJsonSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-3">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h2 class="font-semibold text-slate-700">Grid JSON Export</h2>
+          <p class="text-sm text-slate-500">Copy the current ladder as JSON for scripting or sharing.</p>
+        </div>
+      </div>
+      <div class="relative">
+        <button
+          type="button"
+          id="btnCopyGridJson"
+          class="absolute right-3 top-3 inline-flex items-center gap-2 rounded-lg border border-slate-600/30 bg-slate-800/80 px-3 py-1 text-xs font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-700/50"
+          disabled
+        >
+          <ion-icon name="copy-outline" class="text-base"></ion-icon>
+          <span data-copy-label>Copy JSON</span>
+        </button>
+        <pre class="bg-slate-900 text-slate-100 rounded-2xl p-4 text-xs md:text-sm font-mono overflow-x-auto shadow-inner min-h-[140px]">
+<code id="gridJsonCode">// Adjust grid inputs above to generate JSON.</code>
+        </pre>
       </div>
     </section>
   </div>
@@ -256,6 +349,7 @@
     let DAY_GROUPS = new Map();
     let DAYS = [];
     let SYMBOL_META = new Map();
+    let LAST_GRID_JSON = '';
 
     function setStatus(msg) {
       const el = document.getElementById('status');
@@ -326,6 +420,7 @@
           input.step = '0.5';
         }
       }
+      renderGridLadder();
     }
 
     function inferPricePrecisionFromRows(rows) {
@@ -355,6 +450,319 @@
       if (meta) {
         meta.precision = precision;
         SYMBOL_META.set(sym, meta);
+      }
+      renderGridLadder();
+    }
+
+    function readNumericInput(id) {
+      const el = document.getElementById(id);
+      if (!el) return NaN;
+      const val = parseFloat(el.value);
+      return Number.isFinite(val) ? val : NaN;
+    }
+
+    function resolveSymbolPrecision() {
+      const sym = (currentTicker || '').toUpperCase();
+      if (!sym) return DEFAULT_PRICE_PRECISION;
+      const meta = SYMBOL_META.get(sym) || ensureSymbolMetaEntry(sym);
+      if (!meta) return DEFAULT_PRICE_PRECISION;
+      const precision = Number.isInteger(meta.precision) ? meta.precision : DEFAULT_PRICE_PRECISION;
+      return Math.min(Math.max(precision, 0), 8);
+    }
+
+    function calculateGridLadder(params) {
+      const startPrice = Number(params?.startPrice);
+      const spacingType = (params?.spacingType || 'percent').toLowerCase();
+      const gridSize = Number(params?.gridSize);
+      const rungCount = Math.max(0, Math.floor(Number(params?.rungCount)));
+      const gridType = (params?.gridType || 'pullback').toLowerCase();
+      if (!Number.isFinite(startPrice) || startPrice <= 0) return { rows: [], summary: null, stepSize: null, precision: resolveSymbolPrecision() };
+      if (!Number.isFinite(gridSize) || gridSize <= 0) return { rows: [], summary: null, stepSize: null, precision: resolveSymbolPrecision() };
+      if (!Number.isFinite(rungCount) || rungCount <= 0) return { rows: [], summary: null, stepSize: null, precision: resolveSymbolPrecision() };
+
+      const precision = resolveSymbolPrecision();
+      const above = [];
+      const below = [];
+      const stepPercent = gridSize / 100;
+      const usePercentSpacing = spacingType === 'percent';
+      const aboveLimit = gridType === 'progressive'
+        ? Math.min(rungCount, 2)
+        : Math.min(rungCount, 1);
+
+      let priceAccumulator = startPrice;
+      for (let i = 1; i <= aboveLimit; i++) {
+        let price;
+        if (usePercentSpacing) {
+          priceAccumulator = priceAccumulator * (1 + stepPercent);
+          price = priceAccumulator;
+        } else {
+          price = startPrice + gridSize * i;
+        }
+        if (!Number.isFinite(price) || price <= 0) continue;
+        const diff = price - startPrice;
+        const diffPct = startPrice !== 0 ? (diff / startPrice) * 100 : 0;
+        above.push({
+          key: `above-${i}`,
+          type: 'above',
+          label: `+${i}`,
+          rung: i,
+          price,
+          diff,
+          diffPct,
+          direction: 'Above'
+        });
+      }
+
+      priceAccumulator = startPrice;
+      for (let i = 1; i <= rungCount; i++) {
+        let price;
+        if (usePercentSpacing) {
+          priceAccumulator = priceAccumulator * (1 - stepPercent);
+          price = priceAccumulator;
+          if (price <= 0) break;
+        } else {
+          price = startPrice - gridSize * i;
+        }
+        if (!Number.isFinite(price) || price <= 0) continue;
+        const diff = price - startPrice;
+        const diffPct = startPrice !== 0 ? (diff / startPrice) * 100 : 0;
+        below.push({
+          key: `below-${i}`,
+          type: 'below',
+          label: `-${i}`,
+          rung: i,
+          price,
+          diff,
+          diffPct,
+          direction: 'Below'
+        });
+      }
+
+      const startRow = {
+        key: 'start',
+        type: 'start',
+        label: 'Start',
+        rung: 0,
+        price: startPrice,
+        diff: 0,
+        diffPct: 0,
+        direction: 'Start'
+      };
+
+      const allRows = [...above, startRow, ...below];
+      allRows.sort((a, b) => b.price - a.price);
+      const stepSize = usePercentSpacing ? null : gridSize;
+
+      return {
+        rows: allRows,
+        summary: {
+          startPrice,
+          spacingType,
+          gridSize,
+          gridType,
+          rungCount,
+          aboveCount: above.length,
+          belowCount: below.length
+        },
+        stepSize,
+        precision
+      };
+    }
+
+    function renderGridLadder() {
+      const container = document.getElementById('gridLadderContainer');
+      const summaryEl = document.getElementById('gridLadderSummary');
+      if (!container) return;
+
+      const params = {
+        startPrice: readNumericInput('inpStartPrice'),
+        spacingType: (document.getElementById('selGridSpacing')?.value || 'percent').toLowerCase(),
+        gridSize: readNumericInput('inpGridSize'),
+        rungCount: readNumericInput('inpRungCount'),
+        gridType: (document.getElementById('selGridType')?.value || 'pullback').toLowerCase()
+      };
+      const result = calculateGridLadder(params);
+      if (!result.rows.length) {
+        container.innerHTML = '<div class="p-4 text-sm text-slate-500">Enter a positive starting price, grid size, and rung count to draw the ladder.</div>';
+        if (summaryEl) {
+          summaryEl.textContent = 'Adjust the grid parameters to preview ladder levels around the starting price.';
+        }
+        renderGridJson(result);
+        return;
+      }
+
+      const { rows, summary, stepSize, precision } = result;
+      const priceFormatter = new Intl.NumberFormat(undefined, {
+        minimumFractionDigits: precision,
+        maximumFractionDigits: precision
+      });
+      const diffFormatter = new Intl.NumberFormat(undefined, {
+        minimumFractionDigits: precision,
+        maximumFractionDigits: precision
+      });
+      const pctFormatter = new Intl.NumberFormat(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+
+      const spacingDescriptor = summary.spacingType === 'percent'
+        ? `${Number(summary.gridSize).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 4 })}% per rung (compounded)`
+        : `$${diffFormatter.format(summary.gridSize)} spacing`;
+      const stepDescriptor = Number.isFinite(stepSize)
+        ? `≈ $${diffFormatter.format(stepSize)} between levels`
+        : '';
+      if (summaryEl) {
+        const startStr = priceFormatter.format(summary.startPrice);
+        const stepSuffix = stepDescriptor ? `, ${stepDescriptor}` : '';
+        const gridTypeLabel = summary.gridType === 'progressive' ? 'Progressive' : 'Buy-the-Dip';
+        summaryEl.textContent = `${gridTypeLabel} grid: showing ${summary.aboveCount} rung(s) above and ${summary.belowCount} rung(s) below $${startStr} with ${spacingDescriptor}${stepSuffix}.`;
+      }
+
+      const rowHtml = rows.map(row => {
+        const isStart = row.type === 'start';
+        const diffClass = row.diff > 0 ? 'num-pos' : (row.diff < 0 ? 'num-neg' : 'text-slate-500');
+        const pctClass = row.diffPct > 0 ? 'num-pos' : (row.diffPct < 0 ? 'num-neg' : 'text-slate-500');
+        const diffAbs = diffFormatter.format(Math.abs(row.diff));
+        const pctAbs = pctFormatter.format(Math.abs(row.diffPct));
+        const diffText = row.diff === 0 ? `$${diffFormatter.format(0)}` : `${row.diff > 0 ? '+' : '-'}$${diffAbs}`;
+        const pctText = row.diffPct === 0 ? `${pctFormatter.format(0)}%` : `${row.diffPct > 0 ? '+' : '-'}${pctAbs}%`;
+        const baseCellClass = `px-4 py-2 text-sm ${isStart ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`;
+        return `
+          <tr class="${isStart ? 'bg-emerald-50' : ''}">
+            <td class="${baseCellClass}">${row.label}</td>
+            <td class="${baseCellClass}">${row.direction}</td>
+            <td class="${baseCellClass}">$${priceFormatter.format(row.price)}</td>
+            <td class="px-4 py-2 text-sm ${diffClass}">${diffText}</td>
+            <td class="px-4 py-2 text-sm ${pctClass}">${pctText}</td>
+          </tr>
+        `;
+      }).join('');
+
+      container.innerHTML = `
+        <table class="min-w-full divide-y divide-slate-200 text-sm">
+          <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <tr>
+              <th scope="col" class="px-4 py-2 text-left">Rung</th>
+              <th scope="col" class="px-4 py-2 text-left">Direction</th>
+              <th scope="col" class="px-4 py-2 text-left">Price</th>
+              <th scope="col" class="px-4 py-2 text-left">Distance ($)</th>
+              <th scope="col" class="px-4 py-2 text-left">Distance (%)</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            ${rowHtml}
+          </tbody>
+        </table>
+      `;
+
+      renderGridJson(result);
+    }
+
+    function buildGridJsonFromResult(result) {
+      if (!result || !Array.isArray(result.rows) || !result.rows.length || !result.summary) return null;
+      const precision = Number.isInteger(result.precision) ? result.precision : DEFAULT_PRICE_PRECISION;
+      const formatPrice = (val) => Number(Number(val).toFixed(precision));
+      const basePrice = formatPrice(result.summary.startPrice || 0);
+      const buyRows = result.rows.filter(row => row.type === 'below').sort((a, b) => b.price - a.price);
+      const buyLevels = buyRows.map(row => ({ price: formatPrice(row.price) }));
+      const gridType = result.summary.gridType || 'pullback';
+      const sellPrices = [];
+      if (gridType === 'progressive') {
+        sellPrices.push(basePrice);
+        const aboveRows = result.rows.filter(row => row.type === 'above').sort((a, b) => b.price - a.price);
+        aboveRows.forEach(row => sellPrices.push(formatPrice(row.price)));
+      } else {
+        if (buyLevels.length) {
+          sellPrices.push(basePrice);
+          for (let i = 0; i < buyLevels.length - 1; i++) {
+            sellPrices.push(buyLevels[i].price);
+          }
+        } else {
+          sellPrices.push(basePrice);
+        }
+      }
+      const sellLevels = sellPrices.map(price => ({ price }));
+      return {
+        grid: {
+          base_price: basePrice,
+          buy_levels: buyLevels,
+          sell_levels: sellLevels
+        }
+      };
+    }
+
+    function renderGridJson(result) {
+      const codeEl = document.getElementById('gridJsonCode');
+      const copyBtn = document.getElementById('btnCopyGridJson');
+      const labelSpan = copyBtn?.querySelector('[data-copy-label]');
+      const payload = buildGridJsonFromResult(result);
+      if (!codeEl) return;
+      if (!payload) {
+        codeEl.textContent = '// Adjust grid inputs above to generate JSON.';
+        LAST_GRID_JSON = '';
+        if (copyBtn) {
+          copyBtn.disabled = true;
+          if (labelSpan) labelSpan.textContent = 'Copy JSON';
+        }
+        return;
+      }
+      const pretty = formatGridJson(payload);
+      codeEl.textContent = pretty;
+      LAST_GRID_JSON = pretty;
+      if (copyBtn) {
+        copyBtn.disabled = false;
+        if (labelSpan) labelSpan.textContent = 'Copy JSON';
+      }
+    }
+    
+    function formatGridJson(payload) {
+      const indent = (level) => '  '.repeat(level);
+      const lines = ['{', `${indent(1)}"grid": {`];
+      const grid = payload?.grid || {};
+      const buyLevels = Array.isArray(grid.buy_levels) ? grid.buy_levels : [];
+      const sellLevels = Array.isArray(grid.sell_levels) ? grid.sell_levels : [];
+      lines.push(`${indent(2)}"base_price": ${grid.base_price},`);
+      lines.push(`${indent(2)}"buy_levels": [`);
+      buyLevels.forEach((level, idx) => {
+        const comma = idx < buyLevels.length - 1 ? ',' : '';
+        lines.push(`${indent(3)}{ "price": ${level.price} }${comma}`);
+      });
+      lines.push(`${indent(2)}],`);
+      lines.push(`${indent(2)}"sell_levels": [`);
+      sellLevels.forEach((level, idx) => {
+        const comma = idx < sellLevels.length - 1 ? ',' : '';
+        lines.push(`${indent(3)}{ "price": ${level.price} }${comma}`);
+      });
+      lines.push(`${indent(2)}]`);
+      lines.push(`${indent(1)}}`, '}');
+      return lines.join('\n');
+    }
+
+    async function copyGridJsonToClipboard(text) {
+      if (!text) return false;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        try {
+          await navigator.clipboard.writeText(text);
+          return true;
+        } catch (err) {
+          // fall back to execCommand copy
+        }
+      }
+      try {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        textarea.style.pointerEvents = 'none';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        const success = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        return success;
+      } catch (err) {
+        return false;
       }
     }
 
@@ -408,6 +816,7 @@
       document.title = fullTitle;
       highlightTickerButton(currentTicker);
       renderDataSummary();
+      renderGridLadder();
     }
 
     function normalizeAndIndex(rows) {
@@ -452,6 +861,7 @@
       DAY_GROUPS = new Map();
       DAYS = [];
       renderDataSummary();
+      renderGridLadder();
       return true;
     }
 
@@ -588,10 +998,62 @@
     document.addEventListener('DOMContentLoaded', () => {
       populateTickerSegment();
       updateGridSizeLabel();
+
       const spacingEl = document.getElementById('selGridSpacing');
       if (spacingEl) {
         spacingEl.addEventListener('change', updateGridSizeLabel);
       }
+
+      const startEl = document.getElementById('inpStartPrice');
+      if (startEl) {
+        startEl.addEventListener('input', renderGridLadder);
+        startEl.addEventListener('change', renderGridLadder);
+      }
+
+      const gridSizeEl = document.getElementById('inpGridSize');
+      if (gridSizeEl) {
+        gridSizeEl.addEventListener('input', renderGridLadder);
+        gridSizeEl.addEventListener('change', renderGridLadder);
+      }
+
+      const rungEl = document.getElementById('inpRungCount');
+      if (rungEl) {
+        rungEl.addEventListener('input', renderGridLadder);
+        rungEl.addEventListener('change', renderGridLadder);
+      }
+
+      const gridTypeEl = document.getElementById('selGridType');
+      if (gridTypeEl) {
+        gridTypeEl.addEventListener('change', renderGridLadder);
+      }
+
+      const copyBtn = document.getElementById('btnCopyGridJson');
+      if (copyBtn) {
+        copyBtn.addEventListener('click', async () => {
+          if (!LAST_GRID_JSON) return;
+          const labelSpan = copyBtn.querySelector('[data-copy-label]');
+          const original = labelSpan?.textContent || 'Copy JSON';
+          if (labelSpan) labelSpan.textContent = 'Copying…';
+          copyBtn.classList.add('ring-1', 'ring-emerald-400/60');
+          const success = await copyGridJsonToClipboard(LAST_GRID_JSON);
+          if (success) {
+            if (labelSpan) labelSpan.textContent = 'Copied!';
+            copyBtn.classList.add('bg-emerald-600');
+            setTimeout(() => {
+              copyBtn.classList.remove('bg-emerald-600', 'ring-emerald-400/60', 'ring-1');
+              if (labelSpan) labelSpan.textContent = original;
+            }, 1600);
+          } else {
+            copyBtn.classList.remove('ring-emerald-400/60', 'ring-1');
+            if (labelSpan) labelSpan.textContent = 'Copy failed';
+            setTimeout(() => {
+              if (labelSpan) labelSpan.textContent = original;
+            }, 1600);
+          }
+        });
+      }
+
+      renderGridLadder();
     });
   })();
 </script>
