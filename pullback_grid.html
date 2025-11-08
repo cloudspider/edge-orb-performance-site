@@ -285,7 +285,8 @@
               class="w-full appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-9 py-2 text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
             >
               <option value="fixed">Fixed Price</option>
-              <option value="percent" selected>Percentage</option>
+              <option value="percent_fixed" selected>Percentage · Fixed Anchor</option>
+              <option value="percent_ratchet_up">Percentage · Ratcheting Up Anchor</option>
             </select>
             <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -405,6 +406,26 @@
       </div>
     </section>
 
+    <section id="gridFiltersSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
+      <div class="flex flex-col gap-2">
+        <h2 class="font-semibold text-slate-700">Filters</h2>
+        <p class="text-sm text-slate-500">Limit the displayed results to specific months.</p>
+      </div>
+      <div class="relative inline-block" aria-label="Months">
+        <button id="sumMonthMultiBtn" type="button" class="inline-flex items-center justify-between gap-2 bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm min-w-[200px]">
+          <span id="sumMonthMultiLabel" class="truncate">All months</span>
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
+        </button>
+        <div id="sumMonthMultiMenu" class="absolute z-30 mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-soft p-2 hidden">
+          <div class="sticky top-0 bg-white z-10 px-2 pb-2 border-b border-slate-200 flex items-center justify-between gap-2">
+            <button id="sumMonthSelectAll" type="button" class="text-xs font-medium text-emerald-700 hover:text-emerald-900 hover:underline">Select all</button>
+            <button id="sumMonthClearAll" type="button" class="text-xs text-slate-600 hover:text-slate-800 hover:underline">Clear</button>
+          </div>
+          <div id="sumMonthMultiList" class="max-h-64 overflow-auto text-sm text-slate-700"></div>
+        </div>
+      </div>
+    </section>
+
     <section id="gridSummarySection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
       <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
@@ -516,7 +537,7 @@
     const DEFAULT_PRICE_PRECISION = 2;
     const GRID_DEFAULTS = {
       gridSize: 5,
-      gridSpacingType: 'percent',
+      gridSpacingType: 'percent_fixed',
       tradeValue: 1000,
       initialCash: 10000,
       fractionalShares: true,
@@ -565,6 +586,8 @@
     let TRADE_SORT_STATE = { key: 'buyTime', dir: 'asc' };
     let gridEquityChartInst = null;
     let gridLadderChartInst = null;
+    let AVAILABLE_MONTHS = [];
+    let VIEW_MONTHS = new Set();
 
     function setStatus(msg) {
       const el = document.getElementById('status');
@@ -587,10 +610,11 @@
       const label = document.getElementById('gridSizeLabel');
       if (!label) return;
       const spacingType = (document.getElementById('selGridSpacing')?.value || GRID_DEFAULTS.gridSpacingType).toLowerCase();
-      label.textContent = spacingType === 'percent' ? 'Grid Size (%)' : 'Grid Size ($)';
+      const percentMode = spacingType.startsWith('percent');
+      label.textContent = percentMode ? 'Grid Size (%)' : 'Grid Size ($)';
       const input = document.getElementById('inpGridSize');
       if (input) {
-        if (spacingType === 'percent') {
+        if (percentMode) {
           input.min = '0.1';
           input.step = '0.1';
         } else {
@@ -764,8 +788,9 @@
     }
 
     function createGridSpacingHelpers({ spacingType, gridSize, gridOffset, firstPrice }) {
-      const type = (spacingType || 'fixed').toLowerCase();
-      if (type === 'percent') {
+      const typeRaw = (spacingType || 'fixed').toLowerCase();
+      const isPercentType = typeRaw === 'percent' || typeRaw === 'percent_fixed' || typeRaw === 'percent_ratchet_up';
+      if (isPercentType) {
         const rawPercent = Number(gridSize);
         const percent = rawPercent / 100;
         if (!Number.isFinite(percent) || percent <= 0 || percent >= 1) {
@@ -773,7 +798,7 @@
         }
         const anchorOffset = Number(gridOffset);
         const anchorBase = Number.isFinite(anchorOffset) && anchorOffset > 0 ? anchorOffset : null;
-        const anchor = Math.max(anchorBase != null ? anchorBase : Number(firstPrice) || 0, 1e-9);
+        let anchor = Math.max(anchorBase != null ? anchorBase : Number(firstPrice) || 0, 1e-9);
         const ratio = 1 + percent;
         const logRatio = Math.log(ratio);
         const priceTolerance = 1e-6;
@@ -794,8 +819,7 @@
         };
         const key = (value) => {
           if (!Number.isFinite(value) || value <= 0) return 'nan';
-          const idx = Math.round(Math.log(value / anchor) / logRatio * 1e6) / 1e6;
-          return `p${idx}`;
+          return snap(value).toFixed(6);
         };
         const floor = (value) => {
           if (!Number.isFinite(value) || value <= 0) return NaN;
@@ -807,8 +831,14 @@
           const idx = Math.ceil(Math.log(value / anchor) / logRatio);
           return anchor * Math.pow(ratio, idx);
         };
+        const anchorMode = typeRaw === 'percent_ratchet_up' ? 'ratchet_up' : 'fixed';
+        const setAnchor = (value) => {
+          if (!Number.isFinite(value) || value <= 0) return;
+          anchor = value;
+        };
+        const getAnchor = () => anchor;
         return {
-          type,
+          type: 'percent',
           gridSize: rawPercent,
           percent,
           anchor,
@@ -822,7 +852,10 @@
           key,
           floor,
           ceil,
-          priceTolerance
+          priceTolerance,
+          anchorMode,
+          setAnchor,
+          getAnchor
         };
       }
       const size = Number(gridSize);
@@ -868,7 +901,8 @@
         priceTolerance: 1e-9,
         decimals,
         scale,
-        round
+        round,
+        anchorMode: 'fixed'
       };
     }
 
@@ -1085,20 +1119,88 @@
       });
     }
 
+    function formatMonthKeyFromDate(value) {
+      const date = value instanceof Date ? value : new Date(value);
+      if (!(date instanceof Date) || isNaN(date)) return null;
+      const mm = pad2(date.getMonth() + 1);
+      const yy = date.getFullYear();
+      return `${mm}/${yy}`;
+    }
+
+    function monthChoicesFromDays() {
+      if (!Array.isArray(DAYS) || !DAYS.length) return [];
+      const set = new Set();
+      for (const dayKey of DAYS) {
+        if (typeof dayKey !== 'string' || dayKey.length < 7) continue;
+        set.add(`${dayKey.slice(5, 7)}/${dayKey.slice(0, 4)}`);
+      }
+      return Array.from(set).sort((a, b) => {
+        const [am, ay] = a.split('/').map(Number);
+        const [bm, by] = b.split('/').map(Number);
+        if (ay !== by) return by - ay;
+        return bm - am;
+      });
+    }
+
+    function isMonthFilterStrict() {
+      return VIEW_MONTHS.size > 0 && VIEW_MONTHS.size < AVAILABLE_MONTHS.length;
+    }
+
+    function formatDayKeyToMonth(dayKey) {
+      if (typeof dayKey !== 'string' || dayKey.length < 7) return null;
+      return `${dayKey.slice(5, 7)}/${dayKey.slice(0, 4)}`;
+    }
+
+    function applyMonthFilter(trades) {
+      if (!Array.isArray(trades) || !trades.length) return [];
+      if (!VIEW_MONTHS.size) return trades.slice();
+      return trades.filter((trade) => {
+        const key = formatMonthKeyFromDate(trade?.buyTime);
+        return key && VIEW_MONTHS.has(key);
+      });
+    }
+
+    function filterRowsBySelectedMonths(rows) {
+      if (!Array.isArray(rows) || !rows.length) return [];
+      if (!VIEW_MONTHS.size) return rows.slice();
+      return rows.filter((row) => {
+        if (!row || !row.dayKey) return false;
+        const key = formatDayKeyToMonth(row.dayKey);
+        return key && VIEW_MONTHS.has(key);
+      });
+    }
+
+    function rerunBacktestIfDataLoaded() {
+      if (Array.isArray(ROWS) && ROWS.length) {
+        runGridBacktest();
+      }
+    }
+
     function renderGridTrades(trades) {
       const tbody = document.getElementById('gridTradeRows');
       const emptyState = document.getElementById('gridTradesEmpty');
       const label = document.getElementById('tradeCountLabel');
       if (!tbody) return;
+      const source = Array.isArray(trades) ? trades : [];
+      const filtered = applyMonthFilter(source);
+      const filterActive = isMonthFilterStrict();
       tbody.innerHTML = '';
-      if (!Array.isArray(trades) || !trades.length) {
-        if (emptyState) emptyState.classList.remove('hidden');
+      if (!filtered.length) {
+        if (emptyState) {
+          emptyState.textContent = filterActive
+            ? 'No trades match the selected month filter.'
+            : 'Run the backtest to see individual trades.';
+          emptyState.classList.remove('hidden');
+        }
         if (label) label.textContent = '0 trades';
         updateTradeSortIndicators();
         return;
       }
-      if (emptyState) emptyState.classList.add('hidden');
-      const displayTrades = sortTradesForDisplay(trades);
+      if (emptyState) {
+        emptyState.textContent = 'Run the backtest to see individual trades.';
+        emptyState.classList.add('hidden');
+      }
+      const displayTrades = sortTradesForDisplay(filtered);
       const frag = document.createDocumentFragment();
       for (const trade of displayTrades) {
         const tr = document.createElement('tr');
@@ -1120,9 +1222,90 @@
         frag.appendChild(tr);
       }
       tbody.appendChild(frag);
-      if (label) label.textContent = `${trades.length} trade${trades.length === 1 ? '' : 's'}`;
+      if (label) label.textContent = `${filtered.length} trade${filtered.length === 1 ? '' : 's'}`;
       updateTradeSortIndicators();
     }
+
+    function updateMonthFilterLabel() {
+      const lbl = document.getElementById('sumMonthMultiLabel');
+      if (!lbl) return;
+      if (!VIEW_MONTHS.size || VIEW_MONTHS.size === AVAILABLE_MONTHS.length) {
+        lbl.textContent = 'All months';
+        return;
+      }
+      if (VIEW_MONTHS.size <= 2) {
+        lbl.textContent = Array.from(VIEW_MONTHS).sort().join(', ');
+        return;
+      }
+      lbl.textContent = `${VIEW_MONTHS.size} selected`;
+    }
+
+    function buildMonthFilterOptions() {
+      AVAILABLE_MONTHS = monthChoicesFromDays();
+      const list = document.getElementById('sumMonthMultiList');
+      if (!list) return;
+      if (!AVAILABLE_MONTHS.length) {
+        list.innerHTML = '<div class="px-2 py-1 text-xs text-slate-500">No data loaded.</div>';
+      } else {
+        list.innerHTML = AVAILABLE_MONTHS.map(key => `
+          <label class="flex items-center gap-2 px-2 py-1 rounded hover:bg-slate-50 cursor-pointer">
+            <input type="checkbox" class="h-4 w-4 rounded border-slate-300" data-month="${key}" ${VIEW_MONTHS.has(key) ? 'checked' : ''} />
+            <span class="text-sm text-slate-800">${key}</span>
+          </label>
+        `).join('');
+      }
+      if (VIEW_MONTHS.size && VIEW_MONTHS.size >= AVAILABLE_MONTHS.length) {
+        VIEW_MONTHS = new Set(AVAILABLE_MONTHS);
+      } else {
+        const valid = new Set();
+        VIEW_MONTHS.forEach(key => { if (AVAILABLE_MONTHS.includes(key)) valid.add(key); });
+        VIEW_MONTHS = valid;
+      }
+      document.querySelectorAll('#sumMonthMultiList input[data-month]').forEach(cb => {
+        const key = cb.getAttribute('data-month');
+        cb.checked = VIEW_MONTHS.has(key);
+      });
+      updateMonthFilterLabel();
+    }
+
+    document.addEventListener('click', (e) => {
+      const menu = document.getElementById('sumMonthMultiMenu');
+      if (!menu) return;
+      const btn = e.target.closest('#sumMonthMultiBtn');
+      if (btn) {
+        menu.classList.toggle('hidden');
+        return;
+      }
+      if (!menu.contains(e.target)) {
+        menu.classList.add('hidden');
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      const selAll = e.target.closest('#sumMonthSelectAll');
+      const clrAll = e.target.closest('#sumMonthClearAll');
+      if (!selAll && !clrAll) return;
+      if (selAll) VIEW_MONTHS = new Set(AVAILABLE_MONTHS);
+      if (clrAll) VIEW_MONTHS = new Set();
+      document.querySelectorAll('#sumMonthMultiList input[data-month]').forEach(cb => {
+        const key = cb.getAttribute('data-month');
+        cb.checked = VIEW_MONTHS.has(key);
+      });
+      updateMonthFilterLabel();
+      renderGridTrades(GRID_STATE.trades || []);
+      rerunBacktestIfDataLoaded();
+    });
+
+    document.addEventListener('change', (e) => {
+      const cb = e.target.closest('#sumMonthMultiList input[data-month]');
+      if (!cb) return;
+      const key = cb.getAttribute('data-month');
+      if (!key) return;
+      if (cb.checked) VIEW_MONTHS.add(key); else VIEW_MONTHS.delete(key);
+      updateMonthFilterLabel();
+      renderGridTrades(GRID_STATE.trades || []);
+      rerunBacktestIfDataLoaded();
+    });
 
     function renderGridLevels(buyLevels, sellLevels, baseLevel) {
       const buyEl = document.getElementById('gridBuyLevels');
@@ -1452,6 +1635,7 @@
       renderGridEquityChart(null);
       renderLadderChart([]);
       renderGridLevels([], [], null);
+      buildMonthFilterOptions();
     }
 
     function normalizeAndIndex(rows) {
@@ -1459,6 +1643,7 @@
         ROWS = [];
         DAY_GROUPS = new Map();
         DAYS = [];
+        buildMonthFilterOptions();
         return;
       }
       const required = ['caldt', 'day', 'open', 'high', 'low', 'close'];
@@ -1473,19 +1658,20 @@
         if ([open, high, low, close].some(v => !Number.isFinite(v))) return null;
         return { caldt, dayKey, open, high, low, close, sma10: null, sma20: null, sma50: null, sma100: null };
       }).filter(Boolean);
-      cleanRows.sort((a, b) => a.caldt - b.caldt);
+    cleanRows.sort((a, b) => a.caldt - b.caldt);
 
-      ROWS = resampleIntradayRows(cleanRows, RESAMPLE_INTERVAL_MINUTES);
+    ROWS = resampleIntradayRows(cleanRows, RESAMPLE_INTERVAL_MINUTES);
 
-      DAY_GROUPS = new Map();
-      for (const row of ROWS) {
-        if (!DAY_GROUPS.has(row.dayKey)) DAY_GROUPS.set(row.dayKey, []);
-        DAY_GROUPS.get(row.dayKey).push(row);
-      }
-      for (const [key, arr] of DAY_GROUPS.entries()) arr.sort((a, b) => a.caldt - b.caldt);
-      DAYS = Array.from(DAY_GROUPS.keys()).sort();
-      computeDailySmaMaps();
+    DAY_GROUPS = new Map();
+    for (const row of ROWS) {
+      if (!DAY_GROUPS.has(row.dayKey)) DAY_GROUPS.set(row.dayKey, []);
+      DAY_GROUPS.get(row.dayKey).push(row);
     }
+    for (const [, arr] of DAY_GROUPS.entries()) arr.sort((a, b) => a.caldt - b.caldt);
+    DAYS = Array.from(DAY_GROUPS.keys()).sort();
+    computeDailySmaMaps();
+    buildMonthFilterOptions();
+  }
 
     function resampleIntradayRows(rows, minutes) {
       if (!Array.isArray(rows) || !rows.length) return [];
@@ -1640,6 +1826,7 @@
       };
       const buyLevelSet = new Set();
       const sellLevelSet = new Set();
+      let resolveBaseLevel = () => NaN;
       const finalizeResult = () => ({
         trades,
         summary,
@@ -1647,7 +1834,10 @@
         ladderHistory,
         buyLevels: Array.from(buyLevelSet).sort((a, b) => b - a),
         sellLevels: Array.from(sellLevelSet).sort((a, b) => a - b),
-        baseLevel: Number.isFinite(baseLevel) ? baseLevel : null
+        baseLevel: (() => {
+          const val = resolveBaseLevel();
+          return Number.isFinite(val) ? val : null;
+        })()
       });
       if (!Array.isArray(rows) || !rows.length) {
         return finalizeResult();
@@ -1698,10 +1888,53 @@
       const stepsBetween = spacing.stepsBetween;
       const priceTolerance = spacing.priceTolerance ?? 1e-9;
       const usePercentSpacing = spacing.type === 'percent';
-      const baseLevel = snapLevel(firstPrice);
+      const shouldRatchetUp = usePercentSpacing && spacing.anchorMode === 'ratchet_up' && typeof spacing.setAnchor === 'function' && typeof spacing.getAnchor === 'function';
+      const refreshOrderRungs = () => {
+        activeBuys.forEach(arr => {
+          if (!Array.isArray(arr)) return;
+          arr.forEach(order => {
+            if (order) order.rungIndex = computeRungIndex(order.level);
+          });
+        });
+        activeSells.forEach(arr => {
+          if (!Array.isArray(arr)) return;
+          arr.forEach(order => {
+            if (order) order.buyRung = computeRungIndex(order.buyPrice);
+          });
+        });
+      };
+      const ratchetAnchorIfNeeded = (candidate) => {
+        if (!shouldRatchetUp || !Number.isFinite(candidate)) return;
+        const currentAnchor = spacing.getAnchor && spacing.getAnchor();
+        if (!Number.isFinite(currentAnchor)) return;
+        const tolerance = priceTolerance * Math.max(1, candidate);
+        if (candidate <= currentAnchor + tolerance) return;
+        const snapped = snapLevel(candidate);
+        spacing.setAnchor(snapped);
+        if (Number.isFinite(highestSeededBuyLevel)) {
+          highestSeededBuyLevel = snapLevel(highestSeededBuyLevel);
+        }
+        refreshOrderRungs();
+      };
+      const initialBaseLevel = snapLevel(firstPrice);
+      resolveBaseLevel = () => {
+        if (usePercentSpacing && typeof spacing.getAnchor === 'function') {
+          const anchor = spacing.getAnchor();
+          if (Number.isFinite(anchor)) return anchor;
+        }
+        return initialBaseLevel;
+      };
+      const currentBaseLevel = () => {
+        if (usePercentSpacing && typeof spacing.getAnchor === 'function') {
+          const anchor = spacing.getAnchor();
+          if (Number.isFinite(anchor)) return anchor;
+        }
+        return initialBaseLevel;
+      };
       const computeRungIndex = (level) => {
-        if (!Number.isFinite(level) || !Number.isFinite(baseLevel)) return 0;
-        const diff = stepsBetween(baseLevel, level);
+        const anchor = currentBaseLevel();
+        if (!Number.isFinite(level) || !Number.isFinite(anchor)) return 0;
+        const diff = stepsBetween(anchor, level);
         if (!Number.isFinite(diff)) return 0;
         return Math.round(diff);
       };
@@ -1842,6 +2075,7 @@
           highestSeededBuyLevel = nextLevel;
           safety += 1;
         }
+        ratchetAnchorIfNeeded(Math.max(maxPrice, highestSeededBuyLevel));
       };
 
       const activateQueuedBuys = (maxPrice) => {
@@ -1961,6 +2195,7 @@
         const maxVal = Math.max(start, end);
         ensureRunupBuys(maxVal);
         activateQueuedBuys(maxVal);
+        ratchetAnchorIfNeeded(maxVal);
         if (timestamp instanceof Date) {
           ladderHistory.push({
             time: new Date(timestamp.getTime()),
@@ -2063,6 +2298,7 @@
       };
       const buyLevelSet = new Set();
       const sellLevelSet = new Set();
+      let resolveBaseLevel = () => NaN;
       const finalizeResult = () => ({
         trades,
         summary,
@@ -2070,7 +2306,10 @@
         ladderHistory,
         buyLevels: Array.from(buyLevelSet).sort((a, b) => b - a),
         sellLevels: Array.from(sellLevelSet).sort((a, b) => a - b),
-        baseLevel: Number.isFinite(baseLevel) ? baseLevel : null
+        baseLevel: (() => {
+          const val = resolveBaseLevel();
+          return Number.isFinite(val) ? val : null;
+        })()
       });
       if (!Array.isArray(rows) || !rows.length) {
         return finalizeResult();
@@ -2123,10 +2362,44 @@
       const priceTolerance = spacing.priceTolerance ?? 1e-9;
       const usePercentSpacing = spacing.type === 'percent';
       const EPS = 1e-9;
-      const baseLevel = snapLevel(firstPrice);
+      const shouldRatchetUp = usePercentSpacing && spacing.anchorMode === 'ratchet_up' && typeof spacing.setAnchor === 'function' && typeof spacing.getAnchor === 'function';
+      const refreshEntryRungs = () => {
+        pendingBuys.forEach(entry => {
+          if (entry) entry.rungIndex = computeRungIndex(entry.level);
+        });
+        pendingSells.forEach(entry => {
+          if (entry) entry.buyRung = computeRungIndex(entry.buyPrice);
+        });
+      };
+      const ratchetAnchorIfNeeded = (candidate) => {
+        if (!shouldRatchetUp || !Number.isFinite(candidate)) return;
+        const currentAnchor = spacing.getAnchor && spacing.getAnchor();
+        if (!Number.isFinite(currentAnchor)) return;
+        const tolerance = priceTolerance * Math.max(1, candidate);
+        if (candidate <= currentAnchor + tolerance) return;
+        const snapped = snapLevel(candidate);
+        spacing.setAnchor(snapped);
+        refreshEntryRungs();
+      };
+      const initialBaseLevel = snapLevel(firstPrice);
+      resolveBaseLevel = () => {
+        if (usePercentSpacing && typeof spacing.getAnchor === 'function') {
+          const anchor = spacing.getAnchor();
+          if (Number.isFinite(anchor)) return anchor;
+        }
+        return initialBaseLevel;
+      };
+      const currentBaseLevel = () => {
+        if (usePercentSpacing && typeof spacing.getAnchor === 'function') {
+          const anchor = spacing.getAnchor();
+          if (Number.isFinite(anchor)) return anchor;
+        }
+        return initialBaseLevel;
+      };
       const computeRungIndex = (level) => {
-        if (!Number.isFinite(level) || !Number.isFinite(baseLevel)) return 0;
-        const diff = stepsBetween(baseLevel, level);
+        const anchor = currentBaseLevel();
+        if (!Number.isFinite(level) || !Number.isFinite(anchor)) return 0;
+        const diff = stepsBetween(anchor, level);
         if (!Number.isFinite(diff)) return 0;
         return Math.round(diff);
       };
@@ -2381,6 +2654,7 @@
               if (!executeBuy(nextEntry, eventTime, contextRow)) break;
             }
           }
+          ratchetAnchorIfNeeded(end);
         } else if (end < start - threshold) {
           let cursor = start;
           const target = end;
@@ -2490,6 +2764,17 @@
         return;
       }
       const params = getGridParamsFromUI();
+      const rowsForRun = filterRowsBySelectedMonths(ROWS);
+      if (!rowsForRun.length) {
+        setGridStatus('No data available for the selected month filter. Clear the filter or load more data.');
+        renderGridSummary(null);
+        renderGridTrades([]);
+        renderGridEquityChart(null);
+        renderLadderChart([]);
+        renderGridLevels([], [], null);
+        return;
+      }
+      const uniqueFilteredDays = new Set(rowsForRun.map(row => row?.dayKey).filter(Boolean));
       const entryFilter = params?.entryFilter || 'none';
       const window = getEntryFilterWindow(entryFilter);
       if (window) {
@@ -2505,10 +2790,19 @@
           renderGridLevels([], [], null);
           return;
         }
+        if (uniqueFilteredDays.size < window) {
+          setGridStatus(`Entry filter (${window}-day SMA) needs ${window} completed day(s), but the current month filter only leaves ${uniqueFilteredDays.size.toLocaleString()} day${uniqueFilteredDays.size === 1 ? '' : 's'}. Adjust the filter or load additional data.`);
+          renderGridSummary(null);
+          renderGridTrades([]);
+          renderGridEquityChart(null);
+          renderLadderChart([]);
+          renderGridLevels([], [], null);
+          return;
+        }
       }
       setGridStatus('Running backtest…');
       try {
-        const result = runPullbackGridSimulation(ROWS, params) || {};
+        const result = runPullbackGridSimulation(rowsForRun, params) || {};
         const safeResult = {
           trades: Array.isArray(result.trades) ? result.trades : [],
           summary: result.summary || null,
@@ -2643,6 +2937,7 @@
       renderGridEquityChart(null);
       renderLadderChart([]);
       renderGridLevels([], [], null);
+      buildMonthFilterOptions();
       setRunButtonEnabled(false);
       renderDataSummary();
       return false;
