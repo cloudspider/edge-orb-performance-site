@@ -128,32 +128,6 @@
           <a data-nav href="grid_calc.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Grid Calculator</a>
         </div>
       </div>
-      <div class="flex items-center gap-2">
-        <button
-          type="button"
-          id="btnExportData"
-          class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-emerald-500 hover:text-emerald-600"
-          title="Export saved backtest data"
-        >
-          <i class="fa fa-download"></i>
-          <span>Export</span>
-        </button>
-        <button
-          type="button"
-          id="btnImportData"
-          class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-emerald-500 hover:text-emerald-600"
-          title="Import saved backtest data"
-        >
-          <i class="fa fa-upload"></i>
-          <span>Import</span>
-        </button>
-        <input
-          type="file"
-          id="inputImportData"
-          accept="application/json"
-          class="hidden"
-        />
-      </div>
     </div>
   </nav>
   <script>
@@ -175,8 +149,8 @@
 
   <div class="max-w-screen-2xl mx-auto p-6 space-y-6">
     <header class="mb-2">
-      <h1 id="mainTitle" class="text-2xl md:text-3xl font-semibold">Buy-the-Dip Grid Backtest</h1>
-      <p class="text-slate-600 mt-1">Under construction. Hook up buy-the-dip grid datasets and controls here.</p>
+      <h1 id="mainTitle" class="text-2xl md:text-3xl font-semibold">Grid Backtest</h1>
+      <!-- <p class="text-slate-600 mt-1">Under construction. Hook up buy-the-dip grid datasets and controls here.</p> -->
     </header>
 
     <section id="symbolPicker" class="bg-white rounded-2xl shadow-soft p-3 md:p-4">
@@ -380,11 +354,32 @@
     </section>
 
     <section id="gridLevelsSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
-      <div class="flex flex-col gap-1">
-        <h2 class="font-semibold text-slate-700">Grid Levels</h2>
-        <p id="gridLevelsSummary" class="text-sm text-slate-500">Run the backtest to list the ladder levels currently seeded for buys and sells.</p>
+      <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div class="flex flex-col gap-1">
+          <h2 class="font-semibold text-slate-700">Grid Levels</h2>
+          <p id="gridLevelsSummary" class="text-sm text-slate-500">Run the backtest to list the ladder levels currently seeded for buys and sells.</p>
+        </div>
+        <button
+          type="button"
+          id="gridLevelsToggle"
+          aria-expanded="false"
+          aria-controls="gridLevelsBody"
+          class="inline-flex items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-emerald-500 hover:text-emerald-600"
+        >
+          <span id="gridLevelsToggleLabel">Show Levels</span>
+          <svg
+            id="gridLevelsChevron"
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-4 w-4 text-slate-500 transition-transform"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
+          </svg>
+        </button>
       </div>
-      <div class="grid gap-4 md:grid-cols-2">
+      <div id="gridLevelsBody" class="grid gap-4 md:grid-cols-2 hidden">
         <div class="rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col">
           <div class="flex items-center justify-between pb-2 border-b border-slate-100">
             <h3 class="text-sm font-semibold text-slate-600">Buy Levels</h3>
@@ -1306,6 +1301,26 @@
       renderGridTrades(GRID_STATE.trades || []);
       rerunBacktestIfDataLoaded();
     });
+
+    (function(){
+      const toggle = document.getElementById('gridLevelsToggle');
+      const body = document.getElementById('gridLevelsBody');
+      const label = document.getElementById('gridLevelsToggleLabel');
+      const chevron = document.getElementById('gridLevelsChevron');
+      if (!toggle || !body) return;
+      const setExpanded = (expanded) => {
+        toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        body.classList.toggle('hidden', !expanded);
+        if (label) label.textContent = expanded ? 'Hide Levels' : 'Show Levels';
+        if (chevron) chevron.classList.toggle('rotate-180', expanded);
+      };
+      setExpanded(false);
+      toggle.addEventListener('click', (e) => {
+        e.preventDefault();
+        const expanded = toggle.getAttribute('aria-expanded') === 'true';
+        setExpanded(!expanded);
+      });
+    })();
 
     function renderGridLevels(buyLevels, sellLevels, baseLevel) {
       const buyEl = document.getElementById('gridBuyLevels');
@@ -2269,7 +2284,7 @@
       summary.totalTrades = trades.length;
       summary.netProfit = realizedProfit;
       summary.finalEquity = finalEquity;
-      summary.totalRetainedShares = shares;
+      summary.totalRetainedShares = cumulativeRetained;
       summary.cash = cash;
       summary.minCash = minCashBalance;
       summary.shares = shares;
@@ -2747,7 +2762,7 @@
       summary.totalTrades = trades.length;
       summary.netProfit = realizedProfit;
       summary.finalEquity = finalEquity;
-      summary.totalRetainedShares = shares;
+      summary.totalRetainedShares = cumulativeRetained;
       summary.cash = cash;
       summary.minCash = minCashBalance;
       summary.shares = shares;
