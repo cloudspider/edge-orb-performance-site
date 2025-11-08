@@ -203,16 +203,6 @@
       </div>
     </section>
 
-    <section class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-3">
-      <div class="flex flex-col gap-1">
-        <h2 class="font-semibold text-slate-700">Dataset</h2>
-        <p id="dataSummary" class="text-sm text-slate-500">Select a symbol to load intraday data.</p>
-      </div>
-      <div class="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-500 leading-relaxed">
-        <p>Files must contain 1-minute OHLC data with columns for <code>caldt</code>, <code>day</code>, <code>open</code>, <code>high</code>, <code>low</code>, and <code>close</code>. The buy-the-dip grid simulation evaluates each minute to detect fills, so ensure the CSV spans the period you want to test.</p>
-      </div>
-    </section>
-
     <section id="gridParameters" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
       <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
@@ -388,6 +378,33 @@
       </div>
     </section>
 
+    <section id="gridLevelsSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
+      <div class="flex flex-col gap-1">
+        <h2 class="font-semibold text-slate-700">Grid Levels</h2>
+        <p id="gridLevelsSummary" class="text-sm text-slate-500">Run the backtest to list the ladder levels currently seeded for buys and sells.</p>
+      </div>
+      <div class="grid gap-4 md:grid-cols-2">
+        <div class="rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col">
+          <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+            <h3 class="text-sm font-semibold text-slate-600">Buy Levels</h3>
+            <span id="gridBuyLevelCount" class="text-xs text-slate-500">0</span>
+          </div>
+          <div id="gridBuyLevels" class="mt-3 grow overflow-y-auto text-sm text-slate-700 max-h-72">
+            <div class="text-slate-500 text-xs">Run the backtest to populate buy levels.</div>
+          </div>
+        </div>
+        <div class="rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col">
+          <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+            <h3 class="text-sm font-semibold text-slate-600">Sell Levels</h3>
+            <span id="gridSellLevelCount" class="text-xs text-slate-500">0</span>
+          </div>
+          <div id="gridSellLevels" class="mt-3 grow overflow-y-auto text-sm text-slate-700 max-h-72">
+            <div class="text-slate-500 text-xs">Run the backtest to populate sell levels.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section id="gridSummarySection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
       <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
@@ -477,7 +494,7 @@
               <th class="px-3 py-2 sortable" data-sort-key="buyTime"><button type="button"><span>Buy Time</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 text-right sortable" data-sort-key="buyPrice"><button type="button"><span>Buy Price</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 text-right sortable" data-sort-key="buyQty"><button type="button"><span>Buy Qty</span><span class="sort-indicator"></span></button></th>
-              <th class="px-3 py-2 text-right sortable" data-sort-key="gridLevel"><button type="button"><span>Grid Level</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-sort-key="openLevels"><button type="button"><span>Open Levels</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 sortable" data-sort-key="sellTime"><button type="button"><span>Sell Time</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 text-right sortable" data-sort-key="sellPrice"><button type="button"><span>Sell Price</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 text-right sortable" data-sort-key="sellQty"><button type="button"><span>Sell Qty</span><span class="sort-indicator"></span></button></th>
@@ -544,7 +561,7 @@
     let DAY_SMA_MAPS = new Map();
     let SMA_METADATA = new Map();
     let SYMBOL_META = new Map();
-    let GRID_STATE = { trades: [], summary: null, equitySeries: [], ladderHistory: [] };
+    let GRID_STATE = { trades: [], summary: null, equitySeries: [], ladderHistory: [], buyLevels: [], sellLevels: [], baseLevel: null };
     let TRADE_SORT_STATE = { key: 'buyTime', dir: 'asc' };
     let gridEquityChartInst = null;
     let gridLadderChartInst = null;
@@ -1036,6 +1053,7 @@
         case 'profit':
         case 'roiPct':
         case 'gridLevel':
+        case 'openLevels':
           return Number(trade[key]) || 0;
         default:
           return 0;
@@ -1084,13 +1102,12 @@
       const frag = document.createDocumentFragment();
       for (const trade of displayTrades) {
         const tr = document.createElement('tr');
-        const rung = Number.isFinite(trade.gridLevel) ? Math.round(trade.gridLevel) : null;
-        const rungLabel = rung == null ? '—' : (rung > 0 ? `+${rung}` : String(rung));
+        const openLevelsLabel = Number.isFinite(trade.openLevels) ? trade.openLevels.toLocaleString() : '—';
         tr.innerHTML = `
           <td class="px-3 py-2 whitespace-nowrap">${formatDateTime(trade.buyTime)}</td>
           <td class="px-3 py-2 text-right">${formatNumber(trade.buyPrice, 4)}</td>
           <td class="px-3 py-2 text-right">${formatNumber(trade.buyQty, 4)}</td>
-          <td class="px-3 py-2 text-right">${rungLabel}</td>
+          <td class="px-3 py-2 text-right">${openLevelsLabel}</td>
           <td class="px-3 py-2 whitespace-nowrap">${formatDateTime(trade.sellTime)}</td>
           <td class="px-3 py-2 text-right">${formatNumber(trade.sellPrice, 4)}</td>
           <td class="px-3 py-2 text-right">${formatNumber(trade.sellQty, 4)}</td>
@@ -1105,6 +1122,42 @@
       tbody.appendChild(frag);
       if (label) label.textContent = `${trades.length} trade${trades.length === 1 ? '' : 's'}`;
       updateTradeSortIndicators();
+    }
+
+    function renderGridLevels(buyLevels, sellLevels, baseLevel) {
+      const buyEl = document.getElementById('gridBuyLevels');
+      const sellEl = document.getElementById('gridSellLevels');
+      const buyCountEl = document.getElementById('gridBuyLevelCount');
+      const sellCountEl = document.getElementById('gridSellLevelCount');
+      const summaryEl = document.getElementById('gridLevelsSummary');
+      const defaultMsg = 'Run the backtest to list the ladder levels currently seeded for buys and sells.';
+      const formatList = (values, order = 'desc') => {
+        if (!Array.isArray(values) || !values.length) {
+          return '<div class="text-xs text-slate-500">No levels generated yet.</div>';
+        }
+        const sorted = values.slice().sort(order === 'asc' ? ((a, b) => a - b) : ((a, b) => b - a));
+        const items = sorted.map((price, idx) => `
+          <li class="flex items-center justify-between gap-4">
+            <span class="text-xs text-slate-500">#${idx + 1}</span>
+            <span class="font-mono text-sm text-slate-800">$${formatNumber(price, 4)}</span>
+          </li>
+        `).join('');
+        return `<ol class="space-y-1">${items}</ol>`;
+      };
+      const buyCount = Array.isArray(buyLevels) ? buyLevels.length : 0;
+      const sellCount = Array.isArray(sellLevels) ? sellLevels.length : 0;
+      if (buyEl) buyEl.innerHTML = formatList(buyLevels || [], 'desc');
+      if (sellEl) sellEl.innerHTML = formatList(sellLevels || [], 'asc');
+      if (buyCountEl) buyCountEl.textContent = `${buyCount.toLocaleString()} level${buyCount === 1 ? '' : 's'}`;
+      if (sellCountEl) sellCountEl.textContent = `${sellCount.toLocaleString()} level${sellCount === 1 ? '' : 's'}`;
+      if (summaryEl) {
+        if (buyCount || sellCount) {
+          const baseText = Number.isFinite(baseLevel) ? ` Base price: $${formatNumber(baseLevel, 4)}.` : '';
+          summaryEl.textContent = `Tracking ${buyCount.toLocaleString()} buy level${buyCount === 1 ? '' : 's'} and ${sellCount.toLocaleString()} sell level${sellCount === 1 ? '' : 's'} from the latest run.${baseText}`;
+        } else {
+          summaryEl.textContent = defaultMsg;
+        }
+      }
     }
 
     function renderGridEquityChart(series) {
@@ -1392,12 +1445,13 @@
     }
 
     function resetGridOutputs(message) {
-      GRID_STATE = { trades: [], summary: null, equitySeries: [], ladderSnapshot: [] };
+      GRID_STATE = { trades: [], summary: null, equitySeries: [], ladderHistory: [], buyLevels: [], sellLevels: [], baseLevel: null };
       renderGridSummary(null);
       renderGridTrades([]);
       setGridStatus(message || 'Load data and run the backtest to populate results.');
       renderGridEquityChart(null);
       renderLadderChart([]);
+      renderGridLevels([], [], null);
     }
 
     function normalizeAndIndex(rows) {
@@ -1584,8 +1638,19 @@
         maxSharesHeld: 0,
         cagr: 0
       };
+      const buyLevelSet = new Set();
+      const sellLevelSet = new Set();
+      const finalizeResult = () => ({
+        trades,
+        summary,
+        equitySeries,
+        ladderHistory,
+        buyLevels: Array.from(buyLevelSet).sort((a, b) => b - a),
+        sellLevels: Array.from(sellLevelSet).sort((a, b) => a - b),
+        baseLevel: Number.isFinite(baseLevel) ? baseLevel : null
+      });
       if (!Array.isArray(rows) || !rows.length) {
-        return { trades, summary, equitySeries, ladderHistory };
+        return finalizeResult();
       }
       const rawGridSize = Number(params?.gridSize);
       const gridOffset = Number(params?.gridOffset) || 0;
@@ -1597,11 +1662,11 @@
       const retentionMode = (params?.retentionMode || 'profit').toLowerCase();
       const entryFilter = (params?.entryFilter || 'none').toLowerCase();
       if (!Number.isFinite(rawGridSize) || rawGridSize <= 0 || !Number.isFinite(tradeValue) || tradeValue <= 0) {
-        return { trades, summary, equitySeries, ladderHistory };
+        return finalizeResult();
       }
       let firstPrice = [rows[0]?.open, rows[0]?.close, rows[0]?.high, rows[0]?.low].map(Number).find(Number.isFinite);
       if (!Number.isFinite(firstPrice) || firstPrice <= 0) {
-        return { trades, summary, equitySeries, ladderHistory };
+        return finalizeResult();
       }
       let minPrice = firstPrice;
       let maxPrice = firstPrice;
@@ -1613,7 +1678,7 @@
         if (Number.isFinite(high)) maxPrice = Math.max(maxPrice, high);
       }
       if (!Number.isFinite(minPrice) || !Number.isFinite(maxPrice) || minPrice <= 0 || maxPrice <= 0) {
-        return { trades, summary, equitySeries, ladderHistory };
+        return finalizeResult();
       }
 
       const spacing = createGridSpacingHelpers({
@@ -1624,7 +1689,7 @@
       });
       if (spacing.error) {
         console.warn('Grid spacing configuration invalid:', spacing.error);
-        return { trades, summary, equitySeries, ladderHistory };
+        return finalizeResult();
       }
       const snapLevel = spacing.snap;
       const keyFor = spacing.key;
@@ -1660,6 +1725,7 @@
       const addBuyOrder = (level) => {
         const price = snapLevel(level);
         if (!Number.isFinite(price) || price <= 0) return null;
+        buyLevelSet.add(price);
         const key = keyFor(price);
         const existing = activeBuys.get(key);
         if (existing && existing.length) return existing[0];
@@ -1674,6 +1740,7 @@
       const addSellOrder = (level, buyInfo) => {
         const price = snapLevel(level);
         if (!Number.isFinite(price) || price <= 0) return null;
+        sellLevelSet.add(price);
         const key = keyFor(price);
         if (!activeSells.has(key)) activeSells.set(key, []);
         const order = {
@@ -1856,11 +1923,13 @@
         const buyTime = order.buyTime instanceof Date ? new Date(order.buyTime.getTime()) : new Date();
         const msHeld = sellTime.getTime() - buyTime.getTime();
         const daysHeld = Number.isFinite(msHeld) ? Math.max(0, msHeld / 86400000) : 0;
+        const openTradesCount = Array.from(activeSells.values()).reduce((acc, arr) => acc + (Array.isArray(arr) ? arr.length : 0), 0);
         trades.push({
           buyTime,
           buyPrice: order.buyPrice,
           buyQty: order.buyQty,
           gridLevel: Number.isFinite(order.buyRung) ? order.buyRung : computeRungIndex(order.buyPrice),
+          openLevels: openTradesCount,
           sellTime,
           sellPrice: price,
           sellQty: qty,
@@ -1973,7 +2042,7 @@
       summary.maxDrawdownPct = maxDrawdownPct * 100;
       summary.maxSharesHeld = maxSharesHeld;
       summary.cagr = cagr;
-      return { trades, summary, equitySeries, ladderHistory };
+      return finalizeResult();
     }
 
     function runProgressiveGrid(rows, params) {
@@ -1992,8 +2061,19 @@
         maxSharesHeld: 0,
         cagr: 0
       };
+      const buyLevelSet = new Set();
+      const sellLevelSet = new Set();
+      const finalizeResult = () => ({
+        trades,
+        summary,
+        equitySeries,
+        ladderHistory,
+        buyLevels: Array.from(buyLevelSet).sort((a, b) => b - a),
+        sellLevels: Array.from(sellLevelSet).sort((a, b) => a - b),
+        baseLevel: Number.isFinite(baseLevel) ? baseLevel : null
+      });
       if (!Array.isArray(rows) || !rows.length) {
-        return { trades, summary, equitySeries, ladderHistory };
+        return finalizeResult();
       }
       const rawGridSize = Number(params?.gridSize);
       const gridOffset = Number(params?.gridOffset) || 0;
@@ -2005,11 +2085,11 @@
       const retentionMode = (params?.retentionMode || 'profit').toLowerCase();
       const entryFilter = (params?.entryFilter || 'none').toLowerCase();
       if (!Number.isFinite(rawGridSize) || rawGridSize <= 0 || !Number.isFinite(tradeValue) || tradeValue <= 0) {
-        return { trades, summary, equitySeries, ladderHistory };
+        return finalizeResult();
       }
       let firstPrice = [rows[0]?.open, rows[0]?.close, rows[0]?.high, rows[0]?.low].map(Number).find(Number.isFinite);
       if (!Number.isFinite(firstPrice) || firstPrice <= 0) {
-        return { trades, summary, equitySeries, ladderHistory };
+        return finalizeResult();
       }
 
       let minPrice = firstPrice;
@@ -2022,7 +2102,7 @@
         if (Number.isFinite(high)) maxPrice = Math.max(maxPrice, high);
       }
       if (!Number.isFinite(minPrice) || !Number.isFinite(maxPrice) || minPrice <= 0 || maxPrice <= 0) {
-        return { trades, summary, equitySeries, ladderHistory };
+        return finalizeResult();
       }
 
       const spacing = createGridSpacingHelpers({
@@ -2033,7 +2113,7 @@
       });
       if (spacing.error) {
         console.warn('Grid spacing configuration invalid:', spacing.error);
-        return { trades, summary, equitySeries, ladderHistory };
+        return finalizeResult();
       }
       const snapLevel = spacing.snap;
       const keyFor = spacing.key;
@@ -2075,6 +2155,7 @@
       const queueBuy = (price, groupId = 0, direction = 'neutral') => {
         const level = snapLevel(price);
         if (!Number.isFinite(level) || level <= 0) return null;
+        buyLevelSet.add(level);
         const key = keyFor(level);
         if (pendingBuys.has(key)) {
           const existing = pendingBuys.get(key);
@@ -2090,6 +2171,7 @@
       const queueSell = (price, qty, buyPrice, buyTime, rungIndex) => {
         const level = snapLevel(price);
         if (!Number.isFinite(level) || level <= 0) return null;
+        sellLevelSet.add(level);
         const entry = {
           id: sellSeq++,
           level,
@@ -2196,11 +2278,13 @@
         const buyTime = entry.buyTime instanceof Date ? new Date(entry.buyTime.getTime()) : new Date();
         const msHeld = sellTime.getTime() - buyTime.getTime();
         const daysHeld = Number.isFinite(msHeld) ? Math.max(0, msHeld / 86400000) : 0;
+        const openTradesCount = pendingSells.size;
         trades.push({
           buyTime,
           buyPrice: entry.buyPrice,
           buyQty: entry.qty,
           gridLevel: Number.isFinite(entry.buyRung) ? entry.buyRung : computeRungIndex(entry.buyPrice),
+          openLevels: openTradesCount,
           sellTime,
           sellPrice: price,
           sellQty: qty,
@@ -2397,7 +2481,7 @@
       summary.maxDrawdownPct = maxDrawdownPct * 100;
       summary.maxSharesHeld = maxSharesHeld;
       summary.cagr = cagr;
-      return { trades, summary, equitySeries, ladderHistory };
+      return finalizeResult();
     }
 
     function runGridBacktest() {
@@ -2418,20 +2502,31 @@
           renderGridTrades([]);
           renderGridEquityChart(null);
           renderLadderChart([]);
+          renderGridLevels([], [], null);
           return;
         }
       }
       setGridStatus('Running backtest…');
       try {
-        const result = runPullbackGridSimulation(ROWS, params);
-        GRID_STATE = result;
-        renderGridSummary(result.summary);
-        renderGridTrades(result.trades);
-        renderGridEquityChart(result.equitySeries);
-        renderLadderChart(result.trades);
-        if (result.trades.length) {
-          const profitLabel = formatCurrency(result.summary?.netProfit ?? 0);
-          setGridStatus(`Backtest completed with ${result.trades.length} trade${result.trades.length === 1 ? '' : 's'}. Net profit ${profitLabel}.`);
+        const result = runPullbackGridSimulation(ROWS, params) || {};
+        const safeResult = {
+          trades: Array.isArray(result.trades) ? result.trades : [],
+          summary: result.summary || null,
+          equitySeries: Array.isArray(result.equitySeries) ? result.equitySeries : [],
+          ladderHistory: Array.isArray(result.ladderHistory) ? result.ladderHistory : [],
+          buyLevels: Array.isArray(result.buyLevels) ? result.buyLevels : [],
+          sellLevels: Array.isArray(result.sellLevels) ? result.sellLevels : [],
+          baseLevel: Number.isFinite(result.baseLevel) ? result.baseLevel : null
+        };
+        GRID_STATE = safeResult;
+        renderGridSummary(safeResult.summary);
+        renderGridTrades(safeResult.trades);
+        renderGridEquityChart(safeResult.equitySeries);
+        renderLadderChart(safeResult.trades);
+        renderGridLevels(safeResult.buyLevels, safeResult.sellLevels, safeResult.baseLevel ?? null);
+        if (safeResult.trades.length) {
+          const profitLabel = formatCurrency(safeResult.summary?.netProfit ?? 0);
+          setGridStatus(`Backtest completed with ${safeResult.trades.length} trade${safeResult.trades.length === 1 ? '' : 's'}. Net profit ${profitLabel}.`);
         } else {
           setGridStatus('No completed trades for the selected parameters.');
         }
@@ -2439,6 +2534,7 @@
         console.error('Buy-the-dip grid backtest error', err);
         setGridStatus('Failed to run backtest. See console for details.');
         renderLadderChart([]);
+        renderGridLevels([], [], null);
       }
     }
 
@@ -2546,6 +2642,7 @@
       renderGridTrades([]);
       renderGridEquityChart(null);
       renderLadderChart([]);
+      renderGridLevels([], [], null);
       setRunButtonEnabled(false);
       renderDataSummary();
       return false;
