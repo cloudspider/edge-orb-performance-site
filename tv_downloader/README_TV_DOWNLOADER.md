@@ -51,3 +51,10 @@ Run the script again:
 
 python3 scripts/tv_downloader.py
 Choose a chart and see if it attaches cleanly. With the quarantine removed and the env vars set, Selenium should find and launch the Homebrew chromedriver.
+
+
+## Build tv_downloader
+
+```
+    ./tv_downloader/build.sh  
+```

@@ -13,7 +13,7 @@ import urllib.request
 from dataclasses import dataclass
 from datetime import datetime, timedelta, time as dt_time
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 from urllib.parse import urlsplit, urlunsplit
 from zoneinfo import ZoneInfo
 
@@ -102,7 +102,7 @@ UI_READY_TIMEOUT = 10
 class ChartConfig:
     name: str
     export_prefix: str
-    save_path: Path
+    save_paths: List[Path]
     url: str
 
 
@@ -119,7 +119,7 @@ def load_chart_configs(path: Path) -> List[ChartConfig]:
             ChartConfig(
                 name=raw["name"],
                 export_prefix=raw["export_prefix"],
-                save_path=Path(raw["save_path"]),
+                save_paths=_parse_save_paths(raw),
                 url=raw["url"],
             )
         )
@@ -749,23 +749,43 @@ def wait_for_export(
     raise TimeoutException(f"Export file matching '{prefix}' did not finish downloading in time.")
 
 
+def _parse_save_paths(raw: Dict[str, object]) -> List[Path]:
+    paths: List[str]
+    if "save_paths" in raw:
+        candidate = raw["save_paths"]
+        if isinstance(candidate, list):
+            paths = [str(path) for path in candidate]
+        else:
+            paths = [str(candidate)]
+    elif "save_path" in raw:
+        paths = [str(raw["save_path"])]
+    else:
+        raise KeyError("Chart configuration must include 'save_paths'.")
+    return [Path(path) for path in paths]
+
+
 def move_exported_file(
-    prefix: str, destination: Path, log_prefix: Optional[str] = None
+    prefix: str, destinations: Sequence[Path], log_prefix: Optional[str] = None
 ) -> None:
-    destination.parent.mkdir(parents=True, exist_ok=True)
+    if not destinations:
+        raise ValueError("No destinations provided for exported file.")
     if log_prefix:
         log_stage(log_prefix, f"Waiting for exported file with prefix '{prefix}'.")
     export_file = wait_for_export(prefix, log_prefix=log_prefix)
-    shutil.copy2(export_file, destination)
+    for destination in destinations:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(export_file, destination)
     try:
         export_file.unlink()
     except OSError as err:
-        print(f"{prefix}: copied to '{destination}', but failed to remove '{export_file}': {err}")
+        destinations_str = ", ".join(str(dest) for dest in destinations)
+        print(f"{prefix}: copied to [{destinations_str}], but failed to remove '{export_file}': {err}")
     else:
         if log_prefix:
-            log_stage(log_prefix, f"Moved '{export_file.name}' to '{destination}'.")
+            dest_list = ", ".join(dest.name for dest in destinations)
+            log_stage(log_prefix, f"Moved '{export_file.name}' to [{dest_list}].")
         else:
-            print(f"{prefix}: moved '{export_file.name}' to '{destination}'.")
+            print(f"{prefix}: moved '{export_file.name}' to destinations.")
 
 
 def process_chart(chart: ChartConfig, driver: webdriver.Chrome) -> Tuple[bool, float, str]:
@@ -798,7 +818,7 @@ def process_chart(chart: ChartConfig, driver: webdriver.Chrome) -> Tuple[bool, f
         click_export_chart_data(driver)
         log_stage(prefix, "Export dialog opened. Confirming export.")
         click_export_confirm(driver)
-        move_exported_file(chart.export_prefix, chart.save_path, log_prefix=prefix)
+        move_exported_file(chart.export_prefix, chart.save_paths, log_prefix=prefix)
         success = True
     except TimeoutException as exc:
         error_message = f"timeout - {exc}"
