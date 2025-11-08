@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Buy-the-Dip Grid Backtest</title>
+  <title>Grid Backtest</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link
     rel="stylesheet"
@@ -23,6 +23,38 @@
     .sticky-th { position: sticky; top: 0; background: white; z-index: 1; }
     .shadow-soft { box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
     thead th { position: sticky; top: 0; background: white; z-index: 1; }
+    th.sortable button {
+      width: 100%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.35rem;
+      font: inherit;
+      color: inherit;
+      background: transparent;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+    }
+    th.sortable button:focus-visible {
+      outline: 2px solid rgba(16, 185, 129, 0.6);
+      outline-offset: 2px;
+    }
+    th.sortable .sort-indicator {
+      font-size: 0.65rem;
+      opacity: 0.4;
+    }
+    th[data-sort="asc"] .sort-indicator::after {
+      content: "▲";
+      opacity: 0.9;
+    }
+    th[data-sort="desc"] .sort-indicator::after {
+      content: "▼";
+      opacity: 0.9;
+    }
+    th[data-sort="none"] .sort-indicator::after {
+      content: "↕";
+    }
 
     /* Hide native spin buttons for key numeric inputs */
     #inp_orb_m::-webkit-outer-spin-button,
@@ -89,13 +121,11 @@
       <div class="flex items-center gap-6 flex-1 min-w-0">
         <div class="flex items-center gap-2 font-semibold text-slate-800">
           <svg class="h-5 w-5 text-emerald-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M192 384L88.5 384C63.6 384 48.3 356.9 61.1 335.5L114 247.3C122.7 232.8 138.3 224 155.2 224L250.2 224C326.3 95.1 439.8 88.6 515.7 99.7C528.5 101.6 538.5 111.6 540.3 124.3C551.4 200.2 544.9 313.7 416 389.8L416 484.8C416 501.7 407.2 517.3 392.7 526L304.5 578.9C283.2 591.7 256 576.3 256 551.5L256 448C256 412.7 227.3 384 192 384L191.9 384zM464 224C464 197.5 442.5 176 416 176C389.5 176 368 197.5 368 224C368 250.5 389.5 272 416 272C442.5 272 464 250.5 464 224z"/></svg>
-          <span>ORB</span>
+          <span>GRID</span>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
-          <a data-nav href="index.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Performance</a>
-          <a data-nav href="backtest.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Backtest</a>
-          <a data-nav href="results.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Results</a>
-          <a data-nav href="pullback_grid.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Buy-the-Dip Grid</a>
+          <a data-nav href="pullback_grid.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Grid Backtest</a>
+          <a data-nav href="grid_calc.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Grid Calculator</a>
         </div>
       </div>
       <div class="flex items-center gap-2">
@@ -365,6 +395,8 @@
           <p id="gridStatus" class="text-sm text-slate-500">Load data and run the backtest to populate results.</p>
         </div>
         <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-slate-500">
+          <span>Min Cash:</span>
+          <span id="summaryMinCash" class="text-sm font-semibold text-slate-800">$0.00</span>
           <span>Cash:</span>
           <span id="summaryCash" class="text-sm font-semibold text-slate-800">$0.00</span>
           <span>Shares:</span>
@@ -442,17 +474,18 @@
         <table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
             <tr>
-              <th class="px-3 py-2">Buy Time</th>
-              <th class="px-3 py-2 text-right">Buy Price</th>
-              <th class="px-3 py-2 text-right">Buy Qty</th>
-              <th class="px-3 py-2">Sell Time</th>
-              <th class="px-3 py-2 text-right">Sell Price</th>
-              <th class="px-3 py-2 text-right">Sell Qty</th>
-              <th class="px-3 py-2 text-right">Qty Retained</th>
-              <th class="px-3 py-2 text-right">Cum Retained</th>
-              <th class="px-3 py-2 text-right">Days Held</th>
-              <th class="px-3 py-2 text-right">Profit $</th>
-              <th class="px-3 py-2 text-right">ROI %</th>
+              <th class="px-3 py-2 sortable" data-sort-key="buyTime"><button type="button"><span>Buy Time</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-sort-key="buyPrice"><button type="button"><span>Buy Price</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-sort-key="buyQty"><button type="button"><span>Buy Qty</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-sort-key="gridLevel"><button type="button"><span>Grid Level</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 sortable" data-sort-key="sellTime"><button type="button"><span>Sell Time</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-sort-key="sellPrice"><button type="button"><span>Sell Price</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-sort-key="sellQty"><button type="button"><span>Sell Qty</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-sort-key="qtyRetained"><button type="button"><span>Qty Retained</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-sort-key="cumQtyRetained"><button type="button"><span>Cum Retained</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-sort-key="daysHeld"><button type="button"><span>Days Held</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-sort-key="profit"><button type="button"><span>Profit $</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-sort-key="roiPct"><button type="button"><span>ROI %</span><span class="sort-indicator"></span></button></th>
             </tr>
           </thead>
           <tbody id="gridTradeRows" class="divide-y divide-slate-100"></tbody>
@@ -512,6 +545,7 @@
     let SMA_METADATA = new Map();
     let SYMBOL_META = new Map();
     let GRID_STATE = { trades: [], summary: null, equitySeries: [], ladderHistory: [] };
+    let TRADE_SORT_STATE = { key: 'buyTime', dir: 'asc' };
     let gridEquityChartInst = null;
     let gridLadderChartInst = null;
 
@@ -897,6 +931,7 @@
       const maxDdEl = document.getElementById('summaryMaxDD');
       const maxDdPctEl = document.getElementById('summaryMaxDDPct');
       const maxSharesEl = document.getElementById('summaryMaxShares');
+      const minCashEl = document.getElementById('summaryMinCash');
       const cashEl = document.getElementById('summaryCash');
       const sharesEl = document.getElementById('summaryShares');
       if (!summary) {
@@ -924,6 +959,7 @@
           maxDdPctEl.classList.add('text-slate-800');
         }
         if (maxSharesEl) maxSharesEl.textContent = '0';
+        if (minCashEl) minCashEl.textContent = '$0.00';
         if (cashEl) cashEl.textContent = '$0.00';
         if (sharesEl) sharesEl.textContent = '0';
         return;
@@ -978,8 +1014,57 @@
         }
       }
       if (maxSharesEl) maxSharesEl.textContent = formatNumber(summary.maxSharesHeld ?? 0, 4);
+      if (minCashEl) minCashEl.textContent = formatCurrency(summary.minCash ?? 0);
       if (cashEl) cashEl.textContent = formatCurrency(summary.cash ?? 0);
       if (sharesEl) sharesEl.textContent = formatNumber(summary.shares ?? 0, 4);
+    }
+
+    function getTradeSortValue(trade, key) {
+      if (!trade) return 0;
+      switch (key) {
+        case 'buyTime':
+          return trade.buyTime instanceof Date ? trade.buyTime.getTime() : new Date(trade.buyTime).getTime() || 0;
+        case 'sellTime':
+          return trade.sellTime instanceof Date ? trade.sellTime.getTime() : new Date(trade.sellTime).getTime() || 0;
+        case 'buyPrice':
+        case 'sellPrice':
+        case 'buyQty':
+        case 'sellQty':
+        case 'qtyRetained':
+        case 'cumQtyRetained':
+        case 'daysHeld':
+        case 'profit':
+        case 'roiPct':
+        case 'gridLevel':
+          return Number(trade[key]) || 0;
+        default:
+          return 0;
+      }
+    }
+
+    function sortTradesForDisplay(trades) {
+      if (!Array.isArray(trades) || trades.length <= 1) return Array.isArray(trades) ? trades.slice() : [];
+      const { key, dir } = TRADE_SORT_STATE;
+      const direction = dir === 'desc' ? -1 : 1;
+      return trades.slice().sort((a, b) => {
+        const va = getTradeSortValue(a, key);
+        const vb = getTradeSortValue(b, key);
+        if (va === vb) return 0;
+        return va > vb ? direction : -direction;
+      });
+    }
+
+    function updateTradeSortIndicators() {
+      const headers = document.querySelectorAll('th[data-sort-key]');
+      headers.forEach((th) => {
+        const key = th.getAttribute('data-sort-key');
+        if (!key) return;
+        if (key === TRADE_SORT_STATE.key) {
+          th.setAttribute('data-sort', TRADE_SORT_STATE.dir);
+        } else {
+          th.setAttribute('data-sort', 'none');
+        }
+      });
     }
 
     function renderGridTrades(trades) {
@@ -991,16 +1076,21 @@
       if (!Array.isArray(trades) || !trades.length) {
         if (emptyState) emptyState.classList.remove('hidden');
         if (label) label.textContent = '0 trades';
+        updateTradeSortIndicators();
         return;
       }
       if (emptyState) emptyState.classList.add('hidden');
+      const displayTrades = sortTradesForDisplay(trades);
       const frag = document.createDocumentFragment();
-      for (const trade of trades) {
+      for (const trade of displayTrades) {
         const tr = document.createElement('tr');
+        const rung = Number.isFinite(trade.gridLevel) ? Math.round(trade.gridLevel) : null;
+        const rungLabel = rung == null ? '—' : (rung > 0 ? `+${rung}` : String(rung));
         tr.innerHTML = `
           <td class="px-3 py-2 whitespace-nowrap">${formatDateTime(trade.buyTime)}</td>
           <td class="px-3 py-2 text-right">${formatNumber(trade.buyPrice, 4)}</td>
           <td class="px-3 py-2 text-right">${formatNumber(trade.buyQty, 4)}</td>
+          <td class="px-3 py-2 text-right">${rungLabel}</td>
           <td class="px-3 py-2 whitespace-nowrap">${formatDateTime(trade.sellTime)}</td>
           <td class="px-3 py-2 text-right">${formatNumber(trade.sellPrice, 4)}</td>
           <td class="px-3 py-2 text-right">${formatNumber(trade.sellQty, 4)}</td>
@@ -1014,6 +1104,7 @@
       }
       tbody.appendChild(frag);
       if (label) label.textContent = `${trades.length} trade${trades.length === 1 ? '' : 's'}`;
+      updateTradeSortIndicators();
     }
 
     function renderGridEquityChart(series) {
@@ -1487,6 +1578,7 @@
         finalEquity: 0,
         totalRetainedShares: 0,
         cash: Number(params?.initialCash) || 0,
+        minCash: Number(params?.initialCash) || 0,
         shares: 0,
         maxDrawdown: 0,
         maxSharesHeld: 0,
@@ -1541,6 +1633,13 @@
       const stepsBetween = spacing.stepsBetween;
       const priceTolerance = spacing.priceTolerance ?? 1e-9;
       const usePercentSpacing = spacing.type === 'percent';
+      const baseLevel = snapLevel(firstPrice);
+      const computeRungIndex = (level) => {
+        if (!Number.isFinite(level) || !Number.isFinite(baseLevel)) return 0;
+        const diff = stepsBetween(baseLevel, level);
+        if (!Number.isFinite(diff)) return 0;
+        return Math.round(diff);
+      };
 
       const activeBuys = new Map();
       const activeSells = new Map();
@@ -1564,7 +1663,7 @@
         const key = keyFor(price);
         const existing = activeBuys.get(key);
         if (existing && existing.length) return existing[0];
-        const order = { id: orderSeq++, level: price };
+        const order = { id: orderSeq++, level: price, rungIndex: computeRungIndex(price) };
         activeBuys.set(key, [order]);
         if (!Number.isFinite(highestSeededBuyLevel) || price > highestSeededBuyLevel) {
           highestSeededBuyLevel = price;
@@ -1582,7 +1681,8 @@
           level: price,
           buyPrice: Number(buyInfo?.price),
           buyQty: Number(buyInfo?.qty),
-          buyTime: buyInfo?.time instanceof Date ? new Date(buyInfo.time.getTime()) : new Date()
+          buyTime: buyInfo?.time instanceof Date ? new Date(buyInfo.time.getTime()) : new Date(),
+          buyRung: Number.isFinite(buyInfo?.rungIndex) ? buyInfo.rungIndex : computeRungIndex(price)
         };
         activeSells.get(key).push(order);
         return order;
@@ -1621,6 +1721,7 @@
       }
 
       let cash = Number.isFinite(initialCash) ? initialCash : GRID_DEFAULTS.initialCash;
+      let minCashBalance = cash;
       const initialEquity = cash;
       const firstEquityTime = rows[0]?.caldt instanceof Date ? new Date(rows[0].caldt.getTime()) : null;
       let lastEquityTime = firstEquityTime;
@@ -1714,12 +1815,13 @@
           return false;
         }
         cash -= cost;
+        if (cash < minCashBalance) minCashBalance = cash;
         shares += qty;
         if (shares > maxSharesHeld) maxSharesHeld = shares;
         removeOrder(activeBuys, order);
         const sellLevel = nextUpLevel(price);
         if (Number.isFinite(sellLevel) && sellLevel > 0) {
-          addSellOrder(sellLevel, { price, qty, time: timestamp });
+          addSellOrder(sellLevel, { price, qty, time: timestamp, rungIndex: Number.isFinite(order?.rungIndex) ? order.rungIndex : computeRungIndex(price) });
         }
         return true;
       };
@@ -1758,6 +1860,7 @@
           buyTime,
           buyPrice: order.buyPrice,
           buyQty: order.buyQty,
+          gridLevel: Number.isFinite(order.buyRung) ? order.buyRung : computeRungIndex(order.buyPrice),
           sellTime,
           sellPrice: price,
           sellQty: qty,
@@ -1864,6 +1967,7 @@
       summary.finalEquity = finalEquity;
       summary.totalRetainedShares = shares;
       summary.cash = cash;
+      summary.minCash = minCashBalance;
       summary.shares = shares;
       summary.maxDrawdown = maxDrawdown;
       summary.maxDrawdownPct = maxDrawdownPct * 100;
@@ -1882,6 +1986,7 @@
         finalEquity: 0,
         totalRetainedShares: 0,
         cash: Number(params?.initialCash) || 0,
+        minCash: Number(params?.initialCash) || 0,
         shares: 0,
         maxDrawdown: 0,
         maxSharesHeld: 0,
@@ -1938,10 +2043,18 @@
       const priceTolerance = spacing.priceTolerance ?? 1e-9;
       const usePercentSpacing = spacing.type === 'percent';
       const EPS = 1e-9;
+      const baseLevel = snapLevel(firstPrice);
+      const computeRungIndex = (level) => {
+        if (!Number.isFinite(level) || !Number.isFinite(baseLevel)) return 0;
+        const diff = stepsBetween(baseLevel, level);
+        if (!Number.isFinite(diff)) return 0;
+        return Math.round(diff);
+      };
 
       const minGridLevel = spacing.floor(minPrice);
 
       let cash = Number.isFinite(initialCash) ? initialCash : GRID_DEFAULTS.initialCash;
+      let minCashBalance = cash;
       const initialEquity = cash;
       const firstEquityTime = rows[0]?.caldt instanceof Date ? new Date(rows[0].caldt.getTime()) : null;
       let lastEquityTime = firstEquityTime;
@@ -1969,12 +2082,12 @@
           if (direction) existing.direction = direction;
           return existing;
         }
-        const entry = { key, level, groupId: groupId > 0 ? groupId : 0, direction };
+        const entry = { key, level, groupId: groupId > 0 ? groupId : 0, direction, rungIndex: computeRungIndex(level) };
         pendingBuys.set(key, entry);
         return entry;
       };
 
-      const queueSell = (price, qty, buyPrice, buyTime) => {
+      const queueSell = (price, qty, buyPrice, buyTime, rungIndex) => {
         const level = snapLevel(price);
         if (!Number.isFinite(level) || level <= 0) return null;
         const entry = {
@@ -1982,7 +2095,8 @@
           level,
           qty,
           buyPrice,
-          buyTime: buyTime instanceof Date ? new Date(buyTime.getTime()) : new Date()
+          buyTime: buyTime instanceof Date ? new Date(buyTime.getTime()) : new Date(),
+          buyRung: Number.isFinite(rungIndex) ? rungIndex : computeRungIndex(buyPrice)
         };
         pendingSells.add(entry);
         return entry;
@@ -2026,12 +2140,13 @@
           for (const key of keysToRemove) pendingBuys.delete(key);
         }
         cash -= cost;
+        if (cash < minCashBalance) minCashBalance = cash;
         shares += qty;
         if (shares > maxSharesHeld) maxSharesHeld = shares;
         const buyTime = timestamp instanceof Date ? new Date(timestamp.getTime()) : new Date();
         const sellLevel = nextUpLevel(price);
         if (Number.isFinite(sellLevel) && sellLevel > 0) {
-          queueSell(sellLevel, qty, price, buyTime);
+          queueSell(sellLevel, qty, price, buyTime, Number.isFinite(entry?.rungIndex) ? entry.rungIndex : computeRungIndex(price));
         }
         if (entry.direction === 'down') {
           const downLevel = nextDownLevel(price);
@@ -2085,6 +2200,7 @@
           buyTime,
           buyPrice: entry.buyPrice,
           buyQty: entry.qty,
+          gridLevel: Number.isFinite(entry.buyRung) ? entry.buyRung : computeRungIndex(entry.buyPrice),
           sellTime,
           sellPrice: price,
           sellQty: qty,
@@ -2275,6 +2391,7 @@
       summary.finalEquity = finalEquity;
       summary.totalRetainedShares = shares;
       summary.cash = cash;
+      summary.minCash = minCashBalance;
       summary.shares = shares;
       summary.maxDrawdown = maxDrawdown;
       summary.maxDrawdownPct = maxDrawdownPct * 100;
@@ -2355,6 +2472,22 @@
       updateGridSizeLabel();
       resetGridOutputs('Load data and run the backtest to populate results.');
       setRunButtonEnabled(false);
+      document.querySelectorAll('th[data-sort-key] button').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const th = btn.closest('th[data-sort-key]');
+          if (!th) return;
+          const key = th.getAttribute('data-sort-key');
+          if (!key) return;
+          if (TRADE_SORT_STATE.key === key) {
+            TRADE_SORT_STATE.dir = TRADE_SORT_STATE.dir === 'asc' ? 'desc' : 'asc';
+          } else {
+            TRADE_SORT_STATE.key = key;
+            TRADE_SORT_STATE.dir = 'asc';
+          }
+          renderGridTrades(GRID_STATE.trades || []);
+        });
+      });
+      updateTradeSortIndicators();
     }
 
 
