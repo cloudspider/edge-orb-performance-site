@@ -113,5 +113,25 @@
     "symbol": "CRWV",
     "name": "Coreweave",
     "multiplier": 1
+  },
+  {
+    "symbol": "IREN",
+    "name": "Iris Energy Inc.",
+    "multiplier": 1
+  },
+  {
+    "symbol": "SKYU",
+    "name": "Proshares Ultra Nasdaq Cloud Computing",
+    "multiplier": 1
+  },
+  {
+    "symbol": "GDXU",
+    "name": "Direxion Daily Gold Miners Bull 2x Shares",
+    "multiplier": 1
+  },
+  {
+    "symbol": "TSLT",
+    "name": "Tesla 2x Leveraged",
+    "multiplier": 1
   }
 ]
