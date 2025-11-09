@@ -226,10 +226,10 @@
           </div>
         </label>
         <label class="block">
-          <span class="text-sm text-slate-600">Rungs per Side</span>
+          <span class="text-sm text-slate-600">Levels per Side</span>
           <div class="mt-1 relative">
             <input
-              id="inpRungCount"
+              id="inpLevelCount"
               type="number"
               min="1"
               max="20"
@@ -238,10 +238,10 @@
               class="w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
             />
             <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
-              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase rung count" data-num-target="inpRungCount" data-num-step="1">
+              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase level count" data-num-target="inpLevelCount" data-num-step="1">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd" /></svg>
               </button>
-              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease rung count" data-num-target="inpRungCount" data-num-step="-1">
+              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease level count" data-num-target="inpLevelCount" data-num-step="-1">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd" /></svg>
               </button>
             </div>
@@ -299,7 +299,7 @@
       </div>
       <div class="overflow-x-auto">
         <div id="gridLadderContainer" class="min-w-full rounded-xl border border-slate-200 bg-white">
-          <div class="p-4 text-sm text-slate-500">Enter a valid starting price, grid size, and rung count to draw the ladder.</div>
+          <div class="p-4 text-sm text-slate-500">Enter a valid starting price, grid size, and level count to draw the ladder.</div>
         </div>
       </div>
     </section>
@@ -472,11 +472,23 @@
       const startPrice = Number(params?.startPrice);
       const spacingType = (params?.spacingType || 'percent').toLowerCase();
       const gridSize = Number(params?.gridSize);
-      const rungCount = Math.max(0, Math.floor(Number(params?.rungCount)));
+      const levelCount = Math.max(0, Math.floor(Number(params?.levelCount ?? params?.rungCount)));
+      const tradeAmount = Math.max(0, Number(params?.tradeAmount));
       const gridType = (params?.gridType || 'pullback').toLowerCase();
       if (!Number.isFinite(startPrice) || startPrice <= 0) return { rows: [], summary: null, stepSize: null, precision: resolveSymbolPrecision() };
       if (!Number.isFinite(gridSize) || gridSize <= 0) return { rows: [], summary: null, stepSize: null, precision: resolveSymbolPrecision() };
-      if (!Number.isFinite(rungCount) || rungCount <= 0) return { rows: [], summary: null, stepSize: null, precision: resolveSymbolPrecision() };
+      if (!Number.isFinite(levelCount) || levelCount <= 0) return { rows: [], summary: null, stepSize: null, precision: resolveSymbolPrecision() };
+      const perLevelInvestment = Number.isFinite(tradeAmount) && tradeAmount > 0 ? tradeAmount : 0;
+      const investedForLevel = (level) => perLevelInvestment > 0 ? perLevelInvestment * (level + 1) : 0;
+      const entryPrices = perLevelInvestment > 0 ? [startPrice] : [];
+      const computeTotalLoss = (currentPrice) => {
+        if (perLevelInvestment <= 0 || !entryPrices.length) return 0;
+        return entryPrices.reduce((sum, entryPrice) => {
+          if (!Number.isFinite(entryPrice) || entryPrice <= 0) return sum;
+          const dropFraction = Math.max(0, 1 - currentPrice / entryPrice);
+          return sum + perLevelInvestment * dropFraction;
+        }, 0);
+      };
 
       const precision = resolveSymbolPrecision();
       const above = [];
@@ -484,8 +496,8 @@
       const stepPercent = gridSize / 100;
       const usePercentSpacing = spacingType === 'percent';
       const aboveLimit = gridType === 'progressive'
-        ? Math.min(rungCount, 2)
-        : Math.min(rungCount, 1);
+        ? Math.min(levelCount, 2)
+        : Math.min(levelCount, 1);
 
       let priceAccumulator = startPrice;
       for (let i = 1; i <= aboveLimit; i++) {
@@ -503,16 +515,18 @@
           key: `above-${i}`,
           type: 'above',
           label: `+${i}`,
-          rung: i,
+          level: i,
           price,
           diff,
           diffPct,
-          direction: 'Above'
+          direction: 'Above',
+          investedCash: 0,
+          totalLoss: null
         });
       }
 
       priceAccumulator = startPrice;
-      for (let i = 1; i <= rungCount; i++) {
+      for (let i = 1; i <= levelCount; i++) {
         let price;
         if (usePercentSpacing) {
           priceAccumulator = priceAccumulator * (1 - stepPercent);
@@ -524,27 +538,35 @@
         if (!Number.isFinite(price) || price <= 0) continue;
         const diff = price - startPrice;
         const diffPct = startPrice !== 0 ? (diff / startPrice) * 100 : 0;
+        const totalLoss = computeTotalLoss(price);
         below.push({
           key: `below-${i}`,
           type: 'below',
           label: `-${i}`,
-          rung: i,
+          level: i,
           price,
           diff,
           diffPct,
-          direction: 'Below'
+          direction: 'Below',
+          investedCash: investedForLevel(i),
+          totalLoss
         });
+        if (perLevelInvestment > 0) {
+          entryPrices.push(price);
+        }
       }
 
       const startRow = {
         key: 'start',
         type: 'start',
         label: 'Start',
-        rung: 0,
+        level: 0,
         price: startPrice,
         diff: 0,
         diffPct: 0,
-        direction: 'Start'
+        direction: 'Start',
+        investedCash: investedForLevel(0),
+        totalLoss: 0
       };
 
       const allRows = [...above, startRow, ...below];
@@ -558,10 +580,11 @@
           spacingType,
           gridSize,
           gridType,
-          rungCount,
+          levelCount,
           aboveCount: above.length,
           belowCount: below.length
         },
+        tradeAmount: perLevelInvestment,
         stepSize,
         precision
       };
@@ -576,12 +599,13 @@
         startPrice: readNumericInput('inpStartPrice'),
         spacingType: (document.getElementById('selGridSpacing')?.value || 'percent').toLowerCase(),
         gridSize: readNumericInput('inpGridSize'),
-        rungCount: readNumericInput('inpRungCount'),
+        levelCount: readNumericInput('inpLevelCount'),
+        tradeAmount: readNumericInput('inpTradeAmount'),
         gridType: (document.getElementById('selGridType')?.value || 'pullback').toLowerCase()
       };
       const result = calculateGridLadder(params);
       if (!result.rows.length) {
-        container.innerHTML = '<div class="p-4 text-sm text-slate-500">Enter a positive starting price, grid size, and rung count to draw the ladder.</div>';
+        container.innerHTML = '<div class="p-4 text-sm text-slate-500">Enter a positive starting price, grid size, and level count to draw the ladder.</div>';
         if (summaryEl) {
           summaryEl.textContent = 'Adjust the grid parameters to preview ladder levels around the starting price.';
         }
@@ -589,7 +613,7 @@
         return;
       }
 
-      const { rows, summary, stepSize, precision } = result;
+      const { rows, summary, stepSize, precision, tradeAmount } = result;
       const priceFormatter = new Intl.NumberFormat(undefined, {
         minimumFractionDigits: precision,
         maximumFractionDigits: precision
@@ -602,9 +626,15 @@
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
       });
+      const cashFormatter = new Intl.NumberFormat(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+      const showInvestmentMetrics = Number.isFinite(tradeAmount) && tradeAmount > 0;
+      const perLevelInvestment = showInvestmentMetrics ? Number(tradeAmount) : 0;
 
       const spacingDescriptor = summary.spacingType === 'percent'
-        ? `${Number(summary.gridSize).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 4 })}% per rung (compounded)`
+        ? `${Number(summary.gridSize).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 4 })}% per level (compounded)`
         : `$${diffFormatter.format(summary.gridSize)} spacing`;
       const stepDescriptor = Number.isFinite(stepSize)
         ? `≈ $${diffFormatter.format(stepSize)} between levels`
@@ -613,7 +643,7 @@
         const startStr = priceFormatter.format(summary.startPrice);
         const stepSuffix = stepDescriptor ? `, ${stepDescriptor}` : '';
         const gridTypeLabel = summary.gridType === 'progressive' ? 'Progressive' : 'Buy-the-Dip';
-        summaryEl.textContent = `${gridTypeLabel} grid: showing ${summary.aboveCount} rung(s) above and ${summary.belowCount} rung(s) below $${startStr} with ${spacingDescriptor}${stepSuffix}.`;
+        summaryEl.textContent = `${gridTypeLabel} grid: showing ${summary.aboveCount} level(s) above and ${summary.belowCount} level(s) below $${startStr} with ${spacingDescriptor}${stepSuffix}.`;
       }
 
       const rowHtml = rows.map(row => {
@@ -624,6 +654,22 @@
         const pctAbs = pctFormatter.format(Math.abs(row.diffPct));
         const diffText = row.diff === 0 ? `$${diffFormatter.format(0)}` : `${row.diff > 0 ? '+' : '-'}$${diffAbs}`;
         const pctText = row.diffPct === 0 ? `${pctFormatter.format(0)}%` : `${row.diffPct > 0 ? '+' : '-'}${pctAbs}%`;
+        const isDownLevel = row.type === 'start' || row.type === 'below';
+        const investedCash = isDownLevel ? Number(row.investedCash) || 0 : 0;
+        const prevInvested = isDownLevel
+          ? (row.type === 'start' ? investedCash : Math.max(0, investedCash - perLevelInvestment))
+          : 0;
+        const investedText = showInvestmentMetrics && isDownLevel
+          ? (investedCash > 0 ? `$${cashFormatter.format(investedCash)}` : '$0.00')
+          : '—';
+        const totalLossValue = isDownLevel ? Number(row.totalLoss) || 0 : 0;
+        const lossText = showInvestmentMetrics && isDownLevel
+          ? (totalLossValue > 0 ? `-$${cashFormatter.format(totalLossValue)}` : '$0.00')
+          : '—';
+        const lossPctValue = prevInvested > 0 ? (totalLossValue / prevInvested) * 100 : 0;
+        const lossPctText = showInvestmentMetrics && isDownLevel && prevInvested > 0
+          ? (lossPctValue > 0 ? `-${pctFormatter.format(Math.abs(lossPctValue))}%` : '0.00%')
+          : '—';
         const baseCellClass = `px-4 py-2 text-sm ${isStart ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`;
         return `
           <tr class="${isStart ? 'bg-emerald-50' : ''}">
@@ -632,6 +678,9 @@
             <td class="${baseCellClass}">$${priceFormatter.format(row.price)}</td>
             <td class="px-4 py-2 text-sm ${diffClass}">${diffText}</td>
             <td class="px-4 py-2 text-sm ${pctClass}">${pctText}</td>
+            <td class="px-4 py-2 text-sm text-slate-700">${investedText}</td>
+            <td class="px-4 py-2 text-sm text-slate-700">${lossText}</td>
+            <td class="px-4 py-2 text-sm text-slate-700">${lossPctText}</td>
           </tr>
         `;
       }).join('');
@@ -640,11 +689,14 @@
         <table class="min-w-full divide-y divide-slate-200 text-sm">
           <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
             <tr>
-              <th scope="col" class="px-4 py-2 text-left">Rung</th>
+              <th scope="col" class="px-4 py-2 text-left">Level</th>
               <th scope="col" class="px-4 py-2 text-left">Direction</th>
               <th scope="col" class="px-4 py-2 text-left">Price</th>
               <th scope="col" class="px-4 py-2 text-left">Distance ($)</th>
               <th scope="col" class="px-4 py-2 text-left">Distance (%)</th>
+              <th scope="col" class="px-4 py-2 text-left">Invested Cash ($)</th>
+              <th scope="col" class="px-4 py-2 text-left">Total Loss ($)</th>
+              <th scope="col" class="px-4 py-2 text-left">Loss (%)</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
@@ -1014,10 +1066,16 @@
         gridSizeEl.addEventListener('change', renderGridLadder);
       }
 
-      const rungEl = document.getElementById('inpRungCount');
-      if (rungEl) {
-        rungEl.addEventListener('input', renderGridLadder);
-        rungEl.addEventListener('change', renderGridLadder);
+      const tradeAmountEl = document.getElementById('inpTradeAmount');
+      if (tradeAmountEl) {
+        tradeAmountEl.addEventListener('input', renderGridLadder);
+        tradeAmountEl.addEventListener('change', renderGridLadder);
+      }
+
+      const levelEl = document.getElementById('inpLevelCount');
+      if (levelEl) {
+        levelEl.addEventListener('input', renderGridLadder);
+        levelEl.addEventListener('change', renderGridLadder);
       }
 
       const gridTypeEl = document.getElementById('selGridType');
