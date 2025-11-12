@@ -2531,6 +2531,18 @@
         }
       };
 
+      const hasPendingSellAtOrAbove = (level) => {
+        if (!Number.isFinite(level)) return false;
+        const tolerance = priceTolerance * Math.max(1, Math.abs(level));
+        for (const entry of pendingSells) {
+          if (!entry || !Number.isFinite(entry.level)) continue;
+          if (entry.level >= level - tolerance) {
+            return true;
+          }
+        }
+        return false;
+      };
+
       const executeBuy = (entry, timestamp, contextRow) => {
         if (!entry) return false;
         const price = entry.level;
@@ -2630,7 +2642,9 @@
         });
         const groupId = buyGroupSeq++;
         const upLevel = nextUpLevel(price);
-        if (Number.isFinite(upLevel) && upLevel > 0) queueBuy(upLevel, groupId, 'up');
+        if (Number.isFinite(upLevel) && upLevel > 0 && !hasPendingSellAtOrAbove(upLevel)) {
+          queueBuy(upLevel, groupId, 'up');
+        }
         const downLevel = nextDownLevel(price);
         if (Number.isFinite(downLevel) && downLevel > 0) queueBuy(downLevel, groupId, 'down');
         if (Number.isFinite(downLevel)) ensureDownCoverage(downLevel);

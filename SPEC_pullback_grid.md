@@ -37,8 +37,9 @@ Buy-the-Dip Grid (default)
 Progressive Grid (ratcheting)
 - Always keeps a matching sell parked one grid step above every filled buy (so a ladder of sells equal to open positions) while managing a set of resting buys.
 - Initial action: buy at the closest snapped level to the first price, then queue a sell one grid step higher.
-- When the sell fills, immediately queue **two** buys in a group: one grid step above (to keep chasing the trend) and one grid step below (to catch the dip). Both orders are snapped to the offset ladder.
+- When the sell fills, immediately queue **two** buys in a group: one grid step above (to keep chasing the trend) and one grid step below (to catch the dip). The upper “trend” leg is only re-armed if there are no remaining pending sells at or above that rung, ensuring the ladder only ratchets once the prior top has cleared. Both orders are snapped to the offset ladder.
 - Whichever buy fills first keeps the dip ladder alive: an upper-fill immediately ensures a buy one step below stays queued (and respects the retention setting), while a lower-fill automatically seeds the next rung down. In both cases a new sell is placed one grid step above the fill.
+- The upper buy behaves like a stop-limit order pegged to that rung; the model assumes it triggers exactly at the grid price with full size (no slippage) once the market trades there.
 - Results include full trade logs, equity series, drawdown, retained-share tracking, and realized PnL as with the buy-the-dip mode.
 
 Shared Outputs
