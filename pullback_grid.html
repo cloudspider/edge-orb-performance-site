@@ -112,6 +112,44 @@
     #sessionSegment button {
       flex: 0 0 auto;
     }
+    .summary-tile {
+      position: relative;
+    }
+    .summary-tile .summary-tooltip {
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 0.5rem);
+      transform: translate(-50%, 0) scale(0.98);
+      transform-origin: bottom center;
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 0.65rem 0.75rem;
+      border-radius: 0.65rem;
+      text-align: left;
+      font-size: 0.75rem;
+      line-height: 1.25;
+      width: max(14rem, min(18rem, 70vw));
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.35);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+      z-index: 40;
+    }
+    .summary-tile .summary-tooltip::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border-width: 6px;
+      border-style: solid;
+      border-color: #0f172a transparent transparent transparent;
+    }
+    .summary-tile:hover .summary-tooltip,
+    .summary-tile:focus-within .summary-tooltip {
+      opacity: 1;
+      transform: translate(-50%, -0.35rem) scale(1);
+    }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800">
@@ -437,37 +475,45 @@
         </div>
       </div>
       <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-8">
-        <div class="rounded-xl border border-slate-200 p-4 shadow-sm">
+        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Completed Trades</dt>
           <dd id="summaryTotalTrades" class="mt-2 text-xl font-semibold text-slate-800">0</dd>
+          <span class="summary-tooltip">Number of round-trip trades (buy followed by the paired sell) the grid closed during the test period.</span>
         </div>
-        <div class="rounded-xl border border-slate-200 p-4 shadow-sm">
+        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Net Profit</dt>
           <dd id="summaryNetProfit" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
+          <span class="summary-tooltip">Realized profit across completed trades: total proceeds from sells minus the cost basis of those sells.</span>
         </div>
-        <div class="rounded-xl border border-slate-200 p-4 shadow-sm">
+        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Final Equity</dt>
           <dd id="summaryFinalEquity" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
+          <span class="summary-tooltip">Ending account equity after the final bar: remaining cash plus the market value of any shares still held.</span>
         </div>
-        <div class="rounded-xl border border-slate-200 p-4 shadow-sm">
+        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">CAGR</dt>
           <dd id="summaryCagr" class="mt-2 text-xl font-semibold text-slate-800">0.00%</dd>
+          <span class="summary-tooltip">Compound annual growth rate derived from initial equity vs. final equity over the number of calendar days in the backtest.</span>
         </div>
-        <div class="rounded-xl border border-slate-200 p-4 shadow-sm">
+        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Retained Shares</dt>
           <dd id="summaryRetained" class="mt-2 text-xl font-semibold text-slate-800">0</dd>
+          <span class="summary-tooltip">Shares intentionally retained after each sale and carried forward in the ladder (not yet closed out).</span>
         </div>
-        <div class="rounded-xl border border-slate-200 p-4 shadow-sm">
+        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Drawdown</dt>
           <dd id="summaryMaxDD" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
+          <span class="summary-tooltip">Largest peak-to-trough drop in equity expressed in dollars during the run.</span>
         </div>
-        <div class="rounded-xl border border-slate-200 p-4 shadow-sm">
+        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Drawdown %</dt>
           <dd id="summaryMaxDDPct" class="mt-2 text-xl font-semibold text-slate-800">0.00%</dd>
+          <span class="summary-tooltip">Same drawdown expressed as a percentage of the prior equity peak.</span>
         </div>
-        <div class="rounded-xl border border-slate-200 p-4 shadow-sm">
+        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Shares Held</dt>
           <dd id="summaryMaxShares" class="mt-2 text-xl font-semibold text-slate-800">0</dd>
+          <span class="summary-tooltip">Highest number of shares simultaneously held by the strategy at any point in the simulation.</span>
         </div>
       </dl>
     </section>

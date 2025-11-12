@@ -30,10 +30,12 @@ Buy-the-Dip Grid (default)
 - Seed buy limits at every snapped ladder level below the first bar; sell limits above.
 - When price trades down to a buy rung: fill `trade_value`, remove that buy, and spawn a sell exactly one grid step higher.
 - When price trades up to a sell rung: fill `trade_value`, remove that sell, and spawn a buy one grid step lower (allowing continuous dip buying).
+- Trending-market coverage: the engine tracks the highest rung it has ever armed with a buy. If price runs more than ~2 grid steps above that rung, the simulator keeps queuing fresh buy orders one rung at a time until the topmost pending buy sits no more than one rung below the latest high. This “run-up preloading” means a fast uptrend will always have dip orders staged just below the current move, instead of waiting for price to fall back to the original base.
+- Sell-to-buy recycling: whenever a sell rung fills, that level is re‑armed as a buy once price trades one rung higher (the sell enqueues a delayed buy that activates when the market prints the next rung up). Combined with the run-up coverage above, this guarantees the ladder keeps leapfrogging higher during persistent trends while still enforcing one full grid step of separation between the most recent high and the nearest resting buy.
 - All levels are snapped to `grid_offset + n * grid_size`.
 
 Progressive Grid (ratcheting)
-- Always keeps at most one active sell and a set of buy resting orders.
+- Always keeps a matching sell parked one grid step above every filled buy (so a ladder of sells equal to open positions) while managing a set of resting buys.
 - Initial action: buy at the closest snapped level to the first price, then queue a sell one grid step higher.
 - When the sell fills, immediately queue **two** buys in a group: one grid step above (to keep chasing the trend) and one grid step below (to catch the dip). Both orders are snapped to the offset ladder.
 - Whichever buy fills first keeps the dip ladder alive: an upper-fill immediately ensures a buy one step below stays queued (and respects the retention setting), while a lower-fill automatically seeds the next rung down. In both cases a new sell is placed one grid step above the fill.
