@@ -90,7 +90,7 @@
           <span>GRID</span>
         </div>
         <div class="flex items-center gap-2 flex-wrap">
-          <a data-nav href="pullback_grid.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Grid Backtest</a>
+          <a data-nav href="grid.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Grid Backtest</a>
           <a data-nav href="grid_calc.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Grid Calculator</a>
         </div>
       </div>
@@ -100,7 +100,7 @@
     // Activate nav item for current page
     (function(){
       try {
-        const file = (location.pathname.split('/').pop() || 'pullback_grid.html').toLowerCase();
+        const file = (location.pathname.split('/').pop() || 'grid.html').toLowerCase();
         document.querySelectorAll('a[data-nav]').forEach(a => {
           const href = (a.getAttribute('href') || '').toLowerCase();
           const active = href === file || (file === '' && href.endsWith('index.html'));
