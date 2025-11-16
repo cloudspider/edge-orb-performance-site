@@ -45,6 +45,16 @@
     "multiplier": 1
   },
   {
+    "symbol": "IAU",
+    "name": "iShares Gold Trust",
+    "multiplier": 1
+  },
+  {
+    "symbol": "SLV",
+    "name": "iShares Silver Trust",
+    "multiplier": 1
+  },
+  {
     "symbol": "SOXX",
     "name": "iShares Semiconductor ETF",
     "multiplier": 1
