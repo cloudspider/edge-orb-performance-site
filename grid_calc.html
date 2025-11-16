@@ -116,22 +116,53 @@
   <div class="max-w-screen-2xl mx-auto p-6 space-y-6">
     <header class="mb-2">
       <h1 id="mainTitle" class="text-2xl md:text-3xl font-semibold">Grid</h1>
-      <p class="text-slate-600 mt-1">Under construction. Hook up pullback grid datasets and controls here.</p>
     </header>
 
-    <section id="symbolPicker" class="bg-white rounded-2xl shadow-soft p-3 md:p-4">
+    <section id="gridTabsNav" class="bg-white rounded-2xl shadow-soft p-3 md:p-4">
       <div class="overflow-x-auto -mx-3 md:mx-0 px-3 md:px-0">
-        <nav class="flex min-w-max border-b border-slate-200 gap-1" role="tablist">
-          <button type="button" class="inline-flex items-center gap-2 border-b-2 border-blue-500 px-3 py-2 text-sm font-medium text-slate-900 transition">
+        <nav class="flex min-w-max border-b border-slate-200 gap-1" role="tablist" aria-label="Grid utilities">
+          <button
+            type="button"
+            id="tab-btn-grid-calculator"
+            data-tab-button="grid-calculator"
+            aria-controls="grid-calculator-tab"
+            role="tab"
+            aria-selected="true"
+            class="inline-flex items-center gap-2 border-b-2 border-emerald-500 px-3 py-2 text-sm font-medium text-slate-900 transition"
+          >
             <span class="inline-flex h-8 w-8 items-center justify-center text-emerald-500">
               <ion-icon name="grid-outline" class="text-2xl"></ion-icon>
             </span>
             <span>Grid Calculator</span>
           </button>
+          <button
+            type="button"
+            id="tab-btn-breakeven-matrix"
+            data-tab-button="breakeven-matrix"
+            aria-controls="breakeven-matrix-tab"
+            role="tab"
+            aria-selected="false"
+            class="inline-flex items-center gap-2 border-b-2 border-transparent px-3 py-2 text-sm font-medium text-slate-500 hover:text-slate-700 transition"
+          >
+            <span class="inline-flex h-8 w-8 items-center justify-center text-emerald-500">
+              <ion-icon name="stats-chart-outline" class="text-2xl"></ion-icon>
+            </span>
+            <span>Breakeven Matrix</span>
+          </button>
         </nav>
       </div>
+    </section>
 
-      <div class="flex-1 min-w-0 mt-4">
+    <div
+      id="grid-calculator-tab"
+      data-tab-panel="grid-calculator"
+      role="tabpanel"
+      aria-labelledby="tab-btn-grid-calculator"
+      class="space-y-6"
+      tabindex="0"
+    >
+    <section id="symbolPicker" class="bg-white rounded-2xl shadow-soft p-3 md:p-4">
+      <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2 mb-2">
           <div class="flex-1 min-w-0">
             <div id="tickerSegment" class="w-full rounded-xl border border-slate-200 bg-slate-200 p-px overflow-hidden">
@@ -283,7 +314,7 @@
       </div>
     </section>
 
-    <section id="gridJsonSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-3">
+      <section id="gridJsonSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-3">
       <div class="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h2 class="font-semibold text-slate-700">Grid JSON Export</h2>
@@ -304,11 +335,91 @@
 <code id="gridJsonCode">// Adjust grid inputs above to generate JSON.</code>
         </pre>
       </div>
-    </section>
+      </section>
+    </div>
+
+    <div
+      id="breakeven-matrix-tab"
+      data-tab-panel="breakeven-matrix"
+      role="tabpanel"
+      aria-labelledby="tab-btn-breakeven-matrix"
+      class="space-y-6 hidden"
+      hidden
+      tabindex="0"
+    >
+      <section class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
+        <div class="flex flex-col gap-1">
+          <h2 class="font-semibold text-slate-700">Breakeven Matrix</h2>
+          <p class="text-sm text-slate-500">Explore how many take-profit fills are required to offset layered buys at each grid depth.</p>
+        </div>
+        <form id="breakevenMatrixForm" class="space-y-4">
+          <div class="grid gap-4 md:grid-cols-3">
+            <label class="block">
+              <span class="text-sm text-slate-600">Max Levels</span>
+              <input
+                id="inpBreakevenLevels"
+                type="number"
+                min="1"
+                max="100"
+                value="30"
+                data-default="30"
+                class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+              />
+              <span class="mt-1 block text-xs text-slate-500">Display 1 through this level count.</span>
+            </label>
+            <label class="block md:col-span-2">
+              <span class="text-sm text-slate-600">TP% List</span>
+              <input
+                id="inpBreakevenTpList"
+                type="text"
+                value="1, 2, 2.5, 3, 4, 5"
+                data-default="1, 2, 2.5, 3, 4, 5"
+                class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+                placeholder="Example: 0.5, 1, 1.5, 2"
+              />
+              <span class="mt-1 block text-xs text-slate-500">Separate values with commas. Each TP% creates a column.</span>
+            </label>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button
+              type="submit"
+              id="btnGenerateBreakeven"
+              class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+            >
+              <ion-icon name="refresh-outline" class="text-base"></ion-icon>
+              <span>Generate Matrix</span>
+            </button>
+            <button
+              type="button"
+              id="btnResetBreakeven"
+              class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+            >
+              <ion-icon name="refresh-circle-outline" class="text-base text-emerald-500"></ion-icon>
+              <span>Reset</span>
+            </button>
+          </div>
+        </form>
+        <p class="text-xs text-slate-500">Cell shading cues required fills: green &le;100, yellow 101–300, orange 301–600, red &gt;600.</p>
+        <div class="rounded-2xl border border-slate-200 bg-white overflow-x-auto" id="breakeven-matrix-table">
+          <div class="p-4 text-sm text-slate-500">Adjust inputs above and click Generate to build the breakeven matrix.</div>
+        </div>
+      </section>
+    </div>
   </div>
 <script>
   (function(){
     const DEFAULT_PRICE_PRECISION = 2;
+    const BREAKEVEN_DEFAULTS = {
+      maxLevels: 15,
+      tpList: '1,2,3,4,5'
+    };
+    const BREAKEVEN_SHADES = [
+      { max: 100, className: 'bg-emerald-50 text-emerald-700' },
+      { max: 300, className: 'bg-yellow-50 text-yellow-700' },
+      { max: 600, className: 'bg-orange-50 text-orange-700' },
+      { max: Infinity, className: 'bg-red-50 text-red-700' }
+    ];
+    let activeTab = 'grid-calculator';
     const pad2 = (n) => String(n).padStart(2, '0');
     const dateKeyFromStr = (val) => {
       if (val == null) return null;
@@ -695,31 +806,28 @@
       if (!result || !Array.isArray(result.rows) || !result.rows.length || !result.summary) return null;
       const precision = Number.isInteger(result.precision) ? result.precision : DEFAULT_PRICE_PRECISION;
       const formatPrice = (val) => Number(Number(val).toFixed(precision));
-      const basePrice = formatPrice(result.summary.startPrice || 0);
+      const summary = result.summary;
+      const basePrice = formatPrice(summary.startPrice || 0);
       const buyRows = result.rows.filter(row => row.type === 'below').sort((a, b) => b.price - a.price);
-      const buyLevels = buyRows.map(row => ({ price: formatPrice(row.price) }));
-      const gridType = result.summary.gridType || 'pullback';
-      const sellPrices = [];
-      if (gridType === 'progressive') {
-        sellPrices.push(basePrice);
-        const aboveRows = result.rows.filter(row => row.type === 'above').sort((a, b) => b.price - a.price);
-        aboveRows.forEach(row => sellPrices.push(formatPrice(row.price)));
-      } else {
-        if (buyLevels.length) {
-          sellPrices.push(basePrice);
-          for (let i = 0; i < buyLevels.length - 1; i++) {
-            sellPrices.push(buyLevels[i].price);
-          }
-        } else {
-          sellPrices.push(basePrice);
-        }
-      }
-      const sellLevels = sellPrices.map(price => ({ price }));
+      const levels = buyRows.map((row, idx) => {
+        const sellSource = idx === 0 ? (summary.startPrice || basePrice) : buyRows[idx - 1].price;
+        return {
+          buy: formatPrice(row.price),
+          sell: formatPrice(sellSource)
+        };
+      });
+      const rawSize = Number(summary.gridSize);
+      const spacingType = (summary.spacingType || 'percent').toLowerCase();
+      const size = Number.isFinite(rawSize)
+        ? (spacingType === 'percent' ? Number(rawSize.toFixed(4)) : formatPrice(rawSize))
+        : 0;
       return {
         grid: {
           base_price: basePrice,
-          buy_levels: buyLevels,
-          sell_levels: sellLevels
+          size,
+          max_open_buy_orders: levels.length,
+          max_open_sell_orders: levels.length,
+          levels
         }
       };
     }
@@ -750,21 +858,17 @@
     
     function formatGridJson(payload) {
       const indent = (level) => '  '.repeat(level);
-      const lines = ['{', `${indent(1)}"grid": {`];
       const grid = payload?.grid || {};
-      const buyLevels = Array.isArray(grid.buy_levels) ? grid.buy_levels : [];
-      const sellLevels = Array.isArray(grid.sell_levels) ? grid.sell_levels : [];
-      lines.push(`${indent(2)}"base_price": ${grid.base_price},`);
-      lines.push(`${indent(2)}"buy_levels": [`);
-      buyLevels.forEach((level, idx) => {
-        const comma = idx < buyLevels.length - 1 ? ',' : '';
-        lines.push(`${indent(3)}{ "price": ${level.price} }${comma}`);
-      });
-      lines.push(`${indent(2)}],`);
-      lines.push(`${indent(2)}"sell_levels": [`);
-      sellLevels.forEach((level, idx) => {
-        const comma = idx < sellLevels.length - 1 ? ',' : '';
-        lines.push(`${indent(3)}{ "price": ${level.price} }${comma}`);
+      const levels = Array.isArray(grid.levels) ? grid.levels : [];
+      const lines = ['{', `${indent(1)}"grid": {`];
+      lines.push(`${indent(2)}"base_price": ${grid.base_price ?? 0},`);
+      lines.push(`${indent(2)}"size": ${grid.size ?? 0},`);
+      lines.push(`${indent(2)}"max_open_buy_orders": ${grid.max_open_buy_orders ?? 0},`);
+      lines.push(`${indent(2)}"max_open_sell_orders": ${grid.max_open_sell_orders ?? 0},`);
+      lines.push(`${indent(2)}"levels": [`);
+      levels.forEach((level, idx) => {
+        const comma = idx < levels.length - 1 ? ',' : '';
+        lines.push(`${indent(3)}{ "buy": ${level.buy}, "sell": ${level.sell} }${comma}`);
       });
       lines.push(`${indent(2)}]`);
       lines.push(`${indent(1)}}`, '}');
@@ -1009,6 +1113,120 @@
       render(['TQQQ', 'TSLA', 'PLTR', 'UVXY']);
     }
 
+    function getBreakevenCellClass(value) {
+      if (!Number.isFinite(value)) return 'bg-slate-100 text-slate-500';
+      for (const bucket of BREAKEVEN_SHADES) {
+        if (value <= bucket.max) return bucket.className;
+      }
+      return 'bg-slate-100 text-slate-500';
+    }
+
+    function parseBreakevenTpValues(rawList) {
+      const source = typeof rawList === 'string' && rawList.trim().length ? rawList : BREAKEVEN_DEFAULTS.tpList;
+      return source
+        .split(',')
+        .map((part) => parseFloat(part.trim()))
+        .filter((val) => Number.isFinite(val) && val > 0)
+        .map((val) => Number(val.toFixed(4)));
+    }
+
+    function generateBreakevenMatrix() {
+      const maxLevelsInput = document.getElementById('inpBreakevenLevels');
+      const tpListInput = document.getElementById('inpBreakevenTpList');
+      const tableContainer = document.getElementById('breakeven-matrix-table');
+      if (!maxLevelsInput || !tpListInput || !tableContainer) return;
+
+      const parsedLevels = parseInt(maxLevelsInput.value, 10);
+      const clampedLevels = Math.max(1, Math.min(50, Number.isFinite(parsedLevels) ? parsedLevels : BREAKEVEN_DEFAULTS.maxLevels));
+      if (String(clampedLevels) !== maxLevelsInput.value) {
+        maxLevelsInput.value = String(clampedLevels);
+      }
+
+      const tpValues = parseBreakevenTpValues(tpListInput.value);
+      if (!tpValues.length) {
+        tableContainer.innerHTML = '<div class="p-4 text-sm text-slate-500">Enter at least one valid TP% (greater than 0) to generate the matrix.</div>';
+        return;
+      }
+
+      const tpFormatter = new Intl.NumberFormat(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 4 });
+      const fillsFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
+      const headerCells = tpValues.map((tp) => `<th scope="col" class="px-4 py-2 text-center">${tpFormatter.format(tp)}%</th>`).join('');
+
+      let bodyHtml = '';
+      for (let level = 1; level <= clampedLevels; level++) {
+        const rowClass = level % 2 === 0 ? 'bg-slate-50/70' : 'bg-white';
+        const levelCell = `<td class="px-4 py-2 text-sm font-medium text-slate-700 text-left">${level}</td>`;
+        const cells = tpValues.map((tp) => {
+          const tpRatio = tp / 100;
+          const fillsNeeded = tpRatio > 0 ? Math.ceil(level / tpRatio) : null;
+          const cellClass = getBreakevenCellClass(fillsNeeded);
+          const content = fillsNeeded != null ? fillsFormatter.format(fillsNeeded) : '—';
+          return `<td class="px-4 py-2 text-sm font-semibold text-center ${cellClass}">${content}</td>`;
+        }).join('');
+        bodyHtml += `<tr class="${rowClass}">${levelCell}${cells}</tr>`;
+      }
+
+      tableContainer.innerHTML = `
+        <table class="min-w-full divide-y divide-slate-200 text-sm">
+          <thead class="bg-slate-100 text-xs font-semibold uppercase tracking-wide text-slate-600">
+            <tr>
+              <th scope="col" class="px-4 py-2 text-left">Levels &darr;</th>
+              ${headerCells}
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            ${bodyHtml}
+          </tbody>
+        </table>
+      `;
+    }
+
+    function resetBreakevenInputs() {
+      const levelInput = document.getElementById('inpBreakevenLevels');
+      const tpInput = document.getElementById('inpBreakevenTpList');
+      if (levelInput) levelInput.value = String(BREAKEVEN_DEFAULTS.maxLevels);
+      if (tpInput) tpInput.value = BREAKEVEN_DEFAULTS.tpList;
+      generateBreakevenMatrix();
+    }
+
+    function activateTab(tabName) {
+      const normalized = tabName === 'breakeven-matrix' ? 'breakeven-matrix' : 'grid-calculator';
+      activeTab = normalized;
+      const buttons = document.querySelectorAll('[data-tab-button]');
+      buttons.forEach((btn) => {
+        const isActive = btn?.getAttribute('data-tab-button') === normalized;
+        btn.classList.toggle('border-emerald-500', !!isActive);
+        btn.classList.toggle('text-slate-900', !!isActive);
+        btn.classList.toggle('text-slate-500', !isActive);
+        btn.classList.toggle('border-transparent', !isActive);
+        btn.classList.toggle('hover:text-slate-700', !isActive);
+        btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      });
+      const panels = document.querySelectorAll('[data-tab-panel]');
+      panels.forEach((panel) => {
+        const isActive = panel?.getAttribute('data-tab-panel') === normalized;
+        panel.classList.toggle('hidden', !isActive);
+        if (isActive) {
+          panel.removeAttribute('hidden');
+        } else {
+          panel.setAttribute('hidden', 'true');
+        }
+        panel.tabIndex = isActive ? 0 : -1;
+      });
+    }
+
+    function setupTabs() {
+      const buttons = document.querySelectorAll('[data-tab-button]');
+      if (!buttons.length) return;
+      buttons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const target = btn.getAttribute('data-tab-button');
+          activateTab(target);
+        });
+      });
+      activateTab(activeTab);
+    }
+
     document.addEventListener('click', (e) => {
       const controlBtn = e.target.closest('button[data-num-target][data-num-step]');
       if (controlBtn) {
@@ -1029,6 +1247,7 @@
     });
 
     document.addEventListener('DOMContentLoaded', () => {
+      setupTabs();
       populateTickerSegment();
       updateGridSizeLabel();
 
@@ -1092,7 +1311,24 @@
         });
       }
 
+      const breakevenForm = document.getElementById('breakevenMatrixForm');
+      if (breakevenForm) {
+        breakevenForm.addEventListener('submit', (event) => {
+          event.preventDefault();
+          generateBreakevenMatrix();
+        });
+      }
+
+      const breakevenResetBtn = document.getElementById('btnResetBreakeven');
+      if (breakevenResetBtn) {
+        breakevenResetBtn.addEventListener('click', (event) => {
+          event.preventDefault();
+          resetBreakevenInputs();
+        });
+      }
+
       renderGridLadder();
+      generateBreakevenMatrix();
     });
   })();
 </script>
