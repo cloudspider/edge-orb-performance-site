@@ -544,6 +544,19 @@
       </div>
     </section>
 
+    <section id="fillsPerMonthSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
+      <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <h2 class="font-semibold text-slate-700">Fills per Month</h2>
+        <span id="fillsMonthSummaryLabel" class="text-sm text-slate-500"></span>
+      </div>
+      <div class="relative">
+        <div id="monthlyFillsChart" class="w-full h-72 md:h-80"></div>
+        <div id="monthlyFillsEmpty" class="absolute inset-0 flex items-center justify-center text-sm text-slate-500">
+          Run the backtest to tally fills per month.
+        </div>
+      </div>
+    </section>
+
     <section id="gridTradesSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
       <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <h2 class="font-semibold text-slate-700">Trade Log</h2>
@@ -570,6 +583,23 @@
           <tbody id="gridTradeRows" class="divide-y divide-slate-100"></tbody>
         </table>
         <div id="gridTradesEmpty" class="py-6 text-center text-sm text-slate-500">Run the backtest to see individual trades.</div>
+      </div>
+      <div class="mt-3 flex flex-col gap-2 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+        <div id="tradePaginationInfo"></div>
+        <div class="flex flex-wrap items-center gap-2">
+          <label for="tradePageSize" class="text-[11px] uppercase tracking-wide font-semibold text-slate-500">Rows per page</label>
+          <select id="tradePageSize" class="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/60">
+            <option value="100">100</option>
+            <option value="250" selected>250</option>
+            <option value="500">500</option>
+            <option value="1000">1000</option>
+          </select>
+          <div class="inline-flex rounded-full border border-slate-200 bg-white shadow-sm">
+            <button id="tradePagePrev" type="button" class="px-3 py-1 text-xs font-semibold text-slate-500 hover:text-emerald-600 disabled:opacity-40 disabled:hover:text-slate-400">&larr; Prev</button>
+            <span class="h-6 w-px bg-slate-200 self-center"></span>
+            <button id="tradePageNext" type="button" class="px-3 py-1 text-xs font-semibold text-slate-500 hover:text-emerald-600 disabled:opacity-40 disabled:hover:text-slate-400">Next &rarr;</button>
+          </div>
+        </div>
       </div>
     </section>
   </div>
@@ -627,8 +657,10 @@
     let TRADE_SORT_STATE = { key: 'buyTime', dir: 'asc' };
     let gridEquityChartInst = null;
     let gridLadderChartInst = null;
+    let fillsPerMonthChartInst = null;
     let AVAILABLE_MONTHS = [];
     let VIEW_MONTHS = new Set();
+    const TRADE_TABLE_STATE = { page: 1, pageSize: 250 };
 
     function setStatus(msg) {
       const el = document.getElementById('status');
@@ -657,7 +689,7 @@
       if (input) {
         if (percentMode) {
           input.min = '0.1';
-          input.step = '0.1';
+          input.step = '0.5';
         } else {
           input.min = '0.5';
           input.step = '0.5';
@@ -1217,7 +1249,43 @@
       }
     }
 
-    function renderGridTrades(trades) {
+    function clampTradePage(totalRows) {
+      const size = Math.max(25, Math.min(1000, Math.round(TRADE_TABLE_STATE.pageSize) || 250));
+      TRADE_TABLE_STATE.pageSize = size;
+      const total = Math.max(0, Number(totalRows) || 0);
+      const totalPages = total > 0 ? Math.ceil(total / size) : 1;
+      if (TRADE_TABLE_STATE.page > totalPages) TRADE_TABLE_STATE.page = totalPages;
+      if (TRADE_TABLE_STATE.page < 1) TRADE_TABLE_STATE.page = 1;
+      return { pageSize: size, totalPages };
+    }
+
+    function updateTradePaginationControls(totalRows, range) {
+      const info = document.getElementById('tradePaginationInfo');
+      const prev = document.getElementById('tradePagePrev');
+      const next = document.getElementById('tradePageNext');
+      const select = document.getElementById('tradePageSize');
+      const { pageSize, totalPages } = clampTradePage(totalRows);
+      const page = TRADE_TABLE_STATE.page;
+      const start = Math.max(0, range?.start ?? 0);
+      const end = Math.max(start, Math.min(totalRows, range?.end ?? (start + pageSize)));
+      if (info) {
+        if (!totalRows) {
+          info.textContent = 'No trades to display.';
+        } else {
+          info.textContent = `${start + 1}–${end} of ${totalRows.toLocaleString()} trade${totalRows === 1 ? '' : 's'}`;
+        }
+      }
+      if (prev) prev.disabled = page <= 1 || totalRows <= 0;
+      if (next) next.disabled = page >= totalPages || totalRows <= pageSize;
+      if (select && select.value !== String(pageSize)) {
+        select.value = String(pageSize);
+      }
+    }
+
+    function renderGridTrades(trades, options = {}) {
+      if (options?.resetPage) {
+        TRADE_TABLE_STATE.page = 1;
+      }
       const tbody = document.getElementById('gridTradeRows');
       const emptyState = document.getElementById('gridTradesEmpty');
       const label = document.getElementById('tradeCountLabel');
@@ -1234,6 +1302,7 @@
           emptyState.classList.remove('hidden');
         }
         if (label) label.textContent = '0 trades';
+        updateTradePaginationControls(0);
         updateTradeSortIndicators();
         return;
       }
@@ -1242,8 +1311,13 @@
         emptyState.classList.add('hidden');
       }
       const displayTrades = sortTradesForDisplay(filtered);
+      const { pageSize } = clampTradePage(displayTrades.length);
+      const page = TRADE_TABLE_STATE.page;
+      const start = (page - 1) * pageSize;
+      const end = Math.min(displayTrades.length, start + pageSize);
+      const visibleTrades = displayTrades.slice(start, end);
       const frag = document.createDocumentFragment();
-      for (const trade of displayTrades) {
+      for (const trade of visibleTrades) {
         const tr = document.createElement('tr');
         const openLevelsLabel = Number.isFinite(trade.openLevels) ? trade.openLevels.toLocaleString() : '—';
         tr.innerHTML = `
@@ -1264,6 +1338,7 @@
       }
       tbody.appendChild(frag);
       if (label) label.textContent = `${filtered.length} trade${filtered.length === 1 ? '' : 's'}`;
+      updateTradePaginationControls(displayTrades.length, { start, end });
       updateTradeSortIndicators();
     }
 
@@ -1333,7 +1408,7 @@
         cb.checked = VIEW_MONTHS.has(key);
       });
       updateMonthFilterLabel();
-      renderGridTrades(GRID_STATE.trades || []);
+      renderGridTrades(GRID_STATE.trades || [], { resetPage: true });
       rerunBacktestIfDataLoaded();
     });
 
@@ -1344,7 +1419,7 @@
       if (!key) return;
       if (cb.checked) VIEW_MONTHS.add(key); else VIEW_MONTHS.delete(key);
       updateMonthFilterLabel();
-      renderGridTrades(GRID_STATE.trades || []);
+      renderGridTrades(GRID_STATE.trades || [], { resetPage: true });
       rerunBacktestIfDataLoaded();
     });
 
@@ -1633,6 +1708,95 @@
       }, true);
     }
 
+    function renderFillsPerMonthChart(trades) {
+      const container = document.getElementById('monthlyFillsChart');
+      const emptyState = document.getElementById('monthlyFillsEmpty');
+      const label = document.getElementById('fillsMonthSummaryLabel');
+      if (!container) return;
+      if (typeof echarts === 'undefined' || !echarts.init) return;
+      if (!fillsPerMonthChartInst) {
+        fillsPerMonthChartInst = echarts.init(container);
+      }
+      const source = Array.isArray(trades) ? trades : [];
+      const counts = new Map();
+      const addCount = (key, type) => {
+        if (!key) return;
+        if (!counts.has(key)) counts.set(key, { key, buy: 0, sell: 0 });
+        const entry = counts.get(key);
+        if (type === 'buy') entry.buy += 1;
+        if (type === 'sell') entry.sell += 1;
+      };
+      for (const trade of source) {
+        addCount(formatMonthKeyFromDate(trade?.buyTime), 'buy');
+        addCount(formatMonthKeyFromDate(trade?.sellTime), 'sell');
+      }
+      const entries = Array.from(counts.values());
+      if (!entries.length) {
+        fillsPerMonthChartInst.clear();
+        if (emptyState) emptyState.classList.remove('hidden');
+        if (label) label.textContent = '';
+        return;
+      }
+      entries.sort((a, b) => {
+        const [am, ay] = a.key.split('/').map(Number);
+        const [bm, by] = b.key.split('/').map(Number);
+        if (ay !== by) return ay - by;
+        return am - bm;
+      });
+      const categories = entries.map(entry => entry.key);
+      const buyCounts = entries.map(entry => entry.buy);
+      const sellCounts = entries.map(entry => entry.sell);
+      const totalBuys = buyCounts.reduce((sum, val) => sum + val, 0);
+      const totalSells = sellCounts.reduce((sum, val) => sum + val, 0);
+      const totalFills = totalBuys + totalSells;
+      if (label) {
+        label.textContent = `${totalFills.toLocaleString()} fills (${totalBuys.toLocaleString()} buys · ${totalSells.toLocaleString()} sells)`;
+      }
+      if (emptyState) emptyState.classList.add('hidden');
+      fillsPerMonthChartInst.setOption({
+        color: ['#0f766e', '#dc2626'],
+        grid: { left: '3%', right: '3%', top: 40, bottom: 40, containLabel: true },
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: { type: 'shadow' }
+        },
+        legend: {
+          data: ['Buy fills', 'Sell fills'],
+          textStyle: { color: '#475569' }
+        },
+        xAxis: {
+          type: 'category',
+          data: categories,
+          axisLabel: { color: '#64748b' },
+          axisTick: { alignWithLabel: true }
+        },
+        yAxis: {
+          type: 'value',
+          minInterval: 1,
+          axisLabel: { color: '#64748b' },
+          splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.2)' } }
+        },
+        series: [
+          {
+            name: 'Buy fills',
+            type: 'bar',
+            barGap: '30%',
+            barCategoryGap: '40%',
+            itemStyle: { color: '#0f766e' },
+            data: buyCounts
+          },
+          {
+            name: 'Sell fills',
+            type: 'bar',
+            barGap: '30%',
+            barCategoryGap: '40%',
+            itemStyle: { color: '#dc2626' },
+            data: sellCounts
+          }
+        ]
+      }, true);
+    }
+
     function highlightTickerButton(symbol) {
       const seg = document.getElementById('tickerSegment');
       if (!seg) return;
@@ -1691,10 +1855,11 @@
     function resetGridOutputs(message) {
       GRID_STATE = { trades: [], summary: null, equitySeries: [], ladderHistory: [], buyLevels: [], sellLevels: [], baseLevel: null };
       renderGridSummary(null);
-      renderGridTrades([]);
+      renderGridTrades([], { resetPage: true });
       setGridStatus(message || 'Load data and run the backtest to populate results.');
       renderGridEquityChart(null);
       renderLadderChart([]);
+      renderFillsPerMonthChart([]);
       renderGridLevels([], [], null);
       buildMonthFilterOptions();
     }
@@ -2843,9 +3008,10 @@
       if (!rowsForRun.length) {
         setGridStatus('No data available for the selected month filter. Clear the filter or load more data.');
         renderGridSummary(null);
-        renderGridTrades([]);
+        renderGridTrades([], { resetPage: true });
         renderGridEquityChart(null);
         renderLadderChart([]);
+        renderFillsPerMonthChart([]);
         renderGridLevels([], [], null);
         return;
       }
@@ -2859,18 +3025,20 @@
           const totalDays = info?.totalDays ?? DAYS.length;
           setGridStatus(`Entry filter (${window}-day SMA) needs ${window} completed days. Dataset has ${totalDays.toLocaleString()} day${totalDays === 1 ? '' : 's'} — insufficient for this filter.`);
           renderGridSummary(null);
-          renderGridTrades([]);
+          renderGridTrades([], { resetPage: true });
           renderGridEquityChart(null);
           renderLadderChart([]);
+          renderFillsPerMonthChart([]);
           renderGridLevels([], [], null);
           return;
         }
         if (uniqueFilteredDays.size < window) {
           setGridStatus(`Entry filter (${window}-day SMA) needs ${window} completed day(s), but the current month filter only leaves ${uniqueFilteredDays.size.toLocaleString()} day${uniqueFilteredDays.size === 1 ? '' : 's'}. Adjust the filter or load additional data.`);
           renderGridSummary(null);
-          renderGridTrades([]);
+          renderGridTrades([], { resetPage: true });
           renderGridEquityChart(null);
           renderLadderChart([]);
+          renderFillsPerMonthChart([]);
           renderGridLevels([], [], null);
           return;
         }
@@ -2889,9 +3057,10 @@
         };
         GRID_STATE = safeResult;
         renderGridSummary(safeResult.summary);
-        renderGridTrades(safeResult.trades);
+        renderGridTrades(safeResult.trades, { resetPage: true });
         renderGridEquityChart(safeResult.equitySeries);
         renderLadderChart(safeResult.trades);
+        renderFillsPerMonthChart(safeResult.trades);
         renderGridLevels(safeResult.buyLevels, safeResult.sellLevels, safeResult.baseLevel ?? null);
         if (safeResult.trades.length) {
           const profitLabel = formatCurrency(safeResult.summary?.netProfit ?? 0);
@@ -2903,6 +3072,7 @@
         console.error('Buy-the-dip grid backtest error', err);
         setGridStatus('Failed to run backtest. See console for details.');
         renderLadderChart([]);
+        renderFillsPerMonthChart([]);
         renderGridLevels([], [], null);
       }
     }
@@ -2955,6 +3125,40 @@
       updateTradeSortIndicators();
     }
 
+    function initTradeTableControls() {
+      const sizeSelect = document.getElementById('tradePageSize');
+      if (sizeSelect) {
+        sizeSelect.value = String(TRADE_TABLE_STATE.pageSize);
+        sizeSelect.addEventListener('change', () => {
+          const val = Number(sizeSelect.value);
+          if (!Number.isFinite(val)) return;
+          TRADE_TABLE_STATE.pageSize = Math.max(25, Math.min(1000, Math.round(val) || 250));
+          TRADE_TABLE_STATE.page = 1;
+          renderGridTrades(GRID_STATE.trades || []);
+        });
+      }
+      const prev = document.getElementById('tradePagePrev');
+      if (prev) {
+        prev.addEventListener('click', () => {
+          if (TRADE_TABLE_STATE.page <= 1) return;
+          TRADE_TABLE_STATE.page -= 1;
+          renderGridTrades(GRID_STATE.trades || []);
+        });
+      }
+      const next = document.getElementById('tradePageNext');
+      if (next) {
+        next.addEventListener('click', () => {
+          const trades = GRID_STATE.trades || [];
+          const filtered = applyMonthFilter(trades);
+          const { totalPages } = clampTradePage(filtered.length);
+          if (TRADE_TABLE_STATE.page >= totalPages) return;
+          TRADE_TABLE_STATE.page += 1;
+          renderGridTrades(trades);
+        });
+      }
+      updateTradePaginationControls(0);
+    }
+
 
     async function loadSymbolData(sym) {
       const baseSymbol = (sym || '').trim();
@@ -2989,9 +3193,10 @@
           updateSymbolPrecisionFromRows(baseSymbol, parsed.data);
           setStatus(`Loaded ${ROWS.length.toLocaleString()} 10-minute bars across ${DAYS.length.toLocaleString()} day(s).`);
           renderGridSummary(null);
-          renderGridTrades([]);
+          renderGridTrades([], { resetPage: true });
           renderGridEquityChart(null);
           renderLadderChart([]);
+          renderFillsPerMonthChart([]);
           renderDataSummary();
           setGridStatus(`Loaded ${ROWS.length.toLocaleString()} 10-minute bars across ${DAYS.length.toLocaleString()} day(s). Running backtest…`);
           setRunButtonEnabled(true);
@@ -3008,9 +3213,10 @@
       DAY_GROUPS = new Map();
       DAYS = [];
       renderGridSummary(null);
-      renderGridTrades([]);
+      renderGridTrades([], { resetPage: true });
       renderGridEquityChart(null);
       renderLadderChart([]);
+      renderFillsPerMonthChart([]);
       renderGridLevels([], [], null);
       buildMonthFilterOptions();
       setRunButtonEnabled(false);
@@ -3140,12 +3346,19 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       initGridControls();
+      initTradeTableControls();
       populateTickerSegment();
     });
 
     window.addEventListener('resize', () => {
       if (gridEquityChartInst) {
         try { gridEquityChartInst.resize(); } catch {}
+      }
+      if (gridLadderChartInst) {
+        try { gridLadderChartInst.resize(); } catch {}
+      }
+      if (fillsPerMonthChartInst) {
+        try { fillsPerMonthChartInst.resize(); } catch {}
       }
     });
   })();
