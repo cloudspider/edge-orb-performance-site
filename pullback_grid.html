@@ -481,6 +481,11 @@
           <span class="summary-tooltip">Number of round-trip trades (buy followed by the paired sell) the grid closed during the test period.</span>
         </div>
         <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Levels</dt>
+          <dd id="summaryMaxLevels" class="mt-2 text-xl font-semibold text-slate-800">0</dd>
+          <span class="summary-tooltip">Highest count of open ladder levels (active sell orders) still working after any trade closed during the backtest.</span>
+        </div>
+        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Net Profit</dt>
           <dd id="summaryNetProfit" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
           <span class="summary-tooltip">Realized profit across completed trades: total proceeds from sells minus the cost basis of those sells.</span>
@@ -509,11 +514,6 @@
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Drawdown %</dt>
           <dd id="summaryMaxDDPct" class="mt-2 text-xl font-semibold text-slate-800">0.00%</dd>
           <span class="summary-tooltip">Same drawdown expressed as a percentage of the prior equity peak.</span>
-        </div>
-        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
-          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Shares Held</dt>
-          <dd id="summaryMaxShares" class="mt-2 text-xl font-semibold text-slate-800">0</dd>
-          <span class="summary-tooltip">Highest number of shares simultaneously held by the strategy at any point in the simulation.</span>
         </div>
       </dl>
     </section>
@@ -1048,18 +1048,19 @@
 
     function renderGridSummary(summary) {
       const totalTradesEl = document.getElementById('summaryTotalTrades');
+      const maxLevelsEl = document.getElementById('summaryMaxLevels');
       const netProfitEl = document.getElementById('summaryNetProfit');
       const finalEquityEl = document.getElementById('summaryFinalEquity');
       const retainedEl = document.getElementById('summaryRetained');
       const cagrEl = document.getElementById('summaryCagr');
       const maxDdEl = document.getElementById('summaryMaxDD');
       const maxDdPctEl = document.getElementById('summaryMaxDDPct');
-      const maxSharesEl = document.getElementById('summaryMaxShares');
       const minCashEl = document.getElementById('summaryMinCash');
       const cashEl = document.getElementById('summaryCash');
       const sharesEl = document.getElementById('summaryShares');
       if (!summary) {
         if (totalTradesEl) totalTradesEl.textContent = '0';
+        if (maxLevelsEl) maxLevelsEl.textContent = '0';
         if (netProfitEl) {
           netProfitEl.textContent = '$0.00';
           netProfitEl.classList.remove('text-emerald-600', 'text-red-600');
@@ -1082,13 +1083,16 @@
           maxDdPctEl.classList.remove('text-red-600');
           maxDdPctEl.classList.add('text-slate-800');
         }
-        if (maxSharesEl) maxSharesEl.textContent = '0';
         if (minCashEl) minCashEl.textContent = '$0.00';
         if (cashEl) cashEl.textContent = '$0.00';
         if (sharesEl) sharesEl.textContent = '0';
         return;
       }
       if (totalTradesEl) totalTradesEl.textContent = String(summary.totalTrades ?? 0);
+      if (maxLevelsEl) {
+        const maxLevels = Number.isFinite(summary?.maxOpenLevels) ? summary.maxOpenLevels : 0;
+        maxLevelsEl.textContent = maxLevels.toLocaleString();
+      }
       if (netProfitEl) {
         const net = summary.netProfit ?? 0;
         netProfitEl.textContent = formatCurrency(net);
@@ -1137,7 +1141,6 @@
           maxDdPctEl.classList.add('text-slate-800');
         }
       }
-      if (maxSharesEl) maxSharesEl.textContent = formatNumber(summary.maxSharesHeld ?? 0, 4);
       if (minCashEl) minCashEl.textContent = formatCurrency(summary.minCash ?? 0);
       if (cashEl) cashEl.textContent = formatCurrency(summary.cash ?? 0);
       if (sharesEl) sharesEl.textContent = formatNumber(summary.shares ?? 0, 4);
@@ -2048,6 +2051,7 @@
         shares: 0,
         maxDrawdown: 0,
         maxSharesHeld: 0,
+        maxOpenLevels: 0,
         cagr: 0
       };
       const buyLevelSet = new Set();
@@ -2384,6 +2388,9 @@
         const msHeld = sellTime.getTime() - buyTime.getTime();
         const daysHeld = Number.isFinite(msHeld) ? Math.max(0, msHeld / 86400000) : 0;
         const openTradesCount = Array.from(activeSells.values()).reduce((acc, arr) => acc + (Array.isArray(arr) ? arr.length : 0), 0);
+        if (openTradesCount > summary.maxOpenLevels) {
+          summary.maxOpenLevels = openTradesCount;
+        }
         trades.push({
           buyTime,
           buyPrice: order.buyPrice,
@@ -2520,6 +2527,7 @@
         shares: 0,
         maxDrawdown: 0,
         maxSharesHeld: 0,
+        maxOpenLevels: 0,
         cagr: 0
       };
       const buyLevelSet = new Set();
@@ -2790,6 +2798,9 @@
         const msHeld = sellTime.getTime() - buyTime.getTime();
         const daysHeld = Number.isFinite(msHeld) ? Math.max(0, msHeld / 86400000) : 0;
         const openTradesCount = pendingSells.size;
+        if (openTradesCount > summary.maxOpenLevels) {
+          summary.maxOpenLevels = openTradesCount;
+        }
         trades.push({
           buyTime,
           buyPrice: entry.buyPrice,
