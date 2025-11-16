@@ -557,6 +557,19 @@
       </div>
     </section>
 
+    <section id="levelDistributionSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
+      <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <h2 class="font-semibold text-slate-700">Level Fill Distribution</h2>
+        <span id="levelDistributionLabel" class="text-sm text-slate-500"></span>
+      </div>
+      <div class="relative">
+        <div id="levelDistributionChart" class="w-full h-72 md:h-80"></div>
+        <div id="levelDistributionEmpty" class="absolute inset-0 flex items-center justify-center text-sm text-slate-500">
+          Run the backtest to chart sell fills per level.
+        </div>
+      </div>
+    </section>
+
     <section id="gridTradesSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
       <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <h2 class="font-semibold text-slate-700">Trade Log</h2>
@@ -658,6 +671,7 @@
     let gridEquityChartInst = null;
     let gridLadderChartInst = null;
     let fillsPerMonthChartInst = null;
+    let levelDistributionChartInst = null;
     let AVAILABLE_MONTHS = [];
     let VIEW_MONTHS = new Set();
     const TRADE_TABLE_STATE = { page: 1, pageSize: 250 };
@@ -1800,6 +1814,73 @@
       }, true);
     }
 
+    function renderLevelDistributionChart(trades) {
+      const container = document.getElementById('levelDistributionChart');
+      const emptyState = document.getElementById('levelDistributionEmpty');
+      const label = document.getElementById('levelDistributionLabel');
+      if (!container) return;
+      if (typeof echarts === 'undefined' || !echarts.init) return;
+      if (!levelDistributionChartInst) {
+        levelDistributionChartInst = echarts.init(container);
+      }
+      const source = Array.isArray(trades) ? trades : [];
+      const counts = new Map();
+      for (const trade of source) {
+        const level = Number(trade?.openLevels);
+        if (!Number.isFinite(level) || level <= 0) continue;
+        counts.set(level, (counts.get(level) || 0) + 1);
+      }
+      if (!counts.size) {
+        levelDistributionChartInst.clear();
+        if (emptyState) emptyState.classList.remove('hidden');
+        if (label) label.textContent = '';
+        return;
+      }
+      const entries = Array.from(counts.entries()).sort((a, b) => a[0] - b[0]);
+      const categories = entries.map(([lvl]) => `Level ${lvl}`);
+      const values = entries.map(([, count]) => count);
+      const totalSells = values.reduce((sum, val) => sum + val, 0);
+      if (label) {
+        label.textContent = `${totalSells.toLocaleString()} sell fills across ${entries.length} level${entries.length === 1 ? '' : 's'}`;
+      }
+      if (emptyState) emptyState.classList.add('hidden');
+      levelDistributionChartInst.setOption({
+        color: ['#6366f1'],
+        grid: { left: '3%', right: '3%', top: 40, bottom: 40, containLabel: true },
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: { type: 'shadow' },
+          formatter: (params) => {
+            if (!params || !params.length) return '';
+            const item = params[0];
+            const value = Number(item?.value) || 0;
+            return `${item?.name || 'Level'}<br/>Sell fills: ${value.toLocaleString()}`;
+          }
+        },
+        xAxis: {
+          type: 'category',
+          data: categories,
+          axisLabel: { color: '#64748b' },
+          axisTick: { alignWithLabel: true }
+        },
+        yAxis: {
+          type: 'value',
+          minInterval: 1,
+          axisLabel: { color: '#64748b' },
+          splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.2)' } }
+        },
+        series: [
+          {
+            name: 'Sell fills',
+            type: 'bar',
+            barCategoryGap: '35%',
+            itemStyle: { color: '#6366f1' },
+            data: values
+          }
+        ]
+      }, true);
+    }
+
     function highlightTickerButton(symbol) {
       const seg = document.getElementById('tickerSegment');
       if (!seg) return;
@@ -1863,6 +1944,7 @@
       renderGridEquityChart(null);
       renderLadderChart([]);
       renderFillsPerMonthChart([]);
+      renderLevelDistributionChart([]);
       renderGridLevels([], [], null);
       buildMonthFilterOptions();
     }
@@ -2388,15 +2470,16 @@
         const msHeld = sellTime.getTime() - buyTime.getTime();
         const daysHeld = Number.isFinite(msHeld) ? Math.max(0, msHeld / 86400000) : 0;
         const openTradesCount = Array.from(activeSells.values()).reduce((acc, arr) => acc + (Array.isArray(arr) ? arr.length : 0), 0);
-        if (openTradesCount > summary.maxOpenLevels) {
-          summary.maxOpenLevels = openTradesCount;
+        const openLevelSnapshot = openTradesCount + 1;
+        if (openLevelSnapshot > summary.maxOpenLevels) {
+          summary.maxOpenLevels = openLevelSnapshot;
         }
         trades.push({
           buyTime,
           buyPrice: order.buyPrice,
           buyQty: order.buyQty,
           gridLevel: Number.isFinite(order.buyRung) ? order.buyRung : computeRungIndex(order.buyPrice),
-          openLevels: openTradesCount,
+          openLevels: openLevelSnapshot,
           sellTime,
           sellPrice: price,
           sellQty: qty,
@@ -2798,15 +2881,16 @@
         const msHeld = sellTime.getTime() - buyTime.getTime();
         const daysHeld = Number.isFinite(msHeld) ? Math.max(0, msHeld / 86400000) : 0;
         const openTradesCount = pendingSells.size;
-        if (openTradesCount > summary.maxOpenLevels) {
-          summary.maxOpenLevels = openTradesCount;
+        const openLevelSnapshot = openTradesCount + 1;
+        if (openLevelSnapshot > summary.maxOpenLevels) {
+          summary.maxOpenLevels = openLevelSnapshot;
         }
         trades.push({
           buyTime,
           buyPrice: entry.buyPrice,
           buyQty: entry.qty,
           gridLevel: Number.isFinite(entry.buyRung) ? entry.buyRung : computeRungIndex(entry.buyPrice),
-          openLevels: openTradesCount,
+          openLevels: openLevelSnapshot,
           sellTime,
           sellPrice: price,
           sellQty: qty,
@@ -3023,6 +3107,7 @@
         renderGridEquityChart(null);
         renderLadderChart([]);
         renderFillsPerMonthChart([]);
+        renderLevelDistributionChart([]);
         renderGridLevels([], [], null);
         return;
       }
@@ -3040,6 +3125,7 @@
           renderGridEquityChart(null);
           renderLadderChart([]);
           renderFillsPerMonthChart([]);
+          renderLevelDistributionChart([]);
           renderGridLevels([], [], null);
           return;
         }
@@ -3050,6 +3136,7 @@
           renderGridEquityChart(null);
           renderLadderChart([]);
           renderFillsPerMonthChart([]);
+          renderLevelDistributionChart([]);
           renderGridLevels([], [], null);
           return;
         }
@@ -3072,6 +3159,7 @@
         renderGridEquityChart(safeResult.equitySeries);
         renderLadderChart(safeResult.trades);
         renderFillsPerMonthChart(safeResult.trades);
+        renderLevelDistributionChart(safeResult.trades);
         renderGridLevels(safeResult.buyLevels, safeResult.sellLevels, safeResult.baseLevel ?? null);
         if (safeResult.trades.length) {
           const profitLabel = formatCurrency(safeResult.summary?.netProfit ?? 0);
@@ -3084,6 +3172,7 @@
         setGridStatus('Failed to run backtest. See console for details.');
         renderLadderChart([]);
         renderFillsPerMonthChart([]);
+        renderLevelDistributionChart([]);
         renderGridLevels([], [], null);
       }
     }
@@ -3208,6 +3297,7 @@
           renderGridEquityChart(null);
           renderLadderChart([]);
           renderFillsPerMonthChart([]);
+          renderLevelDistributionChart([]);
           renderDataSummary();
           setGridStatus(`Loaded ${ROWS.length.toLocaleString()} 10-minute bars across ${DAYS.length.toLocaleString()} day(s). Running backtest…`);
           setRunButtonEnabled(true);
@@ -3228,6 +3318,7 @@
       renderGridEquityChart(null);
       renderLadderChart([]);
       renderFillsPerMonthChart([]);
+      renderLevelDistributionChart([]);
       renderGridLevels([], [], null);
       buildMonthFilterOptions();
       setRunButtonEnabled(false);
@@ -3370,6 +3461,9 @@
       }
       if (fillsPerMonthChartInst) {
         try { fillsPerMonthChartInst.resize(); } catch {}
+      }
+      if (levelDistributionChartInst) {
+        try { levelDistributionChartInst.resize(); } catch {}
       }
     });
   })();
