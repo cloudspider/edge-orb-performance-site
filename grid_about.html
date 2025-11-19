@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>About Grid</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"
+  />
+  <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+  <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+  <style>
+    .shadow-soft { box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+  <nav class="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+    <div class="max-w-screen-2xl mx-auto px-6 py-3 flex items-center gap-4">
+      <div class="flex items-center gap-6 flex-1 min-w-0">
+        <div class="flex items-center gap-2 font-semibold text-slate-800">
+          <svg class="h-5 w-5 text-emerald-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M192 384L88.5 384C63.6 384 48.3 356.9 61.1 335.5L114 247.3C122.7 232.8 138.3 224 155.2 224L250.2 224C326.3 95.1 439.8 88.6 515.7 99.7C528.5 101.6 538.5 111.6 540.3 124.3C551.4 200.2 544.9 313.7 416 389.8L416 484.8C416 501.7 407.2 517.3 392.7 526L304.5 578.9C283.2 591.7 256 576.3 256 551.5L256 448C256 412.7 227.3 384 192 384L191.9 384zM464 224C464 197.5 442.5 176 416 176C389.5 176 368 197.5 368 224C368 250.5 389.5 272 416 272C442.5 272 464 250.5 464 224z"/></svg>
+          <span>GRID</span>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <a data-nav href="grid.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Grid Backtest</a>
+          <a data-nav href="grid_calc.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Grid Calculator</a>
+          <a data-nav href="grid_about.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">About</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+  <script>
+    (function(){
+      try {
+        const file = (location.pathname.split('/').pop() || 'grid.html').toLowerCase();
+        document.querySelectorAll('a[data-nav]').forEach(a => {
+          const href = (a.getAttribute('href') || '').toLowerCase();
+          const active = href === file || (file === '' && href.endsWith('index.html'));
+          a.classList.toggle('bg-slate-800', active);
+          a.classList.toggle('text-white', active);
+          a.classList.toggle('hover:bg-slate-100', !active);
+          if (active) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current');
+        });
+      } catch {}
+    })();
+  </script>
+
+  <div class="max-w-screen-2xl mx-auto p-6 space-y-6">
+    <header class="mb-2">
+      <h1 class="text-2xl md:text-3xl font-semibold">About Grid</h1>
+      <p class="text-sm text-slate-500">More details coming soon.</p>
+    </header>
+    <section class="bg-white rounded-2xl shadow-soft p-8 prose prose-slate max-w-none"
+            aria-label="About Panel">
+      <!-- Article container -->
+      <div id="grid-article" class="space-y-4 text-slate-800"></div>
+    </section>
+
+    <!-- Markdown renderer -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        const container = document.getElementById('grid-article');
+        if (!container || typeof window.marked === 'undefined') return;
+        const articleMarkdown = `
+    # The Progressive Grid: Turning Volatility Into a Compounding Machine  
+    <i class="fa-solid fa-wave-square text-emerald-600"></i> *Featuring the IREN 5,540-trade case study*
+
+    ---
+
+    ## Why Grid Trading Exists
+
+    Most trading styles depend on **prediction**.  
+    Grid trading depends on **oscillation**.
+
+    A grid trader asks:
+
+    - ✔ *Will the stock oscillate?*  
+    - ✔ *Can I harvest the movement repeatedly?*  
+    - ✔ *Can volatility become income?*
+
+    This philosophical shift turns noise into cashflow—especially when applied to a stock like **IREN**, which over two years produced:
+
+    - **5,540 completed trades on a 2% grid spacing**  
+    - **Three separate 65% drawdowns**  
+    - **Full recoveries**  
+    - **Constant oscillation**
+
+    Exactly the environment where the **Progressive Grid** thrives.
+
+    ---
+
+    ## Grid Types Overview <i class="fa-solid fa-layer-group text-sky-600"></i>
+
+    ### **1. Buy-the-Dip Grid (Default)**
+
+    - Seed buys below the start price  
+    - Seed sells above  
+    - When a buy fills → spawn a sell one level above  
+    - When a sell fills → spawn a buy one level below  
+
+    **Trend Coverage:**  
+    It tracks the highest buy rung.  
+    If price runs far above the ladder, it *preloads new buy rungs upward* so dip-harvesting doesn't fall behind the trend.
+
+    **Sell-to-Buy Recycling:**  
+    A sell fill always queues a buy one rung lower, ensuring continuous dip-capture.
+
+    ---
+
+    ### **2. Progressive Grid (Ratcheting Mode)** <i class="fa-solid fa-arrow-trend-up text-rose-500"></i>
+
+    - Always holds a sell **one rung above every filled buy**  
+    - First step: buy the nearest rung → place a sell one rung higher  
+    - When a sell fills → queue **two buys**:  
+      - One rung *above* (trend leg)  
+      - One rung *below* (dip leg)  
+    - Upper buy only re-arms once prior sells in that zone are cleared  
+    - Every fill spawns a sell one rung above it  
+    - Levels remain snapped to the offset ladder  
+
+    This system:
+
+    - Ratchets upward in trends  
+    - Expands downward in volatility  
+    - Never leaves you “flat”  
+    - Generates continuous oscillation harvesting  
+
+    ---
+
+    ## What Happens When **All Sells Fill?**  
+    ### *The Full Sell-Out Reset Example* <i class="fa-solid fa-rotate text-purple-600"></i>
+
+    Imagine price runs up through **all** your sells.
+
+    You are fully out of inventory.
+
+    ### Example (2% grid):
+    - Last sell filled at **$10.00**  
+    - Ladder empty  
+    - No buys, no sells  
+
+    **Progressive Grid response:**
+
+    1. Place a **new buy at $10.20** (one rung above last sell)  
+    2. When that buy fills:  
+      - Place sell at **$10.40**  
+      - Re-seed a lower buy at **$10.00**  
+      - Begin rebuilding the ladder around the new price zone  
+
+    The system **never stops** — it rebases and continues harvesting volatility at the new levels.
+
+    ---
+
+    ## The Mathematics of the Ladder <i class="fa-solid fa-calculator text-indigo-600"></i>
+
+    ### **Distance (%)**
+
+    For rung price \`p\`:
+    \`\`\`
+    (p - startPrice) / startPrice × 100
+    \`\`\`
+
+    Displayed as “Distance (%)”.
+
+    ---
+
+    ### **Loss (%)**
+
+    Computed by:
+
+    1. Summing unrealized losses across all filled entry prices  
+    2. Comparing against cumulative capital deployed  
+    3. Calculating:
+    \`\`\`
+    lossPct = (totalLoss / prevInvested) × 100
+    \`\`\`
+
+    **Crucial:**  
+    Loss% is **not** equal to price drop %.  
+    Grid drawdown is *mathematically softer*.
+
+    ---
+
+    ## The 100-Level Ladder Example (2% Spacing)
+
+    Your preview table shows:
+
+    - **Price drop: –86.7%**  
+    - **Actual capital loss: –57.5%**  
+    - (Worst case, ignoring all wins)  
+
+    Why the difference?
+
+    - Capital deployed across many entry points  
+    - Low-rung buys have extremely low cost bases  
+    - Losses are diluted across the ladder  
+
+    And this assumes **zero sells** — unrealistically conservative.
+
+    ---
+
+    ## Drawdown Decreases Over Time  
+    <i class="fa-solid fa-arrow-down-short-wide text-emerald-600"></i>
+
+    Every sell fill permanently reduces risk:
+
+    - Realized profit offsets future drawdowns  
+    - Cost basis improves  
+    - High-cost inventory is removed  
+    - Downside cushion increases  
+
+    Older grids routinely survive deeper drawdowns than new ones.
+
+    ---
+
+    ## IREN Case Study  
+    ### *Why this stock produced exceptional results*  
+    <i class="fa-solid fa-chart-line text-amber-500"></i>
+
+    - ~507 days  
+    - 44,936 10-minute bars  
+    - 2% rung spacing  
+    - 59 levels  
+    - **5,540 completed trades**  
+    - **Three 65% drawdowns**  
+    - Full recoveries  
+
+    ### Why these drawdowns *helped* the grid:
+
+    - Created deep low-cost ladders  
+    - Massive oscillation during recovery  
+    - Repeated sell triggering  
+    - Large wins from retained-profit mode  
+
+    IREN's blend of volatility + survivability created ideal grid conditions.
+
+    ---
+
+    ## Breakeven Math
+
+    With 59 rungs at 2% TP:
+
+    - **59 × 50 = 2,950 trades to breakeven**  
+    - IREN generated **5,540** trades  
+
+    The system reached **free carry** and then some.
+
+    ---
+
+    ## Choosing Good Grid Candidates  
+    <i class="fa-solid fa-magnifying-glass-chart text-cyan-600"></i>
+
+    Look for:
+
+    - ✔ High oscillation  
+    - ✔ Large but survivable drawdowns  
+    - ✔ Strong recoveries  
+    - ✔ Potential to 5–10× over years  
+    - ✔ No terminal decline risk  
+
+    Avoid assets that:
+
+    - Trend to zero  
+    - Stay at –80% forever  
+    - Have no catalysts or liquidity  
+
+    ---
+
+    ## Final Thoughts  
+    <i class="fa-solid fa-sparkles text-yellow-500"></i>
+
+    The Progressive Grid is a **volatility monetization engine**.
+
+    It works because it:
+
+    - Harvests oscillation  
+    - Rebuilds after full sell-outs  
+    - Expands during volatility  
+    - Ratchets during trends  
+    - Reduces drawdown over time  
+    - Converts capitulation into opportunity  
+    - Turns noise into cashflow  
+    - Turns low prices into long-term compounding  
+
+    When matched with the right stock — like IREN — time becomes the multiplier, and volatility becomes the fuel.
+    `;
+        const normalizeIndent = (text) => {
+          const lines = text.split('\n');
+          const indents = lines
+            .filter(line => line.trim().length)
+            .map(line => line.match(/^(\s*)/)?.[1]?.length ?? 0);
+          const minIndent = indents.length ? Math.min(...indents) : 0;
+          return lines.map(line => line.slice(minIndent)).join('\n').trim();
+        };
+        const markdown = normalizeIndent(articleMarkdown);
+        const renderer = typeof window.marked.parse === 'function'
+          ? (md) => window.marked.parse(md)
+          : window.marked;
+        container.innerHTML = renderer(markdown);
+      });
+    </script>
+
+  </div>
+</body>
+</html>
