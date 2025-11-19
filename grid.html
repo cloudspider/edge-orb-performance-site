@@ -368,15 +368,6 @@
           />
           <span>Allow fractional shares</span>
         </label>
-        <label class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 shadow-sm transition focus-within:ring-2 focus-within:ring-emerald-500/60">
-          <input
-            id="inpAllowMargin"
-            type="checkbox"
-            class="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-            checked
-          />
-          <span>Allow margin (borrow cash)</span>
-        </label>
       </div>
     </section>
 
@@ -1033,7 +1024,6 @@
       const gridOffset = Number(document.getElementById('inpGridOffset')?.value ?? 0);
       const tradeValue = Number(document.getElementById('inpTradeValue')?.value ?? GRID_DEFAULTS.tradeValue);
       const fractionalShares = !!document.getElementById('inpFractionalShares')?.checked;
-      const allowMargin = !!document.getElementById('inpAllowMargin')?.checked;
       const gridType = (document.getElementById('selGridType')?.value || 'pullback').toLowerCase();
       const gridSpacingType = (document.getElementById('selGridSpacing')?.value || GRID_DEFAULTS.gridSpacingType).toLowerCase();
       const retentionMode = (document.getElementById('selRetentionMode')?.value || 'profit').toLowerCase();
@@ -1043,7 +1033,6 @@
         gridOffset: Number.isFinite(gridOffset) ? gridOffset : 0,
         tradeValue: Number.isFinite(tradeValue) ? tradeValue : GRID_DEFAULTS.tradeValue,
         fractionalShares,
-        allowMargin,
         gridType,
         gridSpacingType,
         retentionMode,
@@ -2157,7 +2146,6 @@
       const gridSpacingType = (params?.gridSpacingType || GRID_DEFAULTS.gridSpacingType).toLowerCase();
       const tradeValue = Number(params?.tradeValue);
       const fractional = !!params?.fractionalShares;
-      const allowMargin = !!params?.allowMargin;
       const retentionMode = (params?.retentionMode || 'profit').toLowerCase();
       const entryFilter = (params?.entryFilter || 'none').toLowerCase();
       if (!Number.isFinite(rawGridSize) || rawGridSize <= 0 || !Number.isFinite(tradeValue) || tradeValue <= 0) {
@@ -2340,7 +2328,6 @@
       let realizedProfit = 0;
       let cumulativeRetained = 0;
       let prevPrice = firstPrice;
-      const EPS = 1e-9;
       let peakEquity = cash + shares * firstPrice;
       let maxDrawdown = 0;
       let maxDrawdownPct = 0;
@@ -2424,18 +2411,7 @@
             summary.maxDeployedCapital = deployed;
           }
         }
-        if (!allowMargin) {
-          const affordable = fractional ? (cash / price) : Math.floor(cash / price);
-          qty = Math.min(qty, affordable);
-          if (!Number.isFinite(qty) || qty <= 0) {
-            removeOrder(activeBuys, order);
-            return false;
-          }
-        }
         const cost = qty * price;
-        if (!allowMargin && cost > cash + EPS) {
-          return false;
-        }
         cash -= cost;
         if (cash < minCashBalance) minCashBalance = cash;
         shares += qty;
@@ -2657,7 +2633,6 @@
       const gridSpacingType = (params?.gridSpacingType || GRID_DEFAULTS.gridSpacingType).toLowerCase();
       const tradeValue = Number(params?.tradeValue);
       const fractional = !!params?.fractionalShares;
-      const allowMargin = !!params?.allowMargin;
       const retentionMode = (params?.retentionMode || 'profit').toLowerCase();
       const entryFilter = (params?.entryFilter || 'none').toLowerCase();
       if (!Number.isFinite(rawGridSize) || rawGridSize <= 0 || !Number.isFinite(tradeValue) || tradeValue <= 0) {
@@ -2698,7 +2673,6 @@
       const stepsBetween = spacing.stepsBetween;
       const priceTolerance = spacing.priceTolerance ?? 1e-9;
       const usePercentSpacing = spacing.type === 'percent';
-      const EPS = 1e-9;
       const shouldRatchetUp = usePercentSpacing && spacing.anchorMode === 'ratchet_up' && typeof spacing.setAnchor === 'function' && typeof spacing.getAnchor === 'function';
       const refreshEntryRungs = () => {
         pendingBuys.forEach(entry => {
@@ -2840,13 +2814,7 @@
             summary.maxDeployedCapital = deployed;
           }
         }
-        if (!allowMargin) {
-          const affordable = fractional ? (cash / price) : Math.floor(cash / price);
-          qty = Math.min(qty, affordable);
-          if (!Number.isFinite(qty) || qty <= 0) return false;
-        }
         const cost = qty * price;
-        if (!allowMargin && cost > cash + EPS) return false;
         pendingBuys.delete(entry.key);
         if (entry.groupId > 0 && entry.direction === 'down') {
           const keysToRemove = [];
@@ -3233,8 +3201,7 @@
         document.getElementById('inpGridSize'),
         document.getElementById('inpGridOffset'),
         document.getElementById('inpTradeValue'),
-        document.getElementById('inpFractionalShares'),
-        document.getElementById('inpAllowMargin')
+        document.getElementById('inpFractionalShares')
       ];
       inputs.forEach(el => {
         if (!el) return;

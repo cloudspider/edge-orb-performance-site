@@ -359,10 +359,10 @@
               <input
                 id="inpBreakevenLevels"
                 type="number"
-                min="1"
-                max="100"
-                value="30"
-                data-default="30"
+                min="10"
+                max="200"
+                value="50"
+                data-default="50"
                 class="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
               />
               <span class="mt-1 block text-xs text-slate-500">Display 1 through this level count.</span>
@@ -1137,7 +1137,7 @@
       if (!maxLevelsInput || !tpListInput || !tableContainer) return;
 
       const parsedLevels = parseInt(maxLevelsInput.value, 10);
-      const clampedLevels = Math.max(1, Math.min(50, Number.isFinite(parsedLevels) ? parsedLevels : BREAKEVEN_DEFAULTS.maxLevels));
+      const clampedLevels = Math.max(1, Math.min(200, Number.isFinite(parsedLevels) ? parsedLevels : BREAKEVEN_DEFAULTS.maxLevels));
       if (String(clampedLevels) !== maxLevelsInput.value) {
         maxLevelsInput.value = String(clampedLevels);
       }
