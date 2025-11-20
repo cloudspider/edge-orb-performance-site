@@ -242,6 +242,7 @@
               class="w-full appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-9 py-2 text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
             >
               <option value="pullback" selected>Buy-the-Dip Grid</option>
+              <option value="grid_ath_reset">Buy-the-Dip · ATH Reset</option>
               <option value="progressive">Progressive Grid</option>
             </select>
             <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
@@ -2110,6 +2111,7 @@
         return runProgressiveGrid(rows, params);
       }
 
+      const athResetMode = mode === 'grid_ath_reset';
       const summary = {
         totalTrades: 0,
         netProfit: 0,
@@ -2122,6 +2124,7 @@
         maxSharesHeld: 0,
         maxOpenLevels: 0,
         maxDeployedCapital: 0,
+        athResetCount: 0,
         cagr: 0
       };
       const buyLevelSet = new Set();
@@ -2286,37 +2289,43 @@
         return order;
       };
 
-      if (!usePercentSpacing) {
-        const gridMin = spacing.floor(minPrice);
-        const gridMax = spacing.ceil(maxPrice);
-        if (Number.isFinite(gridMin) && Number.isFinite(gridMax)) {
-          for (let level = gridMin; Number.isFinite(level) && level <= gridMax + priceTolerance * Math.max(1, level); ) {
-            if (level < firstPrice - priceTolerance * Math.max(1, level)) {
-              addBuyOrder(level);
-            }
-            const nextLevel = nextUpLevel(level);
-            if (!Number.isFinite(nextLevel) || Math.abs(nextLevel - level) <= priceTolerance * Math.max(1, nextLevel)) break;
-            level = nextLevel;
-          }
+      const applyBaseAnchor = (basePrice) => {
+        if (!usePercentSpacing || typeof spacing.setAnchor !== 'function') return;
+        const snapped = snapLevel(basePrice);
+        if (Number.isFinite(snapped) && snapped > 0) {
+          spacing.setAnchor(snapped);
         }
-      } else {
-        let level = nextDownLevel(snapLevel(firstPrice));
+      };
+
+      const seedDownLadderFromBase = (basePrice) => {
+        const snappedBase = snapLevel(basePrice);
+        if (!Number.isFinite(snappedBase) || snappedBase <= 0) return;
+        let level = nextDownLevel(snappedBase);
         let safety = 0;
-        while (Number.isFinite(level) && level > 0 && level >= minPrice - priceTolerance * Math.max(1, level) && safety < 2000) {
+        const coverageFloor = Math.max(minPrice, priceTolerance);
+        while (
+          Number.isFinite(level) &&
+          level > 0 &&
+          level >= coverageFloor - priceTolerance * Math.max(1, level) &&
+          safety < 5000
+        ) {
           addBuyOrder(level);
           const nextLevel = nextDownLevel(level);
           if (!Number.isFinite(nextLevel) || Math.abs(nextLevel - level) <= priceTolerance * Math.max(1, level)) break;
           level = nextLevel;
           safety += 1;
         }
-      }
-      if (!Number.isFinite(highestSeededBuyLevel) || highestSeededBuyLevel === Number.NEGATIVE_INFINITY) {
-        const seedLevel = nextDownLevel(firstPrice);
-        if (Number.isFinite(seedLevel) && seedLevel > 0) {
-          const order = addBuyOrder(seedLevel);
-          if (order) highestSeededBuyLevel = order.level;
+        if (!Number.isFinite(highestSeededBuyLevel) || highestSeededBuyLevel === Number.NEGATIVE_INFINITY) {
+          const fallback = nextDownLevel(snappedBase);
+          if (Number.isFinite(fallback) && fallback > 0) {
+            const order = addBuyOrder(fallback);
+            if (order) highestSeededBuyLevel = order.level;
+          }
         }
-      }
+      };
+
+      applyBaseAnchor(firstPrice);
+      seedDownLadderFromBase(firstPrice);
 
       let cash = 0;
       let minCashBalance = cash;
@@ -2386,6 +2395,48 @@
           if (maxPrice >= entry.trigger - tolerance) {
             addBuyOrder(entry.buyLevel);
             queuedBuyActivations.splice(i, 1);
+          }
+        }
+      };
+
+      const hasActiveSellOrders = () => {
+        for (const arr of activeSells.values()) {
+          if (Array.isArray(arr) && arr.length) return true;
+        }
+        return false;
+      };
+
+      const clearLadderState = () => {
+        activeBuys.clear();
+        activeSells.clear();
+        queuedBuyActivations.length = 0;
+        buyLevelSet.clear();
+        sellLevelSet.clear();
+        highestSeededBuyLevel = Number.NEGATIVE_INFINITY;
+      };
+
+      const rebuildLadderAtBase = (basePrice, timestamp) => {
+        clearLadderState();
+        applyBaseAnchor(basePrice);
+        seedDownLadderFromBase(basePrice);
+        summary.athResetCount += 1;
+        ladderHistory.push({
+          time: timestamp instanceof Date ? new Date(timestamp.getTime()) : (lastEquityTime ? new Date(lastEquityTime.getTime()) : new Date()),
+          buys: activeBuys.size,
+          sells: activeSells.size,
+          queued: queuedBuyActivations.length
+        });
+      };
+
+      let runningAth = firstPrice;
+      const maybeTriggerAthReset = (price, timestamp) => {
+        if (!athResetMode) return;
+        if (!Number.isFinite(price)) return;
+        const tolerance = priceTolerance * Math.max(1, price);
+        if (price > runningAth + tolerance) {
+          runningAth = price;
+          if (!hasActiveSellOrders() && Math.abs(shares) <= 1e-8) {
+            rebuildLadderAtBase(price, timestamp);
           }
         }
       };
@@ -2501,6 +2552,7 @@
         ensureRunupBuys(maxVal);
         activateQueuedBuys(maxVal);
         ratchetAnchorIfNeeded(maxVal);
+        maybeTriggerAthReset(maxVal, timestamp);
         if (timestamp instanceof Date) {
           ladderHistory.push({
             time: new Date(timestamp.getTime()),

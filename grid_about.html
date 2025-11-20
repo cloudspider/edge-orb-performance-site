@@ -65,228 +65,307 @@
         const container = document.getElementById('grid-article');
         if (!container || typeof window.marked === 'undefined') return;
         const articleMarkdown = `
-    # The Progressive Grid: Turning Volatility Into a Compounding Machine  
-    <i class="fa-solid fa-wave-square text-emerald-600"></i> *Featuring the IREN 5,540-trade case study*
+        # Grid Trading: Turning Volatility Into a Compounding Machine  
+        <i class="fa-solid fa-wave-square text-emerald-600"></i> *Featuring the IREN 5,540-trade case study*
 
-    ---
+        ---
 
-    ## Why Grid Trading Exists
+        ## Why Grid Trading Exists
 
-    Most trading styles depend on **prediction**.  
-    Grid trading depends on **oscillation**.
+        Most trading styles depend on **prediction**.  
+        Grid trading depends on **oscillation**.
 
-    A grid trader asks:
+        A grid trader asks:
 
-    - ✔ *Will the stock oscillate?*  
-    - ✔ *Can I harvest the movement repeatedly?*  
-    - ✔ *Can volatility become income?*
+        - ✔ *Will the stock oscillate?*  
+        - ✔ *Can I harvest the movement repeatedly?*  
+        - ✔ *Can volatility become income?*
 
-    This philosophical shift turns noise into cashflow—especially when applied to a stock like **IREN**, which over two years produced:
+        This philosophical shift turns noise into cashflow—especially when applied to a stock like **IREN**, which over two years produced:
 
-    - **5,540 completed trades on a 2% grid spacing**  
-    - **Three separate 65% drawdowns**  
-    - **Full recoveries**  
-    - **Constant oscillation**
+        - **5,540 completed trades on a 2% grid spacing**  
+        - **Three separate 65% drawdowns**  
+        - **Full recoveries**  
+        - **Constant oscillation**
 
-    Exactly the environment where the **Progressive Grid** thrives.
+        Exactly the environment where grid trading thrives.
 
-    ---
+        ---
 
-    ## Grid Types Overview <i class="fa-solid fa-layer-group text-sky-600"></i>
+        ## Grid Types Overview <i class="fa-solid fa-layer-group text-sky-600"></i>
 
-    ### **1. Buy-the-Dip Grid (Default)**
+        We will focus on the **Buy-the-Dip Grid**, the simplest and most robust variant.
 
-    - Seed buys below the start price  
-    - Seed sells above  
-    - When a buy fills → spawn a sell one level above  
-    - When a sell fills → spawn a buy one level below  
+        ---
 
-    **Trend Coverage:**  
-    It tracks the highest buy rung.  
-    If price runs far above the ladder, it *preloads new buy rungs upward* so dip-harvesting doesn't fall behind the trend.
+        ## 1. Buy-the-Dip Grid (Default)
 
-    **Sell-to-Buy Recycling:**  
-    A sell fill always queues a buy one rung lower, ensuring continuous dip-capture.
+        The rule set is extremely clear:
 
-    ---
+        - Seed **buy orders** at every rung *below* the base price  
+        - When a buy fills → spawn a **sell** one rung above  
+        - When a sell fills → re-arm a **buy** one rung below  
 
-    ### **2. Progressive Grid (Ratcheting Mode)** <i class="fa-solid fa-arrow-trend-up text-rose-500"></i>
+        This creates a continuous “buy dips, sell bounces” rhythm.
 
-    - Always holds a sell **one rung above every filled buy**  
-    - First step: buy the nearest rung → place a sell one rung higher  
-    - When a sell fills → queue **two buys**:  
-      - One rung *above* (trend leg)  
-      - One rung *below* (dip leg)  
-    - Upper buy only re-arms once prior sells in that zone are cleared  
-    - Every fill spawns a sell one rung above it  
-    - Levels remain snapped to the offset ladder  
+        ### Trend Coverage  
+        The system tracks the highest rung it has ever armed with a buy.
 
-    This system:
+        If price continues climbing several rungs above that point, the grid **pre-loads new buy rungs upward** so that any pullback will still trigger meaningful dip entries.
 
-    - Ratchets upward in trends  
-    - Expands downward in volatility  
-    - Never leaves you “flat”  
-    - Generates continuous oscillation harvesting  
+        ### Sell-to-Buy Recycling  
+        A sell fill always enqueues a buy one rung below, keeping the ladder alive and ensuring dips remain harvestable.
 
-    ---
+        Buy-the-Dip is simple, robust, and extremely effective in oscillatory symbols.
 
-    ## What Happens When **All Sells Fill?**  
-    ### *The Full Sell-Out Reset Example* <i class="fa-solid fa-rotate text-purple-600"></i>
+        ---
 
-    Imagine price runs up through **all** your sells.
+        # Continuous ATH Base Reset  
+        <i class="fa-solid fa-arrow-trend-up text-rose-500"></i>
 
-    You are fully out of inventory.
+        This is the major enhancement.
 
-    ### Example (2% grid):
-    - Last sell filled at **$10.00**  
-    - Ladder empty  
-    - No buys, no sells  
+        Every time price prints a **new All-Time High (ATH)**:
 
-    **Progressive Grid response:**
+        1. The **Base Price is reset to the new ATH**  
+        2. All rungs are **recalculated downward** starting from that ATH  
+        3. Old rungs far below price are discarded  
+        4. The system waits for the *next dip*  
+        5. The first rung below the ATH becomes the new entry point  
 
-    1. Place a **new buy at $10.20** (one rung above last sell)  
-    2. When that buy fills:  
-      - Place sell at **$10.40**  
-      - Re-seed a lower buy at **$10.00**  
-      - Begin rebuilding the ladder around the new price zone  
+        This keeps the grid:
 
-    The system **never stops** — it rebases and continues harvesting volatility at the new levels.
+        - aligned with long-term uptrends  
+        - clean and focused  
+        - relevant to current price  
+        - ready to act immediately when a pullback appears  
 
-    ---
+        ### Why ATH reset matters
+        Without it:
 
-    ## The Mathematics of the Ladder <i class="fa-solid fa-calculator text-indigo-600"></i>
+        - the ladder drifts too far below price  
+        - entry spacing becomes too wide  
+        - capital is inefficiently allocated  
+        - the grid misses profitable near-term dips  
 
-    ### **Distance (%)**
+        With ATH reset:
 
-    For rung price \`p\`:
-    \`\`\`
-    (p - startPrice) / startPrice × 100
-    \`\`\`
+        - the ladder is always fresh  
+        - spacing is preserved  
+        - risk profile is consistent  
+        - the first buy is always at a meaningful dip from the current high  
 
-    Displayed as “Distance (%)”.
+        ---
 
-    ---
+        # Example of Continuous ATH Reset  
+        <i class="fa-solid fa-arrows-spin text-purple-600"></i>
 
-    ### **Loss (%)**
+        Assume:
 
-    Computed by:
+        - Grid spacing = 2%  
+        - Base price = $100  
+        - Buy rungs: $98, $96.04, $94.12…
 
-    1. Summing unrealized losses across all filled entry prices  
-    2. Comparing against cumulative capital deployed  
-    3. Calculating:
-    \`\`\`
-    lossPct = (totalLoss / prevInvested) × 100
-    \`\`\`
+        ### Scenario 1 — Price hits a new ATH at $105  
+        We immediately:
 
-    **Crucial:**  
-    Loss% is **not** equal to price drop %.  
-    Grid drawdown is *mathematically softer*.
+        - Set **new base = $105**  
+        - Rebuild buy rungs downward:  
+          - $102.90  
+          - $100.84  
+          - $98.82  
+          - $96.86  
+          - …
 
-    ---
+        No buys are active while price is rising.  
+        We simply wait.
 
-    ## The 100-Level Ladder Example (2% Spacing)
+        ---
 
-    Your preview table shows:
+        ### Scenario 2 — Price pulls back to $102.90  
+        First buy triggers.
 
-    - **Price drop: –86.7%**  
-    - **Actual capital loss: –57.5%**  
-    - (Worst case, ignoring all wins)  
+        We immediately:
 
-    Why the difference?
+        - Buy at **$102.90**  
+        - Place a sell at **$105.00**  
+        - Keep lower rungs ready  
 
-    - Capital deployed across many entry points  
-    - Low-rung buys have extremely low cost bases  
-    - Losses are diluted across the ladder  
+        ---
 
-    And this assumes **zero sells** — unrealistically conservative.
+        ### Scenario 3 — Price rebounds to $105  
+        - Sell triggers  
+        - Profit captured  
+        - If a newer ATH forms (say $108), we reset the ladder again  
 
-    ---
+        This loop continues, turning **all pullbacks** into **harvestable oscillations**.
 
-    ## Drawdown Decreases Over Time  
-    <i class="fa-solid fa-arrow-down-short-wide text-emerald-600"></i>
+        ---
 
-    Every sell fill permanently reduces risk:
+        # The Mathematics of the Ladder <i class="fa-solid fa-calculator text-indigo-600"></i>
 
-    - Realized profit offsets future drawdowns  
-    - Cost basis improves  
-    - High-cost inventory is removed  
-    - Downside cushion increases  
+        ## Distance (%)
 
-    Older grids routinely survive deeper drawdowns than new ones.
+        For a rung price \`p\`:
 
-    ---
+        \`\`\`
+        (p - startPrice) / startPrice × 100
+        \`\`\`
 
-    ## IREN Case Study  
-    ### *Why this stock produced exceptional results*  
-    <i class="fa-solid fa-chart-line text-amber-500"></i>
+        Shown in the “Distance (%)” ladder preview.
 
-    - ~507 days  
-    - 44,936 10-minute bars  
-    - 2% rung spacing  
-    - 59 levels  
-    - **5,540 completed trades**  
-    - **Three 65% drawdowns**  
-    - Full recoveries  
+        ---
 
-    ### Why these drawdowns *helped* the grid:
+        ## Loss (%)
 
-    - Created deep low-cost ladders  
-    - Massive oscillation during recovery  
-    - Repeated sell triggering  
-    - Large wins from retained-profit mode  
+        This is the most misunderstood part of grid trading.
 
-    IREN's blend of volatility + survivability created ideal grid conditions.
+        Loss% is computed by:
 
-    ---
+        1. Summing unrealized losses across all filled entries  
+        2. Comparing that to cumulative invested capital  
+        3. Calculating:
 
-    ## Breakeven Math
+        \`\`\`
+        lossPct = (totalLoss / prevInvested) × 100
+        \`\`\`
 
-    With 59 rungs at 2% TP:
+        ### **Important:**  
+        Loss% is **NOT** equal to the underlying price drop.
 
-    - **59 × 50 = 2,950 trades to breakeven**  
-    - IREN generated **5,540** trades  
+        Grid drawdown is *mathematically softer* because:
 
-    The system reached **free carry** and then some.
+        - capital is deployed across many entry points  
+        - lower rungs have extremely low cost bases  
+        - losses dilute across aggregated entries  
 
-    ---
+        ---
 
-    ## Choosing Good Grid Candidates  
-    <i class="fa-solid fa-magnifying-glass-chart text-cyan-600"></i>
+        # The 100-Level Ladder Example (2% Spacing)
 
-    Look for:
+        From your preview table:
 
-    - ✔ High oscillation  
-    - ✔ Large but survivable drawdowns  
-    - ✔ Strong recoveries  
-    - ✔ Potential to 5–10× over years  
-    - ✔ No terminal decline risk  
+        - **Price drop: –86.7%**  
+        - **Actual capital loss: –57.5%**  
+        - *(Worst case, assuming zero sells)*  
 
-    Avoid assets that:
+        This happens because:
 
-    - Trend to zero  
-    - Stay at –80% forever  
-    - Have no catalysts or liquidity  
+        - The lowest rungs are extremely cheap  
+        - Many filled levels are far below the current rung  
+        - Unrealized loss spreads across many entries  
 
-    ---
+        And again — this scenario assumes **zero wins**.
 
-    ## Final Thoughts  
-    <i class="fa-solid fa-sparkles text-yellow-500"></i>
+        In reality, every bounce harvests profits and reduces risk.
 
-    The Progressive Grid is a **volatility monetization engine**.
+        ---
 
-    It works because it:
+        # Drawdown Decreases Over Time  
+        <i class="fa-solid fa-arrow-down-short-wide text-emerald-600"></i>
 
-    - Harvests oscillation  
-    - Rebuilds after full sell-outs  
-    - Expands during volatility  
-    - Ratchets during trends  
-    - Reduces drawdown over time  
-    - Converts capitulation into opportunity  
-    - Turns noise into cashflow  
-    - Turns low prices into long-term compounding  
+        Every sell fill:
 
-    When matched with the right stock — like IREN — time becomes the multiplier, and volatility becomes the fuel.
-    `;
+        - realizes profit  
+        - removes high-cost inventory  
+        - improves average cost  
+        - increases future drawdown resilience  
+
+        This is why a grid with 500 completed trades has dramatically lower risk than a brand-new grid—even with identical settings.
+
+        ---
+
+        # IREN Case Study  
+        <i class="fa-solid fa-chart-line text-amber-500"></i>
+
+        ### Why IREN was an ideal Buy-the-Dip candidate:
+
+        - ~507 days  
+        - 44,936 10-minute bars  
+        - **5,540 completed trades at 2% spacing**  
+        - **3 major 65% drawdowns**  
+        - Full recoveries  
+        - Constant oscillation  
+
+        These drawdowns **helped** the system:
+
+        - They created deep, cheap rungs  
+        - They amplified oscillations during recovery  
+        - They produced an enormous number of profitable cycles  
+
+        IREN’s volatility + survivability made it nearly perfect for this strategy.
+
+        ---
+
+        # Breakeven Math
+
+        With:
+
+        - 59 rungs  
+        - 2% spacing  
+        - 1,000 per rung  
+
+        You need:
+
+        \`\`\`
+        59 × 50 = 2,950 trades
+        \`\`\`
+
+        IREN delivered:
+
+        - **5,540 trades**  
+
+        Nearly **2× breakeven**.
+
+        This put the system firmly into **free carry** territory.
+
+        ---
+
+        # Choosing Good Grid Candidates  
+        <i class="fa-solid fa-magnifying-glass-chart text-cyan-600"></i>
+
+        Look for stocks with:
+
+        - ✔ Strong oscillation  
+        - ✔ Deep but recoverable drawdowns  
+        - ✔ Healthy long-term uptrends  
+        - ✔ Solid liquidity  
+        - ✔ Potential to 5–10×  
+
+        Avoid:
+
+        - Terminal decline patterns  
+        - Stocks that never reclaim ATHs  
+        - Assets that stay frozen at –80% forever  
+
+        You want volatility **with recovery**, not volatility **into oblivion**.
+
+        ---
+
+        # Final Thoughts  
+        <i class="fa-solid fa-sparkles text-yellow-500"></i>
+
+        The Buy-the-Dip Grid with continuous ATH resets is:
+
+        - simple  
+        - robust  
+        - adaptive  
+        - self-correcting  
+        - highly effective in volatile symbols  
+
+        It works because it:
+
+        - Buys dips  
+        - Sells bounces  
+        - Resets to ATHs  
+        - Keeps the ladder aligned with the market  
+        - Reduces drawdown as wins accumulate  
+        - Turns oscillation into income  
+        - Turns volatility into long-term compounding  
+
+        When matched with the right stock—like IREN—volatility becomes the fuel, and time becomes the multiplier.
+        `;
+
         const normalizeIndent = (text) => {
           const lines = text.split('\n');
           const indents = lines
