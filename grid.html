@@ -456,51 +456,56 @@
           <span id="summaryShares" class="text-sm font-semibold text-slate-800">0</span>
         </div>
       </div>
-      <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-9">
+      <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-10">
         <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Completed Trades</dt>
           <dd id="summaryTotalTrades" class="mt-2 text-xl font-semibold text-slate-800">0</dd>
-          <span class="summary-tooltip">Number of round-trip trades (buy followed by the paired sell) the grid closed during the test period.</span>
+          <span class="summary-tooltip">Count of round-trip trades (buy then matched sell) completed during the test window.</span>
         </div>
         <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Levels</dt>
           <dd id="summaryMaxLevels" class="mt-2 text-xl font-semibold text-slate-800">0</dd>
-          <span class="summary-tooltip">Highest count of open ladder levels (active sell orders) still working after any trade closed during the backtest.</span>
+          <span class="summary-tooltip">Peak simultaneous open ladder levels (active sells) at any point in the run.</span>
         </div>
         <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Deployed Capital</dt>
           <dd id="summaryMaxCapital" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
-          <span class="summary-tooltip">Peak notional capital required during the test, equal to trade value × the highest simultaneous open levels.</span>
+          <span class="summary-tooltip">Peak notional capital requirement = trade value × highest open levels (tracks the largest ladder footprint).</span>
         </div>
         <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Net Profit</dt>
           <dd id="summaryNetProfit" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
-          <span class="summary-tooltip">Realized profit across completed trades: total proceeds from sells minus the cost basis of those sells.</span>
+          <span class="summary-tooltip">Realized P&L from completed trades only: sell proceeds minus cost basis of those sells.</span>
+        </div>
+        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Profit per Level</dt>
+          <dd id="summaryProfitPerLevel" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
+          <span class="summary-tooltip">Realized net profit normalized by ladder size: net profit ÷ peak open levels.</span>
         </div>
         <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Final Equity</dt>
           <dd id="summaryFinalEquity" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
-          <span class="summary-tooltip">Ending account equity after the final bar: remaining cash plus the market value of any shares still held.</span>
+          <span class="summary-tooltip">Ending mark-to-market equity at the last bar close: cash plus shares valued at the final bar price (not just the last trade price).</span>
         </div>
         <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">CAGR</dt>
           <dd id="summaryCagr" class="mt-2 text-xl font-semibold text-slate-800">0.00%</dd>
-          <span class="summary-tooltip">Compound annual growth rate using the capital actually required (trade value × max open levels) versus the final equity over the calendar days in the test.</span>
+          <span class="summary-tooltip">Compound annual growth rate using required capital (trade value × max open levels) versus final equity over the test span.</span>
         </div>
         <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Retained Shares</dt>
           <dd id="summaryRetained" class="mt-2 text-xl font-semibold text-slate-800">0</dd>
-          <span class="summary-tooltip">Shares intentionally retained after each sale and carried forward in the ladder (not yet closed out).</span>
+          <span class="summary-tooltip">Total shares intentionally retained after sells and carried forward (not yet closed).</span>
         </div>
         <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Drawdown</dt>
           <dd id="summaryMaxDD" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
-          <span class="summary-tooltip">Largest peak-to-trough drop in equity expressed in dollars during the run.</span>
+          <span class="summary-tooltip">Largest peak-to-trough drop in equity (dollars) using bar-end mark-to-market equity.</span>
         </div>
         <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Drawdown %</dt>
           <dd id="summaryMaxDDPct" class="mt-2 text-xl font-semibold text-slate-800">0.00%</dd>
-          <span class="summary-tooltip">Same drawdown expressed as a percentage of the prior equity peak.</span>
+          <span class="summary-tooltip">Same drawdown as a percentage of the prior equity peak, computed on bar-end mark-to-market equity.</span>
         </div>
       </dl>
     </section>
@@ -569,15 +574,21 @@
               <th class="px-3 py-2 sortable" data-sort-key="buyTime"><button type="button"><span>Buy Time</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 text-right sortable" data-sort-key="buyPrice"><button type="button"><span>Buy Price</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 text-right sortable" data-sort-key="buyQty"><button type="button"><span>Buy Qty</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-sort-key="openQty"><button type="button"><span>Open Qty</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-sort-key="openEquity"><button type="button"><span>Open Equity</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 text-right sortable" data-sort-key="openLevels"><button type="button"><span>Open Levels</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 sortable" data-sort-key="sellTime"><button type="button"><span>Sell Time</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 text-right sortable" data-sort-key="sellPrice"><button type="button"><span>Sell Price</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 text-right sortable" data-sort-key="sellQty"><button type="button"><span>Sell Qty</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-sort-key="closeQty"><button type="button"><span>Close Qty</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-sort-key="closeEquity"><button type="button"><span>Close Equity</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 text-right sortable" data-sort-key="qtyRetained"><button type="button"><span>Qty Retained</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 text-right sortable" data-sort-key="cumQtyRetained"><button type="button"><span>Cum Retained</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 text-right sortable" data-sort-key="daysHeld"><button type="button"><span>Days Held</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 text-right sortable" data-sort-key="profit"><button type="button"><span>Profit $</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 text-right sortable" data-sort-key="cumProfit"><button type="button"><span>Cum Profit $</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-sort-key="runningPnl"><button type="button"><span>PnL</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-sort-key="drawdown"><button type="button"><span>Drawdown</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 text-right sortable" data-sort-key="roiPct"><button type="button"><span>ROI %</span><span class="sort-indicator"></span></button></th>
             </tr>
           </thead>
@@ -1047,6 +1058,7 @@
       const totalTradesEl = document.getElementById('summaryTotalTrades');
       const maxLevelsEl = document.getElementById('summaryMaxLevels');
       const netProfitEl = document.getElementById('summaryNetProfit');
+      const profitPerLevelEl = document.getElementById('summaryProfitPerLevel');
       const maxCapitalEl = document.getElementById('summaryMaxCapital');
       const finalEquityEl = document.getElementById('summaryFinalEquity');
       const retainedEl = document.getElementById('summaryRetained');
@@ -1063,6 +1075,11 @@
           netProfitEl.textContent = '$0.00';
           netProfitEl.classList.remove('text-emerald-600', 'text-red-600');
           netProfitEl.classList.add('text-slate-800');
+        }
+        if (profitPerLevelEl) {
+          profitPerLevelEl.textContent = '$0.00';
+          profitPerLevelEl.classList.remove('text-emerald-600', 'text-red-600');
+          profitPerLevelEl.classList.add('text-slate-800');
         }
         if (finalEquityEl) finalEquityEl.textContent = '$0.00';
         if (retainedEl) retainedEl.textContent = '0';
@@ -1106,6 +1123,18 @@
           netProfitEl.classList.add('text-red-600');
         } else {
           netProfitEl.classList.add('text-slate-800');
+        }
+      }
+      if (profitPerLevelEl) {
+        const val = summary.profitPerLevel ?? 0;
+        profitPerLevelEl.textContent = formatCurrency(val);
+        profitPerLevelEl.classList.remove('text-slate-800', 'text-emerald-600', 'text-red-600');
+        if (val > 1e-8) {
+          profitPerLevelEl.classList.add('text-emerald-600');
+        } else if (val < -1e-8) {
+          profitPerLevelEl.classList.add('text-red-600');
+        } else {
+          profitPerLevelEl.classList.add('text-slate-800');
         }
       }
       if (finalEquityEl) finalEquityEl.textContent = formatCurrency(summary.finalEquity ?? 0);
@@ -1159,12 +1188,18 @@
         case 'buyPrice':
         case 'sellPrice':
         case 'buyQty':
+        case 'openQty':
+        case 'openEquity':
         case 'sellQty':
+        case 'closeQty':
+        case 'closeEquity':
         case 'qtyRetained':
         case 'cumQtyRetained':
         case 'daysHeld':
         case 'profit':
         case 'cumProfit':
+        case 'runningPnl':
+        case 'drawdown':
         case 'roiPct':
         case 'gridLevel':
         case 'openLevels':
@@ -1331,15 +1366,21 @@
           <td class="px-3 py-2 whitespace-nowrap">${formatDateTime(trade.buyTime)}</td>
           <td class="px-3 py-2 text-right">${formatNumber(trade.buyPrice, 4)}</td>
           <td class="px-3 py-2 text-right">${formatNumber(trade.buyQty, 4)}</td>
+          <td class="px-3 py-2 text-right">${formatNumber(trade.openQty ?? 0, 4)}</td>
+          <td class="px-3 py-2 text-right">${formatCurrency(trade.openEquity ?? 0)}</td>
           <td class="px-3 py-2 text-right">${openLevelsLabel}</td>
           <td class="px-3 py-2 whitespace-nowrap">${formatDateTime(trade.sellTime)}</td>
           <td class="px-3 py-2 text-right">${formatNumber(trade.sellPrice, 4)}</td>
           <td class="px-3 py-2 text-right">${formatNumber(trade.sellQty, 4)}</td>
+          <td class="px-3 py-2 text-right">${formatNumber(trade.closeQty ?? 0, 4)}</td>
+          <td class="px-3 py-2 text-right">${formatCurrency(trade.closeEquity ?? 0)}</td>
           <td class="px-3 py-2 text-right">${formatNumber(trade.qtyRetained ?? 0, 4)}</td>
           <td class="px-3 py-2 text-right">${formatNumber(trade.cumQtyRetained ?? 0, 4)}</td>
           <td class="px-3 py-2 text-right">${formatNumber(trade.daysHeld ?? 0, 2)}</td>
           <td class="px-3 py-2 text-right ${trade.profit >= 0 ? 'text-emerald-600' : 'text-red-600'}">${formatCurrency(trade.profit)}</td>
           <td class="px-3 py-2 text-right ${trade.cumProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}">${formatCurrency(trade.cumProfit)}</td>
+          <td class="px-3 py-2 text-right ${trade.runningPnl >= 0 ? 'text-emerald-600' : 'text-red-600'}">${formatCurrency(trade.runningPnl)}</td>
+          <td class="px-3 py-2 text-right ${trade.drawdown >= 0 ? 'text-emerald-600' : 'text-red-600'}">${formatCurrency(trade.drawdown)}</td>
           <td class="px-3 py-2 text-right ${trade.roiPct >= 0 ? 'text-emerald-600' : 'text-red-600'}">${formatPercent(trade.roiPct)}</td>
         `;
         frag.appendChild(tr);
@@ -2118,6 +2159,7 @@
       const summary = {
         totalTrades: 0,
         netProfit: 0,
+        profitPerLevel: 0,
         finalEquity: 0,
         totalRetainedShares: 0,
         cash: 0,
@@ -2484,6 +2526,8 @@
       const executeSell = (order, timestamp) => {
         if (!order) return false;
         const price = order.level;
+        const openQty = shares;
+        const openEquity = cash + shares * price;
         const desiredRaw = tradeValue / price;
         let desired = fractional ? desiredRaw : Math.floor(desiredRaw);
         const exec = computeSellExecution({
@@ -2508,6 +2552,13 @@
         realizedProfit += profit;
         const qtyRetained = Math.max(0, exec.retained);
         cumulativeRetained += qtyRetained;
+        const closeQty = shares;
+        const closeEquity = cash + shares * price;
+        const totalContributed = Math.max(0, openPositions) * tradeValue;
+        const runningPnl = closeEquity - totalContributed;
+        const nextPeak = Math.max(peakEquity, closeEquity);
+        const drawdown = closeEquity - nextPeak;
+        peakEquity = nextPeak;
         const sellTime = timestamp instanceof Date ? new Date(timestamp.getTime()) : new Date();
         const buyTime = order.buyTime instanceof Date ? new Date(order.buyTime.getTime()) : new Date();
         const msHeld = sellTime.getTime() - buyTime.getTime();
@@ -2523,14 +2574,20 @@
           buyQty: order.buyQty,
           gridLevel: Number.isFinite(order.buyRung) ? order.buyRung : computeRungIndex(order.buyPrice),
           openLevels: openLevelSnapshot,
+          openQty,
+          openEquity,
           sellTime,
           sellPrice: price,
           sellQty: qty,
+          closeQty,
+          closeEquity,
           qtyRetained,
           cumQtyRetained: cumulativeRetained,
           daysHeld,
           profit,
           cumProfit: realizedProfit,
+          runningPnl,
+          drawdown,
           roiPct: costBasis > 0 ? (profit / costBasis) * 100 : 0
         });
         const buyLevel = nextDownLevel(price);
@@ -2636,6 +2693,7 @@
         : 0;
       summary.totalTrades = trades.length;
       summary.netProfit = realizedProfit;
+      summary.profitPerLevel = maxLevelsUsed > 0 ? realizedProfit / maxLevelsUsed : 0;
       summary.finalEquity = finalEquity;
       summary.totalRetainedShares = cumulativeRetained;
       summary.cash = cash;
@@ -2656,6 +2714,7 @@
       const summary = {
         totalTrades: 0,
         netProfit: 0,
+        profitPerLevel: 0,
         finalEquity: 0,
         totalRetainedShares: 0,
         cash: 0,
@@ -2916,6 +2975,8 @@
         if (!entry) return false;
         pendingSells.delete(entry);
         const price = entry.level;
+        const openQty = shares;
+        const openEquity = cash + shares * price;
         const desiredRaw = tradeValue / price;
         let desired = fractional ? desiredRaw : Math.floor(desiredRaw);
         const execution = computeSellExecution({
@@ -2936,6 +2997,13 @@
         realizedProfit += profit;
         const qtyRetained = execution.retained;
         cumulativeRetained += qtyRetained;
+        const closeQty = shares;
+        const closeEquity = cash + shares * price;
+        const totalContributed = Math.max(0, openPositions) * tradeValue;
+        const runningPnl = closeEquity - totalContributed;
+        const nextPeak = Math.max(peakEquity, closeEquity);
+        const drawdown = closeEquity - nextPeak;
+        peakEquity = nextPeak;
         const sellTime = timestamp instanceof Date ? new Date(timestamp.getTime()) : new Date();
         const buyTime = entry.buyTime instanceof Date ? new Date(entry.buyTime.getTime()) : new Date();
         const msHeld = sellTime.getTime() - buyTime.getTime();
@@ -2951,14 +3019,20 @@
           buyQty: entry.qty,
           gridLevel: Number.isFinite(entry.buyRung) ? entry.buyRung : computeRungIndex(entry.buyPrice),
           openLevels: openLevelSnapshot,
+          openQty,
+          openEquity,
           sellTime,
           sellPrice: price,
           sellQty: qty,
+          closeQty,
+          closeEquity,
           qtyRetained,
           cumQtyRetained: cumulativeRetained,
           daysHeld,
           profit,
           cumProfit: realizedProfit,
+          runningPnl,
+          drawdown,
           roiPct: costBasis > 0 ? (profit / costBasis) * 100 : 0
         });
         const groupId = buyGroupSeq++;
@@ -3149,6 +3223,7 @@
         : 0;
       summary.totalTrades = trades.length;
       summary.netProfit = realizedProfit;
+      summary.profitPerLevel = maxLevelsUsed > 0 ? realizedProfit / maxLevelsUsed : 0;
       summary.finalEquity = finalEquity;
       summary.totalRetainedShares = cumulativeRetained;
       summary.cash = cash;
