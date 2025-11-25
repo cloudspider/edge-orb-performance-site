@@ -577,6 +577,7 @@
               <th class="px-3 py-2 text-right sortable" data-sort-key="cumQtyRetained"><button type="button"><span>Cum Retained</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 text-right sortable" data-sort-key="daysHeld"><button type="button"><span>Days Held</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 text-right sortable" data-sort-key="profit"><button type="button"><span>Profit $</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-sort-key="cumProfit"><button type="button"><span>Cum Profit $</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 text-right sortable" data-sort-key="roiPct"><button type="button"><span>ROI %</span><span class="sort-indicator"></span></button></th>
             </tr>
           </thead>
@@ -1163,6 +1164,7 @@
         case 'cumQtyRetained':
         case 'daysHeld':
         case 'profit':
+        case 'cumProfit':
         case 'roiPct':
         case 'gridLevel':
         case 'openLevels':
@@ -1337,6 +1339,7 @@
           <td class="px-3 py-2 text-right">${formatNumber(trade.cumQtyRetained ?? 0, 4)}</td>
           <td class="px-3 py-2 text-right">${formatNumber(trade.daysHeld ?? 0, 2)}</td>
           <td class="px-3 py-2 text-right ${trade.profit >= 0 ? 'text-emerald-600' : 'text-red-600'}">${formatCurrency(trade.profit)}</td>
+          <td class="px-3 py-2 text-right ${trade.cumProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}">${formatCurrency(trade.cumProfit)}</td>
           <td class="px-3 py-2 text-right ${trade.roiPct >= 0 ? 'text-emerald-600' : 'text-red-600'}">${formatPercent(trade.roiPct)}</td>
         `;
         frag.appendChild(tr);
@@ -2527,6 +2530,7 @@
           cumQtyRetained: cumulativeRetained,
           daysHeld,
           profit,
+          cumProfit: realizedProfit,
           roiPct: costBasis > 0 ? (profit / costBasis) * 100 : 0
         });
         const buyLevel = nextDownLevel(price);
@@ -2954,6 +2958,7 @@
           cumQtyRetained: cumulativeRetained,
           daysHeld,
           profit,
+          cumProfit: realizedProfit,
           roiPct: costBasis > 0 ? (profit / costBasis) * 100 : 0
         });
         const groupId = buyGroupSeq++;
