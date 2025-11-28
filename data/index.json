@@ -140,6 +140,26 @@
     "multiplier": 1
   },
   {
+    "symbol": "GEV",
+    "name": "GE Vernova Inc.",
+    "multiplier": 1
+  },
+  {   
+    "symbol": "BE",
+    "name": "Bloom Energy Corporation",
+    "multiplier": 1
+  },
+  {
+    "symbol": "HYLN",
+    "name": "Hyliion Holdings Corp.",
+    "multiplier": 1
+  },
+  {    
+    "symbol": "SOXL",
+    "name": "Direxion Daily Semiconductor Bull 3x Shares",
+    "multiplier": 1
+  },
+  {
     "symbol": "SKYU",
     "name": "Proshares Ultra Nasdaq Cloud Computing",
     "multiplier": 1

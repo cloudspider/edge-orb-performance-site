@@ -700,7 +700,7 @@
       const input = document.getElementById('inpGridSize');
       if (input) {
         if (percentMode) {
-          input.min = '0.1';
+          input.min = '0.5';
           input.step = '0.5';
         } else {
           input.min = '0.5';
@@ -2527,7 +2527,6 @@
         if (!order) return false;
         const price = order.level;
         const openQty = shares;
-        const openEquity = cash + shares * price;
         const desiredRaw = tradeValue / price;
         let desired = fractional ? desiredRaw : Math.floor(desiredRaw);
         const exec = computeSellExecution({
@@ -2568,6 +2567,7 @@
         if (openLevelSnapshot > summary.maxOpenLevels) {
           summary.maxOpenLevels = openLevelSnapshot;
         }
+        const openEquity = openLevelSnapshot * tradeValue;
         trades.push({
           buyTime,
           buyPrice: order.buyPrice,
@@ -2976,7 +2976,6 @@
         pendingSells.delete(entry);
         const price = entry.level;
         const openQty = shares;
-        const openEquity = cash + shares * price;
         const desiredRaw = tradeValue / price;
         let desired = fractional ? desiredRaw : Math.floor(desiredRaw);
         const execution = computeSellExecution({
@@ -3013,6 +3012,7 @@
         if (openLevelSnapshot > summary.maxOpenLevels) {
           summary.maxOpenLevels = openLevelSnapshot;
         }
+        const openEquity = openLevelSnapshot * tradeValue;
         trades.push({
           buyTime,
           buyPrice: entry.buyPrice,

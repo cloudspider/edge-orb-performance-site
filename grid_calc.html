@@ -180,7 +180,7 @@
         <h2 class="font-semibold text-slate-700">Grid Parameters</h2>
         <p id="dataSummary" class="text-sm text-slate-500">Select a symbol to load intraday data.</p>
       </div>
-      <div class="grid gap-4 md:grid-cols-6">
+      <div class="grid gap-4 md:grid-cols-7">
         <label class="block">
           <span class="text-sm text-slate-600">Start Price ($)</span>
           <div class="mt-1 relative">
@@ -200,6 +200,26 @@
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd" /></svg>
               </button>
             </div>
+          </div>
+        </label>
+        <label class="block">
+          <span class="text-sm text-slate-600">Tick Size</span>
+          <div class="relative mt-1">
+            <select
+              id="selTickSize"
+              class="w-full appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-9 py-2 text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+            >
+              <option value="1">1</option>
+              <option value="0.1">0.1</option>
+              <option value="0.01" selected>0.01</option>
+              <option value="0.005">0.005</option>
+              <option value="0.001">0.001</option>
+            </select>
+            <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.06 1.06l-4.24 4.39a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
+              </svg>
+            </span>
           </div>
         </label>
         <label class="block">
@@ -475,6 +495,13 @@
       return Number(value.toFixed(d));
     }
 
+    function snapToTick(value, tick) {
+      if (!Number.isFinite(value) || !Number.isFinite(tick) || tick <= 0) return value;
+      const snapped = Math.round(value / tick) * tick;
+      const d = decimals(tick);
+      return Number(snapped.toFixed(Math.min(Math.max(d, 0), 8)));
+    }
+
     function adjustNumberInput(id, deltaUnits) {
       const el = document.getElementById(id);
       if (!el) return;
@@ -564,15 +591,19 @@
     }
 
     function calculateGridLadder(params) {
-      const startPrice = Number(params?.startPrice);
+      const rawStartPrice = Number(params?.startPrice);
       const spacingType = (params?.spacingType || 'percent').toLowerCase();
       const gridSize = Number(params?.gridSize);
       const levelCount = Math.max(0, Math.floor(Number(params?.levelCount ?? params?.rungCount)));
       const tradeAmount = Math.max(0, Number(params?.tradeAmount));
       const gridType = (params?.gridType || 'pullback').toLowerCase();
-      if (!Number.isFinite(startPrice) || startPrice <= 0) return { rows: [], summary: null, stepSize: null, precision: resolveSymbolPrecision() };
-      if (!Number.isFinite(gridSize) || gridSize <= 0) return { rows: [], summary: null, stepSize: null, precision: resolveSymbolPrecision() };
-      if (!Number.isFinite(levelCount) || levelCount <= 0) return { rows: [], summary: null, stepSize: null, precision: resolveSymbolPrecision() };
+      const tickSize = Number(params?.tickSize);
+      const resolvedTickSize = Number.isFinite(tickSize) && tickSize > 0 ? tickSize : 0.01;
+      const startPrice = snapToTick(rawStartPrice, resolvedTickSize);
+      const precision = Math.max(resolveSymbolPrecision(), decimals(resolvedTickSize));
+      if (!Number.isFinite(startPrice) || startPrice <= 0) return { rows: [], summary: null, stepSize: null, precision };
+      if (!Number.isFinite(gridSize) || gridSize <= 0) return { rows: [], summary: null, stepSize: null, precision };
+      if (!Number.isFinite(levelCount) || levelCount <= 0) return { rows: [], summary: null, stepSize: null, precision };
       const perLevelInvestment = Number.isFinite(tradeAmount) && tradeAmount > 0 ? tradeAmount : 0;
       const investedForLevel = (level) => perLevelInvestment > 0 ? perLevelInvestment * (level + 1) : 0;
       const entryPrices = perLevelInvestment > 0 ? [startPrice] : [];
@@ -585,7 +616,6 @@
         }, 0);
       };
 
-      const precision = resolveSymbolPrecision();
       const above = [];
       const below = [];
       const stepPercent = gridSize / 100;
@@ -599,9 +629,9 @@
         let price;
         if (usePercentSpacing) {
           priceAccumulator = priceAccumulator * (1 + stepPercent);
-          price = priceAccumulator;
+          price = snapToTick(priceAccumulator, resolvedTickSize);
         } else {
-          price = startPrice + gridSize * i;
+          price = snapToTick(startPrice + gridSize * i, resolvedTickSize);
         }
         if (!Number.isFinite(price) || price <= 0) continue;
         const diff = price - startPrice;
@@ -625,10 +655,10 @@
         let price;
         if (usePercentSpacing) {
           priceAccumulator = priceAccumulator * (1 - stepPercent);
-          price = priceAccumulator;
+          price = snapToTick(priceAccumulator, resolvedTickSize);
           if (price <= 0) break;
         } else {
-          price = startPrice - gridSize * i;
+          price = snapToTick(startPrice - gridSize * i, resolvedTickSize);
         }
         if (!Number.isFinite(price) || price <= 0) continue;
         const diff = price - startPrice;
@@ -666,7 +696,7 @@
 
       const allRows = [...above, startRow, ...below];
       allRows.sort((a, b) => b.price - a.price);
-      const stepSize = usePercentSpacing ? null : gridSize;
+      const stepSize = usePercentSpacing ? null : snapToTick(gridSize, resolvedTickSize);
 
       return {
         rows: allRows,
@@ -676,6 +706,7 @@
           gridSize,
           gridType,
           levelCount,
+          tickSize: resolvedTickSize,
           aboveCount: above.length,
           belowCount: below.length
         },
@@ -696,7 +727,8 @@
         gridSize: readNumericInput('inpGridSize'),
         levelCount: readNumericInput('inpLevelCount'),
         tradeAmount: readNumericInput('inpTradeAmount'),
-        gridType: (document.getElementById('selGridType')?.value || 'pullback').toLowerCase()
+        gridType: (document.getElementById('selGridType')?.value || 'pullback').toLowerCase(),
+        tickSize: readNumericInput('selTickSize')
       };
       const result = calculateGridLadder(params);
       if (!result.rows.length) {
@@ -806,28 +838,29 @@
     function buildGridJsonFromResult(result) {
       if (!result || !Array.isArray(result.rows) || !result.rows.length || !result.summary) return null;
       const precision = Number.isInteger(result.precision) ? result.precision : DEFAULT_PRICE_PRECISION;
-      const formatPrice = (val) => Number(Number(val).toFixed(precision));
+      const pricePrecision = Math.max(precision, 2);
+      const formatPrice = (val) => Number(val ?? 0).toFixed(pricePrecision);
       const summary = result.summary;
-      const basePrice = formatPrice(summary.startPrice || 0);
+      const basePriceRaw = summary.startPrice || 0;
+      const basePrice = formatPrice(basePriceRaw);
       const buyRows = result.rows.filter(row => row.type === 'below').sort((a, b) => b.price - a.price);
       const levels = buyRows.map((row, idx) => {
-        const sellSource = idx === 0 ? (summary.startPrice || basePrice) : buyRows[idx - 1].price;
+        const sellSource = idx === 0 ? (summary.startPrice || basePriceRaw) : buyRows[idx - 1].price;
         return {
           buy: formatPrice(row.price),
-          sell: formatPrice(sellSource)
+          sell: formatPrice(sellSource),
+          active: false
         };
       });
       const rawSize = Number(summary.gridSize);
       const spacingType = (summary.spacingType || 'percent').toLowerCase();
       const size = Number.isFinite(rawSize)
-        ? (spacingType === 'percent' ? Number(rawSize.toFixed(4)) : formatPrice(rawSize))
-        : 0;
+        ? (spacingType === 'percent' ? rawSize.toFixed(4) : formatPrice(rawSize))
+        : formatPrice(0);
       return {
         grid: {
           base_price: basePrice,
           size,
-          max_open_buy_orders: levels.length,
-          max_open_sell_orders: levels.length,
           levels
         }
       };
@@ -861,15 +894,26 @@
       const indent = (level) => '  '.repeat(level);
       const grid = payload?.grid || {};
       const levels = Array.isArray(grid.levels) ? grid.levels : [];
+      const formatPrice = (val) => {
+        if (typeof val === 'string') return val;
+        const num = Number(val ?? 0);
+        return Number.isFinite(num) ? num.toFixed(2) : '0.00';
+      };
+      const formatSize = (val) => {
+        if (typeof val === 'string') return val;
+        const num = Number(val ?? 0);
+        return Number.isFinite(num) ? num.toFixed(2) : '0.00';
+      };
       const lines = ['{', `${indent(1)}"grid": {`];
-      lines.push(`${indent(2)}"base_price": ${grid.base_price ?? 0},`);
-      lines.push(`${indent(2)}"size": ${grid.size ?? 0},`);
-      lines.push(`${indent(2)}"max_open_buy_orders": ${grid.max_open_buy_orders ?? 0},`);
-      lines.push(`${indent(2)}"max_open_sell_orders": ${grid.max_open_sell_orders ?? 0},`);
+      lines.push(`${indent(2)}"base_price": ${formatPrice(grid.base_price)},`);
+      lines.push(`${indent(2)}"size": ${formatSize(grid.size)},`);
       lines.push(`${indent(2)}"levels": [`);
       levels.forEach((level, idx) => {
         const comma = idx < levels.length - 1 ? ',' : '';
-        lines.push(`${indent(3)}{ "buy": ${level.buy}, "sell": ${level.sell} }${comma}`);
+        const buy = formatPrice(level.buy);
+        const sell = formatPrice(level.sell);
+        const active = level.active ? 'true' : 'false';
+        lines.push(`${indent(3)}{ "buy": ${buy}, "sell": ${sell}, "active": ${active} }${comma}`);
       });
       lines.push(`${indent(2)}]`);
       lines.push(`${indent(1)}}`, '}');
@@ -1284,6 +1328,11 @@
       const gridTypeEl = document.getElementById('selGridType');
       if (gridTypeEl) {
         gridTypeEl.addEventListener('change', renderGridLadder);
+      }
+
+      const tickSizeEl = document.getElementById('selTickSize');
+      if (tickSizeEl) {
+        tickSizeEl.addEventListener('change', renderGridLadder);
       }
 
       const copyBtn = document.getElementById('btnCopyGridJson');
