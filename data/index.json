@@ -140,6 +140,11 @@
     "multiplier": 1
   },
   {
+    "symbol": "VRT",
+    "name": "Vertiv Holdings Co.",
+    "multiplier": 1
+  },
+  {
     "symbol": "GEV",
     "name": "GE Vernova Inc.",
     "multiplier": 1
@@ -162,6 +167,11 @@
   {
     "symbol": "SKYU",
     "name": "Proshares Ultra Nasdaq Cloud Computing",
+    "multiplier": 1
+  },
+  {
+    "symbol": "GDX",
+    "name": "VanEck Vectors Gold Miners ETF",
     "multiplier": 1
   },
   {
