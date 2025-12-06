@@ -180,7 +180,7 @@
         <h2 class="font-semibold text-slate-700">Grid Parameters</h2>
         <p id="dataSummary" class="text-sm text-slate-500">Select a symbol to load intraday data.</p>
       </div>
-      <div class="grid gap-4 md:grid-cols-7">
+      <div class="grid grid-flow-col auto-cols-[minmax(180px,1fr)] gap-4 overflow-x-auto pb-2">
         <label class="block">
           <span class="text-sm text-slate-600">Start Price ($)</span>
           <div class="mt-1 relative">
@@ -278,7 +278,7 @@
           </div>
         </label>
         <label class="block">
-          <span class="text-sm text-slate-600">Levels</span>
+          <span class="text-sm text-slate-600">Levels Down</span>
           <div class="mt-1 relative">
             <input
               id="inpLevelCount"
@@ -290,11 +290,33 @@
               class="w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
             />
             <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
-              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase level count" data-num-target="inpLevelCount" data-num-step="1">
+              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase levels down" data-num-target="inpLevelCount" data-num-step="1">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd" /></svg>
               </button>
-              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease level count" data-num-target="inpLevelCount" data-num-step="-1">
+              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease levels down" data-num-target="inpLevelCount" data-num-step="-1">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd" /></svg>
+              </button>
+            </div>
+          </div>
+        </label>
+        <label class="block">
+          <span class="text-sm text-slate-600">Levels Up</span>
+          <div class="mt-1 relative">
+            <input
+              id="inpLevelCountUp"
+              type="number"
+              min="0"
+              max="20"
+              step="1"
+              value="0"
+              class="w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+            />
+            <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
+              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase levels up" data-num-target="inpLevelCountUp" data-num-step="1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd" /></svg>
+              </button>
+              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease levels up" data-num-target="inpLevelCountUp" data-num-step="-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd" /></svg>
               </button>
             </div>
           </div>
@@ -330,7 +352,7 @@
       </div>
       <div class="overflow-x-auto">
         <div id="gridLadderContainer" class="min-w-full rounded-xl border border-slate-200 bg-white">
-          <div class="p-4 text-sm text-slate-500">Enter a valid starting price, grid size, and level count to draw the ladder.</div>
+          <div class="p-4 text-sm text-slate-500">Enter a valid starting price, grid size, and levels down to draw the ladder.</div>
         </div>
       </div>
     </section>
@@ -595,6 +617,7 @@
       const spacingType = (params?.spacingType || 'percent').toLowerCase();
       const gridSize = Number(params?.gridSize);
       const levelCount = Math.max(0, Math.floor(Number(params?.levelCount ?? params?.rungCount)));
+      const levelsUp = Math.max(0, Math.floor(Number(params?.levelsUp)));
       const tradeAmount = Math.max(0, Number(params?.tradeAmount));
       const gridType = (params?.gridType || 'pullback').toLowerCase();
       const tickSize = Number(params?.tickSize);
@@ -620,15 +643,16 @@
       const below = [];
       const stepPercent = gridSize / 100;
       const usePercentSpacing = spacingType === 'percent';
-      const aboveLimit = gridType === 'progressive'
-        ? Math.min(levelCount, 2)
-        : Math.min(levelCount, 1);
+      const isProgressive = gridType === 'progressive';
+      const aboveLimit = Math.max(0, Math.floor(isProgressive ? levelsUp : levelsUp));
 
       let priceAccumulator = startPrice;
       for (let i = 1; i <= aboveLimit; i++) {
         let price;
         if (usePercentSpacing) {
-          priceAccumulator = priceAccumulator * (1 + stepPercent);
+          const divisor = 1 - stepPercent;
+          if (divisor <= 0) break;
+          priceAccumulator = priceAccumulator / divisor;
           price = snapToTick(priceAccumulator, resolvedTickSize);
         } else {
           price = snapToTick(startPrice + gridSize * i, resolvedTickSize);
@@ -726,13 +750,14 @@
         spacingType: (document.getElementById('selGridSpacing')?.value || 'percent').toLowerCase(),
         gridSize: readNumericInput('inpGridSize'),
         levelCount: readNumericInput('inpLevelCount'),
+        levelsUp: readNumericInput('inpLevelCountUp'),
         tradeAmount: readNumericInput('inpTradeAmount'),
         gridType: (document.getElementById('selGridType')?.value || 'pullback').toLowerCase(),
         tickSize: readNumericInput('selTickSize')
       };
       const result = calculateGridLadder(params);
       if (!result.rows.length) {
-        container.innerHTML = '<div class="p-4 text-sm text-slate-500">Enter a positive starting price, grid size, and level count to draw the ladder.</div>';
+        container.innerHTML = '<div class="p-4 text-sm text-slate-500">Enter a positive starting price, grid size, and levels down to draw the ladder.</div>';
         if (summaryEl) {
           summaryEl.textContent = 'Adjust the grid parameters to preview ladder levels around the starting price.';
         }
@@ -843,15 +868,34 @@
       const summary = result.summary;
       const basePriceRaw = summary.startPrice || 0;
       const basePrice = formatPrice(basePriceRaw);
-      const buyRows = result.rows.filter(row => row.type === 'below').sort((a, b) => b.price - a.price);
-      const levels = buyRows.map((row, idx) => {
-        const sellSource = idx === 0 ? (summary.startPrice || basePriceRaw) : buyRows[idx - 1].price;
+      const downRows = result.rows
+        .filter(row => row.type === 'below')
+        .sort((a, b) => b.price - a.price);
+      const upRows = result.rows
+        .filter(row => row.type === 'above')
+        .sort((a, b) => a.price - b.price);
+
+      const levelsDown = downRows.map((row, idx) => {
+        const sellSource = idx === 0 ? (summary.startPrice || basePriceRaw) : downRows[idx - 1].price;
         return {
           buy: formatPrice(row.price),
           sell: formatPrice(sellSource),
-          active: false
+          active: false,
+          hide: false
         };
       });
+
+      const levelsUp = upRows.map((row, idx) => {
+        const buySource = idx === 0 ? basePriceRaw : upRows[idx - 1].price;
+        return {
+          buy: formatPrice(buySource),
+          sell: formatPrice(row.price),
+          active: false,
+          hide: false
+        };
+      });
+
+      const levels = [...levelsDown, ...levelsUp];
       const rawSize = Number(summary.gridSize);
       const spacingType = (summary.spacingType || 'percent').toLowerCase();
       const size = Number.isFinite(rawSize)
@@ -908,12 +952,27 @@
       lines.push(`${indent(2)}"base_price": ${formatPrice(grid.base_price)},`);
       lines.push(`${indent(2)}"size": ${formatSize(grid.size)},`);
       lines.push(`${indent(2)}"levels": [`);
-      levels.forEach((level, idx) => {
-        const comma = idx < levels.length - 1 ? ',' : '';
-        const buy = formatPrice(level.buy);
-        const sell = formatPrice(level.sell);
+      const sortedLevels = (Array.isArray(levels) ? levels : [])
+        .map((level) => {
+          const rawBuy = level?.buy ?? level?.buyPrice ?? level?.buy_price;
+          const rawSell = level?.sell ?? level?.sellPrice ?? level?.sell_price;
+          const parsedBuy = Number(rawBuy);
+          return {
+            rawBuy,
+            rawSell,
+            parsedBuy: Number.isFinite(parsedBuy) ? parsedBuy : 0,
+            active: !!level?.active,
+            hide: !!level?.hide
+          };
+        })
+        .sort((a, b) => b.parsedBuy - a.parsedBuy);
+      sortedLevels.forEach((level, idx) => {
+        const comma = idx < sortedLevels.length - 1 ? ',' : '';
+        const buy = formatPrice(level.rawBuy);
+        const sell = formatPrice(level.rawSell);
         const active = level.active ? 'true' : 'false';
-        lines.push(`${indent(3)}{ "buy": ${buy}, "sell": ${sell}, "active": ${active} }${comma}`);
+        const hide = level.hide ? 'true' : 'false';
+        lines.push(`${indent(3)}{ "buy": ${buy}, "sell": ${sell}, "active": ${active}, "hide": ${hide} }${comma}`);
       });
       lines.push(`${indent(2)}]`);
       lines.push(`${indent(1)}}`, '}');
@@ -1325,9 +1384,28 @@
         levelEl.addEventListener('change', renderGridLadder);
       }
 
+      const levelUpEl = document.getElementById('inpLevelCountUp');
+      if (levelUpEl) {
+        levelUpEl.addEventListener('input', renderGridLadder);
+        levelUpEl.addEventListener('change', renderGridLadder);
+      }
+
       const gridTypeEl = document.getElementById('selGridType');
       if (gridTypeEl) {
-        gridTypeEl.addEventListener('change', renderGridLadder);
+        gridTypeEl.addEventListener('change', () => {
+          const nextType = (gridTypeEl.value || '').toLowerCase();
+          const levelUpField = document.getElementById('inpLevelCountUp');
+          if (levelUpField && nextType === 'progressive') {
+            levelUpField.value = '5';
+          } else if (levelUpField && nextType === 'pullback') {
+            levelUpField.value = '0';
+          }
+          renderGridLadder();
+        });
+        if ((gridTypeEl.value || '').toLowerCase() === 'progressive') {
+          const levelUpField = document.getElementById('inpLevelCountUp');
+          if (levelUpField) levelUpField.value = '5';
+        }
       }
 
       const tickSizeEl = document.getElementById('selTickSize');
