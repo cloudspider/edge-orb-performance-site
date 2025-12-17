@@ -231,27 +231,45 @@
           </div>
         </div>
 
-        <div class="md:col-span-4 rounded-xl border border-slate-200 p-4 space-y-3">
-          <div>
-            <h3 class="font-semibold text-slate-700">Grid Rules</h3>
-            <ul class="mt-1 text-sm text-slate-500 list-disc pl-5 space-y-1">
-              <li>Fixed trade size (<span class="font-medium">tradeValue</span> USD)</li>
-              <li>No randomness, no tax</li>
-              <li>Infinite grid logic</li>
-              <li>Buys debited to Buying Bank; sells credited to Selling Bank (no recycling)</li>
-            </ul>
-          </div>
+	        <div class="md:col-span-4 rounded-xl border border-slate-200 p-4 space-y-3">
+	          <div>
+	            <h3 class="font-semibold text-slate-700">Grid Rules</h3>
+	            <ul class="mt-1 text-sm text-slate-500 list-disc pl-5 space-y-1">
+	              <li>Fixed trade size (<span class="font-medium">tradeValue</span> USD)</li>
+	              <li>No randomness, no tax</li>
+	              <li>Infinite grid logic</li>
+	              <li>Buys debited to Buying Bank; sells credited to Selling Bank (no recycling)</li>
+	            </ul>
+	          </div>
 
           <label class="block">
             <span class="text-sm text-slate-600">gridSpacingPercent</span>
             <input id="sim_gridSpacingPercent" type="number" min="0.0001" step="0.1" value="2.5" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
           </label>
 
-          <label class="block">
-            <span class="text-sm text-slate-600">tradeValue</span>
-            <input id="sim_tradeValue" type="number" min="0.01" step="1" value="1000" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
-          </label>
-        </div>
+	          <label class="block">
+	            <span class="text-sm text-slate-600">tradeValue</span>
+	            <input id="sim_tradeValue" type="number" min="0.01" step="1" value="1000" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
+	          </label>
+
+	          <label class="block">
+	            <span class="text-sm text-slate-600">Profit handling</span>
+	            <div class="relative mt-1">
+	              <select
+	                id="sim_profitHandling"
+	                class="w-full appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-9 py-2 text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+	              >
+	                <option value="shares" selected>Accumulate shares (sell trade value)</option>
+	                <option value="cash">Bank profit (sell same shares)</option>
+	              </select>
+	              <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+	                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+	                  <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.06 1.06l-4.24 4.39a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
+	                </svg>
+	              </span>
+	            </div>
+	          </label>
+	        </div>
 
 	        <div class="md:col-span-4 rounded-xl border border-slate-200 p-4 space-y-3">
 	          <div>
@@ -262,6 +280,11 @@
 	          <label class="block">
 	            <span class="text-sm text-slate-600">endingPrice</span>
 	            <input id="sim_endingPrice" type="number" min="0" step="0.01" value="112" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
+	          </label>
+
+	          <label class="block">
+	            <span class="text-sm text-slate-600">Total Sell Fills Per Year</span>
+	            <input id="sim_totalSellFillsPerYear" type="number" min="0" step="1" value="35" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
 	          </label>
 
           <div class="grid grid-cols-2 gap-3">
@@ -295,12 +318,20 @@
 	              <td id="sim_outSellFillsMin" class="px-4 py-3 text-right font-semibold text-slate-800">0</td>
 	            </tr>
 	            <tr>
+	              <th class="px-4 py-3 text-left font-medium text-slate-600">Sell fills (total / year)</th>
+	              <td id="sim_outSellFillsTotal" class="px-4 py-3 text-right font-semibold text-slate-800">0</td>
+	            </tr>
+	            <tr>
 	              <th class="px-4 py-3 text-left font-medium text-slate-600">Profit per sell (grid spacing)</th>
 	              <td id="sim_outProfitPerSell" class="px-4 py-3 text-right font-semibold text-slate-800">$0.00</td>
 	            </tr>
 	            <tr>
 	              <th class="px-4 py-3 text-left font-medium text-slate-600">Grid profit (min)</th>
 	              <td id="sim_outGridProfitMin" class="px-4 py-3 text-right font-semibold text-slate-800">$0.00</td>
+	            </tr>
+	            <tr>
+	              <th class="px-4 py-3 text-left font-medium text-slate-600">Grid profit (total / year)</th>
+	              <td id="sim_outGridProfitTotal" class="px-4 py-3 text-right font-semibold text-slate-800">$0.00</td>
 	            </tr>
 	            <tr>
 	              <th class="px-4 py-3 text-left font-medium text-slate-600">Final shares held</th>
@@ -685,17 +716,18 @@
         return Number.isFinite(v) ? v : NaN;
       }
 
-      function validateParams(p) {
-        const errors = [];
-        if (!(p.initialShares >= 0)) errors.push("initialShares must be ≥ 0.");
-        if (!(p.initialPrice > 0)) errors.push("initialPrice must be > 0.");
-        if (!(p.endingPrice > 0)) errors.push("endingPrice must be > 0.");
-        if (!(p.gridSpacingPercent > 0)) errors.push("gridSpacingPercent must be > 0.");
-        if (!(p.tradeValue > 0)) errors.push("tradeValue must be > 0.");
-        if (!(p.maxDownLevels >= 0)) errors.push("maxDownLevels must be ≥ 0.");
-        if (!(p.maxUpLevels >= 0)) errors.push("maxUpLevels must be ≥ 0.");
-        return errors;
-      }
+	      function validateParams(p) {
+	        const errors = [];
+	        if (!(p.initialShares >= 0)) errors.push("initialShares must be ≥ 0.");
+	        if (!(p.initialPrice > 0)) errors.push("initialPrice must be > 0.");
+	        if (!(p.endingPrice > 0)) errors.push("endingPrice must be > 0.");
+	        if (!(p.totalSellFillsPerYear >= 0)) errors.push("totalSellFillsPerYear must be ≥ 0.");
+	        if (!(p.gridSpacingPercent > 0)) errors.push("gridSpacingPercent must be > 0.");
+	        if (!(p.tradeValue > 0)) errors.push("tradeValue must be > 0.");
+	        if (!(p.maxDownLevels >= 0)) errors.push("maxDownLevels must be ≥ 0.");
+	        if (!(p.maxUpLevels >= 0)) errors.push("maxUpLevels must be ≥ 0.");
+	        return errors;
+	      }
 
       function updateDerived() {
         const initialShares = readNumber("sim_initialShares");
@@ -703,96 +735,141 @@
         byId("sim_initialEquity").textContent = fmtUsd(initialShares * initialPrice);
       }
 
-      function gridPrice(level, basePrice, gridSpacingPercent) {
-        const factor = 1 + gridSpacingPercent / 100;
-        return basePrice * Math.pow(factor, level);
-      }
+	      function gridPrice(level, basePrice, gridSpacingPercent) {
+	        const factor = 1 + gridSpacingPercent / 100;
+	        return basePrice * Math.pow(factor, level);
+	      }
 
-      function computeFinalState(p) {
-        let sharesHeld = p.initialShares;
-        let buyingBankUsed = 0;
-        let sellingBankHeld = 0;
+	      function clampInt(value, min, max) {
+	        return Math.max(min, Math.min(max, value));
+	      }
 
-        for (let level = -1; level >= -p.maxDownLevels; level--) {
-          const px = gridPrice(level, p.initialPrice, p.gridSpacingPercent);
-          const sharesBought = p.tradeValue / px;
-          sharesHeld += sharesBought;
-          buyingBankUsed += p.tradeValue;
-        }
+	      function gridLevelAtPrice(price, basePrice, gridSpacingPercent) {
+	        const factor = 1 + gridSpacingPercent / 100;
+	        if (!(factor > 0) || !(price > 0) || !(basePrice > 0)) return 0;
+	        const raw = Math.log(price / basePrice) / Math.log(factor);
+	        return price >= basePrice ? Math.floor(raw) : Math.ceil(raw);
+	      }
 
-        for (let level = 1; level <= p.maxUpLevels; level++) {
-          const px = gridPrice(level, p.initialPrice, p.gridSpacingPercent);
-          const sharesSold = p.tradeValue / px;
-          sharesHeld -= sharesSold;
-          sellingBankHeld += p.tradeValue;
-        }
+	      function simulateYear(p, profitHandling, sellFillsTotal) {
+	        const priceAtLevel = (level) => gridPrice(level, p.initialPrice, p.gridSpacingPercent);
 
-        const sharesValue = sharesHeld * p.endingPrice;
-        const netEquity = sharesValue + sellingBankHeld - buyingBankUsed;
-        const hodlEquity = p.initialShares * p.endingPrice;
+	        const endLevelDiscrete = clampInt(
+	          gridLevelAtPrice(p.endingPrice, p.initialPrice, p.gridSpacingPercent),
+	          -p.maxDownLevels,
+	          p.maxUpLevels
+	        );
 
-        return {
-          sharesHeld,
-          buyingBankUsed,
-          sellingBankHeld,
-          sharesValue,
-          netEquity,
-          hodlEquity,
-          netVsHodl: netEquity - hodlEquity,
-        };
-      }
+	        const sellFillsMin = p.maxDownLevels + p.maxUpLevels;
+	        const extraSellFills = Math.max(0, (sellFillsTotal ?? sellFillsMin) - sellFillsMin);
 
-      function buildChartSeries(p, finalState) {
-        const levels = [];
-        for (let level = -p.maxDownLevels; level <= p.maxUpLevels; level++) levels.push(level);
+	        let currentLevel = 0;
+	        let sharesHeld = p.initialShares;
+	        let buyingBankUsed = 0;
+	        let sellingBankHeld = 0;
+	        let buyFills = 0;
+	        let sellFills = 0;
 
-        const ladder = levels.map((level) => [level, gridPrice(level, p.initialPrice, p.gridSpacingPercent)]);
+	        function stepDown() {
+	          const nextLevel = currentLevel - 1;
+	          const px = priceAtLevel(nextLevel);
+	          sharesHeld += p.tradeValue / px;
+	          buyingBankUsed += p.tradeValue;
+	          buyFills += 1;
+	          currentLevel = nextLevel;
+	        }
 
-        const prices = levels.map((level) => gridPrice(level, p.initialPrice, p.gridSpacingPercent));
-        const minPrice = Math.min(...prices);
-        const maxPrice = Math.max(...prices);
+	        function stepUp() {
+	          const nextLevel = currentLevel + 1;
+	          const pxNext = priceAtLevel(nextLevel);
 
-        const downSharesByLevel = new Map([[0, p.initialShares]]);
-        let s = p.initialShares;
-        for (let level = -1; level >= -p.maxDownLevels; level--) {
-          s += p.tradeValue / gridPrice(level, p.initialPrice, p.gridSpacingPercent);
-          downSharesByLevel.set(level, s);
-        }
+	          if (profitHandling === "cash") {
+	            const pxPrev = priceAtLevel(currentLevel);
+	            const sharesSold = p.tradeValue / pxPrev;
+	            sharesHeld -= sharesSold;
+	            sellingBankHeld += sharesSold * pxNext;
+	          } else {
+	            const sharesSold = p.tradeValue / pxNext;
+	            sharesHeld -= sharesSold;
+	            sellingBankHeld += p.tradeValue;
+	          }
 
-        const upSharesByLevel = new Map([[0, p.initialShares]]);
-        s = p.initialShares;
-        for (let level = 1; level <= p.maxUpLevels; level++) {
-          s -= p.tradeValue / gridPrice(level, p.initialPrice, p.gridSpacingPercent);
-          upSharesByLevel.set(level, s);
-        }
+	          sellFills += 1;
+	          currentLevel = nextLevel;
+	        }
 
-        const sharesVsPrice = [];
-        const buyingVsPrice = [];
-        const sellingVsPrice = [];
+	        if (extraSellFills > 0) {
+	          if (p.maxUpLevels >= 1) {
+	            for (let i = 0; i < extraSellFills; i++) {
+	              stepUp();
+	              stepDown();
+	            }
+	          } else if (p.maxDownLevels >= 1) {
+	            for (let i = 0; i < extraSellFills; i++) {
+	              stepDown();
+	              stepUp();
+	            }
+	          }
+	        }
 
-        for (let level = -p.maxDownLevels; level <= 0; level++) {
-          const px = gridPrice(level, p.initialPrice, p.gridSpacingPercent);
-          sharesVsPrice.push([px, downSharesByLevel.get(level)]);
-          buyingVsPrice.push([px, -level * p.tradeValue]);
-          sellingVsPrice.push([px, 0]);
-        }
-        for (let level = 1; level <= p.maxUpLevels; level++) {
-          const px = gridPrice(level, p.initialPrice, p.gridSpacingPercent);
-          sharesVsPrice.push([px, upSharesByLevel.get(level)]);
-          buyingVsPrice.push([px, 0]);
-          sellingVsPrice.push([px, level * p.tradeValue]);
-        }
+	        const waypoints = [-p.maxDownLevels, p.maxUpLevels, endLevelDiscrete];
+	        for (const targetLevel of waypoints) {
+	          while (currentLevel > targetLevel) stepDown();
+	          while (currentLevel < targetLevel) stepUp();
+	        }
 
-        const equityVsPrice = [];
-        const hodlVsPrice = [];
-        for (let level = -p.maxDownLevels; level <= p.maxUpLevels; level++) {
-          const px = gridPrice(level, p.initialPrice, p.gridSpacingPercent);
-          equityVsPrice.push([px, finalState.sharesHeld * px + finalState.sellingBankHeld - finalState.buyingBankUsed]);
-          hodlVsPrice.push([px, p.initialShares * px]);
-        }
+	        const sharesValue = sharesHeld * p.endingPrice;
+	        const netEquity = sharesValue + sellingBankHeld - buyingBankUsed;
+	        const hodlEquity = p.initialShares * p.endingPrice;
 
-        const factor = 1 + p.gridSpacingPercent / 100;
-        const endLevel = factor > 0 ? Math.log(p.endingPrice / p.initialPrice) / Math.log(factor) : 0;
+	        return {
+	          endLevelDiscrete,
+	          sharesHeld,
+	          buyingBankUsed,
+	          sellingBankHeld,
+	          sharesValue,
+	          netEquity,
+	          hodlEquity,
+	          netVsHodl: netEquity - hodlEquity,
+	          buyFills,
+	          sellFills,
+	          sellFillsMin,
+	        };
+	      }
+
+	      function buildChartSeries(p, finalState) {
+	        const profitHandling = String(finalState.profitHandling || "shares");
+	        const sellFillsTotal = Number.isFinite(finalState.sellFillsTotal) ? finalState.sellFillsTotal : p.maxDownLevels + p.maxUpLevels;
+
+	        const levels = [];
+	        for (let level = -p.maxDownLevels; level <= p.maxUpLevels; level++) levels.push(level);
+
+	        const ladder = levels.map((level) => [level, gridPrice(level, p.initialPrice, p.gridSpacingPercent)]);
+
+	        const sharesVsPrice = [];
+	        const buyingVsPrice = [];
+	        const sellingVsPrice = [];
+	        const equityVsPrice = [];
+	        const hodlVsPrice = [];
+
+	        let minPrice = Infinity;
+	        let maxPrice = -Infinity;
+
+	        for (let level = -p.maxDownLevels; level <= p.maxUpLevels; level++) {
+	          const px = gridPrice(level, p.initialPrice, p.gridSpacingPercent);
+	          minPrice = Math.min(minPrice, px);
+	          maxPrice = Math.max(maxPrice, px);
+
+	          const simAtLevel = simulateYear({ ...p, endingPrice: px }, profitHandling, sellFillsTotal);
+	          sharesVsPrice.push([px, simAtLevel.sharesHeld]);
+	          buyingVsPrice.push([px, simAtLevel.buyingBankUsed]);
+	          sellingVsPrice.push([px, simAtLevel.sellingBankHeld]);
+	          equityVsPrice.push([px, simAtLevel.netEquity]);
+	          hodlVsPrice.push([px, p.initialShares * px]);
+	        }
+
+	        const factor = 1 + p.gridSpacingPercent / 100;
+	        const endLevel = factor > 0 ? Math.log(p.endingPrice / p.initialPrice) / Math.log(factor) : 0;
 
         return {
           ladder,
@@ -939,13 +1016,15 @@
 
 	      function renderSummaryTable(finalState) {
 	        byId("sim_outSellFillsMin").textContent = String(finalState.sellFillsMin);
+	        byId("sim_outSellFillsTotal").textContent = String(finalState.sellFillsTotal);
 	        byId("sim_outProfitPerSell").textContent = fmtUsd(finalState.profitPerSell);
 	        byId("sim_outGridProfitMin").textContent = fmtUsd(finalState.gridProfitMin);
+	        byId("sim_outGridProfitTotal").textContent = fmtUsd(finalState.gridProfitTotal);
 	        byId("sim_outFinalShares").textContent = fmtNum(finalState.sharesHeld, 6);
 	        byId("sim_outBuyingBank").textContent = fmtUsd(finalState.buyingBankUsed);
 	        byId("sim_outSellingBank").textContent = fmtUsd(finalState.sellingBankHeld);
 	        byId("sim_outNetEquity").textContent = fmtUsd(finalState.netEquity);
-        byId("sim_outHodlEquity").textContent = fmtUsd(finalState.hodlEquity);
+	        byId("sim_outHodlEquity").textContent = fmtUsd(finalState.hodlEquity);
 
         const deltaEl = byId("sim_outNetVsHodl");
         deltaEl.textContent = fmtUsd(finalState.netVsHodl);
@@ -953,16 +1032,17 @@
         deltaEl.classList.toggle("num-neg", finalState.netVsHodl < 0);
       }
 
-	      function runSimulation() {
-	        const params = {
-	          initialShares: readNumber("sim_initialShares"),
-	          initialPrice: readNumber("sim_initialPrice"),
-	          gridSpacingPercent: readNumber("sim_gridSpacingPercent"),
-	          tradeValue: readNumber("sim_tradeValue"),
-	          maxDownLevels: Math.floor(readNumber("sim_maxDownLevels")),
-	          maxUpLevels: Math.floor(readNumber("sim_maxUpLevels")),
-	          endingPrice: readNumber("sim_endingPrice"),
-	        };
+		      function runSimulation() {
+		        const params = {
+		          initialShares: readNumber("sim_initialShares"),
+		          initialPrice: readNumber("sim_initialPrice"),
+		          gridSpacingPercent: readNumber("sim_gridSpacingPercent"),
+		          tradeValue: readNumber("sim_tradeValue"),
+		          maxDownLevels: Math.floor(readNumber("sim_maxDownLevels")),
+		          maxUpLevels: Math.floor(readNumber("sim_maxUpLevels")),
+		          endingPrice: readNumber("sim_endingPrice"),
+		          totalSellFillsPerYear: Math.floor(readNumber("sim_totalSellFillsPerYear")),
+		        };
 
         const status = byId("sim_status");
         const errors = validateParams(params);
@@ -972,26 +1052,79 @@
           return;
         }
 
-	        status.className = "text-sm text-slate-500";
+		        status.className = "text-sm text-slate-500";
 
-	        const finalState = computeFinalState(params);
-	        finalState.sellFillsMin = params.maxDownLevels + params.maxUpLevels;
-	        finalState.profitPerSell = params.tradeValue * (params.gridSpacingPercent / 100);
-	        finalState.gridProfitMin = finalState.sellFillsMin * finalState.profitPerSell;
+		        const profitHandling = String(byId("sim_profitHandling")?.value || "shares");
 
-	        const series = buildChartSeries(params, finalState);
-	        renderSummaryTable(finalState);
-	        renderCharts(params, finalState, series);
+		        const sellFillsMin = params.maxDownLevels + params.maxUpLevels;
+		        const sellFillsTotal = Math.max(sellFillsMin, params.totalSellFillsPerYear);
+		        const profitPerSell = params.tradeValue * (params.gridSpacingPercent / 100);
+		        const gridProfitMin = sellFillsMin * profitPerSell;
+		        const gridProfitTotal = sellFillsTotal * profitPerSell;
 
-	        const warns = [];
-	        if (finalState.sharesHeld < 0) warns.push("Warning: final shares held < 0 (unconstrained selling).");
-	        status.textContent = `Computed: buys=${params.maxDownLevels}, sells=${params.maxUpLevels} · Sell fills (min)=${finalState.sellFillsMin} · Net vs HODL ${fmtUsd(finalState.netVsHodl)}${warns.length ? " · " + warns.join(" ") : ""}`;
-	      }
+		        const sim = simulateYear(params, profitHandling, sellFillsTotal);
+
+		        const finalState = {
+		          profitHandling,
+		          sellFillsMin,
+		          sellFillsTotal,
+		          profitPerSell,
+		          gridProfitMin,
+		          gridProfitTotal,
+		          endLevelDiscrete: sim.endLevelDiscrete,
+		          sharesHeld: sim.sharesHeld,
+		          buyingBankUsed: sim.buyingBankUsed,
+		          sellingBankHeld: sim.sellingBankHeld,
+		          sharesValue: sim.sharesValue,
+		          netEquity: sim.netEquity,
+		          hodlEquity: sim.hodlEquity,
+		          netVsHodl: sim.netVsHodl,
+		          buyFills: sim.buyFills,
+		          sellFills: sim.sellFills,
+		        };
+
+		        const series = buildChartSeries(params, finalState);
+		        renderSummaryTable(finalState);
+		        renderCharts(params, finalState, series);
+
+		        const warns = [];
+		        if (params.totalSellFillsPerYear < finalState.sellFillsMin) warns.push("Total sell fills clamped to min sells implied by max levels.");
+		        if (finalState.sharesHeld < 0) warns.push("Warning: final shares held < 0 (unconstrained selling).");
+		        const modeLabel = profitHandling === "cash" ? "bank cash" : "accumulate shares";
+		        status.textContent = `Computed: endLevel=${finalState.endLevelDiscrete} · Sell fills (min)=${finalState.sellFillsMin}, (total/yr)=${finalState.sellFillsTotal} · Profit mode=${modeLabel} · Net vs HODL ${fmtUsd(finalState.netVsHodl)}${warns.length ? " · " + warns.join(" ") : ""}`;
+		      }
 
       document.addEventListener("DOMContentLoaded", () => {
         updateDerived();
         byId("sim_run").addEventListener("click", runSimulation);
-        ["sim_initialShares", "sim_initialPrice"].forEach((id) => byId(id).addEventListener("input", updateDerived));
+        const simForm = byId("simForm");
+        let runTimer = null;
+
+        function scheduleRun() {
+          if (runTimer) window.clearTimeout(runTimer);
+          runTimer = window.setTimeout(() => {
+            runTimer = null;
+            runSimulation();
+          }, 120);
+        }
+
+        if (simForm) {
+          simForm.addEventListener("input", (e) => {
+            const t = e.target;
+            if (!(t instanceof HTMLElement)) return;
+            if (!t.matches("input, select, textarea")) return;
+            updateDerived();
+            scheduleRun();
+          });
+          simForm.addEventListener("change", (e) => {
+            const t = e.target;
+            if (!(t instanceof HTMLElement)) return;
+            if (!t.matches("input, select, textarea")) return;
+            updateDerived();
+            scheduleRun();
+          });
+        }
+
         window.addEventListener("resize", () => {
           for (const ch of charts.values()) ch.resize();
         });
