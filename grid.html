@@ -549,6 +549,32 @@
       </div>
     </section>
 
+    <section id="fillsPerDaySection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
+      <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <h2 class="font-semibold text-slate-700">Fills per Day</h2>
+        <span id="fillsDaySummaryLabel" class="text-sm text-slate-500"></span>
+      </div>
+      <div class="relative">
+        <div id="dailyFillsChart" class="w-full h-72 md:h-80"></div>
+        <div id="dailyFillsEmpty" class="absolute inset-0 flex items-center justify-center text-sm text-slate-500">
+          Run the backtest to tally fills per day.
+        </div>
+      </div>
+    </section>
+
+    <section id="openLevelsSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
+      <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <h2 class="font-semibold text-slate-700">Open Levels</h2>
+        <span id="openLevelsSummaryLabel" class="text-sm text-slate-500"></span>
+      </div>
+      <div class="relative">
+        <div id="openLevelsChart" class="w-full h-72 md:h-80"></div>
+        <div id="openLevelsEmpty" class="absolute inset-0 flex items-center justify-center text-sm text-slate-500">
+          Run the backtest to view open levels at the end of each day.
+        </div>
+      </div>
+    </section>
+
     <section id="levelDistributionSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
       <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <h2 class="font-semibold text-slate-700">Level Fill Distribution</h2>
@@ -558,6 +584,19 @@
         <div id="levelDistributionChart" class="w-full h-72 md:h-80"></div>
         <div id="levelDistributionEmpty" class="absolute inset-0 flex items-center justify-center text-sm text-slate-500">
           Run the backtest to chart sell fills per level.
+        </div>
+      </div>
+    </section>
+
+    <section id="cumulativeLevelDistributionSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
+      <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <h2 class="font-semibold text-slate-700">Cumulative Level Fill Distribution</h2>
+        <span id="cumulativeLevelDistributionLabel" class="text-sm text-slate-500"></span>
+      </div>
+      <div class="relative">
+        <div id="cumulativeLevelDistributionChart" class="w-full h-72 md:h-80"></div>
+        <div id="cumulativeLevelDistributionEmpty" class="absolute inset-0 flex items-center justify-center text-sm text-slate-500">
+          Run the backtest to see how quickly sell fills accumulate by level.
         </div>
       </div>
     </section>
@@ -668,8 +707,11 @@
     let TRADE_SORT_STATE = { key: 'buyTime', dir: 'asc' };
     let gridEquityChartInst = null;
     let gridLadderChartInst = null;
+    let fillsPerDayChartInst = null;
     let fillsPerMonthChartInst = null;
+    let openLevelsChartInst = null;
     let levelDistributionChartInst = null;
+    let cumulativeLevelDistributionChartInst = null;
     let AVAILABLE_MONTHS = [];
     let VIEW_MONTHS = new Set();
     const TRADE_TABLE_STATE = { page: 1, pageSize: 250 };
@@ -1757,6 +1799,227 @@
       }, true);
     }
 
+    function computeDailyFillEntries(trades) {
+      const source = Array.isArray(trades) ? trades : [];
+      const counts = new Map();
+      const addCount = (key, type) => {
+        if (!key) return;
+        if (!counts.has(key)) counts.set(key, { key, buy: 0, sell: 0 });
+        const entry = counts.get(key);
+        if (type === 'buy') entry.buy += 1;
+        if (type === 'sell') entry.sell += 1;
+      };
+      for (const trade of source) {
+        addCount(dateKeyFromStr(trade?.buyTime), 'buy');
+        addCount(dateKeyFromStr(trade?.sellTime), 'sell');
+      }
+      const entries = Array.from(counts.values()).sort((a, b) => (a.key || '').localeCompare(b.key || ''));
+      const totals = entries.reduce((acc, entry) => {
+        acc.buys += Number(entry.buy) || 0;
+        acc.sells += Number(entry.sell) || 0;
+        return acc;
+      }, { buys: 0, sells: 0 });
+      return { entries, totals };
+    }
+
+    function computeDailyOpenLevels(history) {
+      const source = Array.isArray(history) ? history : [];
+      const perDay = new Map();
+      for (const entry of source) {
+        if (!entry) continue;
+        const dateKey = dateKeyFromStr(entry.time);
+        if (!dateKey) continue;
+        const ts = entry.time instanceof Date ? entry.time.getTime() : NaN;
+        const levelsRaw = Number.isFinite(entry?.sells) ? Number(entry.sells) : Number(entry?.buys);
+        const levels = Number.isFinite(levelsRaw) ? Math.max(0, levelsRaw) : 0;
+        const existing = perDay.get(dateKey);
+        if (!existing || (Number.isFinite(ts) && ts > existing.ts)) {
+          perDay.set(dateKey, { key: dateKey, levels, ts });
+        }
+      }
+      const entries = Array.from(perDay.values()).sort((a, b) => (a.key || '').localeCompare(b.key || ''));
+      const stats = entries.reduce((acc, entry) => {
+        if (entry && Number.isFinite(entry.levels)) {
+          acc.max = Math.max(acc.max, entry.levels);
+          acc.last = entry.levels;
+        }
+        return acc;
+      }, { max: 0, last: 0 });
+      return { entries, stats };
+    }
+
+    function renderFillsPerDayChart(trades) {
+      const container = document.getElementById('dailyFillsChart');
+      const emptyState = document.getElementById('dailyFillsEmpty');
+      const label = document.getElementById('fillsDaySummaryLabel');
+      if (!container) return;
+      if (typeof echarts === 'undefined' || !echarts.init) return;
+      if (!fillsPerDayChartInst) {
+        fillsPerDayChartInst = echarts.init(container);
+      }
+      const { entries, totals } = computeDailyFillEntries(trades);
+      if (!entries.length) {
+        fillsPerDayChartInst.clear();
+        if (emptyState) emptyState.classList.remove('hidden');
+        if (label) label.textContent = '';
+        return;
+      }
+      const categories = entries.map(entry => entry.key);
+      const buyCounts = entries.map(entry => {
+        const val = Number(entry.buy) || 0;
+        return val ? -val : 0;
+      });
+      const sellCounts = entries.map(entry => Number(entry.sell) || 0);
+      const totalBuys = totals?.buys || 0;
+      const totalSells = totals?.sells || 0;
+      const totalFills = totalBuys + totalSells;
+      if (label) {
+        label.textContent = `${totalFills.toLocaleString()} fills across ${entries.length.toLocaleString()} day${entries.length === 1 ? '' : 's'} (${totalBuys.toLocaleString()} buys · ${totalSells.toLocaleString()} sells)`;
+      }
+      if (emptyState) emptyState.classList.add('hidden');
+      const tooltipFormatter = (params) => {
+        if (!Array.isArray(params) || !params.length) return '';
+        const date = params[0]?.axisValueLabel || '';
+        const rows = params.map((p) => {
+          const val = Math.abs(Number(p.value) || 0);
+          return `
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="display:inline-block;width:10px;height:10px;border-radius:999px;background:${p.color};"></span>
+              <span>${p.seriesName}: ${val.toLocaleString()}</span>
+            </div>
+          `;
+        }).join('');
+        return `<div><div class="font-semibold mb-1">${date}</div>${rows}</div>`;
+      };
+      fillsPerDayChartInst.setOption({
+        color: ['#0f766e', '#dc2626', '#2563eb'],
+        grid: { left: '3%', right: '3%', top: 40, bottom: 55, containLabel: true },
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: { type: 'shadow' },
+          formatter: tooltipFormatter
+        },
+        legend: {
+          data: ['Buy fills (shown negative)', 'Sell fills', 'Net Sell Fills'],
+          selected: { 'Net Sell Fills': false },
+          textStyle: { color: '#475569' }
+        },
+        xAxis: {
+          type: 'category',
+          data: categories,
+          axisLabel: { color: '#64748b', rotate: 45 },
+          axisTick: { alignWithLabel: true }
+        },
+        yAxis: {
+          type: 'value',
+          minInterval: 1,
+          axisLabel: { color: '#64748b' },
+          splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.2)' } }
+        },
+        series: [
+          {
+            name: 'Buy fills (shown negative)',
+            type: 'bar',
+            barGap: '25%',
+            barCategoryGap: '45%',
+            itemStyle: { color: '#0f766e' },
+            data: buyCounts
+          },
+          {
+            name: 'Sell fills',
+            type: 'bar',
+            barGap: '25%',
+            barCategoryGap: '45%',
+            itemStyle: { color: '#dc2626' },
+            data: sellCounts
+          },
+          {
+            name: 'Net Sell Fills',
+            type: 'bar',
+            barGap: '25%',
+            barCategoryGap: '45%',
+            itemStyle: { color: '#2563eb' },
+            data: entries.map(entry => (Number(entry.sell) || 0) - (Number(entry.buy) || 0))
+          }
+        ]
+      }, true);
+    }
+
+    function renderOpenLevelsChart(ladderHistory) {
+      const container = document.getElementById('openLevelsChart');
+      const emptyState = document.getElementById('openLevelsEmpty');
+      const label = document.getElementById('openLevelsSummaryLabel');
+      if (!container) return;
+      if (typeof echarts === 'undefined' || !echarts.init) return;
+      if (!openLevelsChartInst) {
+        openLevelsChartInst = echarts.init(container);
+      }
+      const { entries, stats } = computeDailyOpenLevels(ladderHistory);
+      if (!entries.length) {
+        openLevelsChartInst.clear();
+        if (emptyState) emptyState.classList.remove('hidden');
+        if (label) label.textContent = '';
+        return;
+      }
+      const categories = entries.map(entry => entry.key);
+      const levels = entries.map(entry => Number(entry.levels) || 0);
+      const maxLevels = Number.isFinite(stats?.max) ? stats.max : 0;
+      const lastLevels = Number.isFinite(stats?.last) ? stats.last : 0;
+      if (label) {
+        label.textContent = `${entries.length.toLocaleString()} day${entries.length === 1 ? '' : 's'} · last: ${lastLevels.toLocaleString()} open level${lastLevels === 1 ? '' : 's'} · max: ${maxLevels.toLocaleString()}`;
+      }
+      if (emptyState) emptyState.classList.add('hidden');
+      const tooltipFormatter = (params) => {
+        if (!Array.isArray(params) || !params.length) return '';
+        const date = params[0]?.axisValueLabel || '';
+        const rows = params.map((p) => {
+          const val = Number(p.value) || 0;
+          return `
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="display:inline-block;width:10px;height:10px;border-radius:999px;background:${p.color};"></span>
+              <span>${p.seriesName}: ${val.toLocaleString()}</span>
+            </div>
+          `;
+        }).join('');
+        return `<div><div class="font-semibold mb-1">${date}</div>${rows}</div>`;
+      };
+      openLevelsChartInst.setOption({
+        color: ['#2563eb'],
+        grid: { left: '3%', right: '3%', top: 40, bottom: 55, containLabel: true },
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: { type: 'line' },
+          formatter: tooltipFormatter
+        },
+        legend: {
+          data: ['Open Levels (end of day)'],
+          textStyle: { color: '#475569' }
+        },
+        xAxis: {
+          type: 'category',
+          data: categories,
+          axisLabel: { color: '#64748b', rotate: 45 },
+          axisTick: { alignWithLabel: true }
+        },
+        yAxis: {
+          type: 'value',
+          minInterval: 1,
+          axisLabel: { color: '#64748b' },
+          splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.2)' } }
+        },
+        series: [
+          {
+            name: 'Open Levels (end of day)',
+            type: 'bar',
+            barGap: '30%',
+            barCategoryGap: '45%',
+            itemStyle: { color: '#2563eb' },
+            data: levels
+          }
+        ]
+      }, true);
+    }
+
     function renderFillsPerMonthChart(trades) {
       const container = document.getElementById('monthlyFillsChart');
       const emptyState = document.getElementById('monthlyFillsEmpty');
@@ -1846,6 +2109,20 @@
       }, true);
     }
 
+    function computeLevelFillCounts(trades) {
+      const source = Array.isArray(trades) ? trades : [];
+      const counts = new Map();
+      for (const trade of source) {
+        const level = Number(trade?.openLevels);
+        if (!Number.isFinite(level) || level <= 0) continue;
+        counts.set(level, (counts.get(level) || 0) + 1);
+      }
+      const entries = Array.from(counts.entries()).map(([level, count]) => ({ level, count }));
+      entries.sort((a, b) => a.level - b.level);
+      const total = entries.reduce((sum, entry) => sum + entry.count, 0);
+      return { entries, total };
+    }
+
     function renderLevelDistributionChart(trades) {
       const container = document.getElementById('levelDistributionChart');
       const emptyState = document.getElementById('levelDistributionEmpty');
@@ -1855,23 +2132,16 @@
       if (!levelDistributionChartInst) {
         levelDistributionChartInst = echarts.init(container);
       }
-      const source = Array.isArray(trades) ? trades : [];
-      const counts = new Map();
-      for (const trade of source) {
-        const level = Number(trade?.openLevels);
-        if (!Number.isFinite(level) || level <= 0) continue;
-        counts.set(level, (counts.get(level) || 0) + 1);
-      }
-      if (!counts.size) {
+      const { entries, total } = computeLevelFillCounts(trades);
+      if (!entries.length) {
         levelDistributionChartInst.clear();
         if (emptyState) emptyState.classList.remove('hidden');
         if (label) label.textContent = '';
         return;
       }
-      const entries = Array.from(counts.entries()).sort((a, b) => a[0] - b[0]);
-      const categories = entries.map(([lvl]) => `Level ${lvl}`);
-      const values = entries.map(([, count]) => count);
-      const totalSells = values.reduce((sum, val) => sum + val, 0);
+      const categories = entries.map(entry => `Level ${entry.level}`);
+      const values = entries.map(entry => entry.count);
+      const totalSells = total;
       if (label) {
         label.textContent = `${totalSells.toLocaleString()} sell fills across ${entries.length} level${entries.length === 1 ? '' : 's'}`;
       }
@@ -1908,6 +2178,108 @@
             barCategoryGap: '35%',
             itemStyle: { color: '#6366f1' },
             data: values
+          }
+        ]
+      }, true);
+    }
+
+    function renderCumulativeLevelDistributionChart(trades) {
+      const container = document.getElementById('cumulativeLevelDistributionChart');
+      const emptyState = document.getElementById('cumulativeLevelDistributionEmpty');
+      const label = document.getElementById('cumulativeLevelDistributionLabel');
+      if (!container) return;
+      if (typeof echarts === 'undefined' || !echarts.init) return;
+      if (!cumulativeLevelDistributionChartInst) {
+        cumulativeLevelDistributionChartInst = echarts.init(container);
+      }
+      const { entries, total } = computeLevelFillCounts(trades);
+      if (!entries.length || !total) {
+        cumulativeLevelDistributionChartInst.clear();
+        if (emptyState) emptyState.classList.remove('hidden');
+        if (label) label.textContent = '';
+        return;
+      }
+      let running = 0;
+      const cumulative = entries.map(entry => {
+        running += entry.count;
+        const pct = total > 0 ? (running / total) * 100 : 0;
+        return { ...entry, running, pct };
+      });
+      const categories = cumulative.map(entry => `Level ${entry.level}`);
+      const pctValues = cumulative.map(entry => Number(entry.pct.toFixed(2)));
+      const findThresholdLevel = (thresholdPct) => {
+        const hit = cumulative.find(entry => entry.pct >= thresholdPct);
+        return hit ? hit.level : null;
+      };
+      const p50Level = findThresholdLevel(50);
+      const p75Level = findThresholdLevel(75);
+      const labelParts = [`${total.toLocaleString()} sell fill${total === 1 ? '' : 's'}`];
+      labelParts.push(`${entries.length.toLocaleString()} level${entries.length === 1 ? '' : 's'}`);
+      if (p50Level != null) labelParts.push(`50% reached by level ${p50Level}`);
+      if (p75Level != null) labelParts.push(`75% by level ${p75Level}`);
+      if (label) label.textContent = labelParts.join(' · ');
+      if (emptyState) emptyState.classList.add('hidden');
+      const tooltipFormatter = (params) => {
+        if (!Array.isArray(params) || !params.length) return '';
+        const idx = Number(params[0]?.dataIndex);
+        const entry = Number.isInteger(idx) && idx >= 0 ? cumulative[idx] : null;
+        if (!entry) return '';
+        const pctLabel = formatNumber(entry.pct, 2);
+        return `
+          <div class="text-xs">
+            <div class="font-semibold">${params[0]?.name || 'Level'}</div>
+            <div>Level fills: ${entry.count.toLocaleString()}</div>
+            <div>Cumulative: ${entry.running.toLocaleString()} (${pctLabel}%)</div>
+          </div>
+        `;
+      };
+      cumulativeLevelDistributionChartInst.setOption({
+        color: ['#0ea5e9'],
+        grid: { left: '3%', right: '3%', top: 40, bottom: 40, containLabel: true },
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: { type: 'line' },
+          formatter: tooltipFormatter
+        },
+        legend: {
+          data: ['Cumulative % of Sell Fills'],
+          textStyle: { color: '#475569' }
+        },
+        xAxis: {
+          type: 'category',
+          data: categories,
+          axisLabel: { color: '#64748b' },
+          axisTick: { alignWithLabel: true }
+        },
+        yAxis: {
+          type: 'value',
+          min: 0,
+          max: 100,
+          axisLabel: {
+            color: '#64748b',
+            formatter: (val) => `${val.toFixed(0)}%`
+          },
+          splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.2)' } }
+        },
+        series: [
+          {
+            name: 'Cumulative % of Sell Fills',
+            type: 'line',
+            smooth: true,
+            symbol: 'circle',
+            symbolSize: 6,
+            lineStyle: { width: 2 },
+            areaStyle: { color: 'rgba(14, 165, 233, 0.12)' },
+            markLine: {
+              symbol: 'none',
+              lineStyle: { color: 'rgba(100, 116, 139, 0.5)', type: 'dashed' },
+              label: { color: '#475569', formatter: (params) => `${params.value}%` },
+              data: [
+                { yAxis: 50, name: '50%' },
+                { yAxis: 75, name: '75%' }
+              ]
+            },
+            data: pctValues
           }
         ]
       }, true);
@@ -1975,8 +2347,11 @@
       setGridStatus(message || 'Load data and run the backtest to populate results.');
       renderGridEquityChart(null);
       renderLadderChart([]);
+      renderFillsPerDayChart([]);
+      renderOpenLevelsChart([]);
       renderFillsPerMonthChart([]);
       renderLevelDistributionChart([]);
+      renderCumulativeLevelDistributionChart([]);
       renderGridLevels([], [], null);
       buildMonthFilterOptions();
     }
@@ -3250,8 +3625,11 @@
         renderGridTrades([], { resetPage: true });
         renderGridEquityChart(null);
         renderLadderChart([]);
+        renderFillsPerDayChart([]);
+        renderOpenLevelsChart([]);
         renderFillsPerMonthChart([]);
         renderLevelDistributionChart([]);
+        renderCumulativeLevelDistributionChart([]);
         renderGridLevels([], [], null);
         return;
       }
@@ -3268,8 +3646,11 @@
           renderGridTrades([], { resetPage: true });
           renderGridEquityChart(null);
           renderLadderChart([]);
+          renderFillsPerDayChart([]);
+          renderOpenLevelsChart([]);
           renderFillsPerMonthChart([]);
           renderLevelDistributionChart([]);
+          renderCumulativeLevelDistributionChart([]);
           renderGridLevels([], [], null);
           return;
         }
@@ -3279,8 +3660,11 @@
           renderGridTrades([], { resetPage: true });
           renderGridEquityChart(null);
           renderLadderChart([]);
+          renderFillsPerDayChart([]);
+          renderOpenLevelsChart([]);
           renderFillsPerMonthChart([]);
           renderLevelDistributionChart([]);
+          renderCumulativeLevelDistributionChart([]);
           renderGridLevels([], [], null);
           return;
         }
@@ -3302,8 +3686,11 @@
         renderGridTrades(safeResult.trades, { resetPage: true });
         renderGridEquityChart(safeResult.equitySeries);
         renderLadderChart(safeResult.trades);
+        renderFillsPerDayChart(safeResult.trades);
+        renderOpenLevelsChart(safeResult.ladderHistory);
         renderFillsPerMonthChart(safeResult.trades);
         renderLevelDistributionChart(safeResult.trades);
+        renderCumulativeLevelDistributionChart(safeResult.trades);
         renderGridLevels(safeResult.buyLevels, safeResult.sellLevels, safeResult.baseLevel ?? null);
         if (safeResult.trades.length) {
           const profitLabel = formatCurrency(safeResult.summary?.netProfit ?? 0);
@@ -3315,8 +3702,11 @@
         console.error('Buy-the-dip grid backtest error', err);
         setGridStatus('Failed to run backtest. See console for details.');
         renderLadderChart([]);
+        renderFillsPerDayChart([]);
+        renderOpenLevelsChart([]);
         renderFillsPerMonthChart([]);
         renderLevelDistributionChart([]);
+        renderCumulativeLevelDistributionChart([]);
         renderGridLevels([], [], null);
       }
     }
@@ -3438,8 +3828,11 @@
           renderGridTrades([], { resetPage: true });
           renderGridEquityChart(null);
           renderLadderChart([]);
+          renderFillsPerDayChart([]);
+          renderOpenLevelsChart([]);
           renderFillsPerMonthChart([]);
           renderLevelDistributionChart([]);
+          renderCumulativeLevelDistributionChart([]);
           renderDataSummary();
           setGridStatus(`Loaded ${ROWS.length.toLocaleString()} 10-minute bars across ${DAYS.length.toLocaleString()} day(s). Running backtest…`);
           setRunButtonEnabled(true);
@@ -3459,8 +3852,11 @@
       renderGridTrades([], { resetPage: true });
       renderGridEquityChart(null);
       renderLadderChart([]);
+      renderFillsPerDayChart([]);
+      renderOpenLevelsChart([]);
       renderFillsPerMonthChart([]);
       renderLevelDistributionChart([]);
+      renderCumulativeLevelDistributionChart([]);
       renderGridLevels([], [], null);
       buildMonthFilterOptions();
       setRunButtonEnabled(false);
@@ -3601,11 +3997,20 @@
       if (gridLadderChartInst) {
         try { gridLadderChartInst.resize(); } catch {}
       }
+      if (fillsPerDayChartInst) {
+        try { fillsPerDayChartInst.resize(); } catch {}
+      }
+      if (openLevelsChartInst) {
+        try { openLevelsChartInst.resize(); } catch {}
+      }
       if (fillsPerMonthChartInst) {
         try { fillsPerMonthChartInst.resize(); } catch {}
       }
       if (levelDistributionChartInst) {
         try { levelDistributionChartInst.resize(); } catch {}
+      }
+      if (cumulativeLevelDistributionChartInst) {
+        try { cumulativeLevelDistributionChartInst.resize(); } catch {}
       }
     });
   })();
