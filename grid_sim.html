@@ -115,7 +115,27 @@
     .summary-tile {
       position: relative;
     }
-    .summary-tile .summary-tooltip {
+
+    .help-tip {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-left: 0.35rem;
+      color: #94a3b8;
+      cursor: help;
+    }
+    .help-tip:hover {
+      color: #64748b;
+    }
+    .help-tip:focus-visible {
+      outline: 2px solid rgba(16, 185, 129, 0.6);
+      outline-offset: 2px;
+      border-radius: 9999px;
+    }
+
+    .summary-tile .summary-tooltip,
+    .help-tip .summary-tooltip {
       position: absolute;
       left: 50%;
       bottom: calc(100% + 0.5rem);
@@ -135,7 +155,8 @@
       transition: opacity 0.15s ease, transform 0.15s ease;
       z-index: 40;
     }
-    .summary-tile .summary-tooltip::after {
+    .summary-tile .summary-tooltip::after,
+    .help-tip .summary-tooltip::after {
       content: "";
       position: absolute;
       top: 100%;
@@ -146,7 +167,9 @@
       border-color: #0f172a transparent transparent transparent;
     }
     .summary-tile:hover .summary-tooltip,
-    .summary-tile:focus-within .summary-tooltip {
+    .summary-tile:focus-within .summary-tooltip,
+    .help-tip:hover .summary-tooltip,
+    .help-tip:focus-within .summary-tooltip {
       opacity: 1;
       transform: translate(-50%, -0.35rem) scale(1);
     }
@@ -192,12 +215,18 @@
       <h1 id="mainTitle" class="text-2xl md:text-3xl font-semibold">Grid Simulator</h1>
     </header>
 
-	    <section id="simParameters" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
-	      <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-	        <div class="min-w-0">
-	          <h2 class="font-semibold text-slate-700">Parameters</h2>
-	          <p class="text-sm text-slate-500">State-based accounting model (no price-path simulation).</p>
-	        </div>
+		    <section id="simParameters" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
+		      <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+		        <div class="min-w-0">
+		          <h2 class="font-semibold text-slate-700 inline-flex items-center">
+		            Parameters
+		            <span class="help-tip" tabindex="0" aria-label="Parameters help">
+		              <i class="fa-regular fa-circle-question"></i>
+		              <span class="summary-tooltip">Deterministic grid accounting (no random price path). Changing any input auto-runs the simulation; the button just forces a re-run.</span>
+		            </span>
+		          </h2>
+		          <p class="text-sm text-slate-500">State-based accounting model (no price-path simulation).</p>
+		        </div>
 	        <button
 	          type="button"
 	          id="sim_run"
@@ -209,31 +238,61 @@
       </div>
 
       <form id="simForm" class="grid gap-4 md:grid-cols-12" autocomplete="off">
-        <div class="md:col-span-4 rounded-xl border border-slate-200 p-4 space-y-3">
-          <div>
-            <h3 class="font-semibold text-slate-700">Starting State</h3>
-            <p class="text-sm text-slate-500">Initial position only.</p>
-          </div>
+	        <div class="md:col-span-4 rounded-xl border border-slate-200 p-4 space-y-3">
+	          <div>
+	            <h3 class="font-semibold text-slate-700 inline-flex items-center">
+	              Starting State
+	              <span class="help-tip" tabindex="0" aria-label="Starting State help">
+	                <i class="fa-regular fa-circle-question"></i>
+	                <span class="summary-tooltip">Initial position only. initialEquity = initialShares × initialPrice.</span>
+	              </span>
+	            </h3>
+	            <p class="text-sm text-slate-500">Initial position only.</p>
+	          </div>
 
-          <label class="block">
-            <span class="text-sm text-slate-600">initialShares</span>
-            <input id="sim_initialShares" type="number" min="0" step="1" value="1000" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
-          </label>
+	          <label class="block">
+	            <span class="text-sm text-slate-600 inline-flex items-center">
+	              initialShares
+	              <span class="help-tip" tabindex="0" aria-label="initialShares help">
+	                <i class="fa-regular fa-circle-question"></i>
+	                <span class="summary-tooltip">Starting share position. Used for HODL equity = initialShares × endingPrice.</span>
+	              </span>
+	            </span>
+	            <input id="sim_initialShares" type="number" min="0" step="1" value="1000" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
+	          </label>
 
-          <label class="block">
-            <span class="text-sm text-slate-600">initialPrice</span>
-            <input id="sim_initialPrice" type="number" min="0" step="0.01" value="100" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
-          </label>
+	          <label class="block">
+	            <span class="text-sm text-slate-600 inline-flex items-center">
+	              initialPrice
+	              <span class="help-tip" tabindex="0" aria-label="initialPrice help">
+	                <i class="fa-regular fa-circle-question"></i>
+	                <span class="summary-tooltip">Base price (grid level 0). Grid price(level) = initialPrice × (1 + gridSpacingPercent/100)^level.</span>
+	              </span>
+	            </span>
+	            <input id="sim_initialPrice" type="number" min="0" step="0.01" value="100" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
+	          </label>
 
           <div class="rounded-lg bg-slate-50 border border-slate-200 p-3">
-            <div class="text-xs font-medium uppercase tracking-wide text-slate-500">initialEquity</div>
+            <div class="text-xs font-medium uppercase tracking-wide text-slate-500 inline-flex items-center">
+              initialEquity
+              <span class="help-tip" tabindex="0" aria-label="initialEquity help">
+                <i class="fa-regular fa-circle-question"></i>
+                <span class="summary-tooltip">initialEquity = initialShares × initialPrice.</span>
+              </span>
+            </div>
             <div id="sim_initialEquity" class="mt-1 text-lg font-semibold text-slate-800">$0.00</div>
           </div>
         </div>
 
 	        <div class="md:col-span-4 rounded-xl border border-slate-200 p-4 space-y-3">
 	          <div>
-	            <h3 class="font-semibold text-slate-700">Grid Rules</h3>
+	            <h3 class="font-semibold text-slate-700 inline-flex items-center">
+	              Grid Rules
+	              <span class="help-tip" tabindex="0" aria-label="Grid Rules help">
+	                <i class="fa-regular fa-circle-question"></i>
+	                <span class="summary-tooltip">Grid price(level) = initialPrice × (1 + gridSpacingPercent/100)^level. Each fill uses a fixed tradeValue in USD; buys are debited to Buying Bank and sells are credited to Selling Bank.</span>
+	              </span>
+	            </h3>
 	            <ul class="mt-1 text-sm text-slate-500 list-disc pl-5 space-y-1">
 	              <li>Fixed trade size (<span class="font-medium">tradeValue</span> USD)</li>
 	              <li>No randomness, no tax</li>
@@ -242,18 +301,36 @@
 	            </ul>
 	          </div>
 
-          <label class="block">
-            <span class="text-sm text-slate-600">gridSpacingPercent</span>
-            <input id="sim_gridSpacingPercent" type="number" min="0.0001" step="0.1" value="2.5" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
-          </label>
+	          <label class="block">
+	            <span class="text-sm text-slate-600 inline-flex items-center">
+	              gridSpacingPercent
+	              <span class="help-tip" tabindex="0" aria-label="gridSpacingPercent help">
+	                <i class="fa-regular fa-circle-question"></i>
+	                <span class="summary-tooltip">Percent distance between adjacent grid levels. Used in (1 + gridSpacingPercent/100).</span>
+	              </span>
+	            </span>
+	            <input id="sim_gridSpacingPercent" type="number" min="0.0001" step="0.1" value="2.5" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
+	          </label>
 
 	          <label class="block">
-	            <span class="text-sm text-slate-600">tradeValue</span>
+	            <span class="text-sm text-slate-600 inline-flex items-center">
+	              tradeValue
+	              <span class="help-tip" tabindex="0" aria-label="tradeValue help">
+	                <i class="fa-regular fa-circle-question"></i>
+	                <span class="summary-tooltip">Dollar notional per fill. For buys: sharesBought = tradeValue / price(level). For sells, behavior depends on Profit handling.</span>
+	              </span>
+	            </span>
 	            <input id="sim_tradeValue" type="number" min="0.01" step="1" value="1000" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
 	          </label>
 
 	          <label class="block">
-	            <span class="text-sm text-slate-600">Profit handling</span>
+	            <span class="text-sm text-slate-600 inline-flex items-center">
+	              Profit handling
+	              <span class="help-tip" tabindex="0" aria-label="Profit handling help">
+	                <i class="fa-regular fa-circle-question"></i>
+	                <span class="summary-tooltip">Accumulate shares: sell a fixed tradeValue at each up-level. Bank profit: sell the same shares as would be bought at the prior level (sharesSold = tradeValue/price(prevLevel)), booking cash profit at the next level.</span>
+	              </span>
+	            </span>
 	            <div class="relative mt-1">
 	              <select
 	                id="sim_profitHandling"
@@ -273,40 +350,82 @@
 
 	        <div class="md:col-span-4 rounded-xl border border-slate-200 p-4 space-y-3">
 	          <div>
-	            <h3 class="font-semibold text-slate-700">End-State Descriptors (1 year)</h3>
+	            <h3 class="font-semibold text-slate-700 inline-flex items-center">
+	              End-State Descriptors (1 year)
+	              <span class="help-tip" tabindex="0" aria-label="End-State help">
+	                <i class="fa-regular fa-circle-question"></i>
+	                <span class="summary-tooltip">Controls how far price ranges below/above the base and where it ends. Sell fills (min) = maxDownLevels + maxUpLevels. Total Sell Fills Per Year lets you assume extra oscillations (more profit opportunities).</span>
+	              </span>
+	            </h3>
 	            <p class="text-sm text-slate-500">Limits how far the grid can trade in each direction.</p>
 	          </div>
 
 	          <label class="block">
-	            <span class="text-sm text-slate-600">endingPrice</span>
+	            <span class="text-sm text-slate-600 inline-flex items-center">
+	              endingPrice
+		              <span class="help-tip" tabindex="0" aria-label="endingPrice help">
+		                <i class="fa-regular fa-circle-question"></i>
+		                <span class="summary-tooltip">Final price used to pick an ending grid level and to mark-to-market. End level is discretized to the grid: level = log(endingPrice/initialPrice) / log(1+gridSpacingPercent/100) (floored above base, ceiled below base). GRID equity = sharesHeld×endingPrice + sellingBankHeld − buyingBankUsed.</span>
+		              </span>
+		            </span>
 	            <input id="sim_endingPrice" type="number" min="0" step="0.01" value="112" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
 	          </label>
 
 	          <label class="block">
-	            <span class="text-sm text-slate-600">Total Sell Fills Per Year</span>
+	            <span class="text-sm text-slate-600 inline-flex items-center">
+	              Total Sell Fills Per Year
+		              <span class="help-tip" tabindex="0" aria-label="Total sell fills help">
+		                <i class="fa-regular fa-circle-question"></i>
+		                <span class="summary-tooltip">Total number of 1-level sell fills assumed for the year (includes the baseline sells implied by max levels). Clamped to at least (maxDownLevels + maxUpLevels). Extra fills are modeled as additional 1-level round-trips near the base. Used for Grid profit (total/year) = fills × tradeValue × gridSpacingPercent/100.</span>
+		              </span>
+		            </span>
 	            <input id="sim_totalSellFillsPerYear" type="number" min="0" step="1" value="35" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
 	          </label>
 
           <div class="grid grid-cols-2 gap-3">
-            <label class="block">
-              <span class="text-sm text-slate-600">maxDownLevels</span>
-              <input id="sim_maxDownLevels" type="number" min="0" step="1" value="20" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
-            </label>
-            <label class="block">
-              <span class="text-sm text-slate-600">maxUpLevels</span>
-              <input id="sim_maxUpLevels" type="number" min="0" step="1" value="15" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
-            </label>
-          </div>
-        </div>
+	            <label class="block">
+	              <span class="text-sm text-slate-600 inline-flex items-center">
+	                maxDownLevels
+	                <span class="help-tip" tabindex="0" aria-label="maxDownLevels help">
+	                  <i class="fa-regular fa-circle-question"></i>
+	                  <span class="summary-tooltip">How many buy levels exist below the base price (level 0). Also contributes to Sell fills (min) = maxDownLevels + maxUpLevels.</span>
+	                </span>
+	              </span>
+	              <input id="sim_maxDownLevels" type="number" min="0" step="1" value="20" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
+	            </label>
+	            <label class="block">
+	              <span class="text-sm text-slate-600 inline-flex items-center">
+	                maxUpLevels
+	                <span class="help-tip" tabindex="0" aria-label="maxUpLevels help">
+	                  <i class="fa-regular fa-circle-question"></i>
+	                  <span class="summary-tooltip">How many sell levels exist above the base price (level 0). Also contributes to Sell fills (min) = maxDownLevels + maxUpLevels.</span>
+	                </span>
+	              </span>
+	              <input id="sim_maxUpLevels" type="number" min="0" step="1" value="15" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
+	            </label>
+	          </div>
+	        </div>
       </form>
 
-	      <div id="sim_status" class="text-sm text-slate-500"></div>
-	    </section>
+		      <div class="flex items-start gap-2">
+		        <div id="sim_status" class="text-sm text-slate-500"></div>
+		        <span class="help-tip mt-0.5" tabindex="0" aria-label="Status help">
+		          <i class="fa-regular fa-circle-question"></i>
+		          <span class="summary-tooltip">Status line summarizing the discretized end grid level, sell fill counts, profit mode, and GRID vs HODL at endingPrice.</span>
+		        </span>
+		      </div>
+		    </section>
 
 	    <section id="simSummary" class="bg-white rounded-2xl shadow-soft p-3 md:p-4">
 	      <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
 	        <div>
-	          <h2 class="font-semibold text-slate-700">Summary</h2>
+	          <h2 class="font-semibold text-slate-700 inline-flex items-center">
+	            Summary
+	            <span class="help-tip" tabindex="0" aria-label="Summary help">
+	              <i class="fa-regular fa-circle-question"></i>
+	              <span class="summary-tooltip">All metrics in this table are computed at endingPrice. GRID equity is mark-to-market: sharesHeld×endingPrice + sellingBankHeld − buyingBankUsed.</span>
+	            </span>
+	          </h2>
 	          <p class="text-sm text-slate-500">Computed at <span class="font-medium">endingPrice</span>.</p>
 	        </div>
 	      </div>
@@ -314,47 +433,135 @@
 	        <table class="min-w-[520px] w-full text-sm">
 	          <tbody class="divide-y divide-slate-200">
 	            <tr>
-	              <th class="px-4 py-3 text-left font-medium text-slate-600">Sell fills (min)</th>
+	              <th class="px-4 py-3 text-left font-medium text-slate-600">
+	                <span class="inline-flex items-center">
+	                  Sell fills (min)
+	                  <span class="help-tip" tabindex="0" aria-label="Sell fills min help">
+	                    <i class="fa-regular fa-circle-question"></i>
+	                    <span class="summary-tooltip">Minimum sell fills implied by the deterministic year path: sellFillsMin = maxDownLevels + maxUpLevels.</span>
+	                  </span>
+	                </span>
+	              </th>
 	              <td id="sim_outSellFillsMin" class="px-4 py-3 text-right font-semibold text-slate-800">0</td>
 	            </tr>
 	            <tr>
-	              <th class="px-4 py-3 text-left font-medium text-slate-600">Sell fills (total / year)</th>
+	              <th class="px-4 py-3 text-left font-medium text-slate-600">
+	                <span class="inline-flex items-center">
+	                  Sell fills (total / year)
+	                  <span class="help-tip" tabindex="0" aria-label="Total sell fills help">
+	                    <i class="fa-regular fa-circle-question"></i>
+	                    <span class="summary-tooltip">Total sell fills used for profit simulation: sellFillsTotal = max(sellFillsMin, Total Sell Fills Per Year).</span>
+	                  </span>
+	                </span>
+	              </th>
 	              <td id="sim_outSellFillsTotal" class="px-4 py-3 text-right font-semibold text-slate-800">0</td>
 	            </tr>
 	            <tr>
-	              <th class="px-4 py-3 text-left font-medium text-slate-600">Profit per sell (grid spacing)</th>
+	              <th class="px-4 py-3 text-left font-medium text-slate-600">
+	                <span class="inline-flex items-center">
+	                  Profit per sell (grid spacing)
+	                  <span class="help-tip" tabindex="0" aria-label="Profit per sell help">
+	                    <i class="fa-regular fa-circle-question"></i>
+	                    <span class="summary-tooltip">profitPerSell = tradeValue × (gridSpacingPercent/100). This is the cash profit of a 1-level round-trip if you sell the same shares you bought at the prior level. In Accumulate shares mode, the “profit” shows up as extra shares instead of extra cash.</span>
+	                  </span>
+	                </span>
+	              </th>
 	              <td id="sim_outProfitPerSell" class="px-4 py-3 text-right font-semibold text-slate-800">$0.00</td>
 	            </tr>
 	            <tr>
-	              <th class="px-4 py-3 text-left font-medium text-slate-600">Grid profit (min)</th>
+	              <th class="px-4 py-3 text-left font-medium text-slate-600">
+	                <span class="inline-flex items-center">
+	                  Grid profit (min)
+	                  <span class="help-tip" tabindex="0" aria-label="Grid profit min help">
+	                    <i class="fa-regular fa-circle-question"></i>
+	                    <span class="summary-tooltip">gridProfitMin = sellFillsMin × profitPerSell. This is a spread-capture metric (not separately added into GRID equity).</span>
+	                  </span>
+	                </span>
+	              </th>
 	              <td id="sim_outGridProfitMin" class="px-4 py-3 text-right font-semibold text-slate-800">$0.00</td>
 	            </tr>
 	            <tr>
-	              <th class="px-4 py-3 text-left font-medium text-slate-600">Grid profit (total / year)</th>
+	              <th class="px-4 py-3 text-left font-medium text-slate-600">
+	                <span class="inline-flex items-center">
+	                  Grid profit (total / year)
+	                  <span class="help-tip" tabindex="0" aria-label="Grid profit total help">
+	                    <i class="fa-regular fa-circle-question"></i>
+	                    <span class="summary-tooltip">gridProfitTotal = sellFillsTotal × profitPerSell. This is a spread-capture metric; GRID equity already reflects shares + banks, so adding this again would double-count.</span>
+	                  </span>
+	                </span>
+	              </th>
 	              <td id="sim_outGridProfitTotal" class="px-4 py-3 text-right font-semibold text-slate-800">$0.00</td>
 	            </tr>
 	            <tr>
-	              <th class="px-4 py-3 text-left font-medium text-slate-600">Final shares held</th>
+	              <th class="px-4 py-3 text-left font-medium text-slate-600">
+	                <span class="inline-flex items-center">
+	                  Final shares held
+	                  <span class="help-tip" tabindex="0" aria-label="Final shares help">
+	                    <i class="fa-regular fa-circle-question"></i>
+	                    <span class="summary-tooltip">Shares after applying the deterministic level path (0 → −maxDownLevels → +maxUpLevels → endLevelDiscrete) plus any extra oscillations implied by Total Sell Fills Per Year. If endingPrice is below base, there are open buys (more shares). If endingPrice is above base, there are open sells (fewer shares).</span>
+	                  </span>
+	                </span>
+	              </th>
 	              <td id="sim_outFinalShares" class="px-4 py-3 text-right font-semibold text-slate-800">0</td>
 	            </tr>
 	            <tr>
-	              <th class="px-4 py-3 text-left font-medium text-slate-600">Buying bank used</th>
+	              <th class="px-4 py-3 text-left font-medium text-slate-600">
+	                <span class="inline-flex items-center">
+	                  Buying bank used
+	                  <span class="help-tip" tabindex="0" aria-label="Buying bank help">
+	                    <i class="fa-regular fa-circle-question"></i>
+	                    <span class="summary-tooltip">Total cash injected to fund buy fills. In the sim, each buy fill adds +tradeValue to buyingBankUsed.</span>
+	                  </span>
+	                </span>
+	              </th>
 	              <td id="sim_outBuyingBank" class="px-4 py-3 text-right font-semibold text-slate-800">$0.00</td>
 	            </tr>
 	            <tr>
-	              <th class="px-4 py-3 text-left font-medium text-slate-600">Selling bank held</th>
+	              <th class="px-4 py-3 text-left font-medium text-slate-600">
+	                <span class="inline-flex items-center">
+	                  Selling bank held
+	                  <span class="help-tip" tabindex="0" aria-label="Selling bank help">
+	                    <i class="fa-regular fa-circle-question"></i>
+	                    <span class="summary-tooltip">Total cash received from sell fills. Accumulate shares mode credits +tradeValue per sell; Bank profit mode credits sharesSold×price(nextLevel).</span>
+	                  </span>
+	                </span>
+	              </th>
 	              <td id="sim_outSellingBank" class="px-4 py-3 text-right font-semibold text-slate-800">$0.00</td>
 	            </tr>
 	            <tr>
-	              <th class="px-4 py-3 text-left font-medium text-slate-600">Net equity</th>
+	              <th class="px-4 py-3 text-left font-medium text-slate-600">
+	                <span class="inline-flex items-center">
+	                  GRID equity
+	                  <span class="help-tip" tabindex="0" aria-label="GRID equity help">
+	                    <i class="fa-regular fa-circle-question"></i>
+	                    <span class="summary-tooltip">GRID equity = sharesHeld × endingPrice + sellingBankHeld − buyingBankUsed.</span>
+	                  </span>
+	                </span>
+	              </th>
 	              <td id="sim_outNetEquity" class="px-4 py-3 text-right font-semibold text-slate-800">$0.00</td>
 	            </tr>
 	            <tr>
-	              <th class="px-4 py-3 text-left font-medium text-slate-600">HODL equity</th>
+	              <th class="px-4 py-3 text-left font-medium text-slate-600">
+	                <span class="inline-flex items-center">
+	                  HODL equity
+	                  <span class="help-tip" tabindex="0" aria-label="HODL equity help">
+	                    <i class="fa-regular fa-circle-question"></i>
+	                    <span class="summary-tooltip">HODL equity = initialShares × endingPrice.</span>
+	                  </span>
+	                </span>
+	              </th>
 	              <td id="sim_outHodlEquity" class="px-4 py-3 text-right font-semibold text-slate-800">$0.00</td>
 	            </tr>
 	            <tr>
-	              <th class="px-4 py-3 text-left font-medium text-slate-600">Net vs HODL</th>
+	              <th class="px-4 py-3 text-left font-medium text-slate-600">
+	                <span class="inline-flex items-center">
+	                  GRID vs HODL
+	                  <span class="help-tip" tabindex="0" aria-label="GRID vs HODL help">
+	                    <i class="fa-regular fa-circle-question"></i>
+	                    <span class="summary-tooltip">Difference at endingPrice: (GRID equity − HODL equity).</span>
+	                  </span>
+	                </span>
+	              </th>
 	              <td id="sim_outNetVsHodl" class="px-4 py-3 text-right font-semibold text-slate-800">$0.00</td>
 	            </tr>
 	          </tbody>
@@ -364,24 +571,60 @@
 
 	    <section id="simCharts" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
 	      <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-	        <h2 class="font-semibold text-slate-700">Charts</h2>
-	        <span id="sim_chartSummary" class="text-sm text-slate-500"></span>
+	        <h2 class="font-semibold text-slate-700 inline-flex items-center">
+	          Charts
+	          <span class="help-tip" tabindex="0" aria-label="Charts help">
+	            <i class="fa-regular fa-circle-question"></i>
+	            <span class="summary-tooltip">Each chart sweeps endingPrice across the grid ladder and re-runs the deterministic accounting model, so the curves show how the end-state changes with price.</span>
+	          </span>
+	        </h2>
+	        <span class="inline-flex items-center text-sm text-slate-500">
+	          <span id="sim_chartSummary"></span>
+	          <span class="help-tip" tabindex="0" aria-label="Chart summary help">
+	            <i class="fa-regular fa-circle-question"></i>
+	            <span class="summary-tooltip">Shows the min/max ladder prices for the configured levels and highlights the current endingPrice used for the end markers.</span>
+	          </span>
+	        </span>
 	      </div>
 	      <div class="grid gap-4 lg:grid-cols-2">
 	        <div class="rounded-xl border border-slate-200 p-3">
-	          <div class="text-sm font-semibold text-slate-700 mb-2">Price vs Grid Level</div>
+	          <div class="text-sm font-semibold text-slate-700 mb-2 inline-flex items-center">
+	            Price vs Grid Level
+	            <span class="help-tip" tabindex="0" aria-label="Price vs Grid Level help">
+	              <i class="fa-regular fa-circle-question"></i>
+	              <span class="summary-tooltip">Ladder definition. X = grid level, Y = price(level). Marks: Base (level 0) and End (endingPrice).</span>
+	            </span>
+	          </div>
 	          <div id="sim_chart_grid" class="w-full h-72 md:h-80"></div>
 	        </div>
 	        <div class="rounded-xl border border-slate-200 p-3">
-	          <div class="text-sm font-semibold text-slate-700 mb-2">Shares Held vs Price</div>
+	          <div class="text-sm font-semibold text-slate-700 mb-2 inline-flex items-center">
+	            Shares Held vs Price
+	            <span class="help-tip" tabindex="0" aria-label="Shares Held vs Price help">
+	              <i class="fa-regular fa-circle-question"></i>
+	              <span class="summary-tooltip">End-of-year sharesHeld vs endingPrice after applying the level-crossing rules and Total Sell Fills Per Year.</span>
+	            </span>
+	          </div>
 	          <div id="sim_chart_shares" class="w-full h-72 md:h-80"></div>
 	        </div>
 	        <div class="rounded-xl border border-slate-200 p-3">
-	          <div class="text-sm font-semibold text-slate-700 mb-2">Buying Bank vs Selling Bank vs Price</div>
+	          <div class="text-sm font-semibold text-slate-700 mb-2 inline-flex items-center">
+	            Buying Bank vs Selling Bank vs Price
+	            <span class="help-tip" tabindex="0" aria-label="Banks vs Price help">
+	              <i class="fa-regular fa-circle-question"></i>
+	              <span class="summary-tooltip">Cumulative dollars debited/credited by fills. Buying Bank = cash injected to fund buys; Selling Bank = cash received from sells (depends on Profit handling).</span>
+	            </span>
+	          </div>
 	          <div id="sim_chart_banks" class="w-full h-72 md:h-80"></div>
 	        </div>
 	        <div class="rounded-xl border border-slate-200 p-3">
-	          <div class="text-sm font-semibold text-slate-700 mb-2">Net Equity vs HODL vs Price</div>
+	          <div class="text-sm font-semibold text-slate-700 mb-2 inline-flex items-center">
+	            GRID Equity vs HODL vs Price
+	            <span class="help-tip" tabindex="0" aria-label="GRID equity vs HODL help">
+	              <i class="fa-regular fa-circle-question"></i>
+	              <span class="summary-tooltip">GRID equity = sharesHeld×endingPrice + sellingBankHeld − buyingBankUsed. HODL = initialShares×endingPrice.</span>
+	            </span>
+	          </div>
 	          <div id="sim_chart_equity" class="w-full h-72 md:h-80"></div>
 	        </div>
 	      </div>
@@ -893,7 +1136,7 @@
         return charts.get(id);
       }
 
-      function renderCharts(p, finalState, series) {
+	      function renderCharts(p, finalState, series) {
         const gridChart = getChart("sim_chart_grid");
         const sharesChart = getChart("sim_chart_shares");
         const banksChart = getChart("sim_chart_banks");
@@ -976,20 +1219,20 @@
           { notMerge: true }
         );
 
-        equityChart.setOption(
-          {
+	        equityChart.setOption(
+	          {
             animation: false,
             grid: { left: 56, right: 18, top: 18, bottom: 44 },
             tooltip: { trigger: "axis", axisPointer: { type: "cross" } },
             xAxis: { type: "value", name: "Price", axisLabel, scale: true },
             yAxis: { type: "value", name: "Dollars", axisLabel, scale: true },
-            series: [
-              {
-                name: "Net equity",
-                type: "line",
-                showSymbol: false,
-                data: series.equityVsPrice,
-                lineStyle: { width: 2, color: "#10b981" },
+	            series: [
+	              {
+	                name: "GRID equity",
+	                type: "line",
+	                showSymbol: false,
+	                data: series.equityVsPrice,
+	                lineStyle: { width: 2, color: "#10b981" },
                 markPoint: {
                   symbolSize: 44,
                   data: [{ name: "End", coord: [p.endingPrice, finalState.netEquity], value: "End" }],
@@ -1087,12 +1330,12 @@
 		        renderSummaryTable(finalState);
 		        renderCharts(params, finalState, series);
 
-		        const warns = [];
-		        if (params.totalSellFillsPerYear < finalState.sellFillsMin) warns.push("Total sell fills clamped to min sells implied by max levels.");
-		        if (finalState.sharesHeld < 0) warns.push("Warning: final shares held < 0 (unconstrained selling).");
-		        const modeLabel = profitHandling === "cash" ? "bank cash" : "accumulate shares";
-		        status.textContent = `Computed: endLevel=${finalState.endLevelDiscrete} · Sell fills (min)=${finalState.sellFillsMin}, (total/yr)=${finalState.sellFillsTotal} · Profit mode=${modeLabel} · Net vs HODL ${fmtUsd(finalState.netVsHodl)}${warns.length ? " · " + warns.join(" ") : ""}`;
-		      }
+			        const warns = [];
+			        if (params.totalSellFillsPerYear < finalState.sellFillsMin) warns.push("Total sell fills clamped to min sells implied by max levels.");
+			        if (finalState.sharesHeld < 0) warns.push("Warning: final shares held < 0 (unconstrained selling).");
+			        const modeLabel = profitHandling === "cash" ? "bank cash" : "accumulate shares";
+			        status.textContent = `Computed: endLevel=${finalState.endLevelDiscrete} · Sell fills (min)=${finalState.sellFillsMin}, (total/yr)=${finalState.sellFillsTotal} · Profit mode=${modeLabel} · GRID vs HODL ${fmtUsd(finalState.netVsHodl)}${warns.length ? " · " + warns.join(" ") : ""}`;
+			      }
 
       document.addEventListener("DOMContentLoaded", () => {
         updateDerived();
