@@ -115,8 +115,23 @@
     "multiplier": 1
   },
   {
+    "symbol": "GOOG",
+    "name": "Alphabet Inc.",
+    "multiplier": 1
+  },
+  {
+    "symbol": "MU",
+    "name": "Micron Technology Inc.",
+    "multiplier": 1
+  },
+  {
     "symbol": "IBIT",
     "name": "iShares Bitcoin Trust",
+    "multiplier": 1
+  },
+  {
+    "symbol": "CRCL",
+    "name": "Circle Internet Financial Inc.",
     "multiplier": 1
   },
   {
@@ -157,6 +172,21 @@
   {
     "symbol": "HYLN",
     "name": "Hyliion Holdings Corp.",
+    "multiplier": 1
+  },
+  {
+    "symbol": "HIMS",
+    "name": "Hims & Hers Health Inc.",
+    "multiplier": 1
+  },
+  {
+    "symbol": "USD",
+    "name": "iShares Semiconductor ETF",
+    "multiplier": 1
+  },
+  {
+    "symbol": "SVOL",
+    "name": "Simplify Volatility Premium ETF",
     "multiplier": 1
   },
   {    
