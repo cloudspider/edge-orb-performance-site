@@ -1,0 +1,1003 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Grid Simulator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"
+  />
+  <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+  <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+  <!-- Apache ECharts for interactive charts (mobile pinch-zoom supported) -->
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <!-- PapaParse for CSV parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    .num-pos { color: #119d6e !important; }
+    .num-neg { color: #ff0000 !important; }
+    .pnl-strong { font-size: 1.8rem !important; }
+    .sticky-th { position: sticky; top: 0; background: white; z-index: 1; }
+    .shadow-soft { box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
+    thead th { position: sticky; top: 0; background: white; z-index: 1; }
+    th.sortable button {
+      width: 100%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.35rem;
+      font: inherit;
+      color: inherit;
+      background: transparent;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+    }
+    th.sortable button:focus-visible {
+      outline: 2px solid rgba(16, 185, 129, 0.6);
+      outline-offset: 2px;
+    }
+    th.sortable .sort-indicator {
+      font-size: 0.65rem;
+      opacity: 0.4;
+    }
+    th[data-sort="asc"] .sort-indicator::after {
+      content: "▲";
+      opacity: 0.9;
+    }
+    th[data-sort="desc"] .sort-indicator::after {
+      content: "▼";
+      opacity: 0.9;
+    }
+    th[data-sort="none"] .sort-indicator::after {
+      content: "↕";
+    }
+
+    /* Hide native spin buttons for key numeric inputs */
+    #inp_orb_m::-webkit-outer-spin-button,
+    #inp_orb_m::-webkit-inner-spin-button,
+    #inp_target_R::-webkit-outer-spin-button,
+    #inp_target_R::-webkit-inner-spin-button,
+    #inp_stop_R::-webkit-outer-spin-button,
+    #inp_stop_R::-webkit-inner-spin-button,
+    #inp_risk_pct::-webkit-outer-spin-button,
+    #inp_risk_pct::-webkit-inner-spin-button,
+    #inp_aum0::-webkit-outer-spin-button,
+    #inp_aum0::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    #inp_orb_m,
+    #inp_target_R,
+    #inp_stop_R,
+    #inp_risk_pct,
+    #inp_aum0 {
+      -moz-appearance: textfield;
+      appearance: textfield;
+    }
+
+    /* Generic: hide spinners for any future number input */
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type="number"] {
+      -moz-appearance: textfield;
+      appearance: textfield;
+    }
+
+    /* Segment controls responsive layout */
+    #tickerSegment {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      grid-auto-rows: 1fr;
+      width: 100%;
+      gap: 1px;
+    }
+    #tickerSegment button {
+      width: 100%;
+      height: 100%;
+    }
+    #sessionSegment {
+      display: flex;
+      flex-wrap: wrap;
+      max-width: 100%;
+      min-width: 0;
+      white-space: normal;
+    }
+    #sessionSegment button {
+      flex: 0 0 auto;
+    }
+    .summary-tile {
+      position: relative;
+    }
+    .summary-tile .summary-tooltip {
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 0.5rem);
+      transform: translate(-50%, 0) scale(0.98);
+      transform-origin: bottom center;
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 0.65rem 0.75rem;
+      border-radius: 0.65rem;
+      text-align: left;
+      font-size: 0.75rem;
+      line-height: 1.25;
+      width: max(14rem, min(18rem, 70vw));
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.35);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+      z-index: 40;
+    }
+    .summary-tile .summary-tooltip::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border-width: 6px;
+      border-style: solid;
+      border-color: #0f172a transparent transparent transparent;
+    }
+    .summary-tile:hover .summary-tooltip,
+    .summary-tile:focus-within .summary-tooltip {
+      opacity: 1;
+      transform: translate(-50%, -0.35rem) scale(1);
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+  <!-- Site navigation -->
+  <nav class="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+    <div class="max-w-screen-2xl mx-auto px-6 py-3 flex items-center gap-4">
+      <div class="flex items-center gap-6 flex-1 min-w-0">
+        <div class="flex items-center gap-2 font-semibold text-slate-800">
+          <svg class="h-5 w-5 text-emerald-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M192 384L88.5 384C63.6 384 48.3 356.9 61.1 335.5L114 247.3C122.7 232.8 138.3 224 155.2 224L250.2 224C326.3 95.1 439.8 88.6 515.7 99.7C528.5 101.6 538.5 111.6 540.3 124.3C551.4 200.2 544.9 313.7 416 389.8L416 484.8C416 501.7 407.2 517.3 392.7 526L304.5 578.9C283.2 591.7 256 576.3 256 551.5L256 448C256 412.7 227.3 384 192 384L191.9 384zM464 224C464 197.5 442.5 176 416 176C389.5 176 368 197.5 368 224C368 250.5 389.5 272 416 272C442.5 272 464 250.5 464 224z"/></svg>
+          <span>GRID</span>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <a data-nav href="grid.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Grid Backtest</a>
+          <a data-nav href="grid_sim.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Grid Sim</a>
+          <a data-nav href="grid_calc.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Grid Calculator</a>
+          <a data-nav href="grid_about.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">About</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+  <script>
+    // Activate nav item for current page
+    (function(){
+      try {
+        const file = (location.pathname.split('/').pop() || 'grid.html').toLowerCase();
+        document.querySelectorAll('a[data-nav]').forEach(a => {
+          const href = (a.getAttribute('href') || '').toLowerCase();
+          const active = href === file || (file === '' && href.endsWith('index.html'));
+          a.classList.toggle('bg-slate-800', active);
+          a.classList.toggle('text-white', active);
+          a.classList.toggle('hover:bg-slate-100', !active);
+          if (active) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current');
+        });
+      } catch {}
+    })();
+  </script>
+
+  <div class="max-w-screen-2xl mx-auto p-6 space-y-6">
+    <header class="mb-2">
+      <h1 id="mainTitle" class="text-2xl md:text-3xl font-semibold">Grid Simulator</h1>
+    </header>
+
+	    <section id="simParameters" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
+	      <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+	        <div class="min-w-0">
+	          <h2 class="font-semibold text-slate-700">Parameters</h2>
+	          <p class="text-sm text-slate-500">State-based accounting model (no price-path simulation).</p>
+	        </div>
+	        <button
+	          type="button"
+	          id="sim_run"
+	          class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500"
+        >
+          <ion-icon name="play-outline" class="text-lg"></ion-icon>
+          <span>Run Simulation</span>
+        </button>
+      </div>
+
+      <form id="simForm" class="grid gap-4 md:grid-cols-12" autocomplete="off">
+        <div class="md:col-span-4 rounded-xl border border-slate-200 p-4 space-y-3">
+          <div>
+            <h3 class="font-semibold text-slate-700">Starting State</h3>
+            <p class="text-sm text-slate-500">Initial position only.</p>
+          </div>
+
+          <label class="block">
+            <span class="text-sm text-slate-600">initialShares</span>
+            <input id="sim_initialShares" type="number" min="0" step="1" value="1000" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
+          </label>
+
+          <label class="block">
+            <span class="text-sm text-slate-600">initialPrice</span>
+            <input id="sim_initialPrice" type="number" min="0" step="0.01" value="100" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
+          </label>
+
+          <div class="rounded-lg bg-slate-50 border border-slate-200 p-3">
+            <div class="text-xs font-medium uppercase tracking-wide text-slate-500">initialEquity</div>
+            <div id="sim_initialEquity" class="mt-1 text-lg font-semibold text-slate-800">$0.00</div>
+          </div>
+        </div>
+
+        <div class="md:col-span-4 rounded-xl border border-slate-200 p-4 space-y-3">
+          <div>
+            <h3 class="font-semibold text-slate-700">Grid Rules</h3>
+            <ul class="mt-1 text-sm text-slate-500 list-disc pl-5 space-y-1">
+              <li>Fixed trade size (<span class="font-medium">tradeValue</span> USD)</li>
+              <li>No randomness, no tax</li>
+              <li>Infinite grid logic</li>
+              <li>Buys debited to Buying Bank; sells credited to Selling Bank (no recycling)</li>
+            </ul>
+          </div>
+
+          <label class="block">
+            <span class="text-sm text-slate-600">gridSpacingPercent</span>
+            <input id="sim_gridSpacingPercent" type="number" min="0.0001" step="0.1" value="2.5" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
+          </label>
+
+          <label class="block">
+            <span class="text-sm text-slate-600">tradeValue</span>
+            <input id="sim_tradeValue" type="number" min="0.01" step="1" value="1000" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
+          </label>
+        </div>
+
+	        <div class="md:col-span-4 rounded-xl border border-slate-200 p-4 space-y-3">
+	          <div>
+	            <h3 class="font-semibold text-slate-700">End-State Descriptors (1 year)</h3>
+	            <p class="text-sm text-slate-500">Limits how far the grid can trade in each direction.</p>
+	          </div>
+
+	          <label class="block">
+	            <span class="text-sm text-slate-600">endingPrice</span>
+	            <input id="sim_endingPrice" type="number" min="0" step="0.01" value="112" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
+	          </label>
+
+          <div class="grid grid-cols-2 gap-3">
+            <label class="block">
+              <span class="text-sm text-slate-600">maxDownLevels</span>
+              <input id="sim_maxDownLevels" type="number" min="0" step="1" value="20" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
+            </label>
+            <label class="block">
+              <span class="text-sm text-slate-600">maxUpLevels</span>
+              <input id="sim_maxUpLevels" type="number" min="0" step="1" value="15" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
+            </label>
+          </div>
+        </div>
+      </form>
+
+	      <div id="sim_status" class="text-sm text-slate-500"></div>
+	    </section>
+
+	    <section id="simSummary" class="bg-white rounded-2xl shadow-soft p-3 md:p-4">
+	      <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+	        <div>
+	          <h2 class="font-semibold text-slate-700">Summary</h2>
+	          <p class="text-sm text-slate-500">Computed at <span class="font-medium">endingPrice</span>.</p>
+	        </div>
+	      </div>
+	      <div class="mt-4 overflow-x-auto rounded-xl border border-slate-200">
+	        <table class="min-w-[520px] w-full text-sm">
+	          <tbody class="divide-y divide-slate-200">
+	            <tr>
+	              <th class="px-4 py-3 text-left font-medium text-slate-600">Sell fills (min)</th>
+	              <td id="sim_outSellFillsMin" class="px-4 py-3 text-right font-semibold text-slate-800">0</td>
+	            </tr>
+	            <tr>
+	              <th class="px-4 py-3 text-left font-medium text-slate-600">Profit per sell (grid spacing)</th>
+	              <td id="sim_outProfitPerSell" class="px-4 py-3 text-right font-semibold text-slate-800">$0.00</td>
+	            </tr>
+	            <tr>
+	              <th class="px-4 py-3 text-left font-medium text-slate-600">Grid profit (min)</th>
+	              <td id="sim_outGridProfitMin" class="px-4 py-3 text-right font-semibold text-slate-800">$0.00</td>
+	            </tr>
+	            <tr>
+	              <th class="px-4 py-3 text-left font-medium text-slate-600">Final shares held</th>
+	              <td id="sim_outFinalShares" class="px-4 py-3 text-right font-semibold text-slate-800">0</td>
+	            </tr>
+	            <tr>
+	              <th class="px-4 py-3 text-left font-medium text-slate-600">Buying bank used</th>
+	              <td id="sim_outBuyingBank" class="px-4 py-3 text-right font-semibold text-slate-800">$0.00</td>
+	            </tr>
+	            <tr>
+	              <th class="px-4 py-3 text-left font-medium text-slate-600">Selling bank held</th>
+	              <td id="sim_outSellingBank" class="px-4 py-3 text-right font-semibold text-slate-800">$0.00</td>
+	            </tr>
+	            <tr>
+	              <th class="px-4 py-3 text-left font-medium text-slate-600">Net equity</th>
+	              <td id="sim_outNetEquity" class="px-4 py-3 text-right font-semibold text-slate-800">$0.00</td>
+	            </tr>
+	            <tr>
+	              <th class="px-4 py-3 text-left font-medium text-slate-600">HODL equity</th>
+	              <td id="sim_outHodlEquity" class="px-4 py-3 text-right font-semibold text-slate-800">$0.00</td>
+	            </tr>
+	            <tr>
+	              <th class="px-4 py-3 text-left font-medium text-slate-600">Net vs HODL</th>
+	              <td id="sim_outNetVsHodl" class="px-4 py-3 text-right font-semibold text-slate-800">$0.00</td>
+	            </tr>
+	          </tbody>
+	        </table>
+	      </div>
+	    </section>
+
+	    <section id="simCharts" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
+	      <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+	        <h2 class="font-semibold text-slate-700">Charts</h2>
+	        <span id="sim_chartSummary" class="text-sm text-slate-500"></span>
+	      </div>
+	      <div class="grid gap-4 lg:grid-cols-2">
+	        <div class="rounded-xl border border-slate-200 p-3">
+	          <div class="text-sm font-semibold text-slate-700 mb-2">Price vs Grid Level</div>
+	          <div id="sim_chart_grid" class="w-full h-72 md:h-80"></div>
+	        </div>
+	        <div class="rounded-xl border border-slate-200 p-3">
+	          <div class="text-sm font-semibold text-slate-700 mb-2">Shares Held vs Price</div>
+	          <div id="sim_chart_shares" class="w-full h-72 md:h-80"></div>
+	        </div>
+	        <div class="rounded-xl border border-slate-200 p-3">
+	          <div class="text-sm font-semibold text-slate-700 mb-2">Buying Bank vs Selling Bank vs Price</div>
+	          <div id="sim_chart_banks" class="w-full h-72 md:h-80"></div>
+	        </div>
+	        <div class="rounded-xl border border-slate-200 p-3">
+	          <div class="text-sm font-semibold text-slate-700 mb-2">Net Equity vs HODL vs Price</div>
+	          <div id="sim_chart_equity" class="w-full h-72 md:h-80"></div>
+	        </div>
+	      </div>
+	    </section>
+
+    <section id="gridParameters" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4 hidden" aria-hidden="true">
+      <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h2 class="font-semibold text-slate-700">Grid Parameters</h2>
+          <p class="text-sm text-slate-500">Adjust spacing and sizing, then run the backtest on the loaded symbol.</p>
+        </div>
+        <button
+          type="button"
+          id="btnRunGridBacktest"
+          class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+          disabled
+        >
+          <ion-icon name="play-outline" class="text-lg"></ion-icon>
+          <span>Run Backtest</span>
+        </button>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-8">
+        <label class="block">
+          <span class="text-sm text-slate-600">Grid Type</span>
+          <div class="relative mt-1">
+            <select
+              id="selGridType"
+              class="w-full appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-9 py-2 text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+            >
+              <option value="pullback" selected>Buy-the-Dip Grid</option>
+              <option value="grid_ath_reset">Buy-the-Dip · ATH Reset</option>
+              <option value="progressive">Progressive Grid</option>
+            </select>
+            <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.06 1.06l-4.24 4.39a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
+              </svg>
+            </span>
+          </div>
+        </label>
+        <label class="block">
+          <span class="text-sm text-slate-600">Entry Filter</span>
+          <div class="relative mt-1">
+            <select
+              id="selEntryFilter"
+              class="w-full appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-9 py-2 text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+            >
+              <option value="none" selected>None</option>
+              <option value="sma10">10 SMA</option>
+              <option value="sma20">20 SMA</option>
+              <option value="sma50">50 SMA</option>
+              <option value="sma100">100 SMA</option>
+            </select>
+            <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.06 1.06l-4.24 4.39a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
+              </svg>
+            </span>
+          </div>
+        </label>
+        <label class="block">
+          <span class="text-sm text-slate-600">Retained Shares</span>
+          <div class="relative mt-1" title="Choose how much of a profitable leg to leave on after selling the trade-value portion.">
+            <select
+              id="selRetentionMode"
+              class="w-full appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-9 py-2 text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+            >
+              <option value="none">None</option>
+              <option value="profit" selected>Profit Portion</option>
+              <option value="profit_plus_5">Profit + 5%</option>
+              <option value="profit_plus_10">Profit + 10%</option>
+            </select>
+            <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.06 1.06l-4.24 4.39a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
+              </svg>
+            </span>
+          </div>
+        </label>
+        <label class="block">
+          <span class="text-sm text-slate-600">Grid Spacing</span>
+          <div class="relative mt-1">
+            <select
+              id="selGridSpacing"
+              class="w-full appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-9 py-2 text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+            >
+              <option value="fixed">Fixed Price</option>
+              <option value="percent_fixed" selected>Percentage · Fixed Anchor</option>
+              <option value="percent_ratchet_up">Percentage · Ratcheting Up Anchor</option>
+            </select>
+            <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.06 1.06l-4.24 4.39a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
+              </svg>
+            </span>
+          </div>
+        </label>
+        <label class="block">
+          <span id="gridSizeLabel" class="text-sm text-slate-600">Grid Size ($)</span>
+          <div class="mt-1 relative">
+            <input
+              id="inpGridSize"
+              type="number"
+              step="0.5"
+              min="0.5"
+              value="5"
+              class="w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+            />
+            <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
+              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase grid size" data-num-target="inpGridSize" data-num-step="1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd" /></svg>
+              </button>
+              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease grid size" data-num-target="inpGridSize" data-num-step="-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd" /></svg>
+              </button>
+            </div>
+          </div>
+        </label>
+        <label class="block">
+          <span class="text-sm text-slate-600">Grid Offset ($)</span>
+          <div class="mt-1 relative">
+            <input
+              id="inpGridOffset"
+              type="number"
+              step="0.5"
+              value="0"
+              class="w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+            />
+            <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
+              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase grid offset" data-num-target="inpGridOffset" data-num-step="1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd" /></svg>
+              </button>
+              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease grid offset" data-num-target="inpGridOffset" data-num-step="-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd" /></svg>
+              </button>
+            </div>
+          </div>
+        </label>
+        <label class="block">
+          <span class="text-sm text-slate-600">Trade Value ($)</span>
+          <input
+            id="inpTradeValue"
+            type="number"
+            step="100"
+            min="100"
+            value="1000"
+            class="mt-1 w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+          />
+        </label>
+        <label class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 shadow-sm transition focus-within:ring-2 focus-within:ring-emerald-500/60">
+          <input
+            id="inpFractionalShares"
+            type="checkbox"
+            class="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+            checked
+          />
+          <span>Allow fractional shares</span>
+        </label>
+      </div>
+    </section>
+
+    <section id="gridLevelsSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4 hidden" aria-hidden="true">
+      <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div class="flex flex-col gap-1">
+          <h2 class="font-semibold text-slate-700">Grid Levels</h2>
+          <p id="gridLevelsSummary" class="text-sm text-slate-500">Run the backtest to list the ladder levels currently seeded for buys and sells.</p>
+        </div>
+        <button
+          type="button"
+          id="gridLevelsToggle"
+          aria-expanded="false"
+          aria-controls="gridLevelsBody"
+          class="inline-flex items-center gap-2 self-start rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-sm transition hover:border-emerald-500 hover:text-emerald-600"
+        >
+          <span id="gridLevelsToggleLabel">Show Levels</span>
+          <svg
+            id="gridLevelsChevron"
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-4 w-4 text-slate-500 transition-transform"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
+          </svg>
+        </button>
+      </div>
+      <div id="gridLevelsBody" class="grid gap-4 md:grid-cols-2 hidden">
+        <div class="rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col">
+          <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+            <h3 class="text-sm font-semibold text-slate-600">Buy Levels</h3>
+            <span id="gridBuyLevelCount" class="text-xs text-slate-500">0</span>
+          </div>
+          <div id="gridBuyLevels" class="mt-3 grow overflow-y-auto text-sm text-slate-700 max-h-72">
+            <div class="text-slate-500 text-xs">Run the backtest to populate buy levels.</div>
+          </div>
+        </div>
+        <div class="rounded-xl border border-slate-200 p-4 shadow-sm flex flex-col">
+          <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+            <h3 class="text-sm font-semibold text-slate-600">Sell Levels</h3>
+            <span id="gridSellLevelCount" class="text-xs text-slate-500">0</span>
+          </div>
+          <div id="gridSellLevels" class="mt-3 grow overflow-y-auto text-sm text-slate-700 max-h-72">
+            <div class="text-slate-500 text-xs">Run the backtest to populate sell levels.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="gridFiltersSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4 hidden" aria-hidden="true">
+      <div class="flex flex-col gap-2">
+        <h2 class="font-semibold text-slate-700">Filters</h2>
+        <p class="text-sm text-slate-500">Limit the displayed results to specific months.</p>
+      </div>
+      <div class="relative inline-block" aria-label="Months">
+        <button id="sumMonthMultiBtn" type="button" class="inline-flex items-center justify-between gap-2 bg-white text-slate-800 ring-1 ring-slate-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm min-w-[200px]">
+          <span id="sumMonthMultiLabel" class="truncate">All months</span>
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
+        </button>
+        <div id="sumMonthMultiMenu" class="absolute z-30 mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-soft p-2 hidden">
+          <div class="sticky top-0 bg-white z-10 px-2 pb-2 border-b border-slate-200 flex items-center justify-between gap-2">
+            <button id="sumMonthSelectAll" type="button" class="text-xs font-medium text-emerald-700 hover:text-emerald-900 hover:underline">Select all</button>
+            <button id="sumMonthClearAll" type="button" class="text-xs text-slate-600 hover:text-slate-800 hover:underline">Clear</button>
+          </div>
+          <div id="sumMonthMultiList" class="max-h-64 overflow-auto text-sm text-slate-700"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="gridSummarySection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4 hidden" aria-hidden="true">
+      <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h2 class="font-semibold text-slate-700">Summary</h2>
+          <p id="gridStatus" class="text-sm text-slate-500">Load data and run the backtest to populate results.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-slate-500">
+          <span>Min Cash:</span>
+          <span id="summaryMinCash" class="text-sm font-semibold text-slate-800">$0.00</span>
+          <span>Cash:</span>
+          <span id="summaryCash" class="text-sm font-semibold text-slate-800">$0.00</span>
+          <span>Shares:</span>
+          <span id="summaryShares" class="text-sm font-semibold text-slate-800">0</span>
+        </div>
+      </div>
+      <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-10">
+        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Completed Trades</dt>
+          <dd id="summaryTotalTrades" class="mt-2 text-xl font-semibold text-slate-800">0</dd>
+          <span class="summary-tooltip">Count of round-trip trades (buy then matched sell) completed during the test window.</span>
+        </div>
+        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Levels</dt>
+          <dd id="summaryMaxLevels" class="mt-2 text-xl font-semibold text-slate-800">0</dd>
+          <span class="summary-tooltip">Peak simultaneous open ladder levels (active sells) at any point in the run.</span>
+        </div>
+        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Deployed Capital</dt>
+          <dd id="summaryMaxCapital" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
+          <span class="summary-tooltip">Peak notional capital requirement = trade value × highest open levels (tracks the largest ladder footprint).</span>
+        </div>
+        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Net Profit</dt>
+          <dd id="summaryNetProfit" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
+          <span class="summary-tooltip">Realized P&L from completed trades only: sell proceeds minus cost basis of those sells.</span>
+        </div>
+        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Profit per Level</dt>
+          <dd id="summaryProfitPerLevel" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
+          <span class="summary-tooltip">Realized net profit normalized by ladder size: net profit ÷ peak open levels.</span>
+        </div>
+        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Final Equity</dt>
+          <dd id="summaryFinalEquity" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
+          <span class="summary-tooltip">Ending mark-to-market equity at the last bar close: cash plus shares valued at the final bar price (not just the last trade price).</span>
+        </div>
+        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">CAGR</dt>
+          <dd id="summaryCagr" class="mt-2 text-xl font-semibold text-slate-800">0.00%</dd>
+          <span class="summary-tooltip">Compound annual growth rate using required capital (trade value × max open levels) versus final equity over the test span.</span>
+        </div>
+        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Retained Shares</dt>
+          <dd id="summaryRetained" class="mt-2 text-xl font-semibold text-slate-800">0</dd>
+          <span class="summary-tooltip">Total shares intentionally retained after sells and carried forward (not yet closed).</span>
+        </div>
+        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Drawdown</dt>
+          <dd id="summaryMaxDD" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
+          <span class="summary-tooltip">Largest peak-to-trough drop in equity (dollars) using bar-end mark-to-market equity.</span>
+        </div>
+        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Drawdown %</dt>
+          <dd id="summaryMaxDDPct" class="mt-2 text-xl font-semibold text-slate-800">0.00%</dd>
+          <span class="summary-tooltip">Same drawdown as a percentage of the prior equity peak, computed on bar-end mark-to-market equity.</span>
+        </div>
+      </dl>
+    </section>
+
+    <section id="gridEquitySection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4 hidden" aria-hidden="true">
+      <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <h2 class="font-semibold text-slate-700">Equity Curve</h2>
+        <span id="equitySummaryLabel" class="text-sm text-slate-500"></span>
+      </div>
+      <div class="relative">
+        <div id="gridEquityChart" class="w-full h-72 md:h-96"></div>
+        <div id="gridEquityEmpty" class="absolute inset-0 flex items-center justify-center text-sm text-slate-500">
+          Run the backtest to plot equity over time.
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <script>
+    (function () {
+      const byId = (id) => document.getElementById(id);
+
+      const nfUsd = new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency: "USD",
+        maximumFractionDigits: 2,
+      });
+
+      const fmtUsd = (x) => nfUsd.format(Number.isFinite(x) ? x : 0);
+      const fmtNum = (x, maxFractionDigits = 6) =>
+        new Intl.NumberFormat(undefined, { maximumFractionDigits: maxFractionDigits }).format(Number.isFinite(x) ? x : 0);
+
+      function readNumber(id) {
+        const el = byId(id);
+        const v = Number(el?.value);
+        return Number.isFinite(v) ? v : NaN;
+      }
+
+      function validateParams(p) {
+        const errors = [];
+        if (!(p.initialShares >= 0)) errors.push("initialShares must be ≥ 0.");
+        if (!(p.initialPrice > 0)) errors.push("initialPrice must be > 0.");
+        if (!(p.endingPrice > 0)) errors.push("endingPrice must be > 0.");
+        if (!(p.gridSpacingPercent > 0)) errors.push("gridSpacingPercent must be > 0.");
+        if (!(p.tradeValue > 0)) errors.push("tradeValue must be > 0.");
+        if (!(p.maxDownLevels >= 0)) errors.push("maxDownLevels must be ≥ 0.");
+        if (!(p.maxUpLevels >= 0)) errors.push("maxUpLevels must be ≥ 0.");
+        return errors;
+      }
+
+      function updateDerived() {
+        const initialShares = readNumber("sim_initialShares");
+        const initialPrice = readNumber("sim_initialPrice");
+        byId("sim_initialEquity").textContent = fmtUsd(initialShares * initialPrice);
+      }
+
+      function gridPrice(level, basePrice, gridSpacingPercent) {
+        const factor = 1 + gridSpacingPercent / 100;
+        return basePrice * Math.pow(factor, level);
+      }
+
+      function computeFinalState(p) {
+        let sharesHeld = p.initialShares;
+        let buyingBankUsed = 0;
+        let sellingBankHeld = 0;
+
+        for (let level = -1; level >= -p.maxDownLevels; level--) {
+          const px = gridPrice(level, p.initialPrice, p.gridSpacingPercent);
+          const sharesBought = p.tradeValue / px;
+          sharesHeld += sharesBought;
+          buyingBankUsed += p.tradeValue;
+        }
+
+        for (let level = 1; level <= p.maxUpLevels; level++) {
+          const px = gridPrice(level, p.initialPrice, p.gridSpacingPercent);
+          const sharesSold = p.tradeValue / px;
+          sharesHeld -= sharesSold;
+          sellingBankHeld += p.tradeValue;
+        }
+
+        const sharesValue = sharesHeld * p.endingPrice;
+        const netEquity = sharesValue + sellingBankHeld - buyingBankUsed;
+        const hodlEquity = p.initialShares * p.endingPrice;
+
+        return {
+          sharesHeld,
+          buyingBankUsed,
+          sellingBankHeld,
+          sharesValue,
+          netEquity,
+          hodlEquity,
+          netVsHodl: netEquity - hodlEquity,
+        };
+      }
+
+      function buildChartSeries(p, finalState) {
+        const levels = [];
+        for (let level = -p.maxDownLevels; level <= p.maxUpLevels; level++) levels.push(level);
+
+        const ladder = levels.map((level) => [level, gridPrice(level, p.initialPrice, p.gridSpacingPercent)]);
+
+        const prices = levels.map((level) => gridPrice(level, p.initialPrice, p.gridSpacingPercent));
+        const minPrice = Math.min(...prices);
+        const maxPrice = Math.max(...prices);
+
+        const downSharesByLevel = new Map([[0, p.initialShares]]);
+        let s = p.initialShares;
+        for (let level = -1; level >= -p.maxDownLevels; level--) {
+          s += p.tradeValue / gridPrice(level, p.initialPrice, p.gridSpacingPercent);
+          downSharesByLevel.set(level, s);
+        }
+
+        const upSharesByLevel = new Map([[0, p.initialShares]]);
+        s = p.initialShares;
+        for (let level = 1; level <= p.maxUpLevels; level++) {
+          s -= p.tradeValue / gridPrice(level, p.initialPrice, p.gridSpacingPercent);
+          upSharesByLevel.set(level, s);
+        }
+
+        const sharesVsPrice = [];
+        const buyingVsPrice = [];
+        const sellingVsPrice = [];
+
+        for (let level = -p.maxDownLevels; level <= 0; level++) {
+          const px = gridPrice(level, p.initialPrice, p.gridSpacingPercent);
+          sharesVsPrice.push([px, downSharesByLevel.get(level)]);
+          buyingVsPrice.push([px, -level * p.tradeValue]);
+          sellingVsPrice.push([px, 0]);
+        }
+        for (let level = 1; level <= p.maxUpLevels; level++) {
+          const px = gridPrice(level, p.initialPrice, p.gridSpacingPercent);
+          sharesVsPrice.push([px, upSharesByLevel.get(level)]);
+          buyingVsPrice.push([px, 0]);
+          sellingVsPrice.push([px, level * p.tradeValue]);
+        }
+
+        const equityVsPrice = [];
+        const hodlVsPrice = [];
+        for (let level = -p.maxDownLevels; level <= p.maxUpLevels; level++) {
+          const px = gridPrice(level, p.initialPrice, p.gridSpacingPercent);
+          equityVsPrice.push([px, finalState.sharesHeld * px + finalState.sellingBankHeld - finalState.buyingBankUsed]);
+          hodlVsPrice.push([px, p.initialShares * px]);
+        }
+
+        const factor = 1 + p.gridSpacingPercent / 100;
+        const endLevel = factor > 0 ? Math.log(p.endingPrice / p.initialPrice) / Math.log(factor) : 0;
+
+        return {
+          ladder,
+          sharesVsPrice,
+          buyingVsPrice,
+          sellingVsPrice,
+          equityVsPrice,
+          hodlVsPrice,
+          minPrice,
+          maxPrice,
+          endLevel,
+        };
+      }
+
+      const charts = new Map();
+
+      function getChart(id) {
+        const el = byId(id);
+        if (!el || typeof echarts === "undefined") return null;
+        if (!charts.has(id)) charts.set(id, echarts.init(el, null, { renderer: "canvas" }));
+        return charts.get(id);
+      }
+
+      function renderCharts(p, finalState, series) {
+        const gridChart = getChart("sim_chart_grid");
+        const sharesChart = getChart("sim_chart_shares");
+        const banksChart = getChart("sim_chart_banks");
+        const equityChart = getChart("sim_chart_equity");
+        if (!gridChart || !sharesChart || !banksChart || !equityChart) return;
+
+        const axisLabel = { color: "#64748b" };
+
+        gridChart.setOption(
+          {
+            animation: false,
+            grid: { left: 56, right: 18, top: 18, bottom: 44 },
+            tooltip: { trigger: "axis", axisPointer: { type: "cross" } },
+            xAxis: { type: "value", name: "Grid level", axisLabel },
+            yAxis: { type: "value", name: "Price", axisLabel, scale: true },
+            series: [
+              {
+                name: "Grid price",
+                type: "line",
+                showSymbol: false,
+                data: series.ladder,
+                lineStyle: { width: 2, color: "#0ea5e9" },
+                markPoint: {
+                  symbolSize: 44,
+                  data: [
+                    { name: "Base", coord: [0, p.initialPrice], value: "Base" },
+                    { name: "End", coord: [series.endLevel, p.endingPrice], value: "End" },
+                  ],
+                },
+              },
+            ],
+          },
+          { notMerge: true }
+        );
+
+        sharesChart.setOption(
+          {
+            animation: false,
+            grid: { left: 56, right: 18, top: 18, bottom: 44 },
+            tooltip: { trigger: "axis", axisPointer: { type: "cross" } },
+            xAxis: { type: "value", name: "Price", axisLabel, scale: true },
+            yAxis: { type: "value", name: "Shares", axisLabel, scale: true },
+            series: [
+              {
+                name: "Shares held",
+                type: "line",
+                showSymbol: false,
+                data: series.sharesVsPrice,
+                lineStyle: { width: 2, color: "#10b981" },
+              },
+            ],
+          },
+          { notMerge: true }
+        );
+
+        banksChart.setOption(
+          {
+            animation: false,
+            grid: { left: 56, right: 18, top: 18, bottom: 44 },
+            tooltip: { trigger: "axis", axisPointer: { type: "cross" } },
+            xAxis: { type: "value", name: "Price", axisLabel, scale: true },
+            yAxis: { type: "value", name: "Dollars", axisLabel, scale: true },
+            series: [
+              {
+                name: "Buying bank used",
+                type: "line",
+                showSymbol: false,
+                data: series.buyingVsPrice,
+                lineStyle: { width: 2, color: "#f59e0b" },
+              },
+              {
+                name: "Selling bank held",
+                type: "line",
+                showSymbol: false,
+                data: series.sellingVsPrice,
+                lineStyle: { width: 2, color: "#ef4444" },
+              },
+            ],
+          },
+          { notMerge: true }
+        );
+
+        equityChart.setOption(
+          {
+            animation: false,
+            grid: { left: 56, right: 18, top: 18, bottom: 44 },
+            tooltip: { trigger: "axis", axisPointer: { type: "cross" } },
+            xAxis: { type: "value", name: "Price", axisLabel, scale: true },
+            yAxis: { type: "value", name: "Dollars", axisLabel, scale: true },
+            series: [
+              {
+                name: "Net equity",
+                type: "line",
+                showSymbol: false,
+                data: series.equityVsPrice,
+                lineStyle: { width: 2, color: "#10b981" },
+                markPoint: {
+                  symbolSize: 44,
+                  data: [{ name: "End", coord: [p.endingPrice, finalState.netEquity], value: "End" }],
+                },
+              },
+              {
+                name: "HODL",
+                type: "line",
+                showSymbol: false,
+                data: series.hodlVsPrice,
+                lineStyle: { width: 2, color: "#0ea5e9" },
+                markPoint: {
+                  symbolSize: 44,
+                  data: [{ name: "End", coord: [p.endingPrice, finalState.hodlEquity], value: "End" }],
+                },
+              },
+            ],
+          },
+          { notMerge: true }
+        );
+
+        byId("sim_chartSummary").textContent = `Grid price range: ${fmtNum(series.minPrice, 4)} to ${fmtNum(series.maxPrice, 4)} · End price: ${fmtNum(p.endingPrice, 4)}`;
+      }
+
+	      function renderSummaryTable(finalState) {
+	        byId("sim_outSellFillsMin").textContent = String(finalState.sellFillsMin);
+	        byId("sim_outProfitPerSell").textContent = fmtUsd(finalState.profitPerSell);
+	        byId("sim_outGridProfitMin").textContent = fmtUsd(finalState.gridProfitMin);
+	        byId("sim_outFinalShares").textContent = fmtNum(finalState.sharesHeld, 6);
+	        byId("sim_outBuyingBank").textContent = fmtUsd(finalState.buyingBankUsed);
+	        byId("sim_outSellingBank").textContent = fmtUsd(finalState.sellingBankHeld);
+	        byId("sim_outNetEquity").textContent = fmtUsd(finalState.netEquity);
+        byId("sim_outHodlEquity").textContent = fmtUsd(finalState.hodlEquity);
+
+        const deltaEl = byId("sim_outNetVsHodl");
+        deltaEl.textContent = fmtUsd(finalState.netVsHodl);
+        deltaEl.classList.toggle("num-pos", finalState.netVsHodl > 0);
+        deltaEl.classList.toggle("num-neg", finalState.netVsHodl < 0);
+      }
+
+	      function runSimulation() {
+	        const params = {
+	          initialShares: readNumber("sim_initialShares"),
+	          initialPrice: readNumber("sim_initialPrice"),
+	          gridSpacingPercent: readNumber("sim_gridSpacingPercent"),
+	          tradeValue: readNumber("sim_tradeValue"),
+	          maxDownLevels: Math.floor(readNumber("sim_maxDownLevels")),
+	          maxUpLevels: Math.floor(readNumber("sim_maxUpLevels")),
+	          endingPrice: readNumber("sim_endingPrice"),
+	        };
+
+        const status = byId("sim_status");
+        const errors = validateParams(params);
+        if (errors.length) {
+          status.className = "text-sm text-rose-700";
+          status.textContent = errors.join(" ");
+          return;
+        }
+
+	        status.className = "text-sm text-slate-500";
+
+	        const finalState = computeFinalState(params);
+	        finalState.sellFillsMin = params.maxDownLevels + params.maxUpLevels;
+	        finalState.profitPerSell = params.tradeValue * (params.gridSpacingPercent / 100);
+	        finalState.gridProfitMin = finalState.sellFillsMin * finalState.profitPerSell;
+
+	        const series = buildChartSeries(params, finalState);
+	        renderSummaryTable(finalState);
+	        renderCharts(params, finalState, series);
+
+	        const warns = [];
+	        if (finalState.sharesHeld < 0) warns.push("Warning: final shares held < 0 (unconstrained selling).");
+	        status.textContent = `Computed: buys=${params.maxDownLevels}, sells=${params.maxUpLevels} · Sell fills (min)=${finalState.sellFillsMin} · Net vs HODL ${fmtUsd(finalState.netVsHodl)}${warns.length ? " · " + warns.join(" ") : ""}`;
+	      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        updateDerived();
+        byId("sim_run").addEventListener("click", runSimulation);
+        ["sim_initialShares", "sim_initialPrice"].forEach((id) => byId(id).addEventListener("input", updateDerived));
+        window.addEventListener("resize", () => {
+          for (const ch of charts.values()) ch.resize();
+        });
+        runSimulation();
+      });
+    })();
+  </script>
+</body>
+</html>
