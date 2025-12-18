@@ -274,7 +274,7 @@
 
           <div class="rounded-lg bg-slate-50 border border-slate-200 p-3">
             <div class="text-xs font-medium uppercase tracking-wide text-slate-500 inline-flex items-center">
-              initialEquity
+              initial Equity
               <span class="help-tip" tabindex="0" aria-label="initialEquity help">
                 <i class="fa-regular fa-circle-question"></i>
                 <span class="summary-tooltip">initialEquity = initialShares × initialPrice.</span>
@@ -357,13 +357,13 @@
 
 	          <label class="block">
 	            <span class="text-sm text-slate-600 inline-flex items-center">
-	              endingPrice
+	              End Price
 		              <span class="help-tip" tabindex="0" aria-label="endingPrice help">
 		                <i class="fa-regular fa-circle-question"></i>
 		                <span class="summary-tooltip">Final price used to pick an ending grid level and to mark-to-market. End level is discretized to the grid: level = log(endingPrice/initialPrice) / log(1+gridSpacingPercent/100) (floored above base, ceiled below base). GRID equity = sharesHeld×endingPrice + sellingBankHeld − buyingBankUsed.</span>
 		              </span>
 		            </span>
-	            <input id="sim_endingPrice" type="number" min="0" step="0.01" value="112" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
+	            <input id="sim_endingPrice" type="number" min="0" step="5" value="200" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
 	          </label>
 
 	          <label class="block">
@@ -374,7 +374,7 @@
 		                <span class="summary-tooltip">Total number of 1-level sell fills assumed for the year (includes the baseline sells implied by max levels). Clamped to at least (maxDownLevels + maxUpLevels). Extra fills are modeled as additional 1-level round-trips near the base. Used for Grid profit (total/year) = fills × tradeValue × gridSpacingPercent/100.</span>
 		              </span>
 		            </span>
-	            <input id="sim_totalSellFillsPerYear" type="number" min="0" step="1" value="35" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
+	            <input id="sim_totalSellFillsPerYear" type="number" min="0" step="100" value="1000" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
 	          </label>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -387,7 +387,7 @@
                     <span class="summary-tooltip">How many buy levels exist below the base price (level 0). Also contributes to Sell fills (min) = maxDownLevels + maxUpLevels.</span>
                   </span>
                 </span>
-                <input id="sim_maxDownLevels" type="number" min="0" step="1" value="20" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
+                <input id="sim_maxDownLevels" type="number" min="0" step="1" value="90" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
               </label>
               <div class="flex flex-wrap gap-2">
                 <span class="text-xs uppercase tracking-wide text-slate-500">Max Drawdown (%)</span>
@@ -414,7 +414,7 @@
                     <span class="summary-tooltip">How many sell levels exist above the base price (level 0). Also contributes to Sell fills (min) = maxDownLevels + maxUpLevels.</span>
                   </span>
                 </span>
-                <input id="sim_maxUpLevels" type="number" min="0" step="1" value="15" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
+                <input id="sim_maxUpLevels" type="number" min="0" step="1" value="65" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
               </label>
               <div class="flex flex-wrap gap-2">
                 <span class="text-xs uppercase tracking-wide text-slate-500">Max Runup (%)</span>
