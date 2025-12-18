@@ -351,27 +351,58 @@
 	            <input id="sim_totalSellFillsPerYear" type="number" min="0" step="1" value="35" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
 	          </label>
 
-          <div class="grid grid-cols-2 gap-3">
-            <label class="block">
-              <span class="text-sm text-slate-600 inline-flex items-center">
-                maxDownLevels
-                <span class="help-tip" tabindex="0" aria-label="maxDownLevels help">
-	                  <i class="fa-regular fa-circle-question"></i>
-	                  <span class="summary-tooltip">How many buy levels exist below the base price (level 0). Also contributes to Sell fills (min) = maxDownLevels + maxUpLevels.</span>
-	                </span>
-	              </span>
-	              <input id="sim_maxDownLevels" type="number" min="0" step="1" value="20" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
-	            </label>
-	            <label class="block">
-	              <span class="text-sm text-slate-600 inline-flex items-center">
-	                maxUpLevels
-	                <span class="help-tip" tabindex="0" aria-label="maxUpLevels help">
-	                  <i class="fa-regular fa-circle-question"></i>
-	                  <span class="summary-tooltip">How many sell levels exist above the base price (level 0). Also contributes to Sell fills (min) = maxDownLevels + maxUpLevels.</span>
-	                </span>
-              </span>
-              <input id="sim_maxUpLevels" type="number" min="0" step="1" value="15" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
-            </label>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="space-y-2">
+              <label class="block">
+                <span class="text-sm text-slate-600 inline-flex items-center">
+                  Max Down Levels
+                  <span class="help-tip" tabindex="0" aria-label="maxDownLevels help">
+                    <i class="fa-regular fa-circle-question"></i>
+                    <span class="summary-tooltip">How many buy levels exist below the base price (level 0). Also contributes to Sell fills (min) = maxDownLevels + maxUpLevels.</span>
+                  </span>
+                </span>
+                <input id="sim_maxDownLevels" type="number" min="0" step="1" value="20" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
+              </label>
+              <div class="flex flex-wrap gap-2">
+                <span class="text-xs uppercase tracking-wide text-slate-500">Max Drawdown (%)</span>
+                <div class="flex flex-wrap gap-1">
+                  <button type="button" data-drawdown="95" class="px-2 py-1 text-xs rounded-full border border-slate-200 bg-white hover:bg-slate-100">95</button>
+                  <button type="button" data-drawdown="90" class="px-2 py-1 text-xs rounded-full border border-slate-200 bg-white hover:bg-slate-100">90</button>
+                  <button type="button" data-drawdown="80" class="px-2 py-1 text-xs rounded-full border border-slate-200 bg-white hover:bg-slate-100">80</button>
+                  <button type="button" data-drawdown="70" class="px-2 py-1 text-xs rounded-full border border-slate-200 bg-white hover:bg-slate-100">70</button>
+                  <button type="button" data-drawdown="60" class="px-2 py-1 text-xs rounded-full border border-slate-200 bg-white hover:bg-slate-100">60</button>
+                  <button type="button" data-drawdown="50" class="px-2 py-1 text-xs rounded-full border border-slate-200 bg-white hover:bg-slate-100">50</button>
+                  <button type="button" data-drawdown="40" class="px-2 py-1 text-xs rounded-full border border-slate-200 bg-white hover:bg-slate-100">40</button>
+                  <button type="button" data-drawdown="30" class="px-2 py-1 text-xs rounded-full border border-slate-200 bg-white hover:bg-slate-100">30</button>
+                  <button type="button" data-drawdown="20" class="px-2 py-1 text-xs rounded-full border border-slate-200 bg-white hover:bg-slate-100">20</button>
+                  <button type="button" data-drawdown="10" class="px-2 py-1 text-xs rounded-full border border-slate-200 bg-white hover:bg-slate-100">10</button>
+                </div>
+              </div>
+            </div>
+            <div class="space-y-2">
+              <label class="block">
+                <span class="text-sm text-slate-600 inline-flex items-center">
+                  Max Up Levels
+                  <span class="help-tip" tabindex="0" aria-label="maxUpLevels help">
+                    <i class="fa-regular fa-circle-question"></i>
+                    <span class="summary-tooltip">How many sell levels exist above the base price (level 0). Also contributes to Sell fills (min) = maxDownLevels + maxUpLevels.</span>
+                  </span>
+                </span>
+                <input id="sim_maxUpLevels" type="number" min="0" step="1" value="15" class="mt-1 w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60" />
+              </label>
+              <div class="flex flex-wrap gap-2">
+                <span class="text-xs uppercase tracking-wide text-slate-500">Max Runup (%)</span>
+                <div class="flex flex-wrap gap-1">
+                  <button type="button" data-runup="20" class="px-2 py-1 text-xs rounded-full border border-slate-200 bg-white hover:bg-slate-100">20</button>
+                  <button type="button" data-runup="50" class="px-2 py-1 text-xs rounded-full border border-slate-200 bg-white hover:bg-slate-100">50</button>
+                  <button type="button" data-runup="100" class="px-2 py-1 text-xs rounded-full border border-slate-200 bg-white hover:bg-slate-100">100</button>
+                  <button type="button" data-runup="150" class="px-2 py-1 text-xs rounded-full border border-slate-200 bg-white hover:bg-slate-100">150</button>
+                  <button type="button" data-runup="200" class="px-2 py-1 text-xs rounded-full border border-slate-200 bg-white hover:bg-slate-100">200</button>
+                  <button type="button" data-runup="400" class="px-2 py-1 text-xs rounded-full border border-slate-200 bg-white hover:bg-slate-100" title="≈5x from base">400</button>
+                  <button type="button" data-runup="900" class="px-2 py-1 text-xs rounded-full border border-slate-200 bg-white hover:bg-slate-100" title="≈10x from base">900</button>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="rounded-lg bg-slate-50 border border-slate-200 p-3">
             <div class="text-xs font-medium uppercase tracking-wide text-slate-500 inline-flex items-center">
@@ -697,6 +728,14 @@
         return Number.isFinite(v) ? v : NaN;
       }
 
+      function setInputValue(id, value) {
+        const el = byId(id);
+        if (!el) return;
+        el.value = String(value);
+        const evt = new Event("input", { bubbles: true });
+        el.dispatchEvent(evt);
+      }
+
 	      function validateParams(p) {
 	        const errors = [];
 	        if (!(p.initialShares >= 0)) errors.push("initialShares must be ≥ 0.");
@@ -714,6 +753,20 @@
         const initialShares = readNumber("sim_initialShares");
         const initialPrice = readNumber("sim_initialPrice");
         byId("sim_initialEquity").textContent = fmtUsd(initialShares * initialPrice);
+      }
+
+      function levelsForDrawdownPct(drawdownPct, basePrice, gridSpacingPercent) {
+        if (!(drawdownPct > 0 && drawdownPct < 100)) return null;
+        const targetPrice = basePrice * (1 - drawdownPct / 100);
+        const lvl = gridLevelAtPrice(targetPrice, basePrice, gridSpacingPercent);
+        return Math.max(0, Math.abs(lvl));
+      }
+
+      function levelsForRunupPct(runupPct, basePrice, gridSpacingPercent) {
+        if (!(runupPct > 0)) return null;
+        const targetPrice = basePrice * (1 + runupPct / 100);
+        const lvl = gridLevelAtPrice(targetPrice, basePrice, gridSpacingPercent);
+        return Math.max(0, lvl);
       }
 
 	      function gridPrice(level, basePrice, gridSpacingPercent) {
@@ -1124,6 +1177,29 @@
             scheduleRun();
           });
         }
+
+        // Max drawdown/runup quick selectors
+        document.querySelectorAll("[data-drawdown]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const pct = Number(btn.getAttribute("data-drawdown"));
+            const base = readNumber("sim_initialPrice");
+            const spacing = readNumber("sim_gridSpacingPercent");
+            const levels = levelsForDrawdownPct(pct, base, spacing);
+            if (!Number.isFinite(levels)) return;
+            setInputValue("sim_maxDownLevels", Math.max(0, Math.round(levels)));
+          });
+        });
+
+        document.querySelectorAll("[data-runup]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const pct = Number(btn.getAttribute("data-runup"));
+            const base = readNumber("sim_initialPrice");
+            const spacing = readNumber("sim_gridSpacingPercent");
+            const levels = levelsForRunupPct(pct, base, spacing);
+            if (!Number.isFinite(levels)) return;
+            setInputValue("sim_maxUpLevels", Math.max(0, Math.round(levels)));
+          });
+        });
 
         window.addEventListener("resize", () => {
           for (const ch of charts.values()) ch.resize();
