@@ -147,6 +147,32 @@
       opacity: 1;
       transform: translate(-50%, -0.35rem) scale(1);
     }
+
+    /* Carousel styling shared with grid_infinite */
+    .carousel-track {
+      width: 100%;
+      display: flex;
+      transition: transform 260ms ease;
+      align-items: stretch;
+      height: 100%;
+    }
+    .carousel-card {
+      min-width: 100%;
+      flex-shrink: 0;
+      height: 100%;
+    }
+    .carousel-card article { min-height: 0; }
+    .chart-carousel-shell {
+      height: calc(100vh - 220px);
+      min-height: 32rem;
+      max-height: 72rem;
+    }
+    .chart-panel {
+      flex: 1 1 auto;
+      min-height: 24rem;
+      height: auto;
+      max-height: 100%;
+    }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800">
@@ -572,55 +598,113 @@
 	            <span class="summary-tooltip">Each chart sweeps endingPrice across the grid ladder and re-runs the deterministic accounting model, so the curves show how the end-state changes with price.</span>
 	          </span>
 	        </h2>
-	        <span class="inline-flex items-center text-sm text-slate-500">
-	          <span id="sim_chartSummary"></span>
-	          <span class="help-tip" tabindex="0" aria-label="Chart summary help">
-	            <i class="fa-regular fa-circle-question"></i>
-	            <span class="summary-tooltip">Shows the min/max ladder prices for the configured levels and highlights the current endingPrice used for the end markers.</span>
+	        <div class="flex flex-wrap items-center gap-3 text-sm text-slate-500">
+	          <span class="inline-flex items-center gap-2">
+	            <span id="sim_chartSummary"></span>
+	            <span class="help-tip" tabindex="0" aria-label="Chart summary help">
+	              <i class="fa-regular fa-circle-question"></i>
+	              <span class="summary-tooltip">Shows the min/max ladder prices for the configured levels and highlights the current endingPrice used for the end markers.</span>
+	            </span>
 	          </span>
-	        </span>
+	          <div class="flex items-center gap-2">
+	            <button type="button" id="simPrevCard" class="h-10 w-10 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500" aria-label="Previous chart card">
+	              <i class="fa-solid fa-chevron-left"></i>
+	            </button>
+	            <button type="button" id="simNextCard" class="h-10 w-10 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500" aria-label="Next chart card">
+	              <i class="fa-solid fa-chevron-right"></i>
+	            </button>
+	          </div>
+	        </div>
 	      </div>
-	      <div class="grid gap-4 lg:grid-cols-2">
-	        <div class="rounded-xl border border-slate-200 p-3">
-	          <div class="text-sm font-semibold text-slate-700 mb-2 inline-flex items-center">
-            Grid Level vs Price
-            <span class="help-tip" tabindex="0" aria-label="Grid Level vs Price help">
-              <i class="fa-regular fa-circle-question"></i>
-              <span class="summary-tooltip">Ladder definition. X = grid level, Y = price(level). Marks: Base (level 0) and End (endingPrice).</span>
-            </span>
+	      <div class="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 chart-carousel-shell">
+	        <div id="simChartTrack" class="carousel-track">
+	          <div class="carousel-card p-4 md:p-6">
+	            <article class="h-full bg-white border border-slate-200 rounded-xl shadow-sm p-4 md:p-5 flex flex-col gap-3">
+	              <div class="flex items-center justify-between gap-3 flex-wrap">
+	                <div class="flex items-center gap-3">
+	                  <div class="h-12 w-12 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center text-lg">
+	                    <i class="fa-solid fa-chart-line"></i>
+	                  </div>
+	                  <div>
+	                    <p class="text-sm font-semibold text-slate-700">Grid Level vs Price</p>
+	                    <p class="text-xs text-slate-500">Ladder definition with Base and End markers.</p>
+	                  </div>
+	                </div>
+	                <span class="help-tip" tabindex="0" aria-label="Grid Level vs Price help">
+	                  <i class="fa-regular fa-circle-question"></i>
+	                  <span class="summary-tooltip">Ladder definition. X = grid level, Y = price(level). Marks: Base (level 0) and End (endingPrice).</span>
+	                </span>
+	              </div>
+              <div id="sim_chart_grid" class="chart-panel w-full"></div>
+            </article>
           </div>
-          <div id="sim_chart_grid" class="w-full h-96 md:h-[28rem]"></div>
-	        </div>
-	        <div class="rounded-xl border border-slate-200 p-3">
-	          <div class="text-sm font-semibold text-slate-700 mb-2 inline-flex items-center">
-	            Shares Held vs Price
-	            <span class="help-tip" tabindex="0" aria-label="Shares Held vs Price help">
-	              <i class="fa-regular fa-circle-question"></i>
-	              <span class="summary-tooltip">End-of-year sharesHeld vs endingPrice after applying the level-crossing rules and Total Sell Fills Per Year.</span>
-	            </span>
-	          </div>
-          <div id="sim_chart_shares" class="w-full h-96 md:h-[28rem]"></div>
-	        </div>
-	        <div class="rounded-xl border border-slate-200 p-3">
-	          <div class="text-sm font-semibold text-slate-700 mb-2 inline-flex items-center">
-	            Buying Bank vs Selling Bank vs Price
-	            <span class="help-tip" tabindex="0" aria-label="Banks vs Price help">
-	              <i class="fa-regular fa-circle-question"></i>
-	              <span class="summary-tooltip">Cumulative dollars debited/credited by fills. Buying Bank = cash injected to fund buys; Selling Bank = cash received from sells (depends on Profit handling).</span>
-	            </span>
-	          </div>
-          <div id="sim_chart_banks" class="w-full h-96 md:h-[28rem]"></div>
-	        </div>
-	        <div class="rounded-xl border border-slate-200 p-3">
-	          <div class="text-sm font-semibold text-slate-700 mb-2 inline-flex items-center">
-	            GRID Equity vs HODL vs Price
-	            <span class="help-tip" tabindex="0" aria-label="GRID equity vs HODL help">
-	              <i class="fa-regular fa-circle-question"></i>
-	              <span class="summary-tooltip">GRID equity = sharesHeld×endingPrice + sellingBankHeld − buyingBankUsed. HODL = initialShares×endingPrice.</span>
-	            </span>
-	          </div>
-          <div id="sim_chart_equity" class="w-full h-96 md:h-[28rem]"></div>
-	        </div>
+          <div class="carousel-card p-4 md:p-6">
+            <article class="h-full bg-white border border-slate-200 rounded-xl shadow-sm p-4 md:p-5 flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-3 flex-wrap">
+	                <div class="flex items-center gap-3">
+	                  <div class="h-12 w-12 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center text-lg">
+	                    <i class="fa-solid fa-layer-group"></i>
+	                  </div>
+	                  <div>
+	                    <p class="text-sm font-semibold text-slate-700">Shares Held vs Price</p>
+	                    <p class="text-xs text-slate-500">End-of-year shares after level crossings.</p>
+	                  </div>
+	                </div>
+	                <span class="help-tip" tabindex="0" aria-label="Shares Held vs Price help">
+	                  <i class="fa-regular fa-circle-question"></i>
+	                  <span class="summary-tooltip">End-of-year sharesHeld vs endingPrice after applying the level-crossing rules and Total Sell Fills Per Year.</span>
+	                </span>
+	              </div>
+              <div id="sim_chart_shares" class="chart-panel w-full"></div>
+            </article>
+          </div>
+          <div class="carousel-card p-4 md:p-6">
+            <article class="h-full bg-white border border-slate-200 rounded-xl shadow-sm p-4 md:p-5 flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-3 flex-wrap">
+	                <div class="flex items-center gap-3">
+	                  <div class="h-12 w-12 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center text-lg">
+	                    <i class="fa-solid fa-scale-balanced"></i>
+	                  </div>
+	                  <div>
+	                    <p class="text-sm font-semibold text-slate-700">Buying vs Selling Bank</p>
+	                    <p class="text-xs text-slate-500">Cumulative dollars debited/credited by fills.</p>
+	                  </div>
+	                </div>
+	                <span class="help-tip" tabindex="0" aria-label="Banks vs Price help">
+	                  <i class="fa-regular fa-circle-question"></i>
+	                  <span class="summary-tooltip">Cumulative dollars debited/credited by fills. Buying Bank = cash injected to fund buys; Selling Bank = cash received from sells (depends on Profit handling).</span>
+	                </span>
+	              </div>
+              <div id="sim_chart_banks" class="chart-panel w-full"></div>
+            </article>
+          </div>
+          <div class="carousel-card p-4 md:p-6">
+            <article class="h-full bg-white border border-slate-200 rounded-xl shadow-sm p-4 md:p-5 flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-3 flex-wrap">
+	                <div class="flex items-center gap-3">
+	                  <div class="h-12 w-12 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center text-lg">
+	                    <i class="fa-solid fa-chart-area"></i>
+	                  </div>
+	                  <div>
+	                    <p class="text-sm font-semibold text-slate-700">GRID Equity vs HODL</p>
+	                    <p class="text-xs text-slate-500">Mark-to-market equity relative to HODL.</p>
+	                  </div>
+	                </div>
+	                <span class="help-tip" tabindex="0" aria-label="GRID equity vs HODL help">
+	                  <i class="fa-regular fa-circle-question"></i>
+	                  <span class="summary-tooltip">GRID equity = sharesHeld×endingPrice + sellingBankHeld − buyingBankUsed. HODL = initialShares×endingPrice.</span>
+	                </span>
+	              </div>
+              <div id="sim_chart_equity" class="chart-panel w-full"></div>
+            </article>
+          </div>
+        </div>
+      </div>
+	      <div class="flex items-center justify-center gap-2">
+	        <button type="button" data-sim-dot="0" class="h-2.5 w-2.5 rounded-full bg-slate-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500" aria-label="Go to chart 1"></button>
+	        <button type="button" data-sim-dot="1" class="h-2.5 w-2.5 rounded-full bg-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500" aria-label="Go to chart 2"></button>
+	        <button type="button" data-sim-dot="2" class="h-2.5 w-2.5 rounded-full bg-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500" aria-label="Go to chart 3"></button>
+	        <button type="button" data-sim-dot="3" class="h-2.5 w-2.5 rounded-full bg-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500" aria-label="Go to chart 4"></button>
 	      </div>
 	    </section>
 
@@ -930,6 +1014,39 @@
         return charts.get(id);
       }
 
+      const resizeAllCharts = () => {
+        for (const ch of charts.values()) ch.resize();
+      };
+
+      function initSimChartCarousel() {
+        const track = byId("simChartTrack");
+        const dots = Array.from(document.querySelectorAll("[data-sim-dot]"));
+        const prev = byId("simPrevCard");
+        const next = byId("simNextCard");
+        if (!track || !prev || !next || dots.length === 0) return;
+
+        let index = 0;
+        const setIndex = (i) => {
+          index = (i + dots.length) % dots.length;
+          track.style.transform = `translateX(-${index * 100}%)`;
+          dots.forEach((dot, idx) => {
+            const active = idx === index;
+            dot.classList.toggle("bg-slate-700", active);
+            dot.classList.toggle("bg-slate-200", !active);
+            dot.setAttribute("aria-pressed", active ? "true" : "false");
+          });
+          resizeAllCharts();
+        };
+
+        prev.addEventListener("click", () => setIndex(index - 1));
+        next.addEventListener("click", () => setIndex(index + 1));
+        dots.forEach((dot) => {
+          dot.addEventListener("click", () => setIndex(Number(dot.getAttribute("data-sim-dot")) || 0));
+        });
+
+        setIndex(0);
+      }
+
 	      function renderCharts(p, finalState, series) {
         const gridChart = getChart("sim_chart_grid");
         const sharesChart = getChart("sim_chart_shares");
@@ -992,6 +1109,13 @@
                 showSymbol: false,
                 data: series.sharesVsPrice,
                 lineStyle: { width: 2, color: "#10b981" },
+                markPoint: {
+                  symbolSize: 44,
+                  data: [
+                    { name: "Start", coord: [p.initialPrice, p.initialShares], value: "Start" },
+                    { name: "End", coord: [p.endingPrice, finalState.sharesHeld], value: "End" },
+                  ],
+                },
               },
             ],
           },
@@ -1013,6 +1137,13 @@
                 showSymbol: false,
                 data: series.buyingVsPrice,
                 lineStyle: { width: 2, color: "#f59e0b" },
+                markPoint: {
+                  symbolSize: 44,
+                  data: [
+                    { name: "Start", coord: [p.initialPrice, 0], value: "Start" },
+                    { name: "End", coord: [p.endingPrice, finalState.buyingBankUsed], value: "End" },
+                  ],
+                },
               },
               {
                 name: "Selling bank held",
@@ -1020,6 +1151,13 @@
                 showSymbol: false,
                 data: series.sellingVsPrice,
                 lineStyle: { width: 2, color: "#ef4444" },
+                markPoint: {
+                  symbolSize: 44,
+                  data: [
+                    { name: "Start", coord: [p.initialPrice, 0], value: "Start" },
+                    { name: "End", coord: [p.endingPrice, finalState.sellingBankHeld], value: "End" },
+                  ],
+                },
               },
             ],
           },
@@ -1040,10 +1178,13 @@
                 type: "line",
                 showSymbol: false,
                 data: series.equityVsPrice,
-                lineStyle: { width: 2, color: "#10b981" },
+                lineStyle: { width: 2, color: "#0ea5e9" },
                 markPoint: {
                   symbolSize: 44,
-                  data: [{ name: "End", coord: [p.endingPrice, finalState.netEquity], value: "End" }],
+                  data: [
+                    { name: "Start", coord: [p.initialPrice, p.initialShares * p.initialPrice], value: "Start" },
+                    { name: "End", coord: [p.endingPrice, finalState.netEquity], value: "End" },
+                  ],
                 },
               },
               {
@@ -1051,10 +1192,13 @@
                 type: "line",
                 showSymbol: false,
                 data: series.hodlVsPrice,
-                lineStyle: { width: 2, color: "#0ea5e9" },
+                lineStyle: { width: 2, color: "#10b981" },
                 markPoint: {
                   symbolSize: 44,
-                  data: [{ name: "End", coord: [p.endingPrice, finalState.hodlEquity], value: "End" }],
+                  data: [
+                    { name: "Start", coord: [p.initialPrice, p.initialShares * p.initialPrice], value: "Start" },
+                    { name: "End", coord: [p.endingPrice, finalState.hodlEquity], value: "End" },
+                  ],
                 },
               },
             ],
@@ -1063,6 +1207,10 @@
         );
 
         byId("sim_chartSummary").textContent = `Grid price range: ${fmtNum(series.minPrice, 4)} to ${fmtNum(series.maxPrice, 4)} · End price: ${fmtNum(p.endingPrice, 4)}`;
+
+        // ECharts sometimes needs a post-layout resize when inside the carousel
+        requestAnimationFrame(resizeAllCharts);
+        setTimeout(resizeAllCharts, 140);
       }
 
 	      function renderSummaryTable(finalState) {
@@ -1149,6 +1297,7 @@
 
       document.addEventListener("DOMContentLoaded", () => {
         updateDerived();
+        initSimChartCarousel();
         byId("sim_run").addEventListener("click", runSimulation);
         const simForm = byId("simForm");
         let runTimer = null;
@@ -1202,8 +1351,9 @@
         });
 
         window.addEventListener("resize", () => {
-          for (const ch of charts.values()) ch.resize();
+          resizeAllCharts();
         });
+        window.addEventListener("load", resizeAllCharts);
         runSimulation();
       });
     })();
