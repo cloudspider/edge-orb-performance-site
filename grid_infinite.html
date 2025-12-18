@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Grid Simulator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"
+  />
+  <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+  <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <style>
+    .shadow-soft { box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
+
+    .help-tip {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-left: 0.35rem;
+      color: #94a3b8;
+      cursor: help;
+    }
+    .help-tip:hover { color: #64748b; }
+    .help-tip:focus-visible {
+      outline: 2px solid rgba(16, 185, 129, 0.6);
+      outline-offset: 2px;
+      border-radius: 9999px;
+    }
+    .help-tip .summary-tooltip {
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 0.5rem);
+      transform: translate(-50%, 0) scale(0.98);
+      transform-origin: bottom center;
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 0.65rem 0.75rem;
+      border-radius: 0.65rem;
+      text-align: left;
+      font-size: 0.75rem;
+      line-height: 1.25;
+      width: max(14rem, min(18rem, 70vw));
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.35);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s ease, transform 0.15s ease;
+      z-index: 40;
+    }
+    .help-tip .summary-tooltip::after {
+      content: "";
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border-width: 6px;
+      border-style: solid;
+      border-color: #0f172a transparent transparent transparent;
+    }
+    .help-tip:hover .summary-tooltip,
+    .help-tip:focus-within .summary-tooltip {
+      opacity: 1;
+      transform: translate(-50%, -0.35rem) scale(1);
+    }
+
+    /* Carousel */
+    .carousel-track {
+      width: 100%;
+      display: flex;
+      transition: transform 260ms ease;
+    }
+    .carousel-card {
+      min-width: 100%;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+  <nav class="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+    <div class="w-full px-4 md:px-6 lg:px-8 py-3 flex items-center gap-4">
+      <div class="flex items-center gap-6 flex-1 min-w-0">
+        <div class="flex items-center gap-2 font-semibold text-slate-800">
+          <svg class="h-5 w-5 text-emerald-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" fill="currentColor" aria-hidden="true"><path d="M192 384L88.5 384C63.6 384 48.3 356.9 61.1 335.5L114 247.3C122.7 232.8 138.3 224 155.2 224L250.2 224C326.3 95.1 439.8 88.6 515.7 99.7C528.5 101.6 538.5 111.6 540.3 124.3C551.4 200.2 544.9 313.7 416 389.8L416 484.8C416 501.7 407.2 517.3 392.7 526L304.5 578.9C283.2 591.7 256 576.3 256 551.5L256 448C256 412.7 227.3 384 192 384L191.9 384zM464 224C464 197.5 442.5 176 416 176C389.5 176 368 197.5 368 224C368 250.5 389.5 272 416 272C442.5 272 464 250.5 464 224z"/></svg>
+          <span>GRID</span>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <a data-nav href="grid.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Grid Backtest</a>
+          <a data-nav href="grid_sim.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Grid Sim</a>
+          <a data-nav href="grid_calc.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Grid Calculator</a>
+          <a data-nav href="grid_infinite.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">Infinite Grid</a>
+          <a data-nav href="grid_about.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">About</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+  <script>
+    (function(){
+      try {
+        const file = (location.pathname.split('/').pop() || 'grid_infinite.html').toLowerCase();
+        document.querySelectorAll('a[data-nav]').forEach(a => {
+          const href = (a.getAttribute('href') || '').toLowerCase();
+          const active = href === file || (file === '' && href.endsWith('index.html'));
+          a.classList.toggle('bg-slate-800', active);
+          a.classList.toggle('text-white', active);
+          a.classList.toggle('hover:bg-slate-100', !active);
+          if (active) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current');
+        });
+      } catch {}
+    })();
+  </script>
+
+  <div class="w-full px-4 md:px-6 lg:px-8 py-6 space-y-6">
+    <header class="space-y-2">
+      <p class="text-xs uppercase tracking-[0.25rem] text-emerald-600 font-semibold">Model Lab</p>
+      <h1 class="text-2xl md:text-3xl font-semibold">Grid & Infinite Grid</h1>
+      <p class="text-sm text-slate-600 max-w-3xl">Start by defining the base portfolio and trade controls. We will wire these inputs into the model next.</p>
+    </header>
+
+    <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6 space-y-6">
+      <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <h2 class="font-semibold text-slate-800 text-lg inline-flex items-center">
+          Parameters
+          <span class="help-tip" tabindex="0" aria-label="Parameters help">
+            <i class="fa-regular fa-circle-question"></i>
+            <span class="summary-tooltip">These drive both the bounded grid and infinite grid models. Numbers are editable anytime; we will add simulation logic next.</span>
+          </span>
+        </h2>
+        <div class="text-sm text-slate-600">All fields editable — values update the model state.</div>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <article class="border border-slate-200 rounded-xl p-4 space-y-3">
+          <div class="flex items-center gap-2">
+            <div class="h-10 w-10 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
+              <i class="fa-solid fa-sack-dollar"></i>
+            </div>
+            <div>
+              <p class="text-sm uppercase tracking-wide text-slate-500">Starting Equity</p>
+              <p class="font-semibold text-slate-900">Portfolio at launch</p>
+            </div>
+          </div>
+          <label class="text-sm text-slate-700 flex flex-col gap-1">
+            <span class="font-medium">Market value of initial shares</span>
+            <input id="startingEquity" type="number" inputmode="decimal" step="100" min="0" value="100000" class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200" placeholder="100000" />
+          </label>
+          <div class="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg p-3">
+            Example: <span class="font-semibold text-slate-800">1,000 shares × $100 = $100,000</span>
+          </div>
+        </article>
+
+        <article class="border border-slate-200 rounded-xl p-4 space-y-3">
+          <div class="flex items-center gap-2">
+            <div class="h-10 w-10 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center">
+              <i class="fa-solid fa-arrow-right-arrow-left"></i>
+            </div>
+            <div>
+              <p class="text-sm uppercase tracking-wide text-slate-500">Trade Amount ($)</p>
+              <p class="font-semibold text-slate-900">Dollars per rung</p>
+            </div>
+          </div>
+          <label class="text-sm text-slate-700 flex flex-col gap-1">
+            <span class="font-medium">Fixed dollar value sold per grid step</span>
+            <input id="tradeAmount" type="number" inputmode="decimal" step="100" min="0" value="2500" class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200" placeholder="2500" />
+          </label>
+          <div class="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg p-3">
+            This controls the cash raised each time price hits a grid rung.
+          </div>
+        </article>
+
+        <article class="border border-slate-200 rounded-xl p-4 space-y-3">
+          <div class="flex items-center gap-2">
+            <div class="h-10 w-10 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center">
+              <i class="fa-solid fa-grip-lines"></i>
+            </div>
+            <div>
+              <p class="text-sm uppercase tracking-wide text-slate-500">Grid Size (%)</p>
+              <p class="font-semibold text-slate-900">% move per rung</p>
+            </div>
+          </div>
+          <label class="text-sm text-slate-700 flex flex-col gap-1">
+            <span class="font-medium">Percent move between grid levels</span>
+            <input id="gridSize" type="number" inputmode="decimal" step="0.1" min="0" value="1.0" class="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200" placeholder="1.0" />
+          </label>
+          <div class="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-lg p-3">
+            Smaller spacing creates more frequent rungs; larger spacing takes fewer, bigger steps.
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="bg-white rounded-2xl shadow-soft p-4 md:p-6 space-y-4">
+      <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div>
+          <p class="text-xs uppercase tracking-[0.18rem] text-emerald-600 font-semibold">Chart Deck</p>
+          <h2 class="font-semibold text-slate-800 text-lg">Grid & Infinite Grid visuals</h2>
+          <p class="text-sm text-slate-600">Slide between empty cards; we will drop Chart.js canvases in each.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="prevCard" class="h-10 w-10 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500" aria-label="Previous card">
+            <i class="fa-solid fa-chevron-left"></i>
+          </button>
+          <button id="nextCard" class="h-10 w-10 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500" aria-label="Next card">
+            <i class="fa-solid fa-chevron-right"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="relative overflow-hidden rounded-xl border border-slate-200">
+        <div id="chartTrack" class="carousel-track">
+          <div class="carousel-card p-4 md:p-6">
+            <article class="h-80 bg-slate-50 border border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center gap-3">
+              <div class="h-14 w-14 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl">
+                <i class="fa-solid fa-chart-line"></i>
+              </div>
+              <div class="text-center space-y-1">
+                <p class="font-semibold text-slate-800">Card 1</p>
+                <p class="text-sm text-slate-600">Placeholder canvas for the first grid chart.</p>
+              </div>
+              <canvas id="chartCard1" class="max-h-44 w-full"></canvas>
+            </article>
+          </div>
+          <div class="carousel-card p-4 md:p-6">
+            <article class="h-80 bg-slate-50 border border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center gap-3">
+              <div class="h-14 w-14 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center text-xl">
+                <i class="fa-solid fa-wave-square"></i>
+              </div>
+              <div class="text-center space-y-1">
+                <p class="font-semibold text-slate-800">Card 2</p>
+                <p class="text-sm text-slate-600">Room for another visualization or state readout.</p>
+              </div>
+              <canvas id="chartCard2" class="max-h-44 w-full"></canvas>
+            </article>
+          </div>
+          <div class="carousel-card p-4 md:p-6">
+            <article class="h-80 bg-slate-50 border border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center gap-3">
+              <div class="h-14 w-14 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-xl">
+                <i class="fa-solid fa-infinity"></i>
+              </div>
+              <div class="text-center space-y-1">
+                <p class="font-semibold text-slate-800">Card 3</p>
+                <p class="text-sm text-slate-600">Reserve for infinite grid behavior or metrics.</p>
+              </div>
+              <canvas id="chartCard3" class="max-h-44 w-full"></canvas>
+            </article>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-center gap-2">
+        <button data-dot="0" class="h-2.5 w-2.5 rounded-full bg-slate-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500" aria-label="Go to card 1"></button>
+        <button data-dot="1" class="h-2.5 w-2.5 rounded-full bg-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500" aria-label="Go to card 2"></button>
+        <button data-dot="2" class="h-2.5 w-2.5 rounded-full bg-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-500" aria-label="Go to card 3"></button>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // Simple card carousel for the chart deck
+    (function(){
+      const track = document.getElementById('chartTrack');
+      const dots = Array.from(document.querySelectorAll('[data-dot]'));
+      const prev = document.getElementById('prevCard');
+      const next = document.getElementById('nextCard');
+      if (!track || !prev || !next) return;
+
+      let index = 0;
+      const maxIndex = dots.length - 1;
+
+      const setIndex = (i) => {
+        index = (i + dots.length) % dots.length;
+        track.style.transform = `translateX(-${index * 100}%)`;
+        dots.forEach((dot, idx) => {
+          dot.classList.toggle('bg-slate-700', idx === index);
+          dot.classList.toggle('bg-slate-200', idx !== index);
+        });
+      };
+
+      prev.addEventListener('click', () => setIndex(index - 1));
+      next.addEventListener('click', () => setIndex(index + 1));
+      dots.forEach(dot => dot.addEventListener('click', () => setIndex(Number(dot.dataset.dot) || 0)));
+
+      setIndex(0);
+    })();
+  </script>
+</body>
+</html>
