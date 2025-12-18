@@ -891,6 +891,15 @@
 
         const axisLabel = { color: "#64748b" };
         const axisNameStyle = { color: "#475569", fontWeight: "600" };
+        const priceAxisLabel = {
+          color: "#64748b",
+          formatter: (value) => {
+            const base = p.initialPrice;
+            const pct = base > 0 ? ((value / base - 1) * 100) : 0;
+            const pctLabel = base > 0 ? ` (${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%)` : "";
+            return `${fmtNum(value, 4)}${pctLabel}`;
+          },
+        };
 
         gridChart.setOption(
           {
@@ -898,7 +907,7 @@
             grid: { left: 56, right: 18, top: 18, bottom: 44 },
             tooltip: { trigger: "axis", axisPointer: { type: "cross" } },
             legend: { show: false },
-            xAxis: { type: "value", name: "Price", axisLabel, nameLocation: "middle", nameGap: 28, nameTextStyle: axisNameStyle, scale: true },
+            xAxis: { type: "value", name: "Price", axisLabel: priceAxisLabel, nameLocation: "middle", nameGap: 28, nameTextStyle: axisNameStyle, scale: true },
             yAxis: { type: "value", name: "Grid Level", axisLabel, nameLocation: "middle", nameGap: 40, nameTextStyle: axisNameStyle },
             series: [
               {
@@ -926,7 +935,7 @@
             grid: { left: 56, right: 18, top: 18, bottom: 44 },
             tooltip: { trigger: "axis", axisPointer: { type: "cross" } },
             legend: { show: false },
-            xAxis: { type: "value", name: "Price", axisLabel, nameLocation: "middle", nameGap: 28, nameTextStyle: axisNameStyle, scale: true },
+            xAxis: { type: "value", name: "Price", axisLabel: priceAxisLabel, nameLocation: "middle", nameGap: 28, nameTextStyle: axisNameStyle, scale: true },
             yAxis: { type: "value", name: "Shares", axisLabel, nameLocation: "middle", nameGap: 40, nameTextStyle: axisNameStyle, scale: true },
             series: [
               {
@@ -947,7 +956,7 @@
             grid: { left: 56, right: 18, top: 18, bottom: 44 },
             tooltip: { trigger: "axis", axisPointer: { type: "cross" } },
             legend: { show: false },
-            xAxis: { type: "value", name: "Price", axisLabel, nameLocation: "middle", nameGap: 28, nameTextStyle: axisNameStyle, scale: true },
+            xAxis: { type: "value", name: "Price", axisLabel: priceAxisLabel, nameLocation: "middle", nameGap: 28, nameTextStyle: axisNameStyle, scale: true },
             yAxis: { type: "value", name: "Dollars", axisLabel, nameLocation: "middle", nameGap: 40, nameTextStyle: axisNameStyle, scale: true },
             series: [
               {
@@ -975,7 +984,7 @@
             grid: { left: 56, right: 18, top: 18, bottom: 44 },
             tooltip: { trigger: "axis", axisPointer: { type: "cross" } },
             legend: { show: false },
-            xAxis: { type: "value", name: "Price", axisLabel, nameLocation: "middle", nameGap: 28, nameTextStyle: axisNameStyle, scale: true },
+            xAxis: { type: "value", name: "Price", axisLabel: priceAxisLabel, nameLocation: "middle", nameGap: 28, nameTextStyle: axisNameStyle, scale: true },
             yAxis: { type: "value", name: "Dollars", axisLabel, nameLocation: "middle", nameGap: 40, nameTextStyle: axisNameStyle, scale: true },
             series: [
               {
