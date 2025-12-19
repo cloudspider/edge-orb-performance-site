@@ -163,18 +163,50 @@
       min-width: 100%;
       flex-shrink: 0;
       height: 100%;
+      box-sizing: border-box;
+      display: flex;
     }
-    .carousel-card article { min-height: 0; }
+    .carousel-card article {
+      min-height: 0;
+      padding: 0;
+      flex: 1 1 auto;
+      height: 100%;
+    }
     .chart-carousel-shell {
       height: calc(100vh - 220px);
       min-height: 32rem;
       max-height: 72rem;
+      padding: 0;
     }
     .chart-panel {
       flex: 1 1 auto;
-      min-height: 24rem;
-      height: auto;
-      max-height: 100%;
+      min-height: 0;
+      height: 100%;
+      width: 100%;
+      max-width: 100%;
+    }
+    .carousel-card {
+      padding: 0;
+    }
+    .chart-panel {
+      max-width: 100%;
+    }
+    @media (min-width: 768px) {
+      .carousel-card {
+        padding: 1rem 1.5rem;
+      }
+      .carousel-card article {
+        padding: 1rem 1.25rem;
+      }
+    }
+    @media (max-width: 640px) {
+      .chart-carousel-shell {
+        height: auto;
+        min-height: 28rem;
+      }
+      .chart-panel {
+        min-height: 20rem;
+      }
     }
   </style>
 </head>
@@ -601,11 +633,11 @@
 	            <span class="summary-tooltip">Each chart sweeps endingPrice across the grid ladder and re-runs the deterministic accounting model, so the curves show how the end-state changes with price.</span>
 	          </span>
 	        </h2>
-	        <div class="flex flex-wrap items-center gap-3 text-sm text-slate-500">
-	          <span class="inline-flex items-center gap-2">
-	            <span id="sim_chartSummary"></span>
-	            <span class="help-tip" tabindex="0" aria-label="Chart summary help">
-	              <i class="fa-regular fa-circle-question"></i>
+      <div class="flex flex-wrap items-center gap-3 text-sm text-slate-500">
+        <span class="inline-flex items-center gap-2">
+          <span id="sim_chartSummary"></span>
+          <span class="help-tip" tabindex="0" aria-label="Chart summary help">
+            <i class="fa-regular fa-circle-question"></i>
 	              <span class="summary-tooltip">Shows the min/max ladder prices for the configured levels and highlights the current endingPrice used for the end markers.</span>
 	            </span>
 	          </span>
@@ -621,12 +653,12 @@
 	      </div>
 	      <div class="relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 chart-carousel-shell">
 	        <div id="simChartTrack" class="carousel-track">
-	          <div class="carousel-card p-4 md:p-6">
-	            <article class="h-full bg-white border border-slate-200 rounded-xl shadow-sm p-4 md:p-5 flex flex-col gap-3">
-	              <div class="flex items-center justify-between gap-3 flex-wrap">
-	                <div class="flex items-center gap-3">
-	                  <div class="h-12 w-12 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center text-lg">
-	                    <i class="fa-solid fa-chart-line"></i>
+          <div class="carousel-card">
+            <article class="h-full bg-white border border-slate-200 rounded-xl shadow-sm p-4 md:p-5 flex flex-col gap-3">
+              <div class="flex items-center justify-between gap-3 flex-wrap">
+                <div class="flex items-center gap-3">
+                  <div class="h-12 w-12 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center text-lg">
+                    <i class="fa-solid fa-chart-line"></i>
 	                  </div>
 	                  <div>
 	                    <p class="text-sm font-semibold text-slate-700">Grid Level vs Price</p>
@@ -641,12 +673,12 @@
               <div id="sim_chart_grid" class="chart-panel w-full"></div>
             </article>
           </div>
-          <div class="carousel-card p-4 md:p-6">
+          <div class="carousel-card">
             <article class="h-full bg-white border border-slate-200 rounded-xl shadow-sm p-4 md:p-5 flex flex-col gap-3">
               <div class="flex items-center justify-between gap-3 flex-wrap">
-	                <div class="flex items-center gap-3">
-	                  <div class="h-12 w-12 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center text-lg">
-	                    <i class="fa-solid fa-layer-group"></i>
+                <div class="flex items-center gap-3">
+                  <div class="h-12 w-12 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center text-lg">
+                    <i class="fa-solid fa-layer-group"></i>
 	                  </div>
 	                  <div>
 	                    <p class="text-sm font-semibold text-slate-700">Shares Held vs Price</p>
@@ -661,12 +693,12 @@
               <div id="sim_chart_shares" class="chart-panel w-full"></div>
             </article>
           </div>
-          <div class="carousel-card p-4 md:p-6">
+          <div class="carousel-card">
             <article class="h-full bg-white border border-slate-200 rounded-xl shadow-sm p-4 md:p-5 flex flex-col gap-3">
               <div class="flex items-center justify-between gap-3 flex-wrap">
-	                <div class="flex items-center gap-3">
-	                  <div class="h-12 w-12 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center text-lg">
-	                    <i class="fa-solid fa-scale-balanced"></i>
+                <div class="flex items-center gap-3">
+                  <div class="h-12 w-12 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center text-lg">
+                    <i class="fa-solid fa-scale-balanced"></i>
 	                  </div>
 	                  <div>
 	                    <p class="text-sm font-semibold text-slate-700">Buying vs Selling Bank</p>
@@ -681,12 +713,12 @@
               <div id="sim_chart_banks" class="chart-panel w-full"></div>
             </article>
           </div>
-          <div class="carousel-card p-4 md:p-6">
+          <div class="carousel-card">
             <article class="h-full bg-white border border-slate-200 rounded-xl shadow-sm p-4 md:p-5 flex flex-col gap-3">
               <div class="flex items-center justify-between gap-3 flex-wrap">
-	                <div class="flex items-center gap-3">
-	                  <div class="h-12 w-12 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center text-lg">
-	                    <i class="fa-solid fa-chart-area"></i>
+                <div class="flex items-center gap-3">
+                  <div class="h-12 w-12 rounded-lg bg-rose-50 text-rose-700 flex items-center justify-center text-lg">
+                    <i class="fa-solid fa-chart-area"></i>
 	                  </div>
 	                  <div>
 	                    <p class="text-sm font-semibold text-slate-700">GRID Equity vs HODL</p>
@@ -1023,10 +1055,11 @@
 
       function initSimChartCarousel() {
         const track = byId("simChartTrack");
-        const dots = Array.from(document.querySelectorAll("[data-sim-dot]"));
-        const prev = byId("simPrevCard");
-        const next = byId("simNextCard");
-        if (!track || !prev || !next || dots.length === 0) return;
+      const dots = Array.from(document.querySelectorAll("[data-sim-dot]"));
+      const prev = byId("simPrevCard");
+      const next = byId("simNextCard");
+      const shell = track?.closest(".chart-carousel-shell") || track?.parentElement;
+      if (!track || !prev || !next || dots.length === 0) return;
 
         let index = 0;
         const setIndex = (i) => {
@@ -1046,6 +1079,56 @@
         dots.forEach((dot) => {
           dot.addEventListener("click", () => setIndex(Number(dot.getAttribute("data-sim-dot")) || 0));
         });
+
+        // Lightweight touch swipe for mobile
+        if (shell) {
+          let startX = 0;
+          let startY = 0;
+          let deltaX = 0;
+          let isDragging = false;
+          let started = false;
+
+          const onStart = (e) => {
+            const t = e.touches?.[0];
+            if (!t) return;
+            startX = t.clientX;
+            startY = t.clientY;
+            deltaX = 0;
+            isDragging = false;
+            started = true;
+          };
+
+          const onMove = (e) => {
+            if (!started) return;
+            const t = e.touches?.[0];
+            if (!t) return;
+            const dx = t.clientX - startX;
+            const dy = t.clientY - startY;
+            if (!isDragging && Math.abs(dx) > Math.abs(dy) + 6) {
+              isDragging = true;
+            }
+            if (isDragging) {
+              deltaX = dx;
+              e.preventDefault();
+            }
+          };
+
+          const onEnd = () => {
+            if (!started) return;
+            if (isDragging && Math.abs(deltaX) > 40) {
+              if (deltaX < 0) setIndex(index + 1);
+              else setIndex(index - 1);
+            }
+            started = false;
+            isDragging = false;
+            deltaX = 0;
+          };
+
+          shell.addEventListener("touchstart", onStart, { passive: true });
+          shell.addEventListener("touchmove", onMove, { passive: false });
+          shell.addEventListener("touchend", onEnd);
+          shell.addEventListener("touchcancel", onEnd);
+        }
 
         setIndex(0);
       }
