@@ -75,12 +75,75 @@ def is_capitalized_one_minute_file(path: Path) -> bool:
     return symbol.isalpha() and symbol.isupper()
 
 
+def trim_trailing_blank_lines(path: Path) -> None:
+    """Remove blank lines from the end of the file with minimal I/O."""
+
+    if not path.exists():
+        return
+
+    with path.open("rb+") as file_obj:
+        file_obj.seek(0, os.SEEK_END)
+        end = file_obj.tell()
+        if end == 0:
+            return
+
+        pos = end
+        trimmed = False
+        newline_kept = False
+        skip_cr_for_kept = False
+        skip_cr_for_trimmed = False
+
+        while pos > 0:
+            pos -= 1
+            file_obj.seek(pos)
+            byte = file_obj.read(1)
+
+            if skip_cr_for_kept:
+                skip_cr_for_kept = False
+                if byte == b"\r":
+                    continue
+
+            if skip_cr_for_trimmed:
+                if byte == b"\r":
+                    trimmed = True
+                    skip_cr_for_trimmed = False
+                    continue
+                skip_cr_for_trimmed = False
+
+            if byte == b"\n":
+                if not newline_kept:
+                    newline_kept = True
+                    skip_cr_for_kept = True
+                else:
+                    trimmed = True
+                    skip_cr_for_trimmed = True
+                continue
+
+            if byte in b" \t\r":
+                trimmed = True
+                continue
+
+            break
+        else:
+            if trimmed:
+                file_obj.truncate(0)
+            return
+
+        cutoff = pos + 1
+        if not trimmed:
+            return
+
+        file_obj.truncate(cutoff)
+        file_obj.seek(cutoff)
+        file_obj.write(b"\n")
+
 
 def find_existing_capitalized_files(data_dir: Path) -> list[Path]:
     return sorted(path for path in data_dir.iterdir() if is_capitalized_one_minute_file(path))
 
 
 def get_last_data_date(path: Path) -> Optional[date]:
+    trim_trailing_blank_lines(path)
     last_row: Optional[dict[str, str]] = None
     with path.open("r", newline="") as csv_file:
         reader = csv.DictReader(csv_file)
@@ -240,6 +303,7 @@ def append_to_csv(final_df: pd.DataFrame, output_file: Path) -> None:
         combined["caldt"] = combined["caldt"].dt.strftime("%Y-%m-%d %H:%M:%S")
 
     combined.to_csv(output_file, index=False)
+    trim_trailing_blank_lines(output_file)
     print(f"Data saved to {output_file}")
 
 
@@ -285,7 +349,7 @@ def download_and_merge_data(
         results, next_url = get_polygon_data(
             url=next_url,
             ticker=ticker,
-            adjusted=False,
+            adjusted=True,   # adjusted for splits/dividends
             from_date=start_date,
             to_date=end_date,
         )
@@ -311,6 +375,9 @@ def download_and_merge_data(
     if final_df.empty:
         print("No data after processing.")
         return None
+    
+
+    print(f"Appending {len(final_df)} records to {output_file}...")
 
     append_to_csv(final_df, output_file)
     print(f"Total records after processing: {len(final_df)}")
