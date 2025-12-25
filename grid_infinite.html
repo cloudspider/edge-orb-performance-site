@@ -75,6 +75,11 @@
     .carousel-card {
       min-width: 100%;
     }
+
+    .chart-canvas {
+      width: 100%;
+      min-height: 15rem;
+    }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800">
@@ -218,7 +223,7 @@
                 <p class="font-semibold text-slate-800">Card 1</p>
                 <p class="text-sm text-slate-600">Placeholder canvas for the first grid chart.</p>
               </div>
-              <canvas id="chartCard1" class="max-h-44 w-full"></canvas>
+              <canvas id="chartCard1" class="chart-canvas"></canvas>
             </article>
           </div>
           <div class="carousel-card p-4 md:p-6">
@@ -230,7 +235,7 @@
                 <p class="font-semibold text-slate-800">Card 2</p>
                 <p class="text-sm text-slate-600">Room for another visualization or state readout.</p>
               </div>
-              <canvas id="chartCard2" class="max-h-44 w-full"></canvas>
+              <canvas id="chartCard2" class="chart-canvas"></canvas>
             </article>
           </div>
           <div class="carousel-card p-4 md:p-6">
@@ -242,7 +247,7 @@
                 <p class="font-semibold text-slate-800">Card 3</p>
                 <p class="text-sm text-slate-600">Reserve for infinite grid behavior or metrics.</p>
               </div>
-              <canvas id="chartCard3" class="max-h-44 w-full"></canvas>
+              <canvas id="chartCard3" class="chart-canvas"></canvas>
             </article>
           </div>
         </div>
@@ -282,6 +287,196 @@
       dots.forEach(dot => dot.addEventListener('click', () => setIndex(Number(dot.dataset.dot) || 0)));
 
       setIndex(0);
+    })();
+  </script>
+
+  <script>
+    // Chart.js setup for the infinite grid capacity price-vs-level view
+    (function(){
+      const canvas = document.getElementById('chartCard1');
+      if (!canvas) return;
+
+      const inputRefs = {
+        startingEquity: document.getElementById('startingEquity'),
+        tradeAmount: document.getElementById('tradeAmount'),
+        gridSizePercent: document.getElementById('gridSize'),
+        startingPrice: document.getElementById('startingPrice')
+      };
+
+      const readNumber = (source) => {
+        const val = typeof source === 'number' ? source : parseFloat(source);
+        return Number.isFinite(val) ? val : NaN;
+      };
+
+      const getParams = () => {
+        const se = Number.isFinite(window.startingEquity) ? window.startingEquity : readNumber(inputRefs.startingEquity && inputRefs.startingEquity.value);
+        const ta = Number.isFinite(window.tradeAmount) ? window.tradeAmount : readNumber(inputRefs.tradeAmount && inputRefs.tradeAmount.value);
+        const gs = Number.isFinite(window.gridSizePercent) ? window.gridSizePercent : readNumber(inputRefs.gridSizePercent && inputRefs.gridSizePercent.value);
+        const spCandidate = Number.isFinite(window.startingPrice) ? window.startingPrice : readNumber(inputRefs.startingPrice && inputRefs.startingPrice.value);
+        return {
+          startingEquity: se,
+          tradeAmount: ta,
+          gridSizePercent: gs,
+          startingPrice: Number.isFinite(spCandidate) ? spCandidate : null
+        };
+      };
+
+      const buildSeries = ({ startingEquity, tradeAmount, gridSizePercent, startingPrice }) => {
+        const labels = [];
+        const sold = [];
+        const remaining = [];
+        const total = [];
+        const implied = [];
+
+        const priceAnchor = startingPrice != null && Number.isFinite(startingPrice) ? startingPrice : 100;
+        const step = 1 + (gridSizePercent || 0) / 100;
+
+        let i = 0;
+        // Generate levels until equity depleted; clamp remaining to zero on final point
+        while (true) {
+          const soldEquity = i * tradeAmount;
+          const remainingEquity = startingEquity - soldEquity;
+          labels.push(i);
+          sold.push(Math.max(0, soldEquity));
+          remaining.push(Math.max(0, remainingEquity));
+          total.push(startingEquity);
+          implied.push(priceAnchor * Math.pow(step, i));
+          if (remainingEquity <= 0) break;
+          i += 1;
+        }
+
+        return { labels, sold, remaining, total, implied, priceAnchor };
+      };
+
+      let chartInstance = null;
+
+      const renderChart = () => {
+        const params = getParams();
+        if (!Number.isFinite(params.startingEquity) || params.startingEquity <= 0) return;
+        if (!Number.isFinite(params.tradeAmount) || params.tradeAmount <= 0) return;
+        const { labels, implied, priceAnchor } = buildSeries(params);
+        const points = labels.map((lvl, idx) => ({ x: lvl, y: implied[idx] }));
+
+        if (chartInstance) chartInstance.destroy();
+
+        chartInstance = new Chart(canvas, {
+          type: 'line',
+          data: {
+            datasets: [
+              {
+                label: 'Implied Price',
+                data: points,
+                parsing: false,
+                borderColor: 'rgb(16, 185, 129)',
+                backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                tension: 0.25,
+                borderWidth: 2.5,
+                pointRadius: 4
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: {
+              duration: 350,
+              easing: 'easeOutCubic'
+            },
+            scales: {
+              x: {
+                type: 'linear',
+                title: { display: true, text: 'Grid Level' },
+                ticks: { precision: 0 },
+                grid: { color: 'rgba(148, 163, 184, 0.2)' }
+              },
+              y: {
+                title: { display: true, text: 'Price ($)' },
+                ticks: {
+                  callback: (val) => `$${val}`
+                },
+                beginAtZero: false,
+                grid: { color: 'rgba(148, 163, 184, 0.25)' }
+              }
+            },
+            interaction: { mode: 'nearest', intersect: false },
+            plugins: {
+              tooltip: {
+                callbacks: {
+                  title: (items) => {
+                    const pt = items[0]?.raw;
+                    if (!pt) return '';
+                    const pct = ((pt.y / priceAnchor) - 1) * 100;
+                    const pctLabel = pct >= 0 ? `+${pct.toFixed(2)}%` : `${pct.toFixed(2)}%`;
+                    return `Grid Level ${pt.x}`;
+                  },
+                  label: (ctx) => {
+                    const pt = ctx.raw;
+                    const pct = ((pt.y / priceAnchor) - 1) * 100;
+                    const pctLabel = pct >= 0 ? `+${pct.toFixed(2)}%` : `${pct.toFixed(2)}%`;
+                    return `Price: $${pt.y.toLocaleString(undefined, { maximumFractionDigits: 4 })} (${pctLabel})`;
+                  },
+                  footer: () => 'Implied price only; grid levels are deterministic.'
+                }
+              },
+              legend: { display: false }
+            }
+          }
+        });
+      };
+
+      // Attach to existing inputs if present
+      ['startingEquity', 'tradeAmount', 'gridSize', 'startingPrice'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.addEventListener('input', () => renderChart());
+          el.addEventListener('change', () => renderChart());
+        }
+      });
+
+      const kickOff = (attempts = 0) => {
+        if (window.Chart) {
+          renderChart();
+        } else if (attempts < 10) {
+          setTimeout(() => kickOff(attempts + 1), 120);
+        } else {
+          console.warn('Chart.js not detected; ensure CDN loaded.');
+        }
+      };
+
+      kickOff();
+    })();
+  </script>
+</body>
+</html>
+                  }
+                }
+              },
+              legend: { display: true }
+            }
+          }
+        });
+      };
+
+      // Attach to existing inputs if present
+      ['startingEquity', 'tradeAmount', 'gridSize', 'startingPrice'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.addEventListener('input', () => renderChart());
+          el.addEventListener('change', () => renderChart());
+        }
+      });
+
+      const kickOff = (attempts = 0) => {
+        if (window.Chart) {
+          renderChart();
+        } else if (attempts < 10) {
+          setTimeout(() => kickOff(attempts + 1), 120);
+        } else {
+          console.warn('Chart.js not detected; ensure CDN loaded.');
+        }
+      };
+
+      kickOff();
     })();
   </script>
 </body>

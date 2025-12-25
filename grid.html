@@ -725,7 +725,7 @@
     let DAY_SMA_MAPS = new Map();
     let SMA_METADATA = new Map();
     let SYMBOL_META = new Map();
-    let GRID_STATE = { trades: [], summary: null, equitySeries: [], ladderHistory: [], buyLevels: [], sellLevels: [], baseLevel: null };
+    let GRID_STATE = { trades: [], summary: null, equitySeries: [], ladderHistory: [], buyLevels: [], sellLevels: [], baseLevel: null, gridLevels: [] };
     let TRADE_SORT_STATE = { key: 'buyTime', dir: 'asc' };
     let gridEquityChartInst = null;
     let gridLadderChartInst = null;
@@ -832,6 +832,20 @@
       return idx >= 0 ? (trimmed.length - idx - 1) : 0;
     }
 
+    function decimalsFromStep(step) {
+      if (!Number.isFinite(step)) return 0;
+      const s = String(step);
+      const idx = s.indexOf('.');
+      return idx === -1 ? 0 : (s.length - idx - 1);
+    }
+
+    function snapToTick(value, tick) {
+      if (!Number.isFinite(value) || !Number.isFinite(tick) || tick <= 0) return value;
+      const snapped = Math.round(value / tick) * tick;
+      const d = decimalsFromStep(tick);
+      return Number(snapped.toFixed(Math.min(Math.max(d, 0), 8)));
+    }
+
     function formatCurrency(value) {
       if (!Number.isFinite(value)) return '$0.00';
       return `$${CURRENCY_FORMAT.format(value)}`;
@@ -843,12 +857,18 @@
       return NUMBER_FORMAT.format(value);
     }
 
+    function getActiveTickSize(symbol) {
+      const meta = ensureSymbolMetaEntry(symbol || currentTicker);
+      const tickSize = Number(meta?.tickSize);
+      return Number.isFinite(tickSize) && tickSize > 0 ? tickSize : 0.01;
+    }
+
     function updateBasePriceInput(symbol) {
       const input = document.getElementById('inpBasePrice');
       if (!input) return;
       const meta = ensureSymbolMetaEntry(symbol || currentTicker);
       const basePrice = Number.isFinite(meta?.basePrice) ? meta.basePrice : 100;
-      const tickSize = Number.isFinite(meta?.tickSize) && meta.tickSize > 0 ? meta.tickSize : 0.01;
+      const tickSize = getActiveTickSize(symbol || currentTicker);
       const digits = countDecimals(tickSize);
       const valueStr = Number.isFinite(basePrice)
         ? (digits > 0 ? basePrice.toFixed(digits) : String(Math.round(basePrice)))
@@ -984,7 +1004,63 @@
       return { qty, retained };
     }
 
-    function createGridSpacingHelpers({ spacingType, gridSize, basePrice, firstPrice }) {
+    function buildPercentFixedGridLevels({ basePrice, gridSize, minPrice, maxPrice, tickSize }) {
+      const rawPercent = Number(gridSize);
+      const stepPercent = rawPercent / 100;
+      if (!Number.isFinite(stepPercent) || stepPercent <= 0 || stepPercent >= 1) {
+        return { ladder: [], pairs: [], baseIndex: -1 };
+      }
+      const resolvedTickSize = Number.isFinite(tickSize) && tickSize > 0 ? tickSize : 0.01;
+      const rawBase = Number(basePrice);
+      const base = snapToTick(rawBase, resolvedTickSize);
+      if (!Number.isFinite(base) || base <= 0) {
+        return { ladder: [], pairs: [], baseIndex: -1 };
+      }
+      const minBound = Number.isFinite(minPrice) && minPrice > 0 ? minPrice : base;
+      const maxBound = Number.isFinite(maxPrice) && maxPrice > 0 ? maxPrice : base;
+      const tolerance = 1e-9 * Math.max(1, minBound, maxBound, base);
+      const divisor = 1 - stepPercent;
+      if (divisor <= 0) return { ladder: [], pairs: [], baseIndex: -1 };
+      const down = [];
+      let priceAccumulator = base;
+      let safety = 0;
+      while (safety < 5000) {
+        priceAccumulator = priceAccumulator * divisor;
+        const price = snapToTick(priceAccumulator, resolvedTickSize);
+        if (!Number.isFinite(price) || price <= 0) break;
+        if (price < minBound - tolerance) break;
+        if (!down.length || Math.abs(price - down[down.length - 1]) > tolerance) {
+          down.push(price);
+        }
+        safety += 1;
+      }
+      const up = [];
+      priceAccumulator = base;
+      safety = 0;
+      while (safety < 5000) {
+        priceAccumulator = priceAccumulator / divisor;
+        const price = snapToTick(priceAccumulator, resolvedTickSize);
+        if (!Number.isFinite(price) || price <= 0) break;
+        if (price > maxBound + tolerance) break;
+        if (!up.length || Math.abs(price - up[up.length - 1]) > tolerance) {
+          up.push(price);
+        }
+        safety += 1;
+      }
+      const ladder = [...down.reverse(), base, ...up];
+      const baseIndex = down.length;
+      const pairs = [];
+      for (let i = 0; i < ladder.length - 1; i++) {
+        pairs.push({
+          level: i - baseIndex,
+          buyPrice: ladder[i],
+          sellPrice: ladder[i + 1]
+        });
+      }
+      return { ladder, pairs, baseIndex };
+    }
+
+    function createGridSpacingHelpers({ spacingType, gridSize, basePrice, firstPrice, minPrice, maxPrice, tickSize }) {
       const typeRaw = (spacingType || 'fixed').toLowerCase();
       const isPercentType = typeRaw === 'percent' || typeRaw === 'percent_fixed' || typeRaw === 'percent_ratchet_up';
       if (isPercentType) {
@@ -996,6 +1072,131 @@
         const rawBase = Number(basePrice);
         const anchorBase = Number.isFinite(rawBase) && rawBase > 0 ? rawBase : null;
         let anchor = Math.max(anchorBase != null ? anchorBase : Number(firstPrice) || 0, 1e-9);
+        if (typeRaw === 'percent_fixed') {
+          const levels = buildPercentFixedGridLevels({
+            basePrice: anchor,
+            gridSize: rawPercent,
+            minPrice,
+            maxPrice,
+            tickSize
+          });
+          if (Number.isInteger(levels.baseIndex) && levels.baseIndex >= 0 && Array.isArray(levels.ladder)) {
+            const snappedBase = levels.ladder[levels.baseIndex];
+            if (Number.isFinite(snappedBase)) {
+              anchor = snappedBase;
+            }
+          }
+          if (Array.isArray(levels.pairs)) {
+            console.log('Percent fixed grid levels:', levels.pairs);
+          }
+          const ladder = Array.isArray(levels.ladder) ? levels.ladder : [];
+          const priceTolerance = 1e-6;
+          const findFloorIndex = (value) => {
+            if (!Number.isFinite(value) || !ladder.length) return -1;
+            let lo = 0;
+            let hi = ladder.length - 1;
+            if (value <= ladder[0]) return 0;
+            if (value >= ladder[hi]) return hi;
+            while (lo <= hi) {
+              const mid = Math.floor((lo + hi) / 2);
+              const level = ladder[mid];
+              if (Math.abs(level - value) <= priceTolerance) return mid;
+              if (level < value) {
+                lo = mid + 1;
+              } else {
+                hi = mid - 1;
+              }
+            }
+            return Math.max(0, Math.min(ladder.length - 1, hi));
+          };
+          const findCeilIndex = (value) => {
+            if (!Number.isFinite(value) || !ladder.length) return -1;
+            let lo = 0;
+            let hi = ladder.length - 1;
+            if (value <= ladder[0]) return 0;
+            if (value >= ladder[hi]) return hi;
+            while (lo <= hi) {
+              const mid = Math.floor((lo + hi) / 2);
+              const level = ladder[mid];
+              if (Math.abs(level - value) <= priceTolerance) return mid;
+              if (level < value) {
+                lo = mid + 1;
+              } else {
+                hi = mid - 1;
+              }
+            }
+            return Math.max(0, Math.min(ladder.length - 1, lo));
+          };
+          const findNearestIndex = (value) => {
+            const floorIdx = findFloorIndex(value);
+            const ceilIdx = findCeilIndex(value);
+            if (floorIdx < 0) return ceilIdx;
+            if (ceilIdx < 0) return floorIdx;
+            const floorVal = ladder[floorIdx];
+            const ceilVal = ladder[ceilIdx];
+            if (!Number.isFinite(floorVal)) return ceilIdx;
+            if (!Number.isFinite(ceilVal)) return floorIdx;
+            return Math.abs(value - floorVal) <= Math.abs(ceilVal - value) ? floorIdx : ceilIdx;
+          };
+          const snap = (value) => {
+            if (!Number.isFinite(value)) return NaN;
+            const idx = findNearestIndex(value);
+            return idx >= 0 ? ladder[idx] : NaN;
+          };
+          const move = (value, steps = 1) => {
+            if (!Number.isFinite(value) || !ladder.length) return NaN;
+            const idx = findNearestIndex(value);
+            const target = idx + Math.round(steps);
+            return ladder[target] ?? NaN;
+          };
+          const nextUp = (value) => move(value, 1);
+          const nextDown = (value) => move(value, -1);
+          const stepsBetween = (from, to) => {
+            if (!Number.isFinite(from) || !Number.isFinite(to) || !ladder.length) return 0;
+            const fromIdx = findNearestIndex(from);
+            const toIdx = findNearestIndex(to);
+            if (fromIdx < 0 || toIdx < 0) return 0;
+            return toIdx - fromIdx;
+          };
+          const key = (value) => {
+            if (!Number.isFinite(value)) return 'nan';
+            const snapped = snap(value);
+            return Number.isFinite(snapped) ? snapped.toFixed(6) : 'nan';
+          };
+          const floor = (value) => {
+            const idx = findFloorIndex(value);
+            return idx >= 0 ? ladder[idx] : NaN;
+          };
+          const ceil = (value) => {
+            const idx = findCeilIndex(value);
+            return idx >= 0 ? ladder[idx] : NaN;
+          };
+          const setAnchor = (value) => {
+            if (!Number.isFinite(value) || value <= 0) return;
+            anchor = value;
+          };
+          const getAnchor = () => anchor;
+          return {
+            type: 'percent',
+            gridSize: rawPercent,
+            percent,
+            anchor,
+            snap,
+            move,
+            nextUp,
+            nextDown,
+            stepsBetween,
+            key,
+            floor,
+            ceil,
+            priceTolerance,
+            anchorMode: 'fixed',
+            setAnchor,
+            getAnchor,
+            gridLevels: Array.isArray(levels.pairs) ? levels.pairs : [],
+            gridLadder: ladder
+          };
+        }
         const ratio = 1 + percent;
         const logRatio = Math.log(ratio);
         const priceTolerance = 1e-6;
@@ -1155,6 +1356,7 @@
       const gridSpacingType = (document.getElementById('selGridSpacing')?.value || GRID_DEFAULTS.gridSpacingType).toLowerCase();
       const retentionMode = (document.getElementById('selRetentionMode')?.value || 'profit').toLowerCase();
       const entryFilter = (document.getElementById('selEntryFilter')?.value || GRID_DEFAULTS.entryFilter).toLowerCase();
+      const tickSize = getActiveTickSize();
       return {
         gridSize: Number.isFinite(gridSize) ? gridSize : GRID_DEFAULTS.gridSize,
         basePrice: Number.isFinite(basePrice) ? basePrice : 100,
@@ -1163,7 +1365,8 @@
         gridType,
         gridSpacingType,
         retentionMode,
-        entryFilter
+        entryFilter,
+        tickSize
       };
     }
 
@@ -2555,7 +2758,7 @@
     }
 
     function resetGridOutputs(message) {
-      GRID_STATE = { trades: [], summary: null, equitySeries: [], ladderHistory: [], buyLevels: [], sellLevels: [], baseLevel: null };
+      GRID_STATE = { trades: [], summary: null, equitySeries: [], ladderHistory: [], buyLevels: [], sellLevels: [], baseLevel: null, gridLevels: [] };
       renderGridSummary(null);
       renderGridTrades([], { resetPage: true });
       setGridStatus(message || 'Load data and run the backtest to populate results.');
@@ -2764,6 +2967,7 @@
       };
       const buyLevelSet = new Set();
       const sellLevelSet = new Set();
+      let gridLevels = [];
       let resolveBaseLevel = () => NaN;
       const finalizeResult = () => ({
         trades,
@@ -2772,6 +2976,7 @@
         ladderHistory,
         buyLevels: Array.from(buyLevelSet).sort((a, b) => b - a),
         sellLevels: Array.from(sellLevelSet).sort((a, b) => a - b),
+        gridLevels: Array.isArray(gridLevels) ? gridLevels : [],
         baseLevel: (() => {
           const val = resolveBaseLevel();
           return Number.isFinite(val) ? val : null;
@@ -2784,6 +2989,8 @@
       const rawBasePrice = Number(params?.basePrice);
       const gridSpacingType = (params?.gridSpacingType || GRID_DEFAULTS.gridSpacingType).toLowerCase();
       const tradeValue = Number(params?.tradeValue);
+      const tickSize = Number(params?.tickSize);
+      const resolvedTickSize = Number.isFinite(tickSize) && tickSize > 0 ? tickSize : 0.01;
       const fractional = !!params?.fractionalShares;
       const retentionMode = (params?.retentionMode || 'profit').toLowerCase();
       const entryFilter = (params?.entryFilter || 'none').toLowerCase();
@@ -2812,12 +3019,17 @@
         spacingType: gridSpacingType,
         gridSize: rawGridSize,
         basePrice,
-        firstPrice
+        firstPrice,
+        minPrice,
+        maxPrice,
+        tickSize: resolvedTickSize
       });
       if (spacing.error) {
         console.warn('Grid spacing configuration invalid:', spacing.error);
         return finalizeResult();
       }
+      gridLevels = Array.isArray(spacing.gridLevels) ? spacing.gridLevels : [];
+      gridLevels = Array.isArray(spacing.gridLevels) ? spacing.gridLevels : [];
       const snapLevel = spacing.snap;
       const keyFor = spacing.key;
       const nextUpLevel = spacing.nextUp;
@@ -3319,6 +3531,7 @@
       };
       const buyLevelSet = new Set();
       const sellLevelSet = new Set();
+      let gridLevels = [];
       let resolveBaseLevel = () => NaN;
       const finalizeResult = () => ({
         trades,
@@ -3327,6 +3540,7 @@
         ladderHistory,
         buyLevels: Array.from(buyLevelSet).sort((a, b) => b - a),
         sellLevels: Array.from(sellLevelSet).sort((a, b) => a - b),
+        gridLevels: Array.isArray(gridLevels) ? gridLevels : [],
         baseLevel: (() => {
           const val = resolveBaseLevel();
           return Number.isFinite(val) ? val : null;
@@ -3339,6 +3553,8 @@
       const rawBasePrice = Number(params?.basePrice);
       const gridSpacingType = (params?.gridSpacingType || GRID_DEFAULTS.gridSpacingType).toLowerCase();
       const tradeValue = Number(params?.tradeValue);
+      const tickSize = Number(params?.tickSize);
+      const resolvedTickSize = Number.isFinite(tickSize) && tickSize > 0 ? tickSize : 0.01;
       const fractional = !!params?.fractionalShares;
       const retentionMode = (params?.retentionMode || 'profit').toLowerCase();
       const entryFilter = (params?.entryFilter || 'none').toLowerCase();
@@ -3368,7 +3584,10 @@
         spacingType: gridSpacingType,
         gridSize: rawGridSize,
         basePrice,
-        firstPrice
+        firstPrice,
+        minPrice,
+        maxPrice,
+        tickSize: resolvedTickSize
       });
       if (spacing.error) {
         console.warn('Grid spacing configuration invalid:', spacing.error);
@@ -3899,7 +4118,8 @@
           ladderHistory: Array.isArray(result.ladderHistory) ? result.ladderHistory : [],
           buyLevels: Array.isArray(result.buyLevels) ? result.buyLevels : [],
           sellLevels: Array.isArray(result.sellLevels) ? result.sellLevels : [],
-          baseLevel: Number.isFinite(result.baseLevel) ? result.baseLevel : null
+          baseLevel: Number.isFinite(result.baseLevel) ? result.baseLevel : null,
+          gridLevels: Array.isArray(result.gridLevels) ? result.gridLevels : []
         };
         GRID_STATE = safeResult;
         renderGridSummary(safeResult.summary);

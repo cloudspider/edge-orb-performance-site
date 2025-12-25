@@ -145,6 +145,13 @@
     "multiplier": 1
   },
   {
+    "symbol": "MU",
+    "name": "Micron Technology Inc.",
+    "multiplier": 1,
+    "base_price": 265.00,
+    "tick_size": 0.01
+  },
+  {
     "symbol": "CRWV",
     "name": "Coreweave",
     "multiplier": 1
@@ -153,7 +160,7 @@
     "symbol": "IREN",
     "name": "Iris Energy Inc.",
     "multiplier": 1,
-    "base_price": 69.53,
+    "base_price": 41.63,
     "tick_size": 0.01
   },
   {
