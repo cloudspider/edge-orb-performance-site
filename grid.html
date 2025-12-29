@@ -205,12 +205,37 @@
       </div>
 
       <div class="flex-1 min-w-0 mt-4">
+        <div class="flex flex-wrap items-center gap-2 mb-2">
+          <label class="text-sm text-slate-600" for="inpAdhocSymbol">Ad hoc symbol</label>
+          <input
+            id="inpAdhocSymbol"
+            type="text"
+            inputmode="text"
+            autocomplete="off"
+            placeholder="TSLA"
+            class="w-28 rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+          >
+          <button
+            type="button"
+            id="btnAdhocGetData"
+            class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+          >
+            <ion-icon name="download-outline" class="text-base"></ion-icon>
+            <span>Get Data</span>
+          </button>
+        </div>
         <div class="flex items-center gap-2 mb-2">
           <div class="flex-1 min-w-0">
             <div id="tickerSegment" class="w-full rounded-xl border border-slate-200 bg-slate-200 p-px overflow-hidden">
               <span class="px-3 py-1.5 text-sm text-slate-500">Loading…</span>
             </div>
           </div>
+        </div>
+        <div class="flex items-center gap-2 text-xs text-slate-500">
+          <label class="inline-flex items-center gap-2 cursor-pointer">
+            <input id="toggleDownsample" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500" checked>
+            <span>Downsample to 10m</span>
+          </label>
         </div>
         <div id="status" class="text-xs text-slate-500"></div>
       </div>
@@ -696,7 +721,8 @@
       sma50: 50,
       sma100: 100
     };
-    const RESAMPLE_INTERVAL_MINUTES = 10;
+    const DEFAULT_RESAMPLE_INTERVAL_MINUTES = 10;
+    let RESAMPLE_INTERVAL_MINUTES = DEFAULT_RESAMPLE_INTERVAL_MINUTES;
     const SMA_PROPERTY_BY_WINDOW = {
       10: 'sma10',
       20: 'sma20',
@@ -719,6 +745,7 @@
     };
 
     let currentTicker = '';
+    let BASE_ROWS = [];
     let ROWS = [];
     let DAY_GROUPS = new Map();
     let DAYS = [];
@@ -743,6 +770,28 @@
     function setStatus(msg) {
       const el = document.getElementById('status');
       if (el) el.textContent = msg || '';
+    }
+
+    function formatResampleLabel(minutes) {
+      const interval = Number(minutes);
+      if (!Number.isFinite(interval) || interval <= 1) return '1-minute';
+      return `${Math.max(1, Math.floor(interval))}-minute`;
+    }
+
+    function updateLoadedStatus() {
+      if (!Array.isArray(ROWS) || !ROWS.length) {
+        setStatus('');
+        return;
+      }
+      const label = formatResampleLabel(RESAMPLE_INTERVAL_MINUTES);
+      setStatus(`Loaded ${ROWS.length.toLocaleString()} ${label} bars across ${DAYS.length.toLocaleString()} day(s).`);
+    }
+
+    function updateLoadedGridStatus(suffix) {
+      if (!Array.isArray(ROWS) || !ROWS.length) return;
+      const label = formatResampleLabel(RESAMPLE_INTERVAL_MINUTES);
+      const tail = suffix ? ` ${suffix}` : '';
+      setGridStatus(`Loaded ${ROWS.length.toLocaleString()} ${label} bars across ${DAYS.length.toLocaleString()} day(s).${tail}`);
     }
 
     function setGridStatus(msg) {
@@ -1615,6 +1664,64 @@
       if (TRADE_TABLE_STATE.page > totalPages) TRADE_TABLE_STATE.page = totalPages;
       if (TRADE_TABLE_STATE.page < 1) TRADE_TABLE_STATE.page = 1;
       return { pageSize: size, totalPages };
+    }
+
+    function normalizeSymbolInput(val) {
+      return (val || '').trim().toUpperCase();
+    }
+
+    let adhocStatusPoll = null;
+
+    function stopAdhocStatusPolling() {
+      if (adhocStatusPoll) {
+        clearInterval(adhocStatusPoll);
+        adhocStatusPoll = null;
+      }
+    }
+
+    async function fetchAdhocStatus(symbol) {
+      const res = await fetch(`/api/polygon-download/status?symbol=${encodeURIComponent(symbol)}`);
+      if (!res.ok) return;
+      const payload = await res.json();
+      const message = payload && payload.message ? payload.message : '';
+      if (message) {
+        setStatus(message);
+        setGridStatus(message);
+      }
+      if (payload && payload.state && payload.state !== 'running') {
+        stopAdhocStatusPolling();
+      }
+    }
+
+    function startAdhocStatusPolling(symbol) {
+      stopAdhocStatusPolling();
+      if (!symbol) return;
+      adhocStatusPoll = setInterval(() => {
+        fetchAdhocStatus(symbol).catch(() => {});
+      }, 1000);
+      fetchAdhocStatus(symbol).catch(() => {});
+    }
+
+    function setAdhocDownloadBusy(isBusy) {
+      const btn = document.getElementById('btnAdhocGetData');
+      const input = document.getElementById('inpAdhocSymbol');
+      if (btn) btn.disabled = !!isBusy;
+      if (input) input.disabled = !!isBusy;
+    }
+
+    async function requestAdhocDownload(symbol) {
+      const res = await fetch('/api/polygon-download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol })
+      });
+      const contentType = (res.headers.get('content-type') || '').toLowerCase();
+      const payload = contentType.includes('application/json') ? await res.json() : null;
+      if (!res.ok) {
+        const errMsg = payload && payload.error ? payload.error : `HTTP ${res.status}`;
+        throw new Error(errMsg);
+      }
+      return payload;
     }
 
     function updateTradePaginationControls(totalRows, range) {
@@ -2774,12 +2881,30 @@
       buildMonthFilterOptions();
     }
 
-    function normalizeAndIndex(rows) {
-      if (!rows || !rows.length) {
+    function applyResamplingFromBase() {
+      if (!Array.isArray(BASE_ROWS) || !BASE_ROWS.length) {
         ROWS = [];
         DAY_GROUPS = new Map();
         DAYS = [];
         buildMonthFilterOptions();
+        return;
+      }
+      ROWS = resampleIntradayRows(BASE_ROWS, RESAMPLE_INTERVAL_MINUTES);
+      DAY_GROUPS = new Map();
+      for (const row of ROWS) {
+        if (!DAY_GROUPS.has(row.dayKey)) DAY_GROUPS.set(row.dayKey, []);
+        DAY_GROUPS.get(row.dayKey).push(row);
+      }
+      for (const [, arr] of DAY_GROUPS.entries()) arr.sort((a, b) => a.caldt - b.caldt);
+      DAYS = Array.from(DAY_GROUPS.keys()).sort();
+      computeDailySmaMaps();
+      buildMonthFilterOptions();
+    }
+
+    function normalizeAndIndex(rows) {
+      if (!rows || !rows.length) {
+        BASE_ROWS = [];
+        applyResamplingFromBase();
         return;
       }
       const required = ['caldt', 'day', 'open', 'high', 'low', 'close'];
@@ -2794,20 +2919,10 @@
         if ([open, high, low, close].some(v => !Number.isFinite(v))) return null;
         return { caldt, dayKey, open, high, low, close, sma10: null, sma20: null, sma50: null, sma100: null };
       }).filter(Boolean);
-    cleanRows.sort((a, b) => a.caldt - b.caldt);
-
-    ROWS = resampleIntradayRows(cleanRows, RESAMPLE_INTERVAL_MINUTES);
-
-    DAY_GROUPS = new Map();
-    for (const row of ROWS) {
-      if (!DAY_GROUPS.has(row.dayKey)) DAY_GROUPS.set(row.dayKey, []);
-      DAY_GROUPS.get(row.dayKey).push(row);
+      cleanRows.sort((a, b) => a.caldt - b.caldt);
+      BASE_ROWS = cleanRows;
+      applyResamplingFromBase();
     }
-    for (const [, arr] of DAY_GROUPS.entries()) arr.sort((a, b) => a.caldt - b.caldt);
-    DAYS = Array.from(DAY_GROUPS.keys()).sort();
-    computeDailySmaMaps();
-    buildMonthFilterOptions();
-  }
 
     function resampleIntradayRows(rows, minutes) {
       if (!Array.isArray(rows) || !rows.length) return [];
@@ -4158,6 +4273,60 @@
       if (btn) {
         btn.addEventListener('click', () => runGridBacktest());
       }
+      const downsampleToggle = document.getElementById('toggleDownsample');
+      if (downsampleToggle) {
+        downsampleToggle.checked = RESAMPLE_INTERVAL_MINUTES > 1;
+        downsampleToggle.addEventListener('change', () => {
+          RESAMPLE_INTERVAL_MINUTES = downsampleToggle.checked ? DEFAULT_RESAMPLE_INTERVAL_MINUTES : 1;
+          applyResamplingFromBase();
+          updateLoadedStatus();
+          renderDataSummary();
+          if (Array.isArray(ROWS) && ROWS.length) {
+            updateLoadedGridStatus('Running backtest…');
+            runGridBacktest();
+          }
+        });
+      }
+      const adhocInput = document.getElementById('inpAdhocSymbol');
+      const adhocButton = document.getElementById('btnAdhocGetData');
+      if (adhocInput && adhocButton) {
+        const kick = async () => {
+          const symbol = normalizeSymbolInput(adhocInput.value);
+          if (!symbol) {
+            setStatus('Enter a symbol (e.g., TSLA) to download data.');
+            return;
+          }
+          setStatus(`Requesting data for ${symbol}…`);
+          setGridStatus(`Requesting data for ${symbol}…`);
+          setAdhocDownloadBusy(true);
+          startAdhocStatusPolling(symbol);
+          try {
+            const result = await requestAdhocDownload(symbol);
+            const rows = Number(result?.rows);
+            const note = result?.note;
+            if (note === 'up-to-date' || rows === 0) {
+              setStatus(`Data up to date for ${symbol}. Loading…`);
+            } else {
+              const rowLabel = Number.isFinite(rows) && rows > 0 ? `${rows.toLocaleString()} rows` : 'data';
+              setStatus(`Downloaded ${rowLabel} for ${symbol}. Loading…`);
+            }
+            setTicker(symbol);
+            await loadSymbolData(symbol);
+            populateTickerSegment();
+          } catch (err) {
+            const msg = err && err.message ? err.message : String(err);
+            setStatus(`Download failed for ${symbol}: ${msg}`);
+            setGridStatus(`Download failed for ${symbol}: ${msg}`);
+          } finally {
+            stopAdhocStatusPolling();
+            setAdhocDownloadBusy(false);
+          }
+        };
+        adhocButton.addEventListener('click', kick);
+        adhocInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') kick();
+        });
+      }
       const inputs = [
         document.getElementById('selGridType'),
         document.getElementById('selGridSpacing'),
@@ -4265,7 +4434,7 @@
             continue;
           }
           updateSymbolPrecisionFromRows(baseSymbol, parsed.data);
-          setStatus(`Loaded ${ROWS.length.toLocaleString()} 10-minute bars across ${DAYS.length.toLocaleString()} day(s).`);
+          updateLoadedStatus();
           renderGridSummary(null);
           renderGridTrades([], { resetPage: true });
           renderGridEquityChart(null);
@@ -4277,7 +4446,7 @@
           renderLevelDistributionChart([]);
           renderCumulativeLevelDistributionChart([]);
           renderDataSummary();
-          setGridStatus(`Loaded ${ROWS.length.toLocaleString()} 10-minute bars across ${DAYS.length.toLocaleString()} day(s). Running backtest…`);
+          updateLoadedGridStatus('Running backtest…');
           setRunButtonEnabled(true);
           runGridBacktest();
           return true;
@@ -4288,6 +4457,7 @@
       console.error(`Failed to load ${baseSymbol}: ${lastError || 'not found'}`);
       setStatus(`Error loading ${baseSymbol}: ${lastError || 'File not found.'}`);
       setGridStatus(`Error loading ${baseSymbol}: ${lastError || 'File not found.'}`);
+      BASE_ROWS = [];
       ROWS = [];
       DAY_GROUPS = new Map();
       DAYS = [];

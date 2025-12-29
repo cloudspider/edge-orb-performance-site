@@ -1,8 +1,9 @@
 from pathlib import Path
+import argparse
 import csv
 import os
 from datetime import date, datetime, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 import time as time_module
 
 import pandas as pd
@@ -312,8 +313,13 @@ def download_and_merge_data(
     start_date: str,
     end_date: str,
     output_file: Path,
+    progress: Optional[Callable[[str], None]] = None,
 ) -> Optional[pd.DataFrame]:
     """Download intraday data, process it, and append to the CSV file."""
+
+    def notify(message: str) -> None:
+        if progress is not None:
+            progress(message)
 
     now_market = datetime.now(POLYGON_MARKET_TZ)
     today_market = now_market.date()
@@ -336,6 +342,7 @@ def download_and_merge_data(
     next_url: Optional[str] = None
     batch_count = 0
     print(f"Downloading intraday data for {ticker} from {start_date} to {end_date}")
+    notify(f"Downloading {ticker} from {start_date} to {end_date}")
 
     MAX_BATCHES = 500
 
@@ -346,6 +353,7 @@ def download_and_merge_data(
             break
 
         print(f"Batch {batch_count}...")
+        notify(f"Batch {batch_count}...")
         results, next_url = get_polygon_data(
             url=next_url,
             ticker=ticker,
@@ -356,35 +364,95 @@ def download_and_merge_data(
 
         if not results:
             print("No more data or empty batch.")
+            notify("No more data or empty batch.")
             break
 
         all_raw_data.extend(results)
         print(f"Batch {batch_count}: Retrieved {len(results)} records. Total so far: {len(all_raw_data)}")
+        notify(f"Batch {batch_count}: Retrieved {len(results)} records (total {len(all_raw_data)})")
 
         if not next_url:
             print("Download complete (no next_url).")
+            notify("Download complete.")
             break
 
     if not all_raw_data:
         print("No data collected.")
+        notify("No data collected.")
         return None
 
     print(f"Processing {len(all_raw_data)} total records...")
+    notify(f"Processing {len(all_raw_data)} records...")
     final_df = process_data(all_raw_data)
 
     if final_df.empty:
         print("No data after processing.")
+        notify("No data after processing.")
         return None
     
 
     print(f"Appending {len(final_df)} records to {output_file}...")
+    notify(f"Appending {len(final_df)} records...")
 
     append_to_csv(final_df, output_file)
     print(f"Total records after processing: {len(final_df)}")
+    notify(f"Saved {len(final_df)} records.")
     return final_df
 
 
+def download_symbol_data(
+    symbol: str,
+    data_dir: Optional[Path] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    progress: Optional[Callable[[str], None]] = None,
+) -> Optional[pd.DataFrame]:
+    """Download or refresh 1-minute data for a single symbol."""
+
+    cleaned = (symbol or "").strip().upper()
+    if not cleaned:
+        raise ValueError("symbol is required")
+
+    target_dir = data_dir or (Path(__file__).resolve().parents[1] / "data")
+    target_dir.mkdir(parents=True, exist_ok=True)
+    output_file = target_dir / f"{cleaned}_1m.csv"
+
+    today = datetime.now(POLYGON_MARKET_TZ).date()
+    if end_date is None:
+        end_date = today.strftime("%Y-%m-%d")
+
+    if start_date is None:
+        if output_file.exists():
+            last_date = get_last_data_date(output_file)
+            start_dt = last_date + timedelta(days=1) if last_date else today - timedelta(days=730)
+        else:
+            start_dt = today - timedelta(days=730)
+        start_date = start_dt.strftime("%Y-%m-%d")
+
+    return download_and_merge_data(
+        ticker=cleaned,
+        start_date=start_date,
+        end_date=end_date,
+        output_file=output_file,
+        progress=progress,
+    )
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Download Polygon 1-minute aggregates to CSV.")
+    parser.add_argument("--symbol", help="Single symbol to download (e.g., TSLA).")
+    parser.add_argument("--start-date", help="Start date YYYY-MM-DD (defaults to last saved date + 1 or 2y ago).")
+    parser.add_argument("--end-date", help="End date YYYY-MM-DD (defaults to today).")
+    args = parser.parse_args()
+
+    if args.symbol:
+        download_symbol_data(
+            symbol=args.symbol,
+            start_date=args.start_date,
+            end_date=args.end_date,
+        )
+        return
+
     data_dir = Path(__file__).resolve().parents[1] / "data"
     if not data_dir.exists():
         raise RuntimeError(f"Expected data directory at {data_dir}")
