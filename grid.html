@@ -247,15 +247,26 @@
           <h2 class="font-semibold text-slate-700">Grid Parameters</h2>
           <p class="text-sm text-slate-500">Adjust spacing and sizing, then run the backtest on the loaded symbol.</p>
         </div>
-        <button
-          type="button"
-          id="btnRunGridBacktest"
-          class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-300"
-          disabled
-        >
-          <ion-icon name="play-outline" class="text-lg"></ion-icon>
-          <span>Run Backtest</span>
-        </button>
+        <div class="flex flex-wrap gap-2">
+          <button
+            type="button"
+            id="btnRunGridBacktest"
+            class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+            disabled
+          >
+            <ion-icon name="play-outline" class="text-lg"></ion-icon>
+            <span>Run Backtest</span>
+          </button>
+          <button
+            type="button"
+            id="btnSaveGridBacktest"
+            class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100"
+            disabled
+          >
+            <ion-icon name="save-outline" class="text-lg"></ion-icon>
+            <span>Save Backtest</span>
+          </button>
+        </div>
       </div>
 
       <div class="grid gap-4 md:grid-cols-8">
@@ -806,6 +817,13 @@
       btn.classList.toggle('opacity-70', !enabled);
     }
 
+    function setSaveButtonEnabled(enabled) {
+      const btn = document.getElementById('btnSaveGridBacktest');
+      if (!btn) return;
+      btn.disabled = !enabled;
+      btn.classList.toggle('opacity-70', !enabled);
+    }
+
     function updateGridSizeLabel() {
       const label = document.getElementById('gridSizeLabel');
       if (!label) return;
@@ -870,6 +888,48 @@
         meta.precision = precision;
         SYMBOL_META.set(sym, meta);
       }
+    }
+
+    function findFirstPriceFromRows(rows) {
+      if (!Array.isArray(rows) || !rows.length) return null;
+      for (const row of rows) {
+        if (!row) continue;
+        const candidates = [row.open, row.close, row.high, row.low];
+        for (const val of candidates) {
+          if (Number.isFinite(val) && val > 0) return Number(val);
+        }
+      }
+      return null;
+    }
+
+    function updateSymbolBasePriceFromRows(symbol) {
+      const sym = (symbol || '').toUpperCase();
+      if (!sym) return;
+      const rows = Array.isArray(BASE_ROWS) && BASE_ROWS.length ? BASE_ROWS : ROWS;
+      if (!Array.isArray(rows) || !rows.length) return;
+      let minPrice = Number.POSITIVE_INFINITY;
+      let maxPrice = Number.NEGATIVE_INFINITY;
+      for (const row of rows) {
+        if (!row) continue;
+        const low = Number(row.low);
+        const high = Number(row.high);
+        if (Number.isFinite(low)) minPrice = Math.min(minPrice, low);
+        if (Number.isFinite(high)) maxPrice = Math.max(maxPrice, high);
+      }
+      if (!Number.isFinite(minPrice) || !Number.isFinite(maxPrice) || minPrice <= 0 || maxPrice <= 0) return;
+      const meta = ensureSymbolMetaEntry(sym);
+      if (!meta) return;
+      const currentBase = Number(meta.basePrice);
+      const tolerance = 1e-6 * Math.max(1, minPrice, maxPrice);
+      const inRange = Number.isFinite(currentBase)
+        && currentBase >= (minPrice - tolerance)
+        && currentBase <= (maxPrice + tolerance);
+      if (inRange) return;
+      const firstPrice = findFirstPriceFromRows(rows);
+      if (!Number.isFinite(firstPrice) || firstPrice <= 0) return;
+      meta.basePrice = firstPrice;
+      SYMBOL_META.set(sym, meta);
+      updateBasePriceInput(sym);
     }
 
     function countDecimals(value) {
@@ -1668,6 +1728,53 @@
 
     function normalizeSymbolInput(val) {
       return (val || '').trim().toUpperCase();
+    }
+
+    function collectGridBacktestPayload() {
+      if (!GRID_STATE?.summary) return null;
+      const params = getGridParamsFromUI();
+      const summary = GRID_STATE.summary || {};
+      const days = Array.isArray(DAYS) ? DAYS : [];
+      const dateStart = days.length ? days[0] : null;
+      const dateEnd = days.length ? days[days.length - 1] : null;
+      return {
+        symbol: currentTicker || null,
+        bar_interval_minutes: RESAMPLE_INTERVAL_MINUTES,
+        bar_count: Array.isArray(ROWS) ? ROWS.length : 0,
+        day_count: days.length,
+        date_start: dateStart,
+        date_end: dateEnd,
+        base_price: Number.isFinite(params?.basePrice) ? params.basePrice : null,
+        grid_type: params?.gridType || null,
+        grid_size: Number.isFinite(params?.gridSize) ? params.gridSize : null,
+        trade_value: Number.isFinite(params?.tradeValue) ? params.tradeValue : null,
+        retention_mode: params?.retentionMode || null,
+        max_levels: Number.isFinite(summary?.maxOpenLevels) ? summary.maxOpenLevels : null,
+        completed_trades: Number.isFinite(summary?.totalTrades) ? summary.totalTrades : null,
+        net_profit: Number.isFinite(summary?.netProfit) ? summary.netProfit : null,
+        profit_per_level: Number.isFinite(summary?.profitPerLevel) ? summary.profitPerLevel : null,
+        final_equity: Number.isFinite(summary?.finalEquity) ? summary.finalEquity : null,
+        cagr: Number.isFinite(summary?.cagr) ? summary.cagr : null,
+        retained_shares: Number.isFinite(summary?.totalRetainedShares) ? summary.totalRetainedShares : null,
+        max_drawdown: Number.isFinite(summary?.maxDrawdown) ? summary.maxDrawdown : null,
+        max_drawdown_pct: Number.isFinite(summary?.maxDrawdownPct) ? summary.maxDrawdownPct : null,
+        max_deployed_capital: Number.isFinite(summary?.maxDeployedCapital) ? summary.maxDeployedCapital : null
+      };
+    }
+
+    async function requestSaveGridBacktest(payload) {
+      const res = await fetch('/api/save-grid-backtest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const contentType = (res.headers.get('content-type') || '').toLowerCase();
+      const data = contentType.includes('application/json') ? await res.json() : null;
+      if (!res.ok) {
+        const errMsg = data && data.error ? data.error : `HTTP ${res.status}`;
+        throw new Error(errMsg);
+      }
+      return data;
     }
 
     let adhocStatusPoll = null;
@@ -2869,6 +2976,7 @@
       renderGridSummary(null);
       renderGridTrades([], { resetPage: true });
       setGridStatus(message || 'Load data and run the backtest to populate results.');
+      setSaveButtonEnabled(false);
       renderGridEquityChart(null);
       renderLadderChart([]);
       renderFillsPerDayChart([]);
@@ -4248,6 +4356,7 @@
         renderLevelDistributionChart(safeResult.trades);
         renderCumulativeLevelDistributionChart(safeResult.trades);
         renderGridLevels(safeResult.buyLevels, safeResult.sellLevels, safeResult.baseLevel ?? null);
+        setSaveButtonEnabled(!!safeResult.summary);
         if (safeResult.trades.length) {
           const profitLabel = formatCurrency(safeResult.summary?.netProfit ?? 0);
           setGridStatus(`Backtest completed with ${safeResult.trades.length} trade${safeResult.trades.length === 1 ? '' : 's'}. Net profit ${profitLabel}.`);
@@ -4272,6 +4381,27 @@
       const btn = document.getElementById('btnRunGridBacktest');
       if (btn) {
         btn.addEventListener('click', () => runGridBacktest());
+      }
+      const saveBtn = document.getElementById('btnSaveGridBacktest');
+      if (saveBtn) {
+        saveBtn.addEventListener('click', async () => {
+          const payload = collectGridBacktestPayload();
+          if (!payload || !payload.symbol) {
+            setGridStatus('Run a backtest before saving.');
+            return;
+          }
+          setGridStatus('Saving backtest…');
+          setSaveButtonEnabled(false);
+          try {
+            await requestSaveGridBacktest(payload);
+            setGridStatus('Backtest saved.');
+          } catch (err) {
+            const msg = err && err.message ? err.message : String(err);
+            setGridStatus(`Save failed: ${msg}`);
+          } finally {
+            setSaveButtonEnabled(!!GRID_STATE?.summary);
+          }
+        });
       }
       const downsampleToggle = document.getElementById('toggleDownsample');
       if (downsampleToggle) {
@@ -4434,6 +4564,7 @@
             continue;
           }
           updateSymbolPrecisionFromRows(baseSymbol, parsed.data);
+          updateSymbolBasePriceFromRows(baseSymbol);
           updateLoadedStatus();
           renderGridSummary(null);
           renderGridTrades([], { resetPage: true });
