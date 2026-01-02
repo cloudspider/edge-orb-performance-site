@@ -56,18 +56,7 @@
       appearance: textfield;
     }
 
-    /* Segment controls responsive layout */
-    #tickerSegment {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      grid-auto-rows: 1fr;
-      width: 100%;
-      gap: 1px;
-    }
-    #tickerSegment button {
-      width: 100%;
-      height: 100%;
-    }
+    /* Session controls responsive layout */
     #sessionSegment {
       display: flex;
       flex-wrap: wrap;
@@ -116,7 +105,7 @@
 
   <div class="max-w-screen-2xl mx-auto p-6 space-y-6">
     <header class="mb-2">
-      <h1 id="mainTitle" class="text-2xl md:text-3xl font-semibold">Grid</h1>
+      <h1 id="mainTitle" class="text-2xl md:text-3xl font-semibold">Grid Calculator</h1>
     </header>
 
     <section id="gridTabsNav" class="bg-white rounded-2xl shadow-soft p-3 md:p-4">
@@ -162,23 +151,10 @@
       class="space-y-6"
       tabindex="0"
     >
-    <section id="symbolPicker" class="bg-white rounded-2xl shadow-soft p-3 md:p-4">
-      <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-2 mb-2">
-          <div class="flex-1 min-w-0">
-            <div id="tickerSegment" class="w-full rounded-xl border border-slate-200 bg-slate-200 p-px overflow-hidden">
-              <span class="px-3 py-1.5 text-sm text-slate-500">Loading…</span>
-            </div>
-          </div>
-        </div>
-        <div id="status" class="text-xs text-slate-500"></div>
-      </div>
-    </section>
-
     <section id="gridParameters" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
       <div class="flex flex-col gap-1">
         <h2 class="font-semibold text-slate-700">Grid Parameters</h2>
-        <p id="dataSummary" class="text-sm text-slate-500">Select a symbol to load intraday data.</p>
+        <p class="text-sm text-slate-500">Adjust the inputs below to preview ladder levels around the starting price.</p>
       </div>
       <div class="grid grid-flow-col auto-cols-[minmax(180px,1fr)] gap-4 overflow-x-auto pb-2">
         <label class="block">
@@ -446,47 +422,7 @@
       { max: Infinity, className: 'bg-red-50 text-red-700' }
     ];
     let activeTab = 'grid-calculator';
-    const pad2 = (n) => String(n).padStart(2, '0');
-    const dateKeyFromStr = (val) => {
-      if (val == null) return null;
-      if (typeof val === 'string') {
-        const m = val.trim().match(/^(\d{4}-\d{2}-\d{2})/);
-        if (m) return m[1];
-      }
-      const d = new Date(val);
-      if (isNaN(d)) return null;
-      return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-    };
-
-    let currentTicker = '';
-    let ROWS = [];
-    let DAY_GROUPS = new Map();
-    let DAYS = [];
-    let SYMBOL_META = new Map();
     let LAST_GRID_JSON = '';
-
-    function setStatus(msg) {
-      const el = document.getElementById('status');
-      if (el) el.textContent = msg || '';
-    }
-
-    function ensureSymbolMetaEntry(symbol) {
-      const sym = (symbol || '').toUpperCase();
-      if (!sym) return null;
-      if (!SYMBOL_META.has(sym)) {
-        SYMBOL_META.set(sym, { symbol: sym, name: sym, multiplier: 1, precision: DEFAULT_PRICE_PRECISION });
-      }
-      const meta = SYMBOL_META.get(sym);
-      if (meta && !meta.symbol) meta.symbol = sym;
-      return meta || null;
-    }
-
-    function countPriceDecimals(value) {
-      if (!Number.isFinite(value)) return 0;
-      const str = Number(value).toFixed(8).replace(/0+$/,'').replace(/\.$/,'');
-      const idx = str.indexOf('.');
-      return idx >= 0 ? (str.length - idx - 1) : 0;
-    }
 
     function decimals(step) {
       if (!Number.isFinite(step)) return 0;
@@ -548,51 +484,11 @@
       renderGridLadder();
     }
 
-    function inferPricePrecisionFromRows(rows) {
-      if (!Array.isArray(rows)) return DEFAULT_PRICE_PRECISION;
-      let maxDecimals = 0;
-      const limit = Math.min(rows.length, 400);
-      for (let i = 0; i < limit; i++) {
-        const row = rows[i];
-        if (!row) continue;
-        const values = [row.open, row.high, row.low, row.close];
-        for (const val of values) {
-          const decimals = countPriceDecimals(val);
-          if (decimals > maxDecimals) {
-            maxDecimals = decimals;
-            if (maxDecimals >= 6) return 6;
-          }
-        }
-      }
-      return Math.min(Math.max(maxDecimals, DEFAULT_PRICE_PRECISION), 8);
-    }
-
-    function updateSymbolPrecisionFromRows(symbol, rows) {
-      const sym = (symbol || '').toUpperCase();
-      if (!sym) return;
-      const precision = inferPricePrecisionFromRows(rows);
-      const meta = ensureSymbolMetaEntry(sym);
-      if (meta) {
-        meta.precision = precision;
-        SYMBOL_META.set(sym, meta);
-      }
-      renderGridLadder();
-    }
-
     function readNumericInput(id) {
       const el = document.getElementById(id);
       if (!el) return NaN;
       const val = parseFloat(el.value);
       return Number.isFinite(val) ? val : NaN;
-    }
-
-    function resolveSymbolPrecision() {
-      const sym = (currentTicker || '').toUpperCase();
-      if (!sym) return DEFAULT_PRICE_PRECISION;
-      const meta = SYMBOL_META.get(sym) || ensureSymbolMetaEntry(sym);
-      if (!meta) return DEFAULT_PRICE_PRECISION;
-      const precision = Number.isInteger(meta.precision) ? meta.precision : DEFAULT_PRICE_PRECISION;
-      return Math.min(Math.max(precision, 0), 8);
     }
 
     function calculateGridLadder(params) {
@@ -605,7 +501,7 @@
       const tickSize = Number(params?.tickSize);
       const resolvedTickSize = Number.isFinite(tickSize) && tickSize > 0 ? tickSize : 0.01;
       const startPrice = snapToTick(rawStartPrice, resolvedTickSize);
-      const precision = Math.max(resolveSymbolPrecision(), decimals(resolvedTickSize));
+      const precision = Math.max(DEFAULT_PRICE_PRECISION, decimals(resolvedTickSize));
       if (!Number.isFinite(startPrice) || startPrice <= 0) return { rows: [], summary: null, stepSize: null, precision };
       if (!Number.isFinite(gridSize) || gridSize <= 0) return { rows: [], summary: null, stepSize: null, precision };
       if (!Number.isFinite(levelCount) || levelCount <= 0) return { rows: [], summary: null, stepSize: null, precision };
@@ -996,216 +892,6 @@
       }
     }
 
-    function highlightTickerButton(symbol) {
-      const seg = document.getElementById('tickerSegment');
-      if (!seg) return;
-      const upper = (symbol || '').toUpperCase();
-      seg.querySelectorAll('button[data-symbol]').forEach(btn => {
-        const active = (btn.getAttribute('data-symbol') || '').toUpperCase() === upper;
-        btn.classList.toggle('bg-emerald-600', active);
-        btn.classList.toggle('text-white', active);
-        btn.classList.toggle('hover:bg-emerald-600', active);
-        btn.classList.toggle('bg-white', !active);
-        btn.classList.toggle('hover:bg-emerald-50', !active);
-        const nameSpan = btn.querySelector('[data-symbol-name]');
-        if (nameSpan) {
-          nameSpan.classList.toggle('text-emerald-100', active);
-          nameSpan.classList.toggle('text-slate-500', !active);
-        }
-      });
-    }
-
-    function renderDataSummary() {
-      const summaryEl = document.getElementById('dataSummary');
-      if (!summaryEl) return;
-      if (!currentTicker) {
-        summaryEl.textContent = 'Select a symbol to load intraday data.';
-        return;
-      }
-      if (!ROWS.length) {
-        summaryEl.innerHTML = `<span class="font-semibold">${currentTicker}</span> selected. Choose another symbol or verify data files exist in the <code>data/</code> folder.`;
-        return;
-      }
-      const firstDay = DAYS[0];
-      const lastDay = DAYS[DAYS.length - 1];
-      summaryEl.innerHTML = `
-        <span class="font-semibold">${currentTicker}</span> loaded
-        <span class="font-medium">${ROWS.length.toLocaleString()}</span> bars across
-        <span class="font-medium">${DAYS.length.toLocaleString()}</span> trading day(s)
-        (${firstDay || 'n/a'} → ${lastDay || 'n/a'}).
-      `;
-    }
-
-    function setTicker(sym) {
-      currentTicker = (sym || '').toUpperCase();
-      const titleEl = document.getElementById('mainTitle');
-      const meta = ensureSymbolMetaEntry(currentTicker);
-      const friendlyName = meta && meta.name && meta.name.toUpperCase() !== currentTicker ? ` · ${meta.name}` : '';
-      const fullTitle = currentTicker ? `${currentTicker}${friendlyName} - Grid Calculator` : 'Grid Calculator';
-      if (titleEl) titleEl.textContent = fullTitle;
-      document.title = fullTitle;
-      highlightTickerButton(currentTicker);
-      renderDataSummary();
-      renderGridLadder();
-    }
-
-    function normalizeAndIndex(rows) {
-      if (!rows || !rows.length) {
-        ROWS = [];
-        DAY_GROUPS = new Map();
-        DAYS = [];
-        return;
-      }
-      const required = ['caldt', 'day', 'open', 'high', 'low', 'close'];
-      const missing = required.filter(c => !(c in rows[0]));
-      if (missing.length) throw new Error('Missing columns: ' + missing.join(', '));
-
-      ROWS = rows.map(r => {
-        const caldt = new Date(r.caldt);
-        const dayKey = dateKeyFromStr(r.day);
-        const open = Number(r.open), high = Number(r.high), low = Number(r.low), close = Number(r.close);
-        if (!dayKey || isNaN(caldt)) return null;
-        if ([open, high, low, close].some(v => !Number.isFinite(v))) return null;
-        return { caldt, dayKey, open, high, low, close };
-      }).filter(Boolean);
-
-      DAY_GROUPS = new Map();
-      for (const row of ROWS) {
-        if (!DAY_GROUPS.has(row.dayKey)) DAY_GROUPS.set(row.dayKey, []);
-        DAY_GROUPS.get(row.dayKey).push(row);
-      }
-      for (const [key, arr] of DAY_GROUPS.entries()) arr.sort((a, b) => a.caldt - b.caldt);
-      DAYS = Array.from(DAY_GROUPS.keys()).sort();
-    }
-
-    async function loadSymbolData(sym) {
-      const baseSymbol = (sym || '').trim();
-      if (!baseSymbol) return false;
-      const upper = baseSymbol.toUpperCase();
-      if (!SYMBOL_META.has(upper)) {
-        setStatus(`No metadata available for ${upper}.`);
-        return false;
-      }
-      setStatus(`Selected ${upper}. Configure grid parameters below.`);
-      ROWS = [];
-      DAY_GROUPS = new Map();
-      DAYS = [];
-      renderDataSummary();
-      renderGridLadder();
-      return true;
-    }
-
-    function normalizeSymbolEntries(entries) {
-      const map = new Map();
-      const ordered = [];
-      if (!Array.isArray(entries)) return { list: ordered, map };
-      for (const entry of entries) {
-        let symbol = '';
-        let name = '';
-        let multiplier = null;
-        if (typeof entry === 'string') {
-          symbol = entry;
-          name = entry;
-        } else if (entry && typeof entry === 'object') {
-          symbol = entry.symbol;
-          name = entry.name || entry.symbol || '';
-          multiplier = entry.multiplier;
-        } else {
-          continue;
-        }
-        symbol = (symbol || '').toUpperCase().trim();
-        if (!symbol || map.has(symbol)) continue;
-        const existing = SYMBOL_META.get(symbol) || null;
-        const parsedMultiplier = Number(multiplier);
-        const finalMultiplier = Number.isFinite(parsedMultiplier) && parsedMultiplier > 0
-          ? parsedMultiplier
-          : (existing && Number.isFinite(existing.multiplier) ? existing.multiplier : 1);
-        const providedPrecision = entry && typeof entry === 'object' && Number.isInteger(entry.precision) && entry.precision >= 0
-          ? Math.min(entry.precision, 8)
-          : null;
-        const meta = {
-          symbol,
-          name: (typeof name === 'string' && name.trim()) ? name.trim() : (existing && existing.name ? existing.name : symbol),
-          multiplier: finalMultiplier,
-          precision: providedPrecision != null
-            ? providedPrecision
-            : (existing && Number.isInteger(existing.precision) ? existing.precision : null)
-        };
-        map.set(symbol, meta);
-        ordered.push(meta);
-      }
-      return { list: ordered, map };
-    }
-
-    async function populateTickerSegment() {
-      const container = document.getElementById('tickerSegment');
-      if (!container) return;
-      container.innerHTML = '<span class="px-3 py-1.5 text-sm text-slate-500">Loading…</span>';
-      const render = (entries) => {
-        const normalized = normalizeSymbolEntries(entries);
-        SYMBOL_META = normalized.map instanceof Map ? normalized.map : new Map();
-        const list = Array.isArray(normalized.list) ? normalized.list : [];
-        container.innerHTML = '';
-        if (!list.length) {
-          container.innerHTML = '<span class="px-3 py-1.5 text-sm text-slate-500">No symbols available.</span>';
-          highlightTickerButton(currentTicker);
-          return;
-        }
-        list.forEach((meta) => {
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'w-full h-full px-3 py-2 text-left bg-white hover:bg-emerald-50 transition flex flex-col justify-center gap-0.5 leading-tight';
-          btn.setAttribute('data-symbol', meta.symbol);
-          btn.setAttribute('title', meta.name);
-          btn.dataset.multiplier = String(meta.multiplier);
-          btn.innerHTML = `
-            <span class="text-sm font-semibold">${meta.symbol}</span>
-            <span class="text-xs text-slate-500" data-symbol-name>${meta.name}</span>
-          `;
-          container.appendChild(btn);
-        });
-        highlightTickerButton(currentTicker);
-        if (!currentTicker && list[0]) {
-          setTicker(list[0].symbol);
-          loadSymbolData(list[0].symbol);
-        }
-      };
-      try {
-        const res = await fetch('data/index.json', { cache: 'no-cache' });
-        if (res.ok) {
-          const list = await res.json();
-          if (Array.isArray(list) && list.length) { render(list); return; }
-        }
-      } catch (err) {
-        console.warn('Failed to load index.json', err);
-      }
-      try {
-        const res = await fetch('data/', { cache: 'no-cache' });
-        if (res.ok) {
-          const text = await res.text();
-          const ct = (res.headers.get('content-type') || '').toLowerCase();
-          let files = [];
-          if (ct.includes('text/html')) {
-            const doc = new DOMParser().parseFromString(text, 'text/html');
-            files = Array.from(doc.querySelectorAll('a')).map(a => a.getAttribute('href')).filter(Boolean);
-          } else {
-            files = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-          }
-          const regex = /^([A-Za-z0-9-]+)_1m\.csv$/i;
-          const syms = [];
-          for (const f of files) {
-            const name = (f || '').split('/').pop();
-            const m = name.match(regex);
-            if (m) syms.push({ symbol: m[1].toUpperCase(), name: m[1].toUpperCase(), multiplier: undefined });
-          }
-          if (syms.length) { render(syms); return; }
-        }
-      } catch (err) {
-        console.warn('Failed to enumerate data directory', err);
-      }
-      render(['TQQQ', 'TSLA', 'PLTR', 'UVXY']);
-    }
-
     function getBreakevenCellClass(value) {
       if (!Number.isFinite(value)) return 'bg-slate-100 text-slate-500';
       for (const bucket of BREAKEVEN_SHADES) {
@@ -1330,18 +1016,8 @@
       }
     });
 
-    document.addEventListener('click', (e) => {
-      const btn = e.target.closest('#tickerSegment button[data-symbol]');
-      if (!btn) return;
-      const symbol = btn.getAttribute('data-symbol');
-      if (!symbol) return;
-      setTicker(symbol);
-      loadSymbolData(symbol);
-    });
-
     document.addEventListener('DOMContentLoaded', () => {
       setupTabs();
-      populateTickerSegment();
       updateGridSizeLabel();
 
       const spacingEl = document.getElementById('selGridSpacing');
