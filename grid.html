@@ -277,6 +277,7 @@
               id="selGridType"
               class="w-full appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-9 py-2 text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
             >
+              <option value="buy_the_dip">Buy the Dip</option>
               <option value="pullback" selected>Buy-the-Dip Grid</option>
               <option value="grid_ath_reset">Buy-the-Dip · ATH Reset</option>
               <option value="progressive">Progressive Grid</option>
@@ -486,64 +487,82 @@
           <p id="gridStatus" class="text-sm text-slate-500">Load data and run the backtest to populate results.</p>
         </div>
         <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-slate-500">
-          <span>Min Cash:</span>
-          <span id="summaryMinCash" class="text-sm font-semibold text-slate-800">$0.00</span>
-          <span>Cash:</span>
+          <span title="Final account cash balance (cashBalance).">Cash:</span>
           <span id="summaryCash" class="text-sm font-semibold text-slate-800">$0.00</span>
-          <span>Shares:</span>
+          <span title="Final holdings quantity.">Shares:</span>
           <span id="summaryShares" class="text-sm font-semibold text-slate-800">0</span>
         </div>
       </div>
-      <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-10">
+      <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Capital Contributed</dt>
+          <dd id="summaryCapitalContributed" class="mt-2 text-xl font-semibold text-slate-800">—</dd>
+          <span class="summary-tooltip">Total capital deposited into the strategy over the backtest (autofund deposits). Used for reconciliation: Account Equity = Capital Contributed + Net P/L.</span>
+        </div>
+        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Net Trade Cashflow</dt>
+          <dd id="summaryNetCashflow" class="mt-2 text-xl font-semibold text-slate-800">—</dd>
+          <span class="summary-tooltip">Net cashflow from trades only (buys negative, sells positive, commissions included). This is the cash ledger truth.</span>
+        </div>
+        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Holdings Value</dt>
+          <dd id="summaryHoldingsValue" class="mt-2 text-xl font-semibold text-slate-800">—</dd>
+          <span class="summary-tooltip">Market value of current holdings at the final price: shares × final price.</span>
+        </div>
+        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Net P/L (if liquidated)</dt>
+          <dd id="summaryNetProfit" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
+          <span class="summary-tooltip">Net P/L if liquidated at the final price: netCashflowTrades + holdingsValue.</span>
+        </div>
+        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Account Equity</dt>
+          <dd id="summaryAccountEquity" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
+          <span class="summary-tooltip">Account equity at the final price: cashBalance + holdingsValue. Also equals Capital Contributed + Net P/L.</span>
+        </div>
         <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Completed Trades</dt>
           <dd id="summaryTotalTrades" class="mt-2 text-xl font-semibold text-slate-800">0</dd>
-          <span class="summary-tooltip">Count of round-trip trades (buy then matched sell) completed during the test window.</span>
+          <span class="summary-tooltip">Number of completed SELL executions (fills) recorded by the backtest.</span>
         </div>
         <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Levels</dt>
           <dd id="summaryMaxLevels" class="mt-2 text-xl font-semibold text-slate-800">0</dd>
-          <span class="summary-tooltip">Peak simultaneous open ladder levels (active sells) at any point in the run.</span>
-        </div>
-        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
-          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Deployed Capital</dt>
-          <dd id="summaryMaxCapital" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
-          <span class="summary-tooltip">Peak notional capital requirement = trade value × highest open levels (tracks the largest ladder footprint).</span>
-        </div>
-        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
-          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Net Profit</dt>
-          <dd id="summaryNetProfit" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
-          <span class="summary-tooltip">Realized P&L from completed trades only: sell proceeds minus cost basis of those sells.</span>
+          <span class="summary-tooltip">Maximum number of concurrently open grid sell orders (ladder activity metric).</span>
         </div>
         <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Profit per Level</dt>
           <dd id="summaryProfitPerLevel" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
-          <span class="summary-tooltip">Realized net profit normalized by ladder size: net profit ÷ peak open levels.</span>
-        </div>
-        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
-          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Final Equity</dt>
-          <dd id="summaryFinalEquity" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
-          <span class="summary-tooltip">Ending mark-to-market equity at the last bar close: cash plus shares valued at the final bar price (not just the last trade price).</span>
+          <span class="summary-tooltip">Net P/L normalized by ladder size: net profit ÷ peak open levels.</span>
         </div>
         <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">CAGR</dt>
           <dd id="summaryCagr" class="mt-2 text-xl font-semibold text-slate-800">0.00%</dd>
-          <span class="summary-tooltip">Compound annual growth rate using required capital (trade value × max open levels) versus final equity over the test span.</span>
+          <span class="summary-tooltip">Annualised return using Required Capital as the base: ((Required Capital + Net P/L) / Required Capital) over the backtest period.</span>
         </div>
         <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Retained Shares</dt>
           <dd id="summaryRetained" class="mt-2 text-xl font-semibold text-slate-800">0</dd>
-          <span class="summary-tooltip">Total shares intentionally retained after sells and carried forward (not yet closed).</span>
+          <span class="summary-tooltip">Total shares intentionally retained by the retention rule (planned retention only; excludes unsold due to rounding/availability).</span>
+        </div>
+        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Required Capital</dt>
+          <dd id="summaryRequiredCapital" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
+          <span class="summary-tooltip">Peak capital required by the strategy, measured as max(-netCashflowTrades). Robust to partial fills and retention.</span>
+        </div>
+        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Min Cash</dt>
+          <dd id="summaryMinCash" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
+          <span class="summary-tooltip">Minimum account cash balance (cashBalance). In autofund mode this may stay near 0; in margin mode it can go negative.</span>
         </div>
         <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Drawdown</dt>
           <dd id="summaryMaxDD" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
-          <span class="summary-tooltip">Largest peak-to-trough drop in equity (dollars) using bar-end mark-to-market equity.</span>
+          <span class="summary-tooltip">Worst peak-to-trough drawdown of Net P/L (not account equity).</span>
         </div>
         <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Drawdown %</dt>
           <dd id="summaryMaxDDPct" class="mt-2 text-xl font-semibold text-slate-800">0.00%</dd>
-          <span class="summary-tooltip">Same drawdown as a percentage of the prior equity peak, computed on bar-end mark-to-market equity.</span>
+          <span class="summary-tooltip">Max drawdown divided by Required Capital (stable across the run).</span>
         </div>
       </dl>
     </section>
@@ -1100,17 +1119,35 @@
           targetRetained = baseRetained;
           break;
       }
-      targetRetained = Math.min(baseQty, Math.max(0, targetRetained));
-      let targetSell = baseQty - targetRetained;
-      let qty = Math.max(0, Math.min(targetSell, baseQty, Number.isFinite(sharesAvailable) ? sharesAvailable : baseQty));
+      const plannedRetained = Math.min(baseQty, Math.max(0, targetRetained));
+      const targetSell = Math.max(0, baseQty - plannedRetained);
+      const availableShares = Number.isFinite(sharesAvailable) ? sharesAvailable : baseQty;
+      let qty = Math.max(0, Math.min(targetSell, baseQty, availableShares));
       if (!fractional) {
         qty = Math.floor(qty);
-        if (qty <= 0 && baseQty > 0 && (Number.isFinite(sharesAvailable) ? sharesAvailable : baseQty) > 0) {
-          qty = Math.min(baseQty, Number.isFinite(sharesAvailable) ? sharesAvailable : baseQty, 1);
+        if (qty <= 0 && baseQty > 0 && availableShares > 0) {
+          qty = Math.min(baseQty, availableShares, 1);
         }
       }
+      const unsold = Math.max(0, targetSell - qty);
       const retained = Math.max(0, baseQty - qty);
-      return { qty, retained };
+      return {
+        qty,
+        retained,
+        plannedRetained,
+        targetSell,
+        unsold
+      };
+    }
+
+    function estimateCommission(notional, side, params) {
+      const safeNotional = Number(notional);
+      if (!Number.isFinite(safeNotional) || safeNotional <= 0) return 0;
+      const perTrade = Number(params?.commissionPerTrade);
+      if (Number.isFinite(perTrade) && perTrade > 0) return perTrade;
+      const rate = Number(params?.commissionRate);
+      if (Number.isFinite(rate) && rate > 0) return safeNotional * rate;
+      return 0;
     }
 
     function buildPercentFixedGridLevels({ basePrice, gridSize, minPrice, maxPrice, tickSize }) {
@@ -1482,10 +1519,13 @@
     function renderGridSummary(summary) {
       const totalTradesEl = document.getElementById('summaryTotalTrades');
       const maxLevelsEl = document.getElementById('summaryMaxLevels');
+      const capitalContributedEl = document.getElementById('summaryCapitalContributed');
+      const netCashflowEl = document.getElementById('summaryNetCashflow');
+      const holdingsValueEl = document.getElementById('summaryHoldingsValue');
       const netProfitEl = document.getElementById('summaryNetProfit');
       const profitPerLevelEl = document.getElementById('summaryProfitPerLevel');
-      const maxCapitalEl = document.getElementById('summaryMaxCapital');
-      const finalEquityEl = document.getElementById('summaryFinalEquity');
+      const accountEquityEl = document.getElementById('summaryAccountEquity');
+      const requiredCapitalEl = document.getElementById('summaryRequiredCapital');
       const retainedEl = document.getElementById('summaryRetained');
       const cagrEl = document.getElementById('summaryCagr');
       const maxDdEl = document.getElementById('summaryMaxDD');
@@ -1493,114 +1533,127 @@
       const minCashEl = document.getElementById('summaryMinCash');
       const cashEl = document.getElementById('summaryCash');
       const sharesEl = document.getElementById('summaryShares');
-      if (!summary) {
-        if (totalTradesEl) totalTradesEl.textContent = '0';
-        if (maxLevelsEl) maxLevelsEl.textContent = '0';
-        if (netProfitEl) {
-          netProfitEl.textContent = '$0.00';
-          netProfitEl.classList.remove('text-emerald-600', 'text-red-600');
-          netProfitEl.classList.add('text-slate-800');
-        }
-        if (profitPerLevelEl) {
-          profitPerLevelEl.textContent = '$0.00';
-          profitPerLevelEl.classList.remove('text-emerald-600', 'text-red-600');
-          profitPerLevelEl.classList.add('text-slate-800');
-        }
-        if (finalEquityEl) finalEquityEl.textContent = '$0.00';
-        if (retainedEl) retainedEl.textContent = '0';
-        if (cagrEl) {
-          cagrEl.textContent = '0.00%';
-          cagrEl.classList.remove('text-emerald-600', 'text-red-600');
-          cagrEl.classList.add('text-slate-800');
-        }
-        if (maxCapitalEl) maxCapitalEl.textContent = '$0.00';
-        if (maxDdEl) {
-          maxDdEl.textContent = '$0.00';
-          maxDdEl.classList.remove('text-red-600');
-          maxDdEl.classList.add('text-slate-800');
-        }
-        if (maxDdPctEl) {
-          maxDdPctEl.textContent = '0.00%';
-          maxDdPctEl.classList.remove('text-red-600');
-          maxDdPctEl.classList.add('text-slate-800');
-        }
-        if (minCashEl) minCashEl.textContent = '$0.00';
-        if (cashEl) cashEl.textContent = '$0.00';
-        if (sharesEl) sharesEl.textContent = '0';
-        return;
+      const formatCurrencyOrDash = (value) => (Number.isFinite(value) ? formatCurrency(value) : '—');
+      const formatNumberOrDash = (value, digits = 2) => (Number.isFinite(value) ? formatNumber(value, digits) : '—');
+      const formatPercentOrDash = (value) => (Number.isFinite(value) ? formatPercent(value) : '—');
+      const safeSummary = summary || {};
+      const maxLevels = Number.isFinite(safeSummary?.maxOpenLevels) ? safeSummary.maxOpenLevels : 0;
+      const hasLedger = Number.isFinite(safeSummary?.netPLFinal)
+        || Number.isFinite(safeSummary?.netCashflowTradesFinal)
+        || Number.isFinite(safeSummary?.netCashflowTrades)
+        || Number.isFinite(safeSummary?.capitalContributed)
+        || Number.isFinite(safeSummary?.capitalContributedFinal)
+        || Number.isFinite(safeSummary?.requiredCapital);
+      const requiredCapital = Number.isFinite(safeSummary?.requiredCapital)
+        ? safeSummary.requiredCapital
+        : NaN;
+      let netPLFinal = Number.isFinite(safeSummary?.netPLFinal)
+        ? safeSummary.netPLFinal
+        : NaN;
+      const holdingsValueFinal = Number.isFinite(safeSummary?.holdingsValueFinal)
+        ? safeSummary.holdingsValueFinal
+        : (Number.isFinite(safeSummary?.finalEquity) && Number.isFinite(safeSummary?.cash)
+          ? safeSummary.finalEquity - safeSummary.cash
+          : NaN);
+      const accountEquityFinal = Number.isFinite(safeSummary?.finalEquity)
+        ? safeSummary.finalEquity
+        : (Number.isFinite(safeSummary?.accountEquityFinal) ? safeSummary.accountEquityFinal : NaN);
+      const capitalContributedFinal = Number.isFinite(safeSummary?.capitalContributedFinal)
+        ? safeSummary.capitalContributedFinal
+        : (Number.isFinite(safeSummary?.capitalContributed) ? safeSummary.capitalContributed : NaN);
+      const netCashflowTradesFinal = Number.isFinite(safeSummary?.netCashflowTradesFinal)
+        ? safeSummary.netCashflowTradesFinal
+        : (Number.isFinite(safeSummary?.netCashflowTrades) ? safeSummary.netCashflowTrades : NaN);
+      const minCashBalance = Number.isFinite(safeSummary?.minCashBalance)
+        ? safeSummary.minCashBalance
+        : (Number.isFinite(safeSummary?.minCash) ? safeSummary.minCash : NaN);
+      const maxDrawdown = Number.isFinite(safeSummary?.maxDrawdown) ? safeSummary.maxDrawdown : NaN;
+      const drawdownDenom = Number.isFinite(requiredCapital) && Math.abs(requiredCapital) > 1e-9
+        ? Math.abs(requiredCapital)
+        : NaN;
+      const maxDrawdownPct = Number.isFinite(drawdownDenom) && Number.isFinite(maxDrawdown)
+        ? (maxDrawdown / drawdownDenom) * 100
+        : (Number.isFinite(safeSummary?.maxDrawdownPct) ? safeSummary.maxDrawdownPct : NaN);
+      if (!Number.isFinite(netPLFinal)
+        && Number.isFinite(netCashflowTradesFinal)
+        && Number.isFinite(holdingsValueFinal)) {
+        netPLFinal = netCashflowTradesFinal + holdingsValueFinal;
       }
-      if (totalTradesEl) totalTradesEl.textContent = String(summary.totalTrades ?? 0);
-      if (maxLevelsEl) {
-        const maxLevels = Number.isFinite(summary?.maxOpenLevels) ? summary.maxOpenLevels : 0;
-        maxLevelsEl.textContent = maxLevels.toLocaleString();
+      const profitPerLevel = (Number.isFinite(netPLFinal) && maxLevels > 0)
+        ? netPLFinal / maxLevels
+        : NaN;
+      const requiredCapitalValue = hasLedger ? requiredCapital : NaN;
+      const netCashflowValue = hasLedger ? netCashflowTradesFinal : NaN;
+      const capitalContributedValue = hasLedger ? capitalContributedFinal : NaN;
+      const maxDrawdownValue = hasLedger ? maxDrawdown : NaN;
+      const maxDrawdownPctValue = hasLedger ? maxDrawdownPct : NaN;
+      if (!hasLedger) {
+        netPLFinal = NaN;
       }
-      if (maxCapitalEl) {
-        const maxCapital = Number.isFinite(summary?.maxDeployedCapital) ? summary.maxDeployedCapital : 0;
-        maxCapitalEl.textContent = formatCurrency(maxCapital);
-      }
+      if (totalTradesEl) totalTradesEl.textContent = String(safeSummary.totalTrades ?? 0);
+      if (maxLevelsEl) maxLevelsEl.textContent = maxLevels.toLocaleString();
+      if (capitalContributedEl) capitalContributedEl.textContent = formatCurrencyOrDash(capitalContributedValue);
+      if (netCashflowEl) netCashflowEl.textContent = formatCurrencyOrDash(netCashflowValue);
+      if (holdingsValueEl) holdingsValueEl.textContent = formatCurrencyOrDash(holdingsValueFinal);
+      if (accountEquityEl) accountEquityEl.textContent = formatCurrencyOrDash(accountEquityFinal);
+      if (requiredCapitalEl) requiredCapitalEl.textContent = formatCurrencyOrDash(requiredCapitalValue);
       if (netProfitEl) {
-        const net = summary.netProfit ?? 0;
-        netProfitEl.textContent = formatCurrency(net);
+        netProfitEl.textContent = formatCurrencyOrDash(netPLFinal);
         netProfitEl.classList.remove('text-slate-800', 'text-emerald-600', 'text-red-600');
-        if (net > 1e-8) {
+        if (Number.isFinite(netPLFinal) && netPLFinal > 1e-8) {
           netProfitEl.classList.add('text-emerald-600');
-        } else if (net < -1e-8) {
+        } else if (Number.isFinite(netPLFinal) && netPLFinal < -1e-8) {
           netProfitEl.classList.add('text-red-600');
         } else {
           netProfitEl.classList.add('text-slate-800');
         }
       }
       if (profitPerLevelEl) {
-        const val = summary.profitPerLevel ?? 0;
-        profitPerLevelEl.textContent = formatCurrency(val);
+        profitPerLevelEl.textContent = formatCurrencyOrDash(profitPerLevel);
         profitPerLevelEl.classList.remove('text-slate-800', 'text-emerald-600', 'text-red-600');
-        if (val > 1e-8) {
+        if (Number.isFinite(profitPerLevel) && profitPerLevel > 1e-8) {
           profitPerLevelEl.classList.add('text-emerald-600');
-        } else if (val < -1e-8) {
+        } else if (Number.isFinite(profitPerLevel) && profitPerLevel < -1e-8) {
           profitPerLevelEl.classList.add('text-red-600');
         } else {
           profitPerLevelEl.classList.add('text-slate-800');
         }
       }
-      if (finalEquityEl) finalEquityEl.textContent = formatCurrency(summary.finalEquity ?? 0);
-      if (retainedEl) retainedEl.textContent = formatNumber(summary.totalRetainedShares ?? 0, 4);
+      if (retainedEl) retainedEl.textContent = formatNumberOrDash(safeSummary.totalRetainedShares, 4);
       if (cagrEl) {
-        const cagr = summary.cagr ?? 0;
-        const pct = cagr * 100;
-        cagrEl.textContent = formatPercent(pct);
+        const cagr = safeSummary.cagr;
+        const pct = Number.isFinite(cagr) ? cagr * 100 : NaN;
+        cagrEl.textContent = formatPercentOrDash(pct);
         cagrEl.classList.remove('text-slate-800', 'text-emerald-600', 'text-red-600');
-        if (cagr > 1e-6) {
+        if (Number.isFinite(cagr) && cagr > 1e-6) {
           cagrEl.classList.add('text-emerald-600');
-        } else if (cagr < -1e-6) {
+        } else if (Number.isFinite(cagr) && cagr < -1e-6) {
           cagrEl.classList.add('text-red-600');
         } else {
           cagrEl.classList.add('text-slate-800');
         }
       }
       if (maxDdEl) {
-        const maxDd = summary.maxDrawdown ?? 0;
-        maxDdEl.textContent = formatCurrency(maxDd);
+        maxDdEl.textContent = formatCurrencyOrDash(maxDrawdownValue);
         maxDdEl.classList.remove('text-slate-800', 'text-red-600');
-        if (maxDd < -1e-8) {
+        if (Number.isFinite(maxDrawdownValue) && maxDrawdownValue < -1e-8) {
           maxDdEl.classList.add('text-red-600');
         } else {
           maxDdEl.classList.add('text-slate-800');
         }
       }
       if (maxDdPctEl) {
-        const maxDdPct = summary.maxDrawdownPct ?? 0;
-        const pctStr = `${PERCENT_FORMAT.format(maxDdPct)}%`;
-        maxDdPctEl.textContent = pctStr;
+        maxDdPctEl.textContent = formatPercentOrDash(maxDrawdownPctValue);
         maxDdPctEl.classList.remove('text-slate-800', 'text-red-600');
-        if (maxDdPct < -1e-8) {
+        if (Number.isFinite(maxDrawdownPctValue) && maxDrawdownPctValue < -1e-8) {
           maxDdPctEl.classList.add('text-red-600');
         } else {
           maxDdPctEl.classList.add('text-slate-800');
         }
       }
-      if (minCashEl) minCashEl.textContent = formatCurrency(summary.minCash ?? 0);
-      if (cashEl) cashEl.textContent = formatCurrency(summary.cash ?? 0);
-      if (sharesEl) sharesEl.textContent = formatNumber(summary.shares ?? 0, 4);
+      if (minCashEl) minCashEl.textContent = formatCurrencyOrDash(minCashBalance);
+      if (cashEl) cashEl.textContent = formatCurrencyOrDash(safeSummary.cash);
+      if (sharesEl) sharesEl.textContent = formatNumberOrDash(safeSummary.shares, 4);
     }
 
     function getTradeSortValue(trade, key) {
@@ -1624,7 +1677,11 @@
         case 'profit':
         case 'cumProfit':
         case 'runningPnl':
+          if (Number.isFinite(trade.closeNetPL)) return trade.closeNetPL;
+          return Number(trade.runningPnl) || 0;
         case 'drawdown':
+          if (Number.isFinite(trade.drawdownNetPL)) return trade.drawdownNetPL;
+          return Number(trade.drawdown) || 0;
         case 'roiPct':
         case 'gridLevel':
         case 'openLevels':
@@ -1892,6 +1949,12 @@
       for (const trade of visibleTrades) {
         const tr = document.createElement('tr');
         const openLevelsLabel = Number.isFinite(trade.openLevels) ? trade.openLevels.toLocaleString() : '—';
+        const pnlValue = Number.isFinite(trade.closeNetPL)
+          ? trade.closeNetPL
+          : (Number.isFinite(trade.runningPnl) ? trade.runningPnl : 0);
+        const drawdownValue = Number.isFinite(trade.drawdownNetPL)
+          ? trade.drawdownNetPL
+          : (Number.isFinite(trade.drawdown) ? trade.drawdown : 0);
         tr.innerHTML = `
           <td class="px-3 py-2 whitespace-nowrap">${formatDateTime(trade.buyTime)}</td>
           <td class="px-3 py-2 text-right">${formatNumber(trade.buyPrice, 4)}</td>
@@ -1909,8 +1972,8 @@
           <td class="px-3 py-2 text-right">${formatNumber(trade.daysHeld ?? 0, 2)}</td>
           <td class="px-3 py-2 text-right ${trade.profit >= 0 ? 'text-emerald-600' : 'text-red-600'}">${formatCurrency(trade.profit)}</td>
           <td class="px-3 py-2 text-right ${trade.cumProfit >= 0 ? 'text-emerald-600' : 'text-red-600'}">${formatCurrency(trade.cumProfit)}</td>
-          <td class="px-3 py-2 text-right ${trade.runningPnl >= 0 ? 'text-emerald-600' : 'text-red-600'}">${formatCurrency(trade.runningPnl)}</td>
-          <td class="px-3 py-2 text-right ${trade.drawdown >= 0 ? 'text-emerald-600' : 'text-red-600'}">${formatCurrency(trade.drawdown)}</td>
+          <td class="px-3 py-2 text-right ${pnlValue >= 0 ? 'text-emerald-600' : 'text-red-600'}">${formatCurrency(pnlValue)}</td>
+          <td class="px-3 py-2 text-right ${drawdownValue >= 0 ? 'text-emerald-600' : 'text-red-600'}">${formatCurrency(drawdownValue)}</td>
           <td class="px-3 py-2 text-right ${trade.roiPct >= 0 ? 'text-emerald-600' : 'text-red-600'}">${formatPercent(trade.roiPct)}</td>
         `;
         frag.appendChild(tr);
@@ -3345,7 +3408,6 @@
       const addSellOrder = (level, buyInfo) => {
         const price = snapLevel(level);
         if (!Number.isFinite(price) || price <= 0) return null;
-        sellLevelSet.add(price);
         const key = keyFor(price);
         if (!activeSells.has(key)) activeSells.set(key, []);
         const order = {
@@ -3730,6 +3792,547 @@
       summary.maxSharesHeld = maxSharesHeld;
       summary.cagr = cagr;
       summary.maxDeployedCapital = maxDeployedCapital;
+      return finalizeResult();
+    }
+
+    function runGridSimulation(rows, params) {
+      const trades = [];
+      const equitySeries = [];
+      const ladderHistory = [];
+      const summary = {
+        totalTrades: 0,
+        netProfit: 0,
+        profitPerLevel: 0,
+        finalEquity: 0,
+        totalRetainedShares: 0,
+        cash: 0,
+        minCash: 0,
+        shares: 0,
+        maxDrawdown: 0,
+        maxDrawdownPct: 0,
+        maxSharesHeld: 0,
+        maxOpenLevels: 0,
+        maxDeployedCapital: 0,
+        cagr: 0,
+        requiredCapital: 0,
+        netPLFinal: 0,
+        realizedProfit: 0,
+        capitalContributed: 0,
+        netCashflowTrades: 0,
+        capitalContributedFinal: 0,
+        netCashflowTradesFinal: 0,
+        holdingsValueFinal: 0,
+        accountEquityFinal: 0,
+        minCashBalance: 0
+      };
+      const buyLevelSet = new Set();
+      const sellLevelSet = new Set();
+      let gridLevels = [];
+      let resolveBaseLevel = () => NaN;
+      const finalizeResult = () => ({
+        trades,
+        summary,
+        equitySeries,
+        ladderHistory,
+        buyLevels: Array.from(buyLevelSet).sort((a, b) => b - a),
+        sellLevels: Array.from(sellLevelSet).sort((a, b) => a - b),
+        gridLevels: Array.isArray(gridLevels) ? gridLevels : [],
+        baseLevel: (() => {
+          const val = resolveBaseLevel();
+          return Number.isFinite(val) ? val : null;
+        })()
+      });
+      if (!Array.isArray(rows) || !rows.length) {
+        return finalizeResult();
+      }
+
+      const rawGridSize = Number(params?.gridSize);
+      const rawBasePrice = Number(params?.basePrice);
+      const gridSpacingType = (params?.gridSpacingType || GRID_DEFAULTS.gridSpacingType).toLowerCase();
+      const tradeValue = Number(params?.tradeValue);
+      const tickSize = Number(params?.tickSize);
+      const resolvedTickSize = Number.isFinite(tickSize) && tickSize > 0 ? tickSize : 0.01;
+      const fractional = !!params?.fractionalShares;
+      const retentionMode = (params?.retentionMode || 'profit').toLowerCase();
+      const entryFilter = (params?.entryFilter || 'none').toLowerCase();
+      const autoFund = params?.autoFund !== false;
+      if (!Number.isFinite(rawGridSize) || rawGridSize <= 0 || !Number.isFinite(tradeValue) || tradeValue <= 0) {
+        return finalizeResult();
+      }
+      let firstPrice = [rows[0]?.open, rows[0]?.close, rows[0]?.high, rows[0]?.low].map(Number).find(Number.isFinite);
+      if (!Number.isFinite(firstPrice) || firstPrice <= 0) {
+        return finalizeResult();
+      }
+      const basePrice = Number.isFinite(rawBasePrice) && rawBasePrice > 0 ? rawBasePrice : firstPrice;
+      let minPrice = firstPrice;
+      let maxPrice = firstPrice;
+      for (const row of rows) {
+        if (!row) continue;
+        const low = Number(row.low);
+        const high = Number(row.high);
+        if (Number.isFinite(low)) minPrice = Math.min(minPrice, low);
+        if (Number.isFinite(high)) maxPrice = Math.max(maxPrice, high);
+      }
+      if (!Number.isFinite(minPrice) || !Number.isFinite(maxPrice) || minPrice <= 0 || maxPrice <= 0) {
+        return finalizeResult();
+      }
+
+      const spacing = createGridSpacingHelpers({
+        spacingType: gridSpacingType,
+        gridSize: rawGridSize,
+        basePrice,
+        firstPrice,
+        minPrice,
+        maxPrice,
+        tickSize: resolvedTickSize
+      });
+      if (spacing.error) {
+        console.warn('Grid spacing configuration invalid:', spacing.error);
+        return finalizeResult();
+      }
+      gridLevels = Array.isArray(spacing.gridLevels) ? spacing.gridLevels : [];
+      const snapLevel = spacing.snap;
+      const keyFor = spacing.key;
+      const nextUpLevel = spacing.nextUp;
+      const nextDownLevel = spacing.nextDown;
+      const stepsBetween = spacing.stepsBetween;
+      const priceTolerance = spacing.priceTolerance ?? 1e-9;
+      const applyBaseAnchor = (basePrice) => {
+        if (typeof spacing.setAnchor !== 'function') return;
+        const snapped = snapLevel(basePrice);
+        if (Number.isFinite(snapped) && snapped > 0) {
+          spacing.setAnchor(snapped);
+        }
+      };
+      applyBaseAnchor(basePrice);
+      const initialBaseLevel = snapLevel(basePrice);
+      resolveBaseLevel = () => initialBaseLevel;
+      const computeRungIndex = (level) => {
+        if (!Number.isFinite(level) || !Number.isFinite(initialBaseLevel)) return 0;
+        const diff = stepsBetween(initialBaseLevel, level);
+        if (!Number.isFinite(diff)) return 0;
+        return Math.round(diff);
+      };
+
+      const activeBuys = new Map();
+      const activeSells = new Map();
+      let orderSeq = 1;
+      let fundedLevels = 0;
+
+      const getActiveSellCount = () => {
+        let count = 0;
+        for (const arr of activeSells.values()) {
+          if (Array.isArray(arr)) count += arr.length;
+        }
+        return count;
+      };
+
+      const removeOrder = (map, order) => {
+        if (!order || !Number.isFinite(order.level)) return;
+        const key = keyFor(order.level);
+        const arr = map.get(key);
+        if (!arr) return;
+        const idx = arr.indexOf(order);
+        if (idx >= 0) arr.splice(idx, 1);
+        if (!arr.length) map.delete(key);
+      };
+
+      const addBuyOrder = (level) => {
+        const price = snapLevel(level);
+        if (!Number.isFinite(price) || price <= 0) return null;
+        buyLevelSet.add(price);
+        const key = keyFor(price);
+        const existing = activeBuys.get(key);
+        if (existing && existing.length) return existing[0];
+        const order = { id: orderSeq++, level: price, rungIndex: computeRungIndex(price) };
+        activeBuys.set(key, [order]);
+        return order;
+      };
+
+      const addSellOrder = (level, buyInfo) => {
+        const price = snapLevel(level);
+        if (!Number.isFinite(price) || price <= 0) return null;
+        sellLevelSet.add(price);
+        const key = keyFor(price);
+        if (!activeSells.has(key)) activeSells.set(key, []);
+        const order = {
+          id: orderSeq++,
+          level: price,
+          buyPrice: Number(buyInfo?.price),
+          buyQty: Number(buyInfo?.qty),
+          buyTime: buyInfo?.time instanceof Date ? new Date(buyInfo.time.getTime()) : new Date(),
+          buyRung: Number.isFinite(buyInfo?.rungIndex)
+            ? buyInfo.rungIndex
+            : computeRungIndex(Number(buyInfo?.price)),
+          plannedRetained: 0,
+          targetSell: 0,
+          remainingSellQty: 0,
+          buyFee: Number.isFinite(buyInfo?.fee) ? buyInfo.fee : 0
+        };
+        const desiredRaw = tradeValue / price;
+        const desired = fractional ? desiredRaw : Math.floor(desiredRaw);
+        const plan = computeSellExecution({
+          baseQty: order.buyQty,
+          desiredQty: desired,
+          sharesAvailable: Number.POSITIVE_INFINITY,
+          mode: retentionMode,
+          fractional
+        });
+        order.plannedRetained = Number.isFinite(plan.plannedRetained) ? plan.plannedRetained : 0;
+        order.targetSell = Number.isFinite(plan.targetSell)
+          ? plan.targetSell
+          : Math.max(0, order.buyQty - order.plannedRetained);
+        if (!Number.isFinite(order.targetSell) || order.targetSell <= 0) {
+          return null;
+        }
+        order.remainingSellQty = order.targetSell;
+        sellLevelSet.add(price);
+        activeSells.get(key).push(order);
+        return order;
+      };
+
+      const seedLadderFromBase = (basePrice) => {
+        const snappedBase = snapLevel(basePrice);
+        if (!Number.isFinite(snappedBase) || snappedBase <= 0) return;
+        let level = nextDownLevel(snappedBase);
+        let safety = 0;
+        const coverageFloor = Math.max(minPrice, priceTolerance);
+        while (
+          Number.isFinite(level) &&
+          level > 0 &&
+          level >= coverageFloor - priceTolerance * Math.max(1, level) &&
+          safety < 5000
+        ) {
+          addBuyOrder(level);
+          const nextLevel = nextDownLevel(level);
+          if (!Number.isFinite(nextLevel) || Math.abs(nextLevel - level) <= priceTolerance * Math.max(1, level)) break;
+          level = nextLevel;
+          safety += 1;
+        }
+        level = nextUpLevel(snappedBase);
+        safety = 0;
+        const coverageCeil = Math.max(maxPrice, priceTolerance);
+        while (
+          Number.isFinite(level) &&
+          level > 0 &&
+          level <= coverageCeil + priceTolerance * Math.max(1, level) &&
+          safety < 5000
+        ) {
+          addBuyOrder(level);
+          const nextLevel = nextUpLevel(level);
+          if (!Number.isFinite(nextLevel) || Math.abs(nextLevel - level) <= priceTolerance * Math.max(1, level)) break;
+          level = nextLevel;
+          safety += 1;
+        }
+      };
+
+      seedLadderFromBase(basePrice);
+
+      let cashBalance = 0;
+      let capitalContributed = 0;
+      let netCashflowTrades = 0;
+      let minCashBalance = cashBalance;
+      let shares = 0;
+      let realizedProfit = 0;
+      let cumulativeRetained = 0;
+      let maxSharesHeld = shares;
+      let requiredCapital = 0;
+      let peakNetPL = 0;
+      let maxDrawdownNetPL = 0;
+      let prevPrice = firstPrice;
+      const firstEquityTime = rows[0]?.caldt instanceof Date ? new Date(rows[0].caldt.getTime()) : null;
+      let lastEquityTime = firstEquityTime;
+      let ledgerWarningIssued = false;
+
+      const updateRequiredCapital = () => {
+        requiredCapital = Math.max(requiredCapital, -netCashflowTrades);
+      };
+
+      const checkLedgerInvariant = (equity, netPL, holdingsValue) => {
+        if (ledgerWarningIssued) return;
+        const eqDelta = Math.abs(equity - (capitalContributed + netPL));
+        const plDelta = Math.abs(netPL - (netCashflowTrades + holdingsValue));
+        const scale = Math.max(
+          1,
+          Math.abs(equity),
+          Math.abs(netPL),
+          Math.abs(netCashflowTrades),
+          Math.abs(holdingsValue),
+          Math.abs(capitalContributed)
+        );
+        if (eqDelta > scale * 1e-6 || plDelta > scale * 1e-6) {
+          ledgerWarningIssued = true;
+          console.warn('Grid ledger invariant drift:', {
+            eqDelta,
+            plDelta,
+            equity,
+            capitalContributed,
+            netPL,
+            netCashflowTrades,
+            holdingsValue
+          });
+        }
+      };
+
+      const computeSellFillQty = ({ remainingSellQty, sharesAvailable }) => {
+        const available = Number.isFinite(sharesAvailable) ? sharesAvailable : remainingSellQty;
+        let qty = Math.max(0, Math.min(remainingSellQty, available));
+        if (!fractional) {
+          qty = Math.floor(qty);
+          if (qty <= 0 && remainingSellQty >= 1 && available > 0) {
+            qty = Math.min(available, 1);
+          }
+        }
+        return qty;
+      };
+
+      const executeBuy = (order, timestamp, contextRow) => {
+        if (!order) return false;
+        const price = order.level;
+        if (!passesEntryFilter(price, contextRow, entryFilter)) {
+          return false;
+        }
+        const qtyRaw = tradeValue / price;
+        let qty = fractional ? qtyRaw : Math.floor(qtyRaw);
+        if (!Number.isFinite(qty) || qty <= 0) {
+          removeOrder(activeBuys, order);
+          return false;
+        }
+        if (autoFund) {
+          const neededPositions = getActiveSellCount() + 1;
+          if (neededPositions > fundedLevels) {
+            const levelsToAdd = neededPositions - fundedLevels;
+            const deposit = levelsToAdd * tradeValue;
+            cashBalance += deposit;
+            capitalContributed += deposit;
+            fundedLevels += levelsToAdd;
+          }
+        }
+        const notional = qty * price;
+        const fee = estimateCommission(notional, 'B', params);
+        cashBalance -= (notional + fee);
+        netCashflowTrades -= (notional + fee);
+        updateRequiredCapital();
+        if (cashBalance < minCashBalance) minCashBalance = cashBalance;
+        shares += qty;
+        if (shares > maxSharesHeld) maxSharesHeld = shares;
+        removeOrder(activeBuys, order);
+        const sellLevel = nextUpLevel(price);
+        if (Number.isFinite(sellLevel) && sellLevel > 0) {
+          const sellOrder = addSellOrder(sellLevel, {
+            price,
+            qty,
+            time: timestamp,
+            rungIndex: Number.isFinite(order?.rungIndex) ? order.rungIndex : computeRungIndex(price),
+            fee
+          });
+          if (sellOrder) {
+            const openLevels = getActiveSellCount();
+            if (openLevels > summary.maxOpenLevels) summary.maxOpenLevels = openLevels;
+          }
+        }
+        return true;
+      };
+
+      const executeSell = (order, timestamp) => {
+        if (!order) return false;
+        const price = order.level;
+        const remaining = Number.isFinite(order.remainingSellQty) ? order.remainingSellQty : order.targetSell;
+        if (!Number.isFinite(remaining) || remaining <= 0) {
+          removeOrder(activeSells, order);
+          return false;
+        }
+        const qty = computeSellFillQty({ remainingSellQty: remaining, sharesAvailable: shares });
+        if (!Number.isFinite(qty) || qty <= 0) {
+          return false;
+        }
+        const notional = qty * price;
+        const fee = estimateCommission(notional, 'S', params);
+        cashBalance += (notional - fee);
+        netCashflowTrades += (notional - fee);
+        updateRequiredCapital();
+        shares -= qty;
+        if (cashBalance < minCashBalance) minCashBalance = cashBalance;
+        order.remainingSellQty = Math.max(0, remaining - qty);
+        const buyFee = Number.isFinite(order.buyFee) ? order.buyFee : 0;
+        const feeAllocated = order.buyQty > 0 ? (buyFee * (qty / order.buyQty)) : 0;
+        const profit = (notional - fee) - (qty * order.buyPrice + feeAllocated);
+        realizedProfit += profit;
+        const closeQty = shares;
+        const holdingsValue = shares * price;
+        const closeEquity = cashBalance + holdingsValue;
+        const closeNetCashflowTrades = netCashflowTrades;
+        const closeHoldingsValue = holdingsValue;
+        const closeNetPL = closeNetCashflowTrades + closeHoldingsValue;
+        const peakNetPLAfter = Math.max(peakNetPL, closeNetPL);
+        const drawdownNetPL = closeNetPL - peakNetPLAfter;
+        if (closeNetPL > peakNetPL) peakNetPL = closeNetPL;
+        const sellTime = timestamp instanceof Date ? new Date(timestamp.getTime()) : new Date();
+        const buyTime = order.buyTime instanceof Date ? new Date(order.buyTime.getTime()) : new Date();
+        const msHeld = sellTime.getTime() - buyTime.getTime();
+        const daysHeld = Number.isFinite(msHeld) ? Math.max(0, msHeld / 86400000) : 0;
+        const openTradesCount = getActiveSellCount();
+        const openLevelSnapshot = openTradesCount;
+        const openEquity = openLevelSnapshot * tradeValue;
+        const qtyRetained = order.remainingSellQty <= 1e-9 ? order.plannedRetained : 0;
+        if (order.remainingSellQty <= 1e-9) {
+          cumulativeRetained += order.plannedRetained;
+          removeOrder(activeSells, order);
+          const buyLevel = nextDownLevel(price);
+          if (Number.isFinite(buyLevel) && buyLevel > 0) {
+            addBuyOrder(buyLevel);
+          }
+        }
+        trades.push({
+          buyTime,
+          buyPrice: order.buyPrice,
+          buyQty: order.buyQty,
+          gridLevel: Number.isFinite(order.buyRung) ? order.buyRung : computeRungIndex(order.buyPrice),
+          openLevels: openLevelSnapshot,
+          openQty: shares + qty,
+          openEquity,
+          sellTime,
+          sellPrice: price,
+          sellQty: qty,
+          closeQty,
+          closeEquity,
+          qtyRetained,
+          cumQtyRetained: cumulativeRetained,
+          daysHeld,
+          profit,
+          cumProfit: realizedProfit,
+          runningPnl: closeNetPL,
+          drawdown: drawdownNetPL,
+          closeNetCashflowTrades,
+          closeHoldingsValue,
+          closeNetPL,
+          drawdownNetPL,
+          roiPct: order.buyPrice > 0 ? ((price - order.buyPrice) / order.buyPrice) * 100 : 0,
+          remainingSellQty: order.remainingSellQty
+        });
+        return true;
+      };
+
+      const processMove = (start, end, timestamp, contextRow) => {
+        if (!Number.isFinite(start) || !Number.isFinite(end)) return;
+        const scale = Math.max(1, Math.abs(start), Math.abs(end));
+        const threshold = priceTolerance * scale;
+        if (end > start + threshold) {
+          const sells = collectOrdersInRange(activeSells, start, end, true);
+          for (const order of sells) executeSell(order, timestamp);
+        } else if (end < start - threshold) {
+          const buys = collectOrdersInRange(activeBuys, end, start, false);
+          for (const order of buys) executeBuy(order, timestamp, contextRow);
+        }
+        if (timestamp instanceof Date) {
+          ladderHistory.push({
+            time: new Date(timestamp.getTime()),
+            buys: activeBuys.size,
+            sells: activeSells.size,
+            queued: 0
+          });
+        }
+      };
+
+      const buildPath = (fromPrice, row) => {
+        const path = [];
+        let start = Number(fromPrice);
+        if (!Number.isFinite(start)) start = Number(row.open) || Number(row.close) || 0;
+        path.push(start);
+        const addPoint = (value) => {
+          const num = Number(value);
+          if (!Number.isFinite(num)) return;
+          if (Math.abs(num - path[path.length - 1]) < priceTolerance * Math.max(1, num)) return;
+          path.push(num);
+        };
+        const open = Number(row.open);
+        const high = Number(row.high);
+        const low = Number(row.low);
+        const close = Number(row.close);
+        if (Number.isFinite(open)) addPoint(open);
+        const upBar = Number.isFinite(close) && Number.isFinite(open) ? (close >= open) : true;
+        if (upBar) {
+          if (Number.isFinite(high)) addPoint(high);
+          if (Number.isFinite(low)) addPoint(low);
+        } else {
+          if (Number.isFinite(low)) addPoint(low);
+          if (Number.isFinite(high)) addPoint(high);
+        }
+        if (Number.isFinite(close)) addPoint(close);
+        return path;
+      };
+
+      for (const row of rows) {
+        if (!row || !(row.caldt instanceof Date)) continue;
+        const path = buildPath(prevPrice, row);
+        for (let i = 1; i < path.length; i++) {
+          const from = path[i - 1];
+          const to = path[i];
+          processMove(from, to, row.caldt, row);
+        }
+        prevPrice = path[path.length - 1];
+        const holdingsValue = shares * prevPrice;
+        const netPL = netCashflowTrades + holdingsValue;
+        const equity = cashBalance + holdingsValue;
+        if (netPL > peakNetPL) peakNetPL = netPL;
+        const drawdownNetPL = netPL - peakNetPL;
+        if (drawdownNetPL < maxDrawdownNetPL) maxDrawdownNetPL = drawdownNetPL;
+        updateRequiredCapital();
+        checkLedgerInvariant(equity, netPL, holdingsValue);
+        lastEquityTime = new Date(row.caldt.getTime());
+        equitySeries.push({
+          time: new Date(row.caldt.getTime()),
+          markPrice: prevPrice,
+          shares,
+          holdingsValue,
+          netCashflowTrades,
+          netPL,
+          cashBalance,
+          cash: cashBalance,
+          capitalContributed,
+          equity,
+          drawdownNetPL,
+          requiredCapital,
+          cashDeployed: Math.max(0, -netCashflowTrades),
+          capitalBudget: capitalContributed
+        });
+      }
+
+      const finalHoldings = shares * prevPrice;
+      const netPLFinal = netCashflowTrades + finalHoldings;
+      const finalEquity = cashBalance + finalHoldings;
+      const millis = firstEquityTime && lastEquityTime ? (lastEquityTime.getTime() - firstEquityTime.getTime()) : 0;
+      const years = millis > 0 ? (millis / (365.25 * 24 * 60 * 60 * 1000)) : 0;
+      const cagrStart = requiredCapital;
+      const cagrEnd = requiredCapital + netPLFinal;
+      const cagr = (years > 0 && cagrStart > 0 && cagrEnd > 0)
+        ? Math.pow(cagrEnd / cagrStart, 1 / years) - 1
+        : 0;
+      const drawdownDenom = Math.max(requiredCapital, 1e-9);
+      const maxDrawdownPct = drawdownDenom > 0 ? (maxDrawdownNetPL / drawdownDenom) * 100 : 0;
+      summary.totalTrades = trades.length;
+      summary.netProfit = netPLFinal;
+      summary.profitPerLevel = summary.maxOpenLevels > 0 ? netPLFinal / summary.maxOpenLevels : 0;
+      summary.finalEquity = finalEquity;
+      summary.totalRetainedShares = cumulativeRetained;
+      summary.cash = cashBalance;
+      summary.minCash = minCashBalance;
+      summary.shares = shares;
+      summary.maxDrawdown = maxDrawdownNetPL;
+      summary.maxDrawdownPct = maxDrawdownPct;
+      summary.maxSharesHeld = maxSharesHeld;
+      summary.cagr = cagr;
+      summary.maxDeployedCapital = requiredCapital;
+      summary.requiredCapital = requiredCapital;
+      summary.netPLFinal = netPLFinal;
+      summary.realizedProfit = realizedProfit;
+      summary.capitalContributed = capitalContributed;
+      summary.netCashflowTrades = netCashflowTrades;
+      summary.capitalContributedFinal = capitalContributed;
+      summary.netCashflowTradesFinal = netCashflowTrades;
+      summary.holdingsValueFinal = finalHoldings;
+      summary.accountEquityFinal = finalEquity;
+      summary.minCashBalance = minCashBalance;
       return finalizeResult();
     }
 
@@ -4333,7 +4936,10 @@
       }
       setGridStatus('Running backtest…');
       try {
-        const result = runPullbackGridSimulation(rowsForRun, params) || {};
+        const gridType = (params?.gridType || 'pullback').toLowerCase();
+        const result = gridType === 'buy_the_dip'
+          ? (runGridSimulation(rowsForRun, params) || {})
+          : (runPullbackGridSimulation(rowsForRun, params) || {});
         const safeResult = {
           trades: Array.isArray(result.trades) ? result.trades : [],
           summary: result.summary || null,

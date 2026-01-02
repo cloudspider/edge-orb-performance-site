@@ -1,15 +1,23 @@
 import json
+import os
 import re
 from http import HTTPStatus
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+try:
+    from dotenv import load_dotenv
+except ModuleNotFoundError:  # pragma: no cover - allow running without python-dotenv
+    def load_dotenv(*args: object, **kwargs: object) -> bool:
+        return False
+
 from polygon_downloader import download_symbol_data
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 SYMBOL_RE = re.compile(r"^[A-Z0-9.-]+$")
 DOWNLOAD_STATUS: dict[str, dict[str, str]] = {}
+load_dotenv()
 
 
 class PolygonRequestHandler(SimpleHTTPRequestHandler):
@@ -19,6 +27,9 @@ class PolygonRequestHandler(SimpleHTTPRequestHandler):
     def do_POST(self) -> None:
         if self.path.startswith("/api/polygon-download"):
             self._handle_download()
+            return
+        if self.path.startswith("/api/save-grid-backtest"):
+            self._handle_save_backtest()
             return
         super().do_POST()
 
@@ -110,6 +121,82 @@ class PolygonRequestHandler(SimpleHTTPRequestHandler):
 
     def _set_status(self, symbol: str, state: str, message: str) -> None:
         DOWNLOAD_STATUS[symbol] = {"state": state, "message": message}
+
+    def _handle_save_backtest(self) -> None:
+        if self.command != "POST":
+            self._send_json({"error": "Method not allowed."}, HTTPStatus.METHOD_NOT_ALLOWED)
+            return
+        payload = self._read_json_payload()
+        if payload is None:
+            self._send_json({"error": "Invalid JSON payload."}, HTTPStatus.BAD_REQUEST)
+            return
+        db_url = self._get_supabase_db_url()
+        if not db_url:
+            self._send_json({"error": "SUPABASE_DB_URL is not configured."}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+        try:
+            record_id = self._insert_backtest(db_url, payload)
+        except Exception as exc:
+            self._send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+        self._send_json({"ok": True, "id": record_id}, HTTPStatus.OK)
+
+    def _read_json_payload(self) -> dict | None:
+        length = int(self.headers.get("Content-Length", "0"))
+        if length <= 0:
+            return None
+        try:
+            body = self.rfile.read(length).decode("utf-8")
+            payload = json.loads(body) if body else {}
+        except Exception:
+            return None
+        return payload if isinstance(payload, dict) else None
+
+    def _get_supabase_db_url(self) -> str:
+        return os.getenv("SUPABASE_DB_URL", "").strip()
+
+    def _insert_backtest(self, db_url: str, payload: dict) -> str:
+        try:
+            import psycopg2
+        except ModuleNotFoundError as exc:
+            raise RuntimeError("psycopg2 is required. Install with: pip install psycopg2-binary") from exc
+
+        columns = [
+            "symbol",
+            "bar_interval_minutes",
+            "bar_count",
+            "day_count",
+            "date_start",
+            "date_end",
+            "base_price",
+            "grid_type",
+            "grid_size",
+            "trade_value",
+            "retention_mode",
+            "max_levels",
+            "completed_trades",
+            "net_profit",
+            "profit_per_level",
+            "final_equity",
+            "cagr",
+            "retained_shares",
+            "max_drawdown",
+            "max_drawdown_pct",
+            "max_deployed_capital",
+        ]
+        values = [payload.get(col) for col in columns]
+        placeholders = ", ".join(["%s"] * len(columns))
+        sql = f"""
+            insert into public.grid_backtests
+            ({", ".join(columns)})
+            values ({placeholders})
+            returning id
+        """
+        with psycopg2.connect(db_url) as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql, values)
+                row = cur.fetchone()
+                return str(row[0]) if row else ""
 
     def _send_json(self, payload: dict, status: HTTPStatus) -> None:
         data = json.dumps(payload).encode("utf-8")
