@@ -223,23 +223,6 @@
           </div>
         </label>
         <label class="block">
-          <span class="text-sm text-slate-600">Grid Type</span>
-          <div class="relative mt-1">
-            <select
-              id="selGridType"
-              class="w-full appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-9 py-2 text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
-            >
-              <option value="pullback" selected>Buy-the-Dip Grid</option>
-              <option value="progressive">Progressive Grid</option>
-            </select>
-            <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.06 1.06l-4.24 4.39a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
-              </svg>
-            </span>
-          </div>
-        </label>
-        <label class="block">
           <span class="text-sm text-slate-600">Grid Spacing</span>
           <div class="relative mt-1">
             <select
@@ -619,7 +602,6 @@
       const levelCount = Math.max(0, Math.floor(Number(params?.levelCount ?? params?.rungCount)));
       const levelsUp = Math.max(0, Math.floor(Number(params?.levelsUp)));
       const tradeAmount = Math.max(0, Number(params?.tradeAmount));
-      const gridType = (params?.gridType || 'pullback').toLowerCase();
       const tickSize = Number(params?.tickSize);
       const resolvedTickSize = Number.isFinite(tickSize) && tickSize > 0 ? tickSize : 0.01;
       const startPrice = snapToTick(rawStartPrice, resolvedTickSize);
@@ -628,7 +610,7 @@
       if (!Number.isFinite(gridSize) || gridSize <= 0) return { rows: [], summary: null, stepSize: null, precision };
       if (!Number.isFinite(levelCount) || levelCount <= 0) return { rows: [], summary: null, stepSize: null, precision };
       const perLevelInvestment = Number.isFinite(tradeAmount) && tradeAmount > 0 ? tradeAmount : 0;
-      const investedForLevel = (level) => perLevelInvestment > 0 ? perLevelInvestment * (level + 1) : 0;
+      const investedForLevel = (level) => perLevelInvestment > 0 ? perLevelInvestment * level : 0;
       const entryPrices = perLevelInvestment > 0 ? [startPrice] : [];
       const computeTotalLoss = (currentPrice) => {
         if (perLevelInvestment <= 0 || !entryPrices.length) return 0;
@@ -643,10 +625,11 @@
       const below = [];
       const stepPercent = gridSize / 100;
       const usePercentSpacing = spacingType === 'percent';
-      const isProgressive = gridType === 'progressive';
-      const aboveLimit = Math.max(0, Math.floor(isProgressive ? levelsUp : levelsUp));
+      const aboveLimit = Math.max(0, Math.floor(levelsUp));
 
       let priceAccumulator = startPrice;
+      let cumulativeSellCashflow = 0;
+      let cumulativeSellProfit = 0;
       for (let i = 1; i <= aboveLimit; i++) {
         let price;
         if (usePercentSpacing) {
@@ -660,6 +643,12 @@
         if (!Number.isFinite(price) || price <= 0) continue;
         const diff = price - startPrice;
         const diffPct = startPrice !== 0 ? (diff / startPrice) * 100 : 0;
+        const trancheRevenue = perLevelInvestment > 0 ? perLevelInvestment * (price / startPrice) : 0;
+        const trancheProfit = trancheRevenue - perLevelInvestment;
+        if (perLevelInvestment > 0) {
+          cumulativeSellCashflow += trancheRevenue;
+          cumulativeSellProfit += trancheProfit;
+        }
         above.push({
           key: `above-${i}`,
           type: 'above',
@@ -669,8 +658,9 @@
           diff,
           diffPct,
           direction: 'Above',
-          investedCash: 0,
-          totalLoss: null
+          cashflow: cumulativeSellCashflow,
+          profitLoss: cumulativeSellProfit,
+          costBasis: investedForLevel(i)
         });
       }
 
@@ -697,8 +687,9 @@
           diff,
           diffPct,
           direction: 'Below',
-          investedCash: investedForLevel(i),
-          totalLoss
+          cashflow: -investedForLevel(i),
+          profitLoss: -totalLoss,
+          costBasis: investedForLevel(i)
         });
         if (perLevelInvestment > 0) {
           entryPrices.push(price);
@@ -714,8 +705,9 @@
         diff: 0,
         diffPct: 0,
         direction: 'Start',
-        investedCash: investedForLevel(0),
-        totalLoss: 0
+        cashflow: 0,
+        profitLoss: 0,
+        costBasis: 0
       };
 
       const allRows = [...above, startRow, ...below];
@@ -728,7 +720,6 @@
           startPrice,
           spacingType,
           gridSize,
-          gridType,
           levelCount,
           tickSize: resolvedTickSize,
           aboveCount: above.length,
@@ -752,7 +743,6 @@
         levelCount: readNumericInput('inpLevelCount'),
         levelsUp: readNumericInput('inpLevelCountUp'),
         tradeAmount: readNumericInput('inpTradeAmount'),
-        gridType: (document.getElementById('selGridType')?.value || 'pullback').toLowerCase(),
         tickSize: readNumericInput('selTickSize')
       };
       const result = calculateGridLadder(params);
@@ -794,8 +784,7 @@
       if (summaryEl) {
         const startStr = priceFormatter.format(summary.startPrice);
         const stepSuffix = stepDescriptor ? `, ${stepDescriptor}` : '';
-        const gridTypeLabel = summary.gridType === 'progressive' ? 'Progressive' : 'Buy-the-Dip';
-        summaryEl.textContent = `${gridTypeLabel} grid: showing ${summary.aboveCount} level(s) above and ${summary.belowCount} level(s) below $${startStr} with ${spacingDescriptor}${stepSuffix}.`;
+        summaryEl.textContent = `Grid ladder: showing ${summary.aboveCount} level(s) above and ${summary.belowCount} level(s) below $${startStr} with ${spacingDescriptor}${stepSuffix}.`;
       }
 
       const rowHtml = rows.map(row => {
@@ -806,22 +795,22 @@
         const pctAbs = pctFormatter.format(Math.abs(row.diffPct));
         const diffText = row.diff === 0 ? `$${diffFormatter.format(0)}` : `${row.diff > 0 ? '+' : '-'}$${diffAbs}`;
         const pctText = row.diffPct === 0 ? `${pctFormatter.format(0)}%` : `${row.diffPct > 0 ? '+' : '-'}${pctAbs}%`;
-        const isDownLevel = row.type === 'start' || row.type === 'below';
-        const investedCash = isDownLevel ? Number(row.investedCash) || 0 : 0;
-        const prevInvested = isDownLevel
-          ? (row.type === 'start' ? investedCash : Math.max(0, investedCash - perLevelInvestment))
-          : 0;
-        const investedText = showInvestmentMetrics && isDownLevel
-          ? (investedCash > 0 ? `$${cashFormatter.format(investedCash)}` : '$0.00')
+        const cashflowValue = showInvestmentMetrics ? Number(row.cashflow) || 0 : 0;
+        const cashflowText = showInvestmentMetrics
+          ? (cashflowValue === 0 ? '$0.00' : `${cashflowValue > 0 ? '+' : '-'}$${cashFormatter.format(Math.abs(cashflowValue))}`)
           : '—';
-        const totalLossValue = isDownLevel ? Number(row.totalLoss) || 0 : 0;
-        const lossText = showInvestmentMetrics && isDownLevel
-          ? (totalLossValue > 0 ? `-$${cashFormatter.format(totalLossValue)}` : '$0.00')
+        const cashflowClass = cashflowValue > 0 ? 'num-pos' : (cashflowValue < 0 ? 'num-neg' : 'text-slate-500');
+        const profitLossValue = showInvestmentMetrics ? Number(row.profitLoss) || 0 : 0;
+        const profitLossText = showInvestmentMetrics
+          ? (profitLossValue === 0 ? '$0.00' : `${profitLossValue > 0 ? '+' : '-'}$${cashFormatter.format(Math.abs(profitLossValue))}`)
           : '—';
-        const lossPctValue = prevInvested > 0 ? (totalLossValue / prevInvested) * 100 : 0;
-        const lossPctText = showInvestmentMetrics && isDownLevel && prevInvested > 0
-          ? (lossPctValue > 0 ? `-${pctFormatter.format(Math.abs(lossPctValue))}%` : '0.00%')
+        const profitLossClass = profitLossValue > 0 ? 'num-pos' : (profitLossValue < 0 ? 'num-neg' : 'text-slate-500');
+        const costBasis = showInvestmentMetrics ? Number(row.costBasis) || 0 : 0;
+        const profitLossPctValue = costBasis > 0 ? (profitLossValue / costBasis) * 100 : 0;
+        const profitLossPctText = showInvestmentMetrics
+          ? (profitLossPctValue === 0 ? '0.00%' : `${profitLossPctValue > 0 ? '+' : '-'}${pctFormatter.format(Math.abs(profitLossPctValue))}%`)
           : '—';
+        const profitLossPctClass = profitLossPctValue > 0 ? 'num-pos' : (profitLossPctValue < 0 ? 'num-neg' : 'text-slate-500');
         const baseCellClass = `px-4 py-2 text-sm ${isStart ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`;
         return `
           <tr class="${isStart ? 'bg-emerald-50' : ''}">
@@ -830,9 +819,9 @@
             <td class="${baseCellClass}">$${priceFormatter.format(row.price)}</td>
             <td class="px-4 py-2 text-sm ${diffClass}">${diffText}</td>
             <td class="px-4 py-2 text-sm ${pctClass}">${pctText}</td>
-            <td class="px-4 py-2 text-sm text-slate-700">${investedText}</td>
-            <td class="px-4 py-2 text-sm text-slate-700">${lossText}</td>
-            <td class="px-4 py-2 text-sm text-slate-700">${lossPctText}</td>
+            <td class="px-4 py-2 text-sm ${cashflowClass}">${cashflowText}</td>
+            <td class="px-4 py-2 text-sm ${profitLossClass}">${profitLossText}</td>
+            <td class="px-4 py-2 text-sm ${profitLossPctClass}">${profitLossPctText}</td>
           </tr>
         `;
       }).join('');
@@ -846,9 +835,9 @@
               <th scope="col" class="px-4 py-2 text-left">Price</th>
               <th scope="col" class="px-4 py-2 text-left">Distance ($)</th>
               <th scope="col" class="px-4 py-2 text-left">Distance (%)</th>
-              <th scope="col" class="px-4 py-2 text-left">Invested Cash ($)</th>
-              <th scope="col" class="px-4 py-2 text-left">Total Loss ($)</th>
-              <th scope="col" class="px-4 py-2 text-left">Loss (%)</th>
+              <th scope="col" class="px-4 py-2 text-left">Cashflow ($)</th>
+              <th scope="col" class="px-4 py-2 text-left">Profit/Loss ($)</th>
+              <th scope="col" class="px-4 py-2 text-left">Profit/Loss (%)</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
@@ -1388,24 +1377,6 @@
       if (levelUpEl) {
         levelUpEl.addEventListener('input', renderGridLadder);
         levelUpEl.addEventListener('change', renderGridLadder);
-      }
-
-      const gridTypeEl = document.getElementById('selGridType');
-      if (gridTypeEl) {
-        gridTypeEl.addEventListener('change', () => {
-          const nextType = (gridTypeEl.value || '').toLowerCase();
-          const levelUpField = document.getElementById('inpLevelCountUp');
-          if (levelUpField && nextType === 'progressive') {
-            levelUpField.value = '5';
-          } else if (levelUpField && nextType === 'pullback') {
-            levelUpField.value = '0';
-          }
-          renderGridLadder();
-        });
-        if ((gridTypeEl.value || '').toLowerCase() === 'progressive') {
-          const levelUpField = document.getElementById('inpLevelCountUp');
-          if (levelUpField) levelUpField.value = '5';
-        }
       }
 
       const tickSizeEl = document.getElementById('selTickSize');
