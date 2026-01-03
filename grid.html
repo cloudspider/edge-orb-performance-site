@@ -213,7 +213,7 @@
             inputmode="text"
             autocomplete="off"
             placeholder="TSLA"
-            class="w-28 rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+            class="w-28 rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-900 uppercase focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
           >
           <button
             type="button"
@@ -222,6 +222,46 @@
           >
             <ion-icon name="download-outline" class="text-base"></ion-icon>
             <span>Get Data</span>
+          </button>
+          <button
+            type="button"
+            id="watchlistAddAdhocBtn"
+            class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+            disabled
+          >
+            <ion-icon name="bookmark-outline" class="text-base"></ion-icon>
+            <span>Add to Watchlist</span>
+          </button>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 mb-2">
+          <label class="text-sm text-slate-600" for="watchlistSelect">Watchlist</label>
+          <div class="relative">
+            <select
+              id="watchlistSelect"
+              class="w-56 appearance-none rounded-lg border border-slate-200 bg-white pl-3 pr-9 py-1.5 text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+            >
+              <option value="__all__">All symbols</option>
+            </select>
+            <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.06 1.06l-4.24 4.39a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
+              </svg>
+            </span>
+          </div>
+          <button
+            type="button"
+            id="watchlistNewBtn"
+            class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+          >
+            New
+          </button>
+          <button
+            type="button"
+            id="watchlistDeleteBtn"
+            class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+            disabled
+          >
+            Delete
           </button>
         </div>
         <div class="flex items-center gap-2 mb-2">
@@ -237,7 +277,16 @@
             <span>Downsample to 10m</span>
           </label>
         </div>
-        <div id="status" class="text-xs text-slate-500"></div>
+        <div id="status" class="text-xs text-slate-500 whitespace-normal break-words"></div>
+      </div>
+    </section>
+    <section id="symbolProfileSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-3">
+      <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <h2 class="font-semibold text-slate-700">Symbol Profile</h2>
+        <span id="symbolProfileLabel" class="text-xs text-slate-500"></span>
+      </div>
+      <div id="tvSymbolProfile" class="min-h-[320px]">
+        <div class="text-sm text-slate-500">Select a symbol to load key facts.</div>
       </div>
     </section>
 
@@ -575,6 +624,28 @@
       </div>
     </section>
 
+    <dialog id="watchlistEditDialog" class="rounded-2xl border border-slate-200 p-0 shadow-soft backdrop:bg-slate-900/30">
+      <form method="dialog" class="p-5 min-w-[280px]">
+        <h3 class="text-sm font-semibold text-slate-800 mb-3">Edit Symbol</h3>
+        <label class="block text-xs text-slate-500 mb-2">
+          Name
+          <input id="watchlistEditName" type="text" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+        </label>
+        <label class="block text-xs text-slate-500 mb-3">
+          Sector
+          <input id="watchlistEditSector" type="text" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+        </label>
+        <label class="block text-xs text-slate-500 mb-3">
+          Exchange
+          <input id="watchlistEditExchange" type="text" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+        </label>
+        <div class="flex items-center justify-end gap-2">
+          <button type="button" class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50" onclick="this.closest('dialog').close()">Cancel</button>
+          <button type="submit" class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500">Save</button>
+        </div>
+      </form>
+    </dialog>
+
     <section id="gridLadderSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
       <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <h2 class="font-semibold text-slate-700">Ladder Activity</h2>
@@ -736,6 +807,9 @@
       entryFilter: 'none'
     };
     const GRID_TYPE = 'buy_the_dip';
+    const WATCHLIST_ALL = '__all__';
+    const WATCHLIST_DEFAULTS = { active: WATCHLIST_ALL, watchlists: { Default: [] }, symbol_meta: {} };
+    const DEFAULT_EXCHANGE = 'NASDAQ';
     const CURRENCY_FORMAT = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const NUMBER_FORMAT = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const NUMBER_FORMAT_4 = new Intl.NumberFormat(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 });
@@ -778,6 +852,10 @@
     let DAY_SMA_MAPS = new Map();
     let SMA_METADATA = new Map();
     let SYMBOL_META = new Map();
+    let SYMBOL_LIST_CACHE = null;
+    let WATCHLIST_STATE = { ...WATCHLIST_DEFAULTS };
+    let LAST_ACTIVE_WATCHLIST = 'Default';
+    let LAST_ADHOC_SYMBOL = '';
     let GRID_STATE = { trades: [], summary: null, equitySeries: [], ladderHistory: [], buyLevels: [], sellLevels: [], baseLevel: null, gridLevels: [] };
     let TRADE_SORT_STATE = { key: 'buyTime', dir: 'asc' };
     let gridEquityChartInst = null;
@@ -861,11 +939,26 @@
       const sym = (symbol || '').toUpperCase();
       if (!sym) return null;
       if (!SYMBOL_META.has(sym)) {
-        SYMBOL_META.set(sym, { symbol: sym, name: sym, multiplier: 1, precision: DEFAULT_PRICE_PRECISION, basePrice: 100, tickSize: 0.01 });
+        SYMBOL_META.set(sym, {
+          symbol: sym,
+          name: sym,
+          sector: '',
+          exchange: DEFAULT_EXCHANGE,
+          multiplier: 1,
+          precision: DEFAULT_PRICE_PRECISION,
+          basePrice: 100,
+          tickSize: 0.01
+        });
       }
       const meta = SYMBOL_META.get(sym);
       if (meta && !meta.symbol) meta.symbol = sym;
+      if (meta && !normalizeExchange(meta.exchange)) meta.exchange = DEFAULT_EXCHANGE;
       return meta || null;
+    }
+
+    function normalizeExchange(value) {
+      if (typeof value !== 'string') return '';
+      return value.trim().toUpperCase();
     }
 
     function countPriceDecimals(value) {
@@ -1882,9 +1975,11 @@
 
     function setAdhocDownloadBusy(isBusy) {
       const btn = document.getElementById('btnAdhocGetData');
+      const watchBtn = document.getElementById('watchlistAddAdhocBtn');
       const input = document.getElementById('inpAdhocSymbol');
       if (btn) btn.disabled = !!isBusy;
       if (input) input.disabled = !!isBusy;
+      if (watchBtn) watchBtn.disabled = !!isBusy || !LAST_ADHOC_SYMBOL;
     }
 
     async function requestAdhocDownload(symbol) {
@@ -1900,6 +1995,12 @@
         throw new Error(errMsg);
       }
       return payload;
+    }
+
+    function setAdhocWatchlistSymbol(symbol) {
+      LAST_ADHOC_SYMBOL = (symbol || '').toUpperCase().trim();
+      const watchBtn = document.getElementById('watchlistAddAdhocBtn');
+      if (watchBtn) watchBtn.disabled = !LAST_ADHOC_SYMBOL;
     }
 
     function updateTradePaginationControls(totalRows, range) {
@@ -3032,6 +3133,67 @@
       `;
     }
 
+    function getSymbolExchange(symbol) {
+      const sym = (symbol || '').trim().toUpperCase();
+      if (!sym) return DEFAULT_EXCHANGE;
+      const metaOverride = WATCHLIST_STATE.symbol_meta ? WATCHLIST_STATE.symbol_meta[sym] : null;
+      const overrideExchange = normalizeExchange(metaOverride && metaOverride.exchange);
+      if (overrideExchange) return overrideExchange;
+      const meta = ensureSymbolMetaEntry(sym);
+      const metaExchange = normalizeExchange(meta && meta.exchange);
+      return metaExchange || DEFAULT_EXCHANGE;
+    }
+
+    function getTradingViewSymbol(symbol, exchange) {
+      const raw = (symbol || '').trim().toUpperCase();
+      if (!raw) return '';
+      if (raw.includes(':')) return raw;
+      const normalizedExchange = normalizeExchange(exchange) || DEFAULT_EXCHANGE;
+      return `${normalizedExchange}:${raw}`;
+    }
+
+    function renderTradingViewProfile(symbol) {
+      const container = document.getElementById('tvSymbolProfile');
+      const label = document.getElementById('symbolProfileLabel');
+      if (!container) return;
+      const sym = (symbol || '').trim().toUpperCase();
+      if (!sym) {
+        container.innerHTML = '<div class="text-sm text-slate-500">Select a symbol to load key facts.</div>';
+        if (label) label.textContent = '';
+        return;
+      }
+      const exchange = getSymbolExchange(sym);
+      const tvSymbol = getTradingViewSymbol(sym, exchange);
+      const linkSymbol = tvSymbol.replace(':', '-');
+      container.innerHTML = `
+        <div class="tradingview-widget-container">
+          <div class="tradingview-widget-container__widget"></div>
+          <div class="tradingview-widget-copyright">
+            <a href="https://www.tradingview.com/symbols/${linkSymbol}/" rel="noopener nofollow" target="_blank">
+              <span class="blue-text">${sym} key facts</span>
+            </a>
+            <span class="trademark"> by TradingView</span>
+          </div>
+        </div>
+      `;
+      const widgetContainer = container.querySelector('.tradingview-widget-container');
+      if (!widgetContainer) return;
+      const script = document.createElement('script');
+      script.type = 'text/javascript';
+      script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-symbol-profile.js';
+      script.async = true;
+      script.textContent = JSON.stringify({
+        symbol: tvSymbol,
+        colorTheme: 'light',
+        isTransparent: true,
+        locale: 'en',
+        width: '100%',
+        height: 300
+      });
+      widgetContainer.appendChild(script);
+      if (label) label.textContent = tvSymbol;
+    }
+
     function setTicker(sym) {
       currentTicker = (sym || '').toUpperCase();
       const titleEl = document.getElementById('mainTitle');
@@ -3042,6 +3204,7 @@
       document.title = fullTitle;
       highlightTickerButton(currentTicker);
       updateBasePriceInput(currentTicker);
+      renderTradingViewProfile(currentTicker);
       const loadingMsg = currentTicker ? `Loading data for ${currentTicker}…` : 'Load data and run the backtest to populate results.';
       resetGridOutputs(loadingMsg);
       setRunButtonEnabled(false);
@@ -3916,6 +4079,11 @@
       const adhocInput = document.getElementById('inpAdhocSymbol');
       const adhocButton = document.getElementById('btnAdhocGetData');
       if (adhocInput && adhocButton) {
+        adhocInput.addEventListener('input', () => {
+          const raw = adhocInput.value || '';
+          const next = raw.toUpperCase();
+          if (next !== raw) adhocInput.value = next;
+        });
         const kick = async () => {
           const symbol = normalizeSymbolInput(adhocInput.value);
           if (!symbol) {
@@ -3939,10 +4107,12 @@
             setTicker(symbol);
             await loadSymbolData(symbol);
             populateTickerSegment();
+            setAdhocWatchlistSymbol(symbol);
           } catch (err) {
             const msg = err && err.message ? err.message : String(err);
             setStatus(`Download failed for ${symbol}: ${msg}`);
             setGridStatus(`Download failed for ${symbol}: ${msg}`);
+            setAdhocWatchlistSymbol('');
           } finally {
             stopAdhocStatusPolling();
             setAdhocDownloadBusy(false);
@@ -3951,6 +4121,14 @@
         adhocButton.addEventListener('click', kick);
         adhocInput.addEventListener('keydown', (e) => {
           if (e.key === 'Enter') kick();
+        });
+      }
+      const addWatchBtn = document.getElementById('watchlistAddAdhocBtn');
+      if (addWatchBtn) {
+        addWatchBtn.addEventListener('click', () => {
+          const symbol = LAST_ADHOC_SYMBOL || normalizeSymbolInput(adhocInput?.value);
+          if (!symbol) return;
+          addSymbolToActiveWatchlist(symbol);
         });
       }
       const inputs = [
@@ -4114,6 +4292,7 @@
         let multiplier = null;
         let basePrice = null;
         let tickSize = null;
+        let exchange = null;
         if (typeof entry === 'string') {
           symbol = entry;
           name = entry;
@@ -4123,6 +4302,7 @@
           multiplier = entry.multiplier;
           basePrice = entry.base_price ?? entry.basePrice;
           tickSize = entry.tick_size ?? entry.tickSize;
+          exchange = entry.exchange ?? entry.exchange_code ?? entry.exchangeCode;
         } else {
           continue;
         }
@@ -4141,12 +4321,20 @@
         const finalTickSize = Number.isFinite(parsedTick) && parsedTick > 0
           ? parsedTick
           : (existing && Number.isFinite(existing.tickSize) ? existing.tickSize : 0.01);
+        const parsedExchange = normalizeExchange(exchange);
+        const finalExchange = parsedExchange
+          || (existing && normalizeExchange(existing.exchange))
+          || DEFAULT_EXCHANGE;
         const providedPrecision = entry && typeof entry === 'object' && Number.isInteger(entry.precision) && entry.precision >= 0
           ? Math.min(entry.precision, 8)
           : null;
         const meta = {
           symbol,
           name: (typeof name === 'string' && name.trim()) ? name.trim() : (existing && existing.name ? existing.name : symbol),
+          sector: (typeof entry?.sector === 'string' && entry.sector.trim())
+            ? entry.sector.trim()
+            : (existing && typeof existing.sector === 'string' ? existing.sector : ''),
+          exchange: finalExchange,
           multiplier: finalMultiplier,
           basePrice: finalBasePrice,
           tickSize: finalTickSize,
@@ -4160,44 +4348,281 @@
       return { list: ordered, map };
     }
 
+    function normalizeWatchlistState(payload) {
+      const raw = payload && typeof payload === 'object' ? payload : {};
+      const rawLists = raw.watchlists && typeof raw.watchlists === 'object' ? raw.watchlists : {};
+      const rawMeta = raw.symbol_meta || raw.symbolMeta;
+      const watchlists = {};
+      for (const [name, symbols] of Object.entries(rawLists)) {
+        const key = String(name || '').trim();
+        if (!key) continue;
+        const list = Array.isArray(symbols) ? symbols : [];
+        const seen = new Set();
+        const cleaned = [];
+        for (const entry of list) {
+          if (typeof entry !== 'string') continue;
+          const sym = entry.trim().toUpperCase();
+          if (!sym || seen.has(sym)) continue;
+          seen.add(sym);
+          cleaned.push(sym);
+        }
+        watchlists[key] = cleaned;
+      }
+      if (!Object.keys(watchlists).length) {
+        watchlists.Default = [];
+      }
+      const symbolMeta = {};
+      if (rawMeta && typeof rawMeta === 'object') {
+        Object.entries(rawMeta).forEach(([sym, meta]) => {
+          const key = String(sym || '').trim().toUpperCase();
+          if (!key || !meta || typeof meta !== 'object') return;
+          const name = typeof meta.name === 'string' ? meta.name.trim() : '';
+          const sector = typeof meta.sector === 'string' ? meta.sector.trim() : '';
+          const exchange = normalizeExchange(meta.exchange);
+          symbolMeta[key] = {
+            name: name || key,
+            sector: sector || '',
+            exchange: exchange || DEFAULT_EXCHANGE
+          };
+        });
+      }
+      let active = typeof raw.active === 'string' ? raw.active : WATCHLIST_ALL;
+      if (active !== WATCHLIST_ALL && !watchlists[active]) {
+        active = Object.keys(watchlists)[0];
+      }
+      return { active, watchlists, symbol_meta: symbolMeta };
+    }
+
+    function getActiveWatchlistName() {
+      return WATCHLIST_STATE.active || WATCHLIST_ALL;
+    }
+
+    function getActiveWatchlistSymbols() {
+      const active = getActiveWatchlistName();
+      if (active === WATCHLIST_ALL) return null;
+      const list = WATCHLIST_STATE.watchlists[active] || [];
+      return new Set(list);
+    }
+
+    function updateWatchlistControls() {
+      const select = document.getElementById('watchlistSelect');
+      const delBtn = document.getElementById('watchlistDeleteBtn');
+      if (!select) return;
+      select.innerHTML = '';
+      const allOpt = document.createElement('option');
+      allOpt.value = WATCHLIST_ALL;
+      allOpt.textContent = 'All symbols';
+      select.appendChild(allOpt);
+      const names = Object.keys(WATCHLIST_STATE.watchlists || {}).sort((a, b) => a.localeCompare(b));
+      names.forEach((name) => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        select.appendChild(opt);
+      });
+      const active = getActiveWatchlistName();
+      select.value = active;
+      if (delBtn) {
+        const canDelete = active !== WATCHLIST_ALL && active !== 'Default' && !!WATCHLIST_STATE.watchlists[active];
+        delBtn.disabled = !canDelete;
+      }
+    }
+
+    async function loadWatchlists() {
+      try {
+        const res = await fetch('/api/watchlists', { cache: 'no-cache' });
+        if (res.ok) {
+          const data = await res.json();
+          WATCHLIST_STATE = normalizeWatchlistState(data);
+          const active = getActiveWatchlistName();
+          if (active !== WATCHLIST_ALL) LAST_ACTIVE_WATCHLIST = active;
+          updateWatchlistControls();
+          return;
+        }
+      } catch (err) {
+        console.warn('Failed to load watchlists', err);
+      }
+      WATCHLIST_STATE = normalizeWatchlistState(WATCHLIST_DEFAULTS);
+      updateWatchlistControls();
+    }
+
+    async function saveWatchlists() {
+      const activeToSave = WATCHLIST_STATE.active === WATCHLIST_ALL
+        ? LAST_ACTIVE_WATCHLIST
+        : WATCHLIST_STATE.active;
+      const payload = {
+        active: activeToSave,
+        watchlists: WATCHLIST_STATE.watchlists,
+        symbol_meta: WATCHLIST_STATE.symbol_meta || {}
+      };
+      try {
+        const res = await fetch('/api/watchlists', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok && (res.status === 501 || res.status === 405)) {
+          await fetch('/api/watchlists', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+        }
+      } catch (err) {
+        console.warn('Failed to save watchlists', err);
+      }
+    }
+
+    function setActiveWatchlist(name) {
+      WATCHLIST_STATE.active = name;
+      if (name !== WATCHLIST_ALL) {
+        LAST_ACTIVE_WATCHLIST = name;
+      }
+      updateWatchlistControls();
+      if (Array.isArray(SYMBOL_LIST_CACHE)) {
+        renderTickerSegment(SYMBOL_LIST_CACHE);
+      } else {
+        populateTickerSegment();
+      }
+      saveWatchlists();
+    }
+
+    function toggleSymbolInActiveWatchlist(symbol) {
+      const active = getActiveWatchlistName();
+      if (active === WATCHLIST_ALL) return;
+      const key = (symbol || '').toUpperCase().trim();
+      if (!key) return;
+      const list = Array.isArray(WATCHLIST_STATE.watchlists[active])
+        ? WATCHLIST_STATE.watchlists[active].slice()
+        : [];
+      const idx = list.indexOf(key);
+      if (idx >= 0) {
+        list.splice(idx, 1);
+      } else {
+        list.push(key);
+      }
+      WATCHLIST_STATE.watchlists[active] = list;
+      saveWatchlists();
+      if (Array.isArray(SYMBOL_LIST_CACHE)) {
+        renderTickerSegment(SYMBOL_LIST_CACHE);
+      }
+    }
+
+    function addSymbolToActiveWatchlist(symbol) {
+      const key = (symbol || '').toUpperCase().trim();
+      if (!key) return;
+      let target = getActiveWatchlistName();
+      if (target === WATCHLIST_ALL || !target) {
+        target = LAST_ACTIVE_WATCHLIST || 'Default';
+      }
+      if (!WATCHLIST_STATE.watchlists[target]) {
+        WATCHLIST_STATE.watchlists[target] = [];
+      }
+      if (!WATCHLIST_STATE.watchlists[target].includes(key)) {
+        WATCHLIST_STATE.watchlists[target] = [...WATCHLIST_STATE.watchlists[target], key];
+      }
+      WATCHLIST_STATE.active = target;
+      LAST_ACTIVE_WATCHLIST = target;
+      if (Array.isArray(SYMBOL_LIST_CACHE)) {
+        const exists = SYMBOL_LIST_CACHE.some((entry) => {
+          if (typeof entry === 'string') return entry.toUpperCase() === key;
+          return entry && typeof entry === 'object' && String(entry.symbol || '').toUpperCase() === key;
+        });
+        if (!exists) {
+          SYMBOL_LIST_CACHE = [...SYMBOL_LIST_CACHE, { symbol: key, name: key, sector: '' }];
+        }
+      }
+      updateWatchlistControls();
+      saveWatchlists();
+      if (Array.isArray(SYMBOL_LIST_CACHE)) {
+        renderTickerSegment(SYMBOL_LIST_CACHE);
+      }
+    }
+
+    function renderTickerSegment(entries) {
+      const container = document.getElementById('tickerSegment');
+      if (!container) return;
+      const normalized = normalizeSymbolEntries(entries);
+      SYMBOL_META = normalized.map instanceof Map ? normalized.map : new Map();
+      let list = Array.isArray(normalized.list) ? normalized.list : [];
+      const activeSet = getActiveWatchlistSymbols();
+      if (activeSet) {
+        const existing = new Set(list.map((meta) => meta.symbol));
+        activeSet.forEach((symbol) => {
+          if (existing.has(symbol)) return;
+          const meta = ensureSymbolMetaEntry(symbol);
+          if (!meta) return;
+          list.push(meta);
+          existing.add(symbol);
+        });
+      }
+      if (activeSet) {
+        list = list.filter((meta) => activeSet.has(meta.symbol));
+      }
+      container.innerHTML = '';
+      if (!list.length) {
+        container.innerHTML = '<span class="px-3 py-1.5 text-sm text-slate-500">No symbols available.</span>';
+        highlightTickerButton(currentTicker);
+        return;
+      }
+      list.forEach((meta) => {
+        const isWatchlistMode = getActiveWatchlistName() !== WATCHLIST_ALL;
+        const isInList = isWatchlistMode && (WATCHLIST_STATE.watchlists[getActiveWatchlistName()] || []).includes(meta.symbol);
+        const metaOverride = WATCHLIST_STATE.symbol_meta ? WATCHLIST_STATE.symbol_meta[meta.symbol] : null;
+        const displayName = (metaOverride && metaOverride.name) || meta.name || meta.symbol;
+        const displaySector = (metaOverride && metaOverride.sector) || meta.sector || '';
+        const displayTitle = displaySector ? `${displayName} - ${displaySector}` : displayName;
+        const toggleHtml = isWatchlistMode
+          ? (isInList
+            ? `<span class="absolute top-1 right-1 inline-flex items-center justify-center h-4 w-4 rounded-full border border-emerald-200 text-emerald-700 bg-emerald-50 text-[10px] font-bold leading-none" data-watchlist-menu="1" data-symbol="${meta.symbol}" title="Options" aria-label="Options">...</span>
+               <div class="absolute top-6 right-1 z-20 hidden min-w-[140px] rounded-lg border border-slate-200 bg-white shadow-soft p-1 text-xs text-slate-700" data-watchlist-menu-panel="${meta.symbol}">
+                 <button type="button" class="w-full text-left px-2 py-1 rounded-md hover:bg-slate-100" data-watchlist-action="edit" data-symbol="${meta.symbol}">Edit</button>
+                 <button type="button" class="w-full text-left px-2 py-1 rounded-md text-rose-600 hover:bg-rose-50" data-watchlist-action="remove" data-symbol="${meta.symbol}">Remove</button>
+               </div>`
+            : `<span class="absolute top-1 right-1 inline-flex items-center justify-center text-[10px] uppercase tracking-wide font-semibold px-2 py-0.5 rounded-full border border-slate-200 text-slate-500 bg-white" data-watchlist-toggle="1" data-symbol="${meta.symbol}">Add</span>`)
+          : '';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'w-full h-full px-3 py-2 text-left bg-white hover:bg-emerald-50 transition relative';
+        btn.setAttribute('data-symbol', meta.symbol);
+        btn.setAttribute('title', displayTitle);
+        btn.dataset.multiplier = String(meta.multiplier);
+        btn.innerHTML = `
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex flex-col gap-0.5 leading-tight">
+              <span class="text-sm font-semibold">${meta.symbol}</span>
+              <span class="text-xs text-slate-500" data-symbol-name>${displayName}</span>
+              ${displaySector ? `<span class="text-[11px] text-slate-400">${displaySector}</span>` : ''}
+            </div>
+            ${toggleHtml}
+          </div>
+        `;
+        container.appendChild(btn);
+      });
+      highlightTickerButton(currentTicker);
+      if (!currentTicker && list[0]) {
+        setTicker(list[0].symbol);
+        loadSymbolData(list[0].symbol);
+      }
+    }
+
     async function populateTickerSegment() {
       const container = document.getElementById('tickerSegment');
       if (!container) return;
+      if (Array.isArray(SYMBOL_LIST_CACHE) && SYMBOL_LIST_CACHE.length) {
+        renderTickerSegment(SYMBOL_LIST_CACHE);
+        return;
+      }
       container.innerHTML = '<span class="px-3 py-1.5 text-sm text-slate-500">Loading…</span>';
-      const render = (entries) => {
-        const normalized = normalizeSymbolEntries(entries);
-        SYMBOL_META = normalized.map instanceof Map ? normalized.map : new Map();
-        const list = Array.isArray(normalized.list) ? normalized.list : [];
-        container.innerHTML = '';
-        if (!list.length) {
-          container.innerHTML = '<span class="px-3 py-1.5 text-sm text-slate-500">No symbols available.</span>';
-          highlightTickerButton(currentTicker);
-          return;
-        }
-        list.forEach((meta) => {
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'w-full h-full px-3 py-2 text-left bg-white hover:bg-emerald-50 transition flex flex-col justify-center gap-0.5 leading-tight';
-          btn.setAttribute('data-symbol', meta.symbol);
-          btn.setAttribute('title', meta.name);
-          btn.dataset.multiplier = String(meta.multiplier);
-          btn.innerHTML = `
-            <span class="text-sm font-semibold">${meta.symbol}</span>
-            <span class="text-xs text-slate-500" data-symbol-name>${meta.name}</span>
-          `;
-          container.appendChild(btn);
-        });
-        highlightTickerButton(currentTicker);
-        if (!currentTicker && list[0]) {
-          setTicker(list[0].symbol);
-          loadSymbolData(list[0].symbol);
-        }
-      };
       try {
         const res = await fetch('data/index.json', { cache: 'no-cache' });
         if (res.ok) {
           const list = await res.json();
-          if (Array.isArray(list) && list.length) { render(list); return; }
+          if (Array.isArray(list) && list.length) {
+            SYMBOL_LIST_CACHE = list;
+            renderTickerSegment(list);
+            return;
+          }
         }
       } catch (err) {
         console.warn('Failed to load index.json', err);
@@ -4221,15 +4646,162 @@
             const m = name.match(regex);
             if (m) syms.push({ symbol: m[1].toUpperCase(), name: m[1].toUpperCase(), multiplier: undefined });
           }
-          if (syms.length) { render(syms); return; }
+          if (syms.length) {
+            SYMBOL_LIST_CACHE = syms;
+            renderTickerSegment(syms);
+            return;
+          }
         }
       } catch (err) {
         console.warn('Failed to enumerate data directory', err);
       }
-      render(['TQQQ', 'TSLA', 'PLTR', 'UVXY']);
+      SYMBOL_LIST_CACHE = ['TQQQ', 'TSLA', 'PLTR', 'UVXY'];
+      renderTickerSegment(SYMBOL_LIST_CACHE);
+    }
+
+    function initWatchlistControls() {
+      const select = document.getElementById('watchlistSelect');
+      if (select) {
+        select.addEventListener('change', () => {
+          const next = select.value || WATCHLIST_ALL;
+          setActiveWatchlist(next);
+        });
+      }
+      const newBtn = document.getElementById('watchlistNewBtn');
+      if (newBtn) {
+        newBtn.addEventListener('click', () => {
+          const name = window.prompt('New watchlist name');
+          if (!name) return;
+          const trimmed = name.trim();
+          if (!trimmed) return;
+          if (WATCHLIST_STATE.watchlists[trimmed]) {
+            window.alert('That watchlist already exists.');
+            return;
+          }
+          WATCHLIST_STATE.watchlists[trimmed] = [];
+          WATCHLIST_STATE.active = trimmed;
+          updateWatchlistControls();
+          saveWatchlists();
+          if (Array.isArray(SYMBOL_LIST_CACHE)) {
+            renderTickerSegment(SYMBOL_LIST_CACHE);
+          }
+        });
+      }
+      const delBtn = document.getElementById('watchlistDeleteBtn');
+      if (delBtn) {
+        delBtn.addEventListener('click', () => {
+          const active = getActiveWatchlistName();
+          if (active === WATCHLIST_ALL || active === 'Default') return;
+          const ok = window.confirm(`Delete watchlist \"${active}\"?`);
+          if (!ok) return;
+          delete WATCHLIST_STATE.watchlists[active];
+          const next = Object.keys(WATCHLIST_STATE.watchlists)[0] || WATCHLIST_ALL;
+          WATCHLIST_STATE.active = next;
+          updateWatchlistControls();
+          saveWatchlists();
+          if (Array.isArray(SYMBOL_LIST_CACHE)) {
+            renderTickerSegment(SYMBOL_LIST_CACHE);
+          }
+        });
+      }
+    }
+
+    function closeAllWatchlistMenus() {
+      document.querySelectorAll('[data-watchlist-menu-panel]').forEach((panel) => {
+        panel.classList.add('hidden');
+      });
+    }
+
+    function toggleWatchlistMenu(symbol) {
+      if (!symbol) return;
+      const panel = document.querySelector(`[data-watchlist-menu-panel="${symbol}"]`);
+      if (!panel) return;
+      const isHidden = panel.classList.contains('hidden');
+      closeAllWatchlistMenus();
+      if (isHidden) panel.classList.remove('hidden');
+    }
+
+    function openWatchlistEditDialog(symbol) {
+      const sym = (symbol || '').toUpperCase().trim();
+      if (!sym) return;
+      const dialog = document.getElementById('watchlistEditDialog');
+      if (!dialog || typeof dialog.showModal !== 'function') {
+        const name = window.prompt('Name', sym) || '';
+        const sector = window.prompt('Sector', '') || '';
+        const exchange = window.prompt('Exchange', DEFAULT_EXCHANGE) || '';
+        saveSymbolMeta(sym, name, sector, exchange);
+        return;
+      }
+      const nameInput = dialog.querySelector('#watchlistEditName');
+      const sectorInput = dialog.querySelector('#watchlistEditSector');
+      const exchangeInput = dialog.querySelector('#watchlistEditExchange');
+      const meta = WATCHLIST_STATE.symbol_meta ? WATCHLIST_STATE.symbol_meta[sym] : null;
+      const fallbackMeta = ensureSymbolMetaEntry(sym);
+      if (nameInput) nameInput.value = (meta && meta.name) || (fallbackMeta && fallbackMeta.name) || sym;
+      if (sectorInput) sectorInput.value = (meta && meta.sector) || (fallbackMeta && fallbackMeta.sector) || '';
+      if (exchangeInput) {
+        exchangeInput.value = normalizeExchange((meta && meta.exchange) || (fallbackMeta && fallbackMeta.exchange)) || DEFAULT_EXCHANGE;
+      }
+      dialog.dataset.symbol = sym;
+      dialog.showModal();
+    }
+
+    function saveSymbolMeta(symbol, name, sector, exchange) {
+      const sym = (symbol || '').toUpperCase().trim();
+      if (!sym) return;
+      const normalizedExchange = normalizeExchange(exchange) || DEFAULT_EXCHANGE;
+      if (!WATCHLIST_STATE.symbol_meta) WATCHLIST_STATE.symbol_meta = {};
+      WATCHLIST_STATE.symbol_meta[sym] = {
+        name: String(name || sym).trim() || sym,
+        sector: String(sector || '').trim(),
+        exchange: normalizedExchange
+      };
+      const meta = ensureSymbolMetaEntry(sym);
+      if (meta) {
+        meta.name = WATCHLIST_STATE.symbol_meta[sym].name;
+        meta.sector = WATCHLIST_STATE.symbol_meta[sym].sector;
+        meta.exchange = WATCHLIST_STATE.symbol_meta[sym].exchange;
+      }
+      saveWatchlists();
+      if (Array.isArray(SYMBOL_LIST_CACHE)) {
+        renderTickerSegment(SYMBOL_LIST_CACHE);
+      }
+      if (sym === currentTicker) {
+        renderTradingViewProfile(currentTicker);
+      }
     }
 
     document.addEventListener('click', (e) => {
+      const menuToggle = e.target.closest('[data-watchlist-menu][data-symbol]');
+      if (menuToggle) {
+        e.preventDefault();
+        e.stopPropagation();
+        const symbol = menuToggle.getAttribute('data-symbol');
+        toggleWatchlistMenu(symbol);
+        return;
+      }
+      const menuAction = e.target.closest('[data-watchlist-action][data-symbol]');
+      if (menuAction) {
+        e.preventDefault();
+        e.stopPropagation();
+        const symbol = menuAction.getAttribute('data-symbol');
+        const action = menuAction.getAttribute('data-watchlist-action');
+        closeAllWatchlistMenus();
+        if (action === 'edit') {
+          openWatchlistEditDialog(symbol);
+        } else if (action === 'remove') {
+          toggleSymbolInActiveWatchlist(symbol);
+        }
+        return;
+      }
+      const toggle = e.target.closest('[data-watchlist-toggle][data-symbol]');
+      if (toggle) {
+        e.preventDefault();
+        e.stopPropagation();
+        const symbol = toggle.getAttribute('data-symbol');
+        if (symbol) toggleSymbolInActiveWatchlist(symbol);
+        return;
+      }
       const btn = e.target.closest('#tickerSegment button[data-symbol]');
       if (!btn) return;
       const symbol = btn.getAttribute('data-symbol');
@@ -4241,7 +4813,38 @@
     document.addEventListener('DOMContentLoaded', () => {
       initGridControls();
       initTradeTableControls();
-      populateTickerSegment();
+      initWatchlistControls();
+      loadWatchlists().finally(() => populateTickerSegment());
+      document.addEventListener('click', (e) => {
+        const target = e.target;
+        if (target && (target.closest('[data-watchlist-menu-panel]') || target.closest('[data-watchlist-menu]'))) {
+          return;
+        }
+        closeAllWatchlistMenus();
+      });
+      const dialog = document.getElementById('watchlistEditDialog');
+      if (dialog) {
+        dialog.addEventListener('close', () => {
+          dialog.dataset.symbol = '';
+        });
+        const form = dialog.querySelector('form');
+        if (form) {
+          form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const sym = dialog.dataset.symbol || '';
+            const nameInput = dialog.querySelector('#watchlistEditName');
+            const sectorInput = dialog.querySelector('#watchlistEditSector');
+            const exchangeInput = dialog.querySelector('#watchlistEditExchange');
+            saveSymbolMeta(
+              sym,
+              nameInput ? nameInput.value : '',
+              sectorInput ? sectorInput.value : '',
+              exchangeInput ? exchangeInput.value : ''
+            );
+            dialog.close();
+          });
+        }
+      }
     });
 
     window.addEventListener('resize', () => {

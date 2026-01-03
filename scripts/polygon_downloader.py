@@ -352,8 +352,7 @@ def download_and_merge_data(
             print("Stopping: reached MAX_BATCHES safety cap.")
             break
 
-        print(f"Batch {batch_count}...")
-        notify(f"Batch {batch_count}...")
+        print(f"Requesting batch {batch_count}...")
         results, next_url = get_polygon_data(
             url=next_url,
             ticker=ticker,

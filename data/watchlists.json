@@ -1,0 +1,138 @@
+{
+  "active": "GROWTH STOCKS 2026",
+  "watchlists": {
+    "Default": [
+      "NBIS"
+    ],
+    "WSB-2026-TOP10": [
+      "RKLB",
+      "GOOG",
+      "ASTS",
+      "AMZN",
+      "MU",
+      "IREN",
+      "NBIS",
+      "RDDT",
+      "TMC",
+      "PATH"
+    ],
+    "GROWTH STOCKS 2026": [
+      "CIFR",
+      "IREN",
+      "WULF",
+      "CEG",
+      "SMR",
+      "OKLO",
+      "NVDA",
+      "AMD",
+      "AVGO",
+      "ALB",
+      "MVST",
+      "HOOD",
+      "SOFI",
+      "NU",
+      "CIEN",
+      "LITE",
+      "COHR",
+      "TSLA",
+      "RR",
+      "SERV",
+      "ONDS",
+      "AVAV",
+      "KTOS",
+      "RKLB",
+      "ASTS",
+      "PL"
+    ]
+  },
+  "symbol_meta": {
+    "MVST": {
+      "name": "Microvast",
+      "sector": "Battery & Storage"
+    },
+    "CIEN": {
+      "name": "Ciena",
+      "sector": "Optical"
+    },
+    "LITE": {
+      "name": "Lumentum",
+      "sector": "Optical"
+    },
+    "COHR": {
+      "name": "Coherent",
+      "sector": "Optical"
+    },
+    "TSLA": {
+      "name": "Tesla Inc.",
+      "sector": "Robots, Automation"
+    },
+    "RR": {
+      "name": "Richtech Robotics",
+      "sector": "Robots, Automation"
+    },
+    "SERV": {
+      "name": "Serve Robotics Inc.",
+      "sector": "Robots, Automation"
+    },
+    "ONDS": {
+      "name": "Ondas",
+      "sector": "Drones, Autonomous Defence & Edge AI"
+    },
+    "NU": {
+      "name": "Nu Holdings Ltd",
+      "sector": "Fintech"
+    },
+    "HOOD": {
+      "name": "Robinhood Markets Inc.",
+      "sector": "Fintech"
+    },
+    "SOFI": {
+      "name": "SOFI",
+      "sector": "Fintech"
+    },
+    "AVAV": {
+      "name": "AeroVironment",
+      "sector": "Drones, Autonomous Defence & Edge AI"
+    },
+    "WULF": {
+      "name": "TeraWulf Inc",
+      "sector": "Data Center"
+    },
+    "KTOS": {
+      "name": "Kratos Defense & Security Solutions",
+      "sector": "Drones, Autonomous Defence & Edge AI"
+    },
+    "OKLO": {
+      "name": "Oklo Inc.",
+      "sector": "Nulear Power"
+    },
+    "RKLB": {
+      "name": "Rocket Lab Corp",
+      "sector": "Space Infrastructure & Orbital Economy"
+    },
+    "ASTS": {
+      "name": "AST Spacemobile, Inc",
+      "sector": "Space Infrastructure & Orbital Economy"
+    },
+    "PL": {
+      "name": "Planet Labs PBC",
+      "sector": "Space Infrastructure & Orbital Economy"
+    },
+    "AVGO": {
+      "name": "Broadcom Inc.",
+      "sector": "Semiconductor (AI Stack)"
+    },
+    "AMD": {
+      "name": "AMD",
+      "sector": "Semiconductor (AI Stack)"
+    },
+    "ALB": {
+      "name": "ALB",
+      "sector": "Battery & Storage"
+    },
+    "SMR": {
+      "name": "NuScale Power Corp",
+      "sector": "Nulear Power"
+    }
+  }
+}

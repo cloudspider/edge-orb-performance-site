@@ -17,6 +17,7 @@ from polygon_downloader import download_symbol_data
 BASE_DIR = Path(__file__).resolve().parents[1]
 SYMBOL_RE = re.compile(r"^[A-Z0-9.-]+$")
 DOWNLOAD_STATUS: dict[str, dict[str, str]] = {}
+WATCHLIST_PATH = BASE_DIR / "data" / "watchlists.json"
 load_dotenv()
 
 
@@ -25,6 +26,9 @@ class PolygonRequestHandler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=str(BASE_DIR), **kwargs)
 
     def do_POST(self) -> None:
+        if self.path.startswith("/api/watchlists"):
+            self._handle_watchlists_put()
+            return
         if self.path.startswith("/api/polygon-download"):
             self._handle_download()
             return
@@ -34,6 +38,9 @@ class PolygonRequestHandler(SimpleHTTPRequestHandler):
         super().do_POST()
 
     def do_GET(self) -> None:
+        if self.path.startswith("/api/watchlists"):
+            self._handle_watchlists_get()
+            return
         if self.path.startswith("/api/polygon-download/status"):
             self._handle_download_status()
             return
@@ -41,6 +48,12 @@ class PolygonRequestHandler(SimpleHTTPRequestHandler):
             self._handle_download()
             return
         super().do_GET()
+
+    def do_PUT(self) -> None:
+        if self.path.startswith("/api/watchlists"):
+            self._handle_watchlists_put()
+            return
+        self.send_error(HTTPStatus.NOT_FOUND.value, "Not found.")
 
     def _handle_download(self) -> None:
         symbol = self._extract_symbol()
@@ -141,6 +154,26 @@ class PolygonRequestHandler(SimpleHTTPRequestHandler):
             return
         self._send_json({"ok": True, "id": record_id}, HTTPStatus.OK)
 
+    def _handle_watchlists_get(self) -> None:
+        payload = self._read_watchlists()
+        self._send_json(payload, HTTPStatus.OK)
+
+    def _handle_watchlists_put(self) -> None:
+        if self.command not in {"PUT", "POST"}:
+            self._send_json({"error": "Method not allowed."}, HTTPStatus.METHOD_NOT_ALLOWED)
+            return
+        payload = self._read_json_payload()
+        if payload is None:
+            self._send_json({"error": "Invalid JSON payload."}, HTTPStatus.BAD_REQUEST)
+            return
+        normalized = self._normalize_watchlists(payload)
+        try:
+            self._write_watchlists(normalized)
+        except OSError as exc:
+            self._send_json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
+            return
+        self._send_json({"ok": True, "watchlists": normalized}, HTTPStatus.OK)
+
     def _read_json_payload(self) -> dict | None:
         length = int(self.headers.get("Content-Length", "0"))
         if length <= 0:
@@ -151,6 +184,75 @@ class PolygonRequestHandler(SimpleHTTPRequestHandler):
         except Exception:
             return None
         return payload if isinstance(payload, dict) else None
+
+    def _default_watchlists(self) -> dict:
+        return {"active": "Default", "watchlists": {"Default": []}, "symbol_meta": {}}
+
+    def _normalize_watchlists(self, payload: dict) -> dict:
+        raw_lists = payload.get("watchlists")
+        watchlists: dict[str, list[str]] = {}
+        if isinstance(raw_lists, dict):
+            for name, symbols in raw_lists.items():
+                key = str(name).strip()
+                if not key:
+                    continue
+                cleaned: list[str] = []
+                seen: set[str] = set()
+                if isinstance(symbols, list):
+                    for sym in symbols:
+                        if not isinstance(sym, str):
+                            continue
+                        cleaned_sym = sym.strip().upper()
+                        if not cleaned_sym or cleaned_sym in seen:
+                            continue
+                        seen.add(cleaned_sym)
+                        cleaned.append(cleaned_sym)
+                watchlists[key] = cleaned
+        if not watchlists:
+            watchlists = {"Default": []}
+        raw_meta = payload.get("symbol_meta") or payload.get("symbolMeta") or {}
+        symbol_meta: dict[str, dict[str, str]] = {}
+        if isinstance(raw_meta, dict):
+            for sym, meta in raw_meta.items():
+                if not isinstance(sym, str) or not isinstance(meta, dict):
+                    continue
+                key = sym.strip().upper()
+                if not key:
+                    continue
+                name = meta.get("name")
+                sector = meta.get("sector")
+                exchange = meta.get("exchange")
+                symbol_meta[key] = {
+                    "name": name.strip() if isinstance(name, str) and name.strip() else key,
+                    "sector": sector.strip() if isinstance(sector, str) else "",
+                    "exchange": exchange.strip().upper() if isinstance(exchange, str) and exchange.strip() else "",
+                }
+        active = payload.get("active")
+        active_name = str(active).strip() if isinstance(active, str) else "Default"
+        if active_name not in watchlists:
+            active_name = next(iter(watchlists.keys()))
+        return {"active": active_name, "watchlists": watchlists, "symbol_meta": symbol_meta}
+
+    def _read_watchlists(self) -> dict:
+        if not WATCHLIST_PATH.exists():
+            default = self._default_watchlists()
+            self._write_watchlists(default)
+            return default
+        try:
+            data = json.loads(WATCHLIST_PATH.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            default = self._default_watchlists()
+            self._write_watchlists(default)
+            return default
+        if isinstance(data, dict):
+            return self._normalize_watchlists(data)
+        default = self._default_watchlists()
+        self._write_watchlists(default)
+        return default
+
+    def _write_watchlists(self, payload: dict) -> None:
+        WATCHLIST_PATH.parent.mkdir(parents=True, exist_ok=True)
+        WATCHLIST_PATH.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     def _get_supabase_db_url(self) -> str:
         return os.getenv("SUPABASE_DB_URL", "").strip()
