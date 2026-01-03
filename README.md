@@ -46,6 +46,14 @@ If you encounter import errors for `databento`, ensure there is no local folder 
 
 
 
+# Run the Backtester
+```
+   /Users/guy/repos/edge-orb-performance-site/.venv/bin/python scripts/polygon_service.py
+```
+
+
+
+
 | `HitType`        | Meaning/Reason                                     |
 | ---------------- | -------------------------------------------------- |
 | `NotEnoughBars`  | Not enough valid data bars to process the day      |

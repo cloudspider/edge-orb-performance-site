@@ -14,6 +14,7 @@
   <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
   <!-- Apache ECharts for interactive charts (mobile pinch-zoom supported) -->
   <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
     .num-pos { color: #119d6e !important; }
     .num-neg { color: #ff0000 !important; }
@@ -66,6 +67,13 @@
     }
     #sessionSegment button {
       flex: 0 0 auto;
+    }
+
+    .details-icon summary::-webkit-details-marker {
+      display: none;
+    }
+    .details-icon summary::marker {
+      content: '';
     }
   </style>
 </head>
@@ -304,6 +312,66 @@
       </div>
     </section>
 
+    <section id="gridCarousel" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-3" aria-roledescription="carousel" aria-label="Grid chart views">
+      <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div data-carousel-track class="flex w-full transition-transform duration-300 ease-out">
+          <div class="min-w-full p-3 md:p-4">
+            <div class="space-y-4">
+              <div class="relative h-80 md:h-96 rounded-xl border border-slate-200 bg-white p-3">
+                <button type="button" class="absolute right-3 top-3 p-0 text-slate-400 transition hover:text-emerald-600 focus:outline-none" aria-label="Show chart notes" data-chart-info-toggle>
+                  <ion-icon name="information-circle-outline" class="text-sm"></ion-icon>
+                </button>
+                <canvas id="gridOverviewChart" class="h-full w-full"></canvas>
+              </div>
+              <details class="details-icon w-full" data-chart-info>
+                <summary class="sr-only">Chart notes</summary>
+                <div class="rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm text-slate-600">
+                  This chart compares the return of a hypothetical lump-sum buy-and-hold investment with the realised profit and loss of a grid strategy at each grid level. While buy-and-hold fully captures the asset's price movement-both gains and drawdowns-the grid progressively deploys and releases capital, resulting in a materially compressed payoff profile. The grid reduces downside drawdowns at the cost of limiting upside participation, trading raw exposure for improved capital survivability.
+                </div>
+              </details>
+            </div>
+          </div>
+          <div class="min-w-full p-3 md:p-4">
+            <div class="space-y-4">
+              <div class="relative h-80 md:h-96 rounded-xl border border-slate-200 bg-white p-3">
+                <button type="button" class="absolute right-3 top-3 p-0 text-slate-400 transition hover:text-emerald-600 focus:outline-none" aria-label="Show chart notes" data-chart-info-toggle>
+                  <ion-icon name="information-circle-outline" class="text-sm"></ion-icon>
+                </button>
+                <canvas id="gridPlChart" class="h-full w-full"></canvas>
+              </div>
+              <details class="details-icon w-full" data-chart-info>
+                <summary class="sr-only">Chart notes</summary>
+                <div class="rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm text-slate-600">
+                  This chart shows the realised profit and loss of the grid strategy at each level, assuming no oscillation beyond the displayed range. Profits accumulate gradually on the way up through harvested trades, while losses increase more slowly on the way down compared to buy-and-hold. The curve illustrates how grid strategies rely on price oscillation rather than directional forecasting.
+                </div>
+              </details>
+            </div>
+          </div>
+          <div class="min-w-full p-3 md:p-4">
+            <div class="space-y-4">
+              <div class="relative h-80 md:h-96 rounded-xl border border-slate-200 bg-white p-3">
+                <button type="button" class="absolute right-3 top-3 p-0 text-slate-400 transition hover:text-emerald-600 focus:outline-none" aria-label="Show chart notes" data-chart-info-toggle>
+                  <ion-icon name="information-circle-outline" class="text-sm"></ion-icon>
+                </button>
+                <canvas id="gridCashflowChart" class="h-full w-full"></canvas>
+              </div>
+              <details class="details-icon w-full" data-chart-info>
+                <summary class="sr-only">Chart notes</summary>
+                <div class="rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm text-slate-600">
+                  This chart shows cumulative net cashflow as price moves through grid levels. Downside levels reflect incremental capital committed through grid buys, while upside levels reflect cash returned through grid sells. Net cashflow captures trading activity rather than risk exposure and illustrates how the grid gradually converts price movement into realised cash over time.
+                </div>
+              </details>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="flex items-center justify-center gap-2">
+        <button type="button" data-carousel-dot="0" class="h-2.5 w-2.5 rounded-full bg-emerald-500" aria-label="Show view 1" aria-current="true"></button>
+        <button type="button" data-carousel-dot="1" class="h-2.5 w-2.5 rounded-full bg-slate-300" aria-label="Show view 2"></button>
+        <button type="button" data-carousel-dot="2" class="h-2.5 w-2.5 rounded-full bg-slate-300" aria-label="Show view 3"></button>
+      </div>
+    </section>
+
     <section id="gridLadderSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-3">
       <div class="flex flex-col gap-1">
         <h2 class="font-semibold text-slate-700">Grid Ladder Preview</h2>
@@ -423,6 +491,9 @@
     ];
     let activeTab = 'grid-calculator';
     let LAST_GRID_JSON = '';
+    let gridOverviewChart = null;
+    let gridPlChart = null;
+    let gridCashflowChart = null;
 
     function decimals(step) {
       if (!Number.isFinite(step)) return 0;
@@ -647,6 +718,9 @@
         if (summaryEl) {
           summaryEl.textContent = 'Adjust the grid parameters to preview ladder levels around the starting price.';
         }
+        updateGridOverviewChart(result);
+        updateGridPlChart(result);
+        updateGridCashflowChart(result);
         renderGridJson(result);
         return;
       }
@@ -729,11 +803,11 @@
               <th scope="col" class="px-4 py-2 text-left">Level</th>
               <th scope="col" class="px-4 py-2 text-left">Direction</th>
               <th scope="col" class="px-4 py-2 text-left">Price</th>
-              <th scope="col" class="px-4 py-2 text-left">Distance ($)</th>
-              <th scope="col" class="px-4 py-2 text-left">Distance (%)</th>
+              <th scope="col" class="px-4 py-2 text-left">Buy-and-Hold P/L ($)</th>
+              <th scope="col" class="px-4 py-2 text-left">Buy-and-Hold Return (%)</th>
               <th scope="col" class="px-4 py-2 text-left">Cashflow ($)</th>
-              <th scope="col" class="px-4 py-2 text-left">Profit/Loss ($)</th>
-              <th scope="col" class="px-4 py-2 text-left">Profit/Loss (%)</th>
+              <th scope="col" class="px-4 py-2 text-left">Grid P/L ($)</th>
+              <th scope="col" class="px-4 py-2 text-left">Grid P/L (%)</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
@@ -742,7 +816,293 @@
         </table>
       `;
 
+      updateGridOverviewChart(result);
+      updateGridPlChart(result);
+      updateGridCashflowChart(result);
       renderGridJson(result);
+    }
+
+    function updateGridOverviewChart(result) {
+      const canvas = document.getElementById('gridOverviewChart');
+      if (!canvas || typeof Chart === 'undefined') return;
+      const rows = Array.isArray(result?.rows) ? result.rows : [];
+      if (!rows.length) {
+        if (gridOverviewChart) {
+          gridOverviewChart.destroy();
+          gridOverviewChart = null;
+        }
+        return;
+      }
+
+      const signedLevel = (row) => {
+        if (row?.type === 'below') return -Number(row.level || 0);
+        if (row?.type === 'above') return Number(row.level || 0);
+        return 0;
+      };
+
+      const chartRows = rows.slice().sort((a, b) => signedLevel(a) - signedLevel(b));
+      const labels = chartRows.map((row) => String(signedLevel(row)));
+      const buyHold = chartRows.map((row) => Number(row?.diffPct) || 0);
+      const gridPL = chartRows.map((row) => {
+        const costBasis = Number(row?.costBasis) || 0;
+        const profitLoss = Number(row?.profitLoss) || 0;
+        if (costBasis <= 0) return 0;
+        return (profitLoss / costBasis) * 100;
+      });
+
+      const data = {
+        labels,
+        datasets: [
+          {
+            label: 'Buy-and-Hold Return (%)',
+            data: buyHold,
+            borderColor: '#2563eb',
+            backgroundColor: 'rgba(37, 99, 235, 0.12)',
+            tension: 0.25,
+            pointRadius: 3,
+            pointHoverRadius: 4
+          },
+          {
+            label: 'Grid P/L (%)',
+            data: gridPL,
+            borderColor: '#059669',
+            backgroundColor: 'rgba(5, 150, 105, 0.12)',
+            tension: 0.25,
+            pointRadius: 3,
+            pointHoverRadius: 4
+          }
+        ]
+      };
+
+      const options = {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { usePointStyle: true }
+          },
+          title: {
+            display: true,
+            text: 'Buy-and-Hold Return vs Grid P/L Across Grid Levels'
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const label = context.dataset.label || '';
+                const value = Number(context.parsed?.y) || 0;
+                return `${label}: ${value.toFixed(2)}%`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            title: { display: true, text: 'Level' }
+          },
+          y: {
+            title: { display: true, text: 'Return (%)' },
+            ticks: {
+              callback: (val) => `${val}%`
+            }
+          }
+        }
+      };
+
+      if (gridOverviewChart) {
+        gridOverviewChart.data = data;
+        gridOverviewChart.options = options;
+        gridOverviewChart.update();
+        return;
+      }
+
+      const ctx = canvas.getContext('2d');
+      gridOverviewChart = new Chart(ctx, { type: 'line', data, options });
+    }
+
+    function updateGridPlChart(result) {
+      const canvas = document.getElementById('gridPlChart');
+      if (!canvas || typeof Chart === 'undefined') return;
+      const rows = Array.isArray(result?.rows) ? result.rows : [];
+      if (!rows.length) {
+        if (gridPlChart) {
+          gridPlChart.destroy();
+          gridPlChart = null;
+        }
+        return;
+      }
+
+      const signedLevel = (row) => {
+        if (row?.type === 'below') return -Number(row.level || 0);
+        if (row?.type === 'above') return Number(row.level || 0);
+        return 0;
+      };
+
+      const chartRows = rows.slice().sort((a, b) => signedLevel(a) - signedLevel(b));
+      const labels = chartRows.map((row) => String(signedLevel(row)));
+      const gridPL = chartRows.map((row) => Number(row?.profitLoss) || 0);
+      const currencyFormatter = new Intl.NumberFormat(undefined, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2
+      });
+      const formatCurrency = (value) => {
+        const sign = value < 0 ? '-' : '';
+        return `${sign}$${currencyFormatter.format(Math.abs(value))}`;
+      };
+
+      const data = {
+        labels,
+        datasets: [
+          {
+            label: 'Grid P/L ($)',
+            data: gridPL,
+            borderColor: '#059669',
+            backgroundColor: 'rgba(5, 150, 105, 0.12)',
+            tension: 0.25,
+            pointRadius: 3,
+            pointHoverRadius: 4
+          }
+        ]
+      };
+
+      const options = {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { usePointStyle: true }
+          },
+          title: {
+            display: true,
+            text: 'Grid Strategy Profit and Loss Across Grid Levels'
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const label = context.dataset.label || '';
+                const value = Number(context.parsed?.y) || 0;
+                return `${label}: ${formatCurrency(value)}`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            title: { display: true, text: 'Level' }
+          },
+          y: {
+            title: { display: true, text: 'Grid P/L ($)' },
+            ticks: {
+              callback: (val) => formatCurrency(Number(val))
+            }
+          }
+        }
+      };
+
+      if (gridPlChart) {
+        gridPlChart.data = data;
+        gridPlChart.options = options;
+        gridPlChart.update();
+        return;
+      }
+
+      const ctx = canvas.getContext('2d');
+      gridPlChart = new Chart(ctx, { type: 'line', data, options });
+    }
+
+    function updateGridCashflowChart(result) {
+      const canvas = document.getElementById('gridCashflowChart');
+      if (!canvas || typeof Chart === 'undefined') return;
+      const rows = Array.isArray(result?.rows) ? result.rows : [];
+      if (!rows.length) {
+        if (gridCashflowChart) {
+          gridCashflowChart.destroy();
+          gridCashflowChart = null;
+        }
+        return;
+      }
+
+      const signedLevel = (row) => {
+        if (row?.type === 'below') return -Number(row.level || 0);
+        if (row?.type === 'above') return Number(row.level || 0);
+        return 0;
+      };
+
+      const chartRows = rows.slice().sort((a, b) => signedLevel(a) - signedLevel(b));
+      const labels = chartRows.map((row) => String(signedLevel(row)));
+      const cashflow = chartRows.map((row) => Number(row?.cashflow) || 0);
+      const currencyFormatter = new Intl.NumberFormat(undefined, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2
+      });
+      const formatCurrency = (value) => {
+        const sign = value < 0 ? '-' : '';
+        return `${sign}$${currencyFormatter.format(Math.abs(value))}`;
+      };
+
+      const data = {
+        labels,
+        datasets: [
+          {
+            label: 'Net Cashflow ($)',
+            data: cashflow,
+            borderColor: '#f59e0b',
+            backgroundColor: 'rgba(245, 158, 11, 0.12)',
+            tension: 0.25,
+            pointRadius: 3,
+            pointHoverRadius: 4
+          }
+        ]
+      };
+
+      const options = {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { usePointStyle: true }
+          },
+          title: {
+            display: true,
+            text: 'Net Cashflow Across Grid Levels'
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const label = context.dataset.label || '';
+                const value = Number(context.parsed?.y) || 0;
+                return `${label}: ${formatCurrency(value)}`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            title: { display: true, text: 'Level' }
+          },
+          y: {
+            title: { display: true, text: 'Net Cashflow ($)' },
+            ticks: {
+              callback: (val) => formatCurrency(Number(val))
+            }
+          }
+        }
+      };
+
+      if (gridCashflowChart) {
+        gridCashflowChart.data = data;
+        gridCashflowChart.options = options;
+        gridCashflowChart.update();
+        return;
+      }
+
+      const ctx = canvas.getContext('2d');
+      gridCashflowChart = new Chart(ctx, { type: 'line', data, options });
     }
 
     function buildGridJsonFromResult(result) {
@@ -1006,6 +1366,56 @@
       activateTab(activeTab);
     }
 
+    function setupCarousel() {
+      const carousel = document.getElementById('gridCarousel');
+      if (!carousel) return;
+      const track = carousel.querySelector('[data-carousel-track]');
+      const slides = track ? Array.from(track.children) : [];
+      if (!track || !slides.length) return;
+      const prevBtn = carousel.querySelector('[data-carousel-prev]');
+      const nextBtn = carousel.querySelector('[data-carousel-next]');
+      const dots = Array.from(carousel.querySelectorAll('[data-carousel-dot]'));
+      let index = 0;
+
+      const update = () => {
+        const maxIndex = slides.length - 1;
+        index = Math.max(0, Math.min(index, maxIndex));
+        track.style.transform = `translateX(-${index * 100}%)`;
+        if (prevBtn) prevBtn.disabled = index === 0;
+        if (nextBtn) nextBtn.disabled = index === maxIndex;
+        dots.forEach((dot, idx) => {
+          const isActive = idx === index;
+          dot.classList.toggle('bg-emerald-500', isActive);
+          dot.classList.toggle('bg-slate-300', !isActive);
+          if (isActive) {
+            dot.setAttribute('aria-current', 'true');
+          } else {
+            dot.removeAttribute('aria-current');
+          }
+        });
+      };
+
+      prevBtn?.addEventListener('click', () => {
+        index -= 1;
+        update();
+      });
+      nextBtn?.addEventListener('click', () => {
+        index += 1;
+        update();
+      });
+      dots.forEach((dot) => {
+        dot.addEventListener('click', () => {
+          const nextIndex = Number(dot.getAttribute('data-carousel-dot'));
+          if (Number.isFinite(nextIndex)) {
+            index = nextIndex;
+            update();
+          }
+        });
+      });
+
+      update();
+    }
+
     document.addEventListener('click', (e) => {
       const controlBtn = e.target.closest('button[data-num-target][data-num-step]');
       if (controlBtn) {
@@ -1016,8 +1426,19 @@
       }
     });
 
+    document.addEventListener('click', (e) => {
+      const infoBtn = e.target.closest('[data-chart-info-toggle]');
+      if (!infoBtn) return;
+      const container = infoBtn.closest('.min-w-full') || document;
+      const details = container.querySelector('[data-chart-info]');
+      if (details) {
+        details.open = !details.open;
+      }
+    });
+
     document.addEventListener('DOMContentLoaded', () => {
       setupTabs();
+      setupCarousel();
       updateGridSizeLabel();
 
       const spacingEl = document.getElementById('selGridSpacing');
