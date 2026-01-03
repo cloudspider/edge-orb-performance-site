@@ -189,7 +189,7 @@
   <div class="max-w-screen-2xl mx-auto p-6 space-y-6">
     <header class="mb-2">
       <h1 id="mainTitle" class="text-2xl md:text-3xl font-semibold">Grid Backtest</h1>
-      <!-- <p class="text-slate-600 mt-1">Under construction. Hook up buy-the-dip grid datasets and controls here.</p> -->
+      <!-- <p class="text-slate-600 mt-1">Under construction. Hook up buy-the-dip datasets and controls here.</p> -->
     </header>
 
     <section id="symbolPicker" class="bg-white rounded-2xl shadow-soft p-3 md:p-4">
@@ -199,7 +199,7 @@
             <span class="inline-flex h-8 w-8 items-center justify-center text-emerald-500">
               <ion-icon name="grid-outline" class="text-2xl"></ion-icon>
             </span>
-            <span>Buy-the-Dip Grid</span>
+            <span>Buy the Dip</span>
           </button>
         </nav>
       </div>
@@ -272,21 +272,8 @@
       <div class="grid gap-4 md:grid-cols-8">
         <label class="block">
           <span class="text-sm text-slate-600">Grid Type</span>
-          <div class="relative mt-1">
-            <select
-              id="selGridType"
-              class="w-full appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-9 py-2 text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
-            >
-              <option value="buy_the_dip">Buy the Dip</option>
-              <option value="pullback" selected>Buy-the-Dip Grid</option>
-              <option value="grid_ath_reset">Buy-the-Dip · ATH Reset</option>
-              <option value="progressive">Progressive Grid</option>
-            </select>
-            <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.06 1.06l-4.24 4.39a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
-              </svg>
-            </span>
+          <div class="mt-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+            Buy the Dip
           </div>
         </label>
         <label class="block">
@@ -337,7 +324,6 @@
             >
               <option value="fixed">Fixed Price</option>
               <option value="percent_fixed" selected>Percentage · Fixed Anchor</option>
-              <option value="percent_ratchet_up">Percentage · Ratcheting Up Anchor</option>
             </select>
             <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -491,6 +477,10 @@
           <span id="summaryCash" class="text-sm font-semibold text-slate-800">$0.00</span>
           <span title="Final holdings quantity.">Shares:</span>
           <span id="summaryShares" class="text-sm font-semibold text-slate-800">0</span>
+          <span title="Last trade price used for holdings valuation.">Last Price:</span>
+          <span id="summaryLastPrice" class="text-sm font-semibold text-slate-800">—</span>
+          <span title="Open levels at the end of the backtest.">Open Levels:</span>
+          <span id="summaryOpenLevels" class="text-sm font-semibold text-slate-800">0</span>
         </div>
       </div>
       <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -503,6 +493,11 @@
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Net Trade Cashflow</dt>
           <dd id="summaryNetCashflow" class="mt-2 text-xl font-semibold text-slate-800">—</dd>
           <span class="summary-tooltip">Net cashflow from trades only (buys negative, sells positive, commissions included). This is the cash ledger truth.</span>
+        </div>
+        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Harvested Profit</dt>
+          <dd id="summaryHarvestedProfit" class="mt-2 text-xl font-semibold text-slate-800">—</dd>
+          <span class="summary-tooltip">Realized profit from completed trades only (sells minus cost basis). Excludes open inventory and unrealized holdings value.</span>
         </div>
         <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Holdings Value</dt>
@@ -547,7 +542,7 @@
         <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Required Capital</dt>
           <dd id="summaryRequiredCapital" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
-          <span class="summary-tooltip">Peak capital required by the strategy, measured as max(-netCashflowTrades). Robust to partial fills and retention.</span>
+          <span class="summary-tooltip">Peak cash required by the strategy, measured as max(-netCashflowTrades). If this is below Capital Contributed, it means harvested profits reduced the net cash needed before the max open levels were reached.</span>
         </div>
         <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Min Cash</dt>
@@ -557,12 +552,12 @@
         <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Drawdown</dt>
           <dd id="summaryMaxDD" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
-          <span class="summary-tooltip">Worst peak-to-trough drawdown of Net P/L (not account equity).</span>
+          <span class="summary-tooltip">Worst peak-to-trough drawdown of account equity (cash + holdings value) over the backtest path.</span>
         </div>
         <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
           <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Drawdown %</dt>
           <dd id="summaryMaxDDPct" class="mt-2 text-xl font-semibold text-slate-800">0.00%</dd>
-          <span class="summary-tooltip">Max drawdown divided by Required Capital (stable across the run).</span>
+          <span class="summary-tooltip">Max equity drawdown divided by peak equity at the time of the peak.</span>
         </div>
       </dl>
     </section>
@@ -740,6 +735,7 @@
       fractionalShares: true,
       entryFilter: 'none'
     };
+    const GRID_TYPE = 'buy_the_dip';
     const CURRENCY_FORMAT = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const NUMBER_FORMAT = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const NUMBER_FORMAT_4 = new Intl.NumberFormat(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 });
@@ -1140,16 +1136,6 @@
       };
     }
 
-    function estimateCommission(notional, side, params) {
-      const safeNotional = Number(notional);
-      if (!Number.isFinite(safeNotional) || safeNotional <= 0) return 0;
-      const perTrade = Number(params?.commissionPerTrade);
-      if (Number.isFinite(perTrade) && perTrade > 0) return perTrade;
-      const rate = Number(params?.commissionRate);
-      if (Number.isFinite(rate) && rate > 0) return safeNotional * rate;
-      return 0;
-    }
-
     function buildPercentFixedGridLevels({ basePrice, gridSize, minPrice, maxPrice, tickSize }) {
       const rawPercent = Number(gridSize);
       const stepPercent = rawPercent / 100;
@@ -1208,7 +1194,7 @@
 
     function createGridSpacingHelpers({ spacingType, gridSize, basePrice, firstPrice, minPrice, maxPrice, tickSize }) {
       const typeRaw = (spacingType || 'fixed').toLowerCase();
-      const isPercentType = typeRaw === 'percent' || typeRaw === 'percent_fixed' || typeRaw === 'percent_ratchet_up';
+      const isPercentType = typeRaw === 'percent' || typeRaw === 'percent_fixed';
       if (isPercentType) {
         const rawPercent = Number(gridSize);
         const percent = rawPercent / 100;
@@ -1336,7 +1322,6 @@
             floor,
             ceil,
             priceTolerance,
-            anchorMode: 'fixed',
             setAnchor,
             getAnchor,
             gridLevels: Array.isArray(levels.pairs) ? levels.pairs : [],
@@ -1375,7 +1360,6 @@
           const idx = Math.ceil(Math.log(value / anchor) / logRatio);
           return anchor * Math.pow(ratio, idx);
         };
-        const anchorMode = typeRaw === 'percent_ratchet_up' ? 'ratchet_up' : 'fixed';
         const setAnchor = (value) => {
           if (!Number.isFinite(value) || value <= 0) return;
           anchor = value;
@@ -1397,7 +1381,6 @@
           floor,
           ceil,
           priceTolerance,
-          anchorMode,
           setAnchor,
           getAnchor
         };
@@ -1446,8 +1429,7 @@
         priceTolerance: 1e-9,
         decimals,
         scale,
-        round,
-        anchorMode: 'fixed'
+        round
       };
     }
 
@@ -1498,7 +1480,7 @@
       const basePrice = Number(document.getElementById('inpBasePrice')?.value ?? 100);
       const tradeValue = Number(document.getElementById('inpTradeValue')?.value ?? GRID_DEFAULTS.tradeValue);
       const fractionalShares = !!document.getElementById('inpFractionalShares')?.checked;
-      const gridType = (document.getElementById('selGridType')?.value || 'pullback').toLowerCase();
+      const gridType = GRID_TYPE;
       const gridSpacingType = (document.getElementById('selGridSpacing')?.value || GRID_DEFAULTS.gridSpacingType).toLowerCase();
       const retentionMode = (document.getElementById('selRetentionMode')?.value || 'profit').toLowerCase();
       const entryFilter = (document.getElementById('selEntryFilter')?.value || GRID_DEFAULTS.entryFilter).toLowerCase();
@@ -1521,6 +1503,7 @@
       const maxLevelsEl = document.getElementById('summaryMaxLevels');
       const capitalContributedEl = document.getElementById('summaryCapitalContributed');
       const netCashflowEl = document.getElementById('summaryNetCashflow');
+      const harvestedEl = document.getElementById('summaryHarvestedProfit');
       const holdingsValueEl = document.getElementById('summaryHoldingsValue');
       const netProfitEl = document.getElementById('summaryNetProfit');
       const profitPerLevelEl = document.getElementById('summaryProfitPerLevel');
@@ -1533,6 +1516,8 @@
       const minCashEl = document.getElementById('summaryMinCash');
       const cashEl = document.getElementById('summaryCash');
       const sharesEl = document.getElementById('summaryShares');
+      const lastPriceEl = document.getElementById('summaryLastPrice');
+      const openLevelsEl = document.getElementById('summaryOpenLevels');
       const formatCurrencyOrDash = (value) => (Number.isFinite(value) ? formatCurrency(value) : '—');
       const formatNumberOrDash = (value, digits = 2) => (Number.isFinite(value) ? formatNumber(value, digits) : '—');
       const formatPercentOrDash = (value) => (Number.isFinite(value) ? formatPercent(value) : '—');
@@ -1549,6 +1534,9 @@
         : NaN;
       let netPLFinal = Number.isFinite(safeSummary?.netPLFinal)
         ? safeSummary.netPLFinal
+        : NaN;
+      const netProfitFallback = Number.isFinite(safeSummary?.netProfit)
+        ? safeSummary.netProfit
         : NaN;
       const holdingsValueFinal = Number.isFinite(safeSummary?.holdingsValueFinal)
         ? safeSummary.holdingsValueFinal
@@ -1567,17 +1555,27 @@
       const minCashBalance = Number.isFinite(safeSummary?.minCashBalance)
         ? safeSummary.minCashBalance
         : (Number.isFinite(safeSummary?.minCash) ? safeSummary.minCash : NaN);
-      const maxDrawdown = Number.isFinite(safeSummary?.maxDrawdown) ? safeSummary.maxDrawdown : NaN;
-      const drawdownDenom = Number.isFinite(requiredCapital) && Math.abs(requiredCapital) > 1e-9
-        ? Math.abs(requiredCapital)
+      const lastPrice = Number.isFinite(safeSummary?.lastPrice)
+        ? safeSummary.lastPrice
+        : (Number.isFinite(holdingsValueFinal)
+          && Number.isFinite(safeSummary?.shares)
+          && Math.abs(safeSummary.shares) > 1e-9
+          ? (holdingsValueFinal / safeSummary.shares)
+          : NaN);
+      const openLevelsFinal = Number.isFinite(safeSummary?.openLevelsFinal)
+        ? safeSummary.openLevelsFinal
         : NaN;
-      const maxDrawdownPct = Number.isFinite(drawdownDenom) && Number.isFinite(maxDrawdown)
-        ? (maxDrawdown / drawdownDenom) * 100
-        : (Number.isFinite(safeSummary?.maxDrawdownPct) ? safeSummary.maxDrawdownPct : NaN);
+      const maxDrawdown = Number.isFinite(safeSummary?.maxDrawdown) ? safeSummary.maxDrawdown : NaN;
+      const maxDrawdownPct = Number.isFinite(safeSummary?.maxDrawdownPct)
+        ? safeSummary.maxDrawdownPct
+        : NaN;
       if (!Number.isFinite(netPLFinal)
         && Number.isFinite(netCashflowTradesFinal)
         && Number.isFinite(holdingsValueFinal)) {
         netPLFinal = netCashflowTradesFinal + holdingsValueFinal;
+      }
+      if (!Number.isFinite(netPLFinal) && Number.isFinite(netProfitFallback)) {
+        netPLFinal = netProfitFallback;
       }
       const profitPerLevel = (Number.isFinite(netPLFinal) && maxLevels > 0)
         ? netPLFinal / maxLevels
@@ -1585,15 +1583,29 @@
       const requiredCapitalValue = hasLedger ? requiredCapital : NaN;
       const netCashflowValue = hasLedger ? netCashflowTradesFinal : NaN;
       const capitalContributedValue = hasLedger ? capitalContributedFinal : NaN;
-      const maxDrawdownValue = hasLedger ? maxDrawdown : NaN;
-      const maxDrawdownPctValue = hasLedger ? maxDrawdownPct : NaN;
-      if (!hasLedger) {
+      const harvestedProfit = Number.isFinite(safeSummary?.realizedProfit)
+        ? safeSummary.realizedProfit
+        : NaN;
+      const maxDrawdownValue = Number.isFinite(maxDrawdown) ? maxDrawdown : NaN;
+      const maxDrawdownPctValue = Number.isFinite(maxDrawdownPct) ? maxDrawdownPct : NaN;
+      if (!hasLedger && !Number.isFinite(netProfitFallback)) {
         netPLFinal = NaN;
       }
       if (totalTradesEl) totalTradesEl.textContent = String(safeSummary.totalTrades ?? 0);
       if (maxLevelsEl) maxLevelsEl.textContent = maxLevels.toLocaleString();
       if (capitalContributedEl) capitalContributedEl.textContent = formatCurrencyOrDash(capitalContributedValue);
       if (netCashflowEl) netCashflowEl.textContent = formatCurrencyOrDash(netCashflowValue);
+      if (harvestedEl) {
+        harvestedEl.textContent = formatCurrencyOrDash(harvestedProfit);
+        harvestedEl.classList.remove('text-slate-800', 'text-emerald-600', 'text-red-600');
+        if (Number.isFinite(harvestedProfit) && harvestedProfit > 1e-8) {
+          harvestedEl.classList.add('text-emerald-600');
+        } else if (Number.isFinite(harvestedProfit) && harvestedProfit < -1e-8) {
+          harvestedEl.classList.add('text-red-600');
+        } else {
+          harvestedEl.classList.add('text-slate-800');
+        }
+      }
       if (holdingsValueEl) holdingsValueEl.textContent = formatCurrencyOrDash(holdingsValueFinal);
       if (accountEquityEl) accountEquityEl.textContent = formatCurrencyOrDash(accountEquityFinal);
       if (requiredCapitalEl) requiredCapitalEl.textContent = formatCurrencyOrDash(requiredCapitalValue);
@@ -1654,6 +1666,8 @@
       if (minCashEl) minCashEl.textContent = formatCurrencyOrDash(minCashBalance);
       if (cashEl) cashEl.textContent = formatCurrencyOrDash(safeSummary.cash);
       if (sharesEl) sharesEl.textContent = formatNumberOrDash(safeSummary.shares, 4);
+      if (lastPriceEl) lastPriceEl.textContent = formatCurrencyOrDash(lastPrice);
+      if (openLevelsEl) openLevelsEl.textContent = formatNumberOrDash(openLevelsFinal, 0);
     }
 
     function getTradeSortValue(trade, key) {
@@ -3023,7 +3037,7 @@
       const titleEl = document.getElementById('mainTitle');
       const meta = ensureSymbolMetaEntry(currentTicker);
       const friendlyName = meta && meta.name && meta.name.toUpperCase() !== currentTicker ? ` · ${meta.name}` : '';
-      const fullTitle = currentTicker ? `${currentTicker}${friendlyName} - Buy-the-Dip Grid Backtest` : 'Buy-the-Dip Grid Backtest';
+      const fullTitle = currentTicker ? `${currentTicker}${friendlyName} - Buy the Dip Backtest` : 'Buy the Dip Backtest';
       if (titleEl) titleEl.textContent = fullTitle;
       document.title = fullTitle;
       highlightTickerButton(currentTicker);
@@ -3225,16 +3239,10 @@
       return out;
     }
 
-    function runPullbackGridSimulation(rows, params) {
+    function runBuyTheGridSimulation(rows, params) {
       const trades = [];
       const equitySeries = [];
       const ladderHistory = [];
-      const mode = (params?.gridType || 'pullback').toLowerCase();
-      if (mode === 'progressive') {
-        return runProgressiveGrid(rows, params);
-      }
-
-      const athResetMode = mode === 'grid_ath_reset';
       const summary = {
         totalTrades: 0,
         netProfit: 0,
@@ -3248,7 +3256,6 @@
         maxSharesHeld: 0,
         maxOpenLevels: 0,
         maxDeployedCapital: 0,
-        athResetCount: 0,
         cagr: 0
       };
       const buyLevelSet = new Set();
@@ -3323,34 +3330,6 @@
       const stepsBetween = spacing.stepsBetween;
       const priceTolerance = spacing.priceTolerance ?? 1e-9;
       const usePercentSpacing = spacing.type === 'percent';
-      const shouldRatchetUp = usePercentSpacing && spacing.anchorMode === 'ratchet_up' && typeof spacing.setAnchor === 'function' && typeof spacing.getAnchor === 'function';
-      const refreshOrderRungs = () => {
-        activeBuys.forEach(arr => {
-          if (!Array.isArray(arr)) return;
-          arr.forEach(order => {
-            if (order) order.rungIndex = computeRungIndex(order.level);
-          });
-        });
-        activeSells.forEach(arr => {
-          if (!Array.isArray(arr)) return;
-          arr.forEach(order => {
-            if (order) order.buyRung = computeRungIndex(order.buyPrice);
-          });
-        });
-      };
-      const ratchetAnchorIfNeeded = (candidate) => {
-        if (!shouldRatchetUp || !Number.isFinite(candidate)) return;
-        const currentAnchor = spacing.getAnchor && spacing.getAnchor();
-        if (!Number.isFinite(currentAnchor)) return;
-        const tolerance = priceTolerance * Math.max(1, candidate);
-        if (candidate <= currentAnchor + tolerance) return;
-        const snapped = snapLevel(candidate);
-        spacing.setAnchor(snapped);
-        if (Number.isFinite(highestSeededBuyLevel)) {
-          highestSeededBuyLevel = snapLevel(highestSeededBuyLevel);
-        }
-        refreshOrderRungs();
-      };
       const initialBaseLevel = snapLevel(basePrice);
       resolveBaseLevel = () => {
         if (usePercentSpacing && typeof spacing.getAnchor === 'function') {
@@ -3462,6 +3441,9 @@
 
       let cash = 0;
       let minCashBalance = cash;
+      let capitalContributed = 0;
+      let netCashflowTrades = 0;
+      let requiredCapital = 0;
       const initialEquity = cash;
       let fundedLevels = 0;
       let openPositions = 0;
@@ -3475,6 +3457,10 @@
       let maxDrawdown = 0;
       let maxDrawdownPct = 0;
       let maxSharesHeld = shares;
+
+      const updateRequiredCapital = () => {
+        requiredCapital = Math.max(requiredCapital, -netCashflowTrades);
+      };
 
       const hasActiveBuy = (level) => {
         const price = snapLevel(level);
@@ -3516,7 +3502,6 @@
           highestSeededBuyLevel = nextLevel;
           safety += 1;
         }
-        ratchetAnchorIfNeeded(Math.max(maxPrice, highestSeededBuyLevel));
       };
 
       const activateQueuedBuys = (maxPrice) => {
@@ -3528,48 +3513,6 @@
           if (maxPrice >= entry.trigger - tolerance) {
             addBuyOrder(entry.buyLevel);
             queuedBuyActivations.splice(i, 1);
-          }
-        }
-      };
-
-      const hasActiveSellOrders = () => {
-        for (const arr of activeSells.values()) {
-          if (Array.isArray(arr) && arr.length) return true;
-        }
-        return false;
-      };
-
-      const clearLadderState = () => {
-        activeBuys.clear();
-        activeSells.clear();
-        queuedBuyActivations.length = 0;
-        buyLevelSet.clear();
-        sellLevelSet.clear();
-        highestSeededBuyLevel = Number.NEGATIVE_INFINITY;
-      };
-
-      const rebuildLadderAtBase = (basePrice, timestamp) => {
-        clearLadderState();
-        applyBaseAnchor(basePrice);
-        seedDownLadderFromBase(basePrice);
-        summary.athResetCount += 1;
-        ladderHistory.push({
-          time: timestamp instanceof Date ? new Date(timestamp.getTime()) : (lastEquityTime ? new Date(lastEquityTime.getTime()) : new Date()),
-          buys: activeBuys.size,
-          sells: activeSells.size,
-          queued: queuedBuyActivations.length
-        });
-      };
-
-      let runningAth = firstPrice;
-      const maybeTriggerAthReset = (price, timestamp) => {
-        if (!athResetMode) return;
-        if (!Number.isFinite(price)) return;
-        const tolerance = priceTolerance * Math.max(1, price);
-        if (price > runningAth + tolerance) {
-          runningAth = price;
-          if (!hasActiveSellOrders() && Math.abs(shares) <= 1e-8) {
-            rebuildLadderAtBase(price, timestamp);
           }
         }
       };
@@ -3589,7 +3532,9 @@
         const neededPositions = openPositions + 1;
         if (neededPositions > fundedLevels) {
           const levelsToAdd = neededPositions - fundedLevels;
-          cash += levelsToAdd * tradeValue;
+          const deposit = levelsToAdd * tradeValue;
+          cash += deposit;
+          capitalContributed += deposit;
           fundedLevels += levelsToAdd;
           const deployed = fundedLevels * tradeValue;
           if (deployed > summary.maxDeployedCapital) {
@@ -3598,6 +3543,8 @@
         }
         const cost = qty * price;
         cash -= cost;
+        netCashflowTrades -= cost;
+        updateRequiredCapital();
         if (cash < minCashBalance) minCashBalance = cash;
         shares += qty;
         if (shares > maxSharesHeld) maxSharesHeld = shares;
@@ -3632,6 +3579,8 @@
         const revenue = qty * price;
         const costBasis = qty * order.buyPrice;
         cash += revenue;
+        netCashflowTrades += revenue;
+        updateRequiredCapital();
         shares -= qty;
         if (openPositions > 0) openPositions -= 1;
         removeOrder(activeSells, order);
@@ -3697,13 +3646,11 @@
           const buys = collectOrdersInRange(activeBuys, end, start, false);
           for (const order of buys) executeBuy(order, timestamp, contextRow);
         }
-        const maxVal = Math.max(start, end);
-        ensureRunupBuys(maxVal);
-        activateQueuedBuys(maxVal);
-        ratchetAnchorIfNeeded(maxVal);
-        maybeTriggerAthReset(maxVal, timestamp);
-        if (timestamp instanceof Date) {
-          ladderHistory.push({
+      const maxVal = Math.max(start, end);
+      ensureRunupBuys(maxVal);
+      activateQueuedBuys(maxVal);
+      if (timestamp instanceof Date) {
+        ladderHistory.push({
             time: new Date(timestamp.getTime()),
             buys: activeBuys.size,
             sells: activeSells.size,
@@ -3766,7 +3713,9 @@
         });
       }
 
-      const finalEquity = cash + shares * prevPrice;
+      const finalHoldings = shares * prevPrice;
+      const netPLFinal = netCashflowTrades + finalHoldings;
+      const finalEquity = cash + finalHoldings;
       const millis = firstEquityTime && lastEquityTime ? (lastEquityTime.getTime() - firstEquityTime.getTime()) : 0;
       const years = millis > 0 ? (millis / (365.25 * 24 * 60 * 60 * 1000)) : 0;
       const maxLevelsUsed = Number.isFinite(summary.maxOpenLevels) ? summary.maxOpenLevels : 0;
@@ -3780,549 +3729,21 @@
         ? Math.pow(finalEquity / cagrBaseEquity, 1 / years) - 1
         : 0;
       summary.totalTrades = trades.length;
-      summary.netProfit = realizedProfit;
-      summary.profitPerLevel = maxLevelsUsed > 0 ? realizedProfit / maxLevelsUsed : 0;
+      summary.netProfit = netPLFinal;
+      summary.profitPerLevel = maxLevelsUsed > 0 ? netPLFinal / maxLevelsUsed : 0;
       summary.finalEquity = finalEquity;
       summary.totalRetainedShares = cumulativeRetained;
       summary.cash = cash;
       summary.minCash = minCashBalance;
+      summary.minCashBalance = minCashBalance;
       summary.shares = shares;
+      summary.lastPrice = prevPrice;
+      summary.openLevelsFinal = openPositions;
       summary.maxDrawdown = maxDrawdown;
       summary.maxDrawdownPct = maxDrawdownPct * 100;
       summary.maxSharesHeld = maxSharesHeld;
       summary.cagr = cagr;
       summary.maxDeployedCapital = maxDeployedCapital;
-      return finalizeResult();
-    }
-
-    function runGridSimulation(rows, params) {
-      const trades = [];
-      const equitySeries = [];
-      const ladderHistory = [];
-      const summary = {
-        totalTrades: 0,
-        netProfit: 0,
-        profitPerLevel: 0,
-        finalEquity: 0,
-        totalRetainedShares: 0,
-        cash: 0,
-        minCash: 0,
-        shares: 0,
-        maxDrawdown: 0,
-        maxDrawdownPct: 0,
-        maxSharesHeld: 0,
-        maxOpenLevels: 0,
-        maxDeployedCapital: 0,
-        cagr: 0,
-        requiredCapital: 0,
-        netPLFinal: 0,
-        realizedProfit: 0,
-        capitalContributed: 0,
-        netCashflowTrades: 0,
-        capitalContributedFinal: 0,
-        netCashflowTradesFinal: 0,
-        holdingsValueFinal: 0,
-        accountEquityFinal: 0,
-        minCashBalance: 0
-      };
-      const buyLevelSet = new Set();
-      const sellLevelSet = new Set();
-      let gridLevels = [];
-      let resolveBaseLevel = () => NaN;
-      const finalizeResult = () => ({
-        trades,
-        summary,
-        equitySeries,
-        ladderHistory,
-        buyLevels: Array.from(buyLevelSet).sort((a, b) => b - a),
-        sellLevels: Array.from(sellLevelSet).sort((a, b) => a - b),
-        gridLevels: Array.isArray(gridLevels) ? gridLevels : [],
-        baseLevel: (() => {
-          const val = resolveBaseLevel();
-          return Number.isFinite(val) ? val : null;
-        })()
-      });
-      if (!Array.isArray(rows) || !rows.length) {
-        return finalizeResult();
-      }
-
-      const rawGridSize = Number(params?.gridSize);
-      const rawBasePrice = Number(params?.basePrice);
-      const gridSpacingType = (params?.gridSpacingType || GRID_DEFAULTS.gridSpacingType).toLowerCase();
-      const tradeValue = Number(params?.tradeValue);
-      const tickSize = Number(params?.tickSize);
-      const resolvedTickSize = Number.isFinite(tickSize) && tickSize > 0 ? tickSize : 0.01;
-      const fractional = !!params?.fractionalShares;
-      const retentionMode = (params?.retentionMode || 'profit').toLowerCase();
-      const entryFilter = (params?.entryFilter || 'none').toLowerCase();
-      const autoFund = params?.autoFund !== false;
-      if (!Number.isFinite(rawGridSize) || rawGridSize <= 0 || !Number.isFinite(tradeValue) || tradeValue <= 0) {
-        return finalizeResult();
-      }
-      let firstPrice = [rows[0]?.open, rows[0]?.close, rows[0]?.high, rows[0]?.low].map(Number).find(Number.isFinite);
-      if (!Number.isFinite(firstPrice) || firstPrice <= 0) {
-        return finalizeResult();
-      }
-      const basePrice = Number.isFinite(rawBasePrice) && rawBasePrice > 0 ? rawBasePrice : firstPrice;
-      let minPrice = firstPrice;
-      let maxPrice = firstPrice;
-      for (const row of rows) {
-        if (!row) continue;
-        const low = Number(row.low);
-        const high = Number(row.high);
-        if (Number.isFinite(low)) minPrice = Math.min(minPrice, low);
-        if (Number.isFinite(high)) maxPrice = Math.max(maxPrice, high);
-      }
-      if (!Number.isFinite(minPrice) || !Number.isFinite(maxPrice) || minPrice <= 0 || maxPrice <= 0) {
-        return finalizeResult();
-      }
-
-      const spacing = createGridSpacingHelpers({
-        spacingType: gridSpacingType,
-        gridSize: rawGridSize,
-        basePrice,
-        firstPrice,
-        minPrice,
-        maxPrice,
-        tickSize: resolvedTickSize
-      });
-      if (spacing.error) {
-        console.warn('Grid spacing configuration invalid:', spacing.error);
-        return finalizeResult();
-      }
-      gridLevels = Array.isArray(spacing.gridLevels) ? spacing.gridLevels : [];
-      const snapLevel = spacing.snap;
-      const keyFor = spacing.key;
-      const nextUpLevel = spacing.nextUp;
-      const nextDownLevel = spacing.nextDown;
-      const stepsBetween = spacing.stepsBetween;
-      const priceTolerance = spacing.priceTolerance ?? 1e-9;
-      const applyBaseAnchor = (basePrice) => {
-        if (typeof spacing.setAnchor !== 'function') return;
-        const snapped = snapLevel(basePrice);
-        if (Number.isFinite(snapped) && snapped > 0) {
-          spacing.setAnchor(snapped);
-        }
-      };
-      applyBaseAnchor(basePrice);
-      const initialBaseLevel = snapLevel(basePrice);
-      resolveBaseLevel = () => initialBaseLevel;
-      const computeRungIndex = (level) => {
-        if (!Number.isFinite(level) || !Number.isFinite(initialBaseLevel)) return 0;
-        const diff = stepsBetween(initialBaseLevel, level);
-        if (!Number.isFinite(diff)) return 0;
-        return Math.round(diff);
-      };
-
-      const activeBuys = new Map();
-      const activeSells = new Map();
-      let orderSeq = 1;
-      let fundedLevels = 0;
-
-      const getActiveSellCount = () => {
-        let count = 0;
-        for (const arr of activeSells.values()) {
-          if (Array.isArray(arr)) count += arr.length;
-        }
-        return count;
-      };
-
-      const removeOrder = (map, order) => {
-        if (!order || !Number.isFinite(order.level)) return;
-        const key = keyFor(order.level);
-        const arr = map.get(key);
-        if (!arr) return;
-        const idx = arr.indexOf(order);
-        if (idx >= 0) arr.splice(idx, 1);
-        if (!arr.length) map.delete(key);
-      };
-
-      const addBuyOrder = (level) => {
-        const price = snapLevel(level);
-        if (!Number.isFinite(price) || price <= 0) return null;
-        buyLevelSet.add(price);
-        const key = keyFor(price);
-        const existing = activeBuys.get(key);
-        if (existing && existing.length) return existing[0];
-        const order = { id: orderSeq++, level: price, rungIndex: computeRungIndex(price) };
-        activeBuys.set(key, [order]);
-        return order;
-      };
-
-      const addSellOrder = (level, buyInfo) => {
-        const price = snapLevel(level);
-        if (!Number.isFinite(price) || price <= 0) return null;
-        sellLevelSet.add(price);
-        const key = keyFor(price);
-        if (!activeSells.has(key)) activeSells.set(key, []);
-        const order = {
-          id: orderSeq++,
-          level: price,
-          buyPrice: Number(buyInfo?.price),
-          buyQty: Number(buyInfo?.qty),
-          buyTime: buyInfo?.time instanceof Date ? new Date(buyInfo.time.getTime()) : new Date(),
-          buyRung: Number.isFinite(buyInfo?.rungIndex)
-            ? buyInfo.rungIndex
-            : computeRungIndex(Number(buyInfo?.price)),
-          plannedRetained: 0,
-          targetSell: 0,
-          remainingSellQty: 0,
-          buyFee: Number.isFinite(buyInfo?.fee) ? buyInfo.fee : 0
-        };
-        const desiredRaw = tradeValue / price;
-        const desired = fractional ? desiredRaw : Math.floor(desiredRaw);
-        const plan = computeSellExecution({
-          baseQty: order.buyQty,
-          desiredQty: desired,
-          sharesAvailable: Number.POSITIVE_INFINITY,
-          mode: retentionMode,
-          fractional
-        });
-        order.plannedRetained = Number.isFinite(plan.plannedRetained) ? plan.plannedRetained : 0;
-        order.targetSell = Number.isFinite(plan.targetSell)
-          ? plan.targetSell
-          : Math.max(0, order.buyQty - order.plannedRetained);
-        if (!Number.isFinite(order.targetSell) || order.targetSell <= 0) {
-          return null;
-        }
-        order.remainingSellQty = order.targetSell;
-        sellLevelSet.add(price);
-        activeSells.get(key).push(order);
-        return order;
-      };
-
-      const seedLadderFromBase = (basePrice) => {
-        const snappedBase = snapLevel(basePrice);
-        if (!Number.isFinite(snappedBase) || snappedBase <= 0) return;
-        let level = nextDownLevel(snappedBase);
-        let safety = 0;
-        const coverageFloor = Math.max(minPrice, priceTolerance);
-        while (
-          Number.isFinite(level) &&
-          level > 0 &&
-          level >= coverageFloor - priceTolerance * Math.max(1, level) &&
-          safety < 5000
-        ) {
-          addBuyOrder(level);
-          const nextLevel = nextDownLevel(level);
-          if (!Number.isFinite(nextLevel) || Math.abs(nextLevel - level) <= priceTolerance * Math.max(1, level)) break;
-          level = nextLevel;
-          safety += 1;
-        }
-        level = nextUpLevel(snappedBase);
-        safety = 0;
-        const coverageCeil = Math.max(maxPrice, priceTolerance);
-        while (
-          Number.isFinite(level) &&
-          level > 0 &&
-          level <= coverageCeil + priceTolerance * Math.max(1, level) &&
-          safety < 5000
-        ) {
-          addBuyOrder(level);
-          const nextLevel = nextUpLevel(level);
-          if (!Number.isFinite(nextLevel) || Math.abs(nextLevel - level) <= priceTolerance * Math.max(1, level)) break;
-          level = nextLevel;
-          safety += 1;
-        }
-      };
-
-      seedLadderFromBase(basePrice);
-
-      let cashBalance = 0;
-      let capitalContributed = 0;
-      let netCashflowTrades = 0;
-      let minCashBalance = cashBalance;
-      let shares = 0;
-      let realizedProfit = 0;
-      let cumulativeRetained = 0;
-      let maxSharesHeld = shares;
-      let requiredCapital = 0;
-      let peakNetPL = 0;
-      let maxDrawdownNetPL = 0;
-      let prevPrice = firstPrice;
-      const firstEquityTime = rows[0]?.caldt instanceof Date ? new Date(rows[0].caldt.getTime()) : null;
-      let lastEquityTime = firstEquityTime;
-      let ledgerWarningIssued = false;
-
-      const updateRequiredCapital = () => {
-        requiredCapital = Math.max(requiredCapital, -netCashflowTrades);
-      };
-
-      const checkLedgerInvariant = (equity, netPL, holdingsValue) => {
-        if (ledgerWarningIssued) return;
-        const eqDelta = Math.abs(equity - (capitalContributed + netPL));
-        const plDelta = Math.abs(netPL - (netCashflowTrades + holdingsValue));
-        const scale = Math.max(
-          1,
-          Math.abs(equity),
-          Math.abs(netPL),
-          Math.abs(netCashflowTrades),
-          Math.abs(holdingsValue),
-          Math.abs(capitalContributed)
-        );
-        if (eqDelta > scale * 1e-6 || plDelta > scale * 1e-6) {
-          ledgerWarningIssued = true;
-          console.warn('Grid ledger invariant drift:', {
-            eqDelta,
-            plDelta,
-            equity,
-            capitalContributed,
-            netPL,
-            netCashflowTrades,
-            holdingsValue
-          });
-        }
-      };
-
-      const computeSellFillQty = ({ remainingSellQty, sharesAvailable }) => {
-        const available = Number.isFinite(sharesAvailable) ? sharesAvailable : remainingSellQty;
-        let qty = Math.max(0, Math.min(remainingSellQty, available));
-        if (!fractional) {
-          qty = Math.floor(qty);
-          if (qty <= 0 && remainingSellQty >= 1 && available > 0) {
-            qty = Math.min(available, 1);
-          }
-        }
-        return qty;
-      };
-
-      const executeBuy = (order, timestamp, contextRow) => {
-        if (!order) return false;
-        const price = order.level;
-        if (!passesEntryFilter(price, contextRow, entryFilter)) {
-          return false;
-        }
-        const qtyRaw = tradeValue / price;
-        let qty = fractional ? qtyRaw : Math.floor(qtyRaw);
-        if (!Number.isFinite(qty) || qty <= 0) {
-          removeOrder(activeBuys, order);
-          return false;
-        }
-        if (autoFund) {
-          const neededPositions = getActiveSellCount() + 1;
-          if (neededPositions > fundedLevels) {
-            const levelsToAdd = neededPositions - fundedLevels;
-            const deposit = levelsToAdd * tradeValue;
-            cashBalance += deposit;
-            capitalContributed += deposit;
-            fundedLevels += levelsToAdd;
-          }
-        }
-        const notional = qty * price;
-        const fee = estimateCommission(notional, 'B', params);
-        cashBalance -= (notional + fee);
-        netCashflowTrades -= (notional + fee);
-        updateRequiredCapital();
-        if (cashBalance < minCashBalance) minCashBalance = cashBalance;
-        shares += qty;
-        if (shares > maxSharesHeld) maxSharesHeld = shares;
-        removeOrder(activeBuys, order);
-        const sellLevel = nextUpLevel(price);
-        if (Number.isFinite(sellLevel) && sellLevel > 0) {
-          const sellOrder = addSellOrder(sellLevel, {
-            price,
-            qty,
-            time: timestamp,
-            rungIndex: Number.isFinite(order?.rungIndex) ? order.rungIndex : computeRungIndex(price),
-            fee
-          });
-          if (sellOrder) {
-            const openLevels = getActiveSellCount();
-            if (openLevels > summary.maxOpenLevels) summary.maxOpenLevels = openLevels;
-          }
-        }
-        return true;
-      };
-
-      const executeSell = (order, timestamp) => {
-        if (!order) return false;
-        const price = order.level;
-        const remaining = Number.isFinite(order.remainingSellQty) ? order.remainingSellQty : order.targetSell;
-        if (!Number.isFinite(remaining) || remaining <= 0) {
-          removeOrder(activeSells, order);
-          return false;
-        }
-        const qty = computeSellFillQty({ remainingSellQty: remaining, sharesAvailable: shares });
-        if (!Number.isFinite(qty) || qty <= 0) {
-          return false;
-        }
-        const notional = qty * price;
-        const fee = estimateCommission(notional, 'S', params);
-        cashBalance += (notional - fee);
-        netCashflowTrades += (notional - fee);
-        updateRequiredCapital();
-        shares -= qty;
-        if (cashBalance < minCashBalance) minCashBalance = cashBalance;
-        order.remainingSellQty = Math.max(0, remaining - qty);
-        const buyFee = Number.isFinite(order.buyFee) ? order.buyFee : 0;
-        const feeAllocated = order.buyQty > 0 ? (buyFee * (qty / order.buyQty)) : 0;
-        const profit = (notional - fee) - (qty * order.buyPrice + feeAllocated);
-        realizedProfit += profit;
-        const closeQty = shares;
-        const holdingsValue = shares * price;
-        const closeEquity = cashBalance + holdingsValue;
-        const closeNetCashflowTrades = netCashflowTrades;
-        const closeHoldingsValue = holdingsValue;
-        const closeNetPL = closeNetCashflowTrades + closeHoldingsValue;
-        const peakNetPLAfter = Math.max(peakNetPL, closeNetPL);
-        const drawdownNetPL = closeNetPL - peakNetPLAfter;
-        if (closeNetPL > peakNetPL) peakNetPL = closeNetPL;
-        const sellTime = timestamp instanceof Date ? new Date(timestamp.getTime()) : new Date();
-        const buyTime = order.buyTime instanceof Date ? new Date(order.buyTime.getTime()) : new Date();
-        const msHeld = sellTime.getTime() - buyTime.getTime();
-        const daysHeld = Number.isFinite(msHeld) ? Math.max(0, msHeld / 86400000) : 0;
-        const openTradesCount = getActiveSellCount();
-        const openLevelSnapshot = openTradesCount;
-        const openEquity = openLevelSnapshot * tradeValue;
-        const qtyRetained = order.remainingSellQty <= 1e-9 ? order.plannedRetained : 0;
-        if (order.remainingSellQty <= 1e-9) {
-          cumulativeRetained += order.plannedRetained;
-          removeOrder(activeSells, order);
-          const buyLevel = nextDownLevel(price);
-          if (Number.isFinite(buyLevel) && buyLevel > 0) {
-            addBuyOrder(buyLevel);
-          }
-        }
-        trades.push({
-          buyTime,
-          buyPrice: order.buyPrice,
-          buyQty: order.buyQty,
-          gridLevel: Number.isFinite(order.buyRung) ? order.buyRung : computeRungIndex(order.buyPrice),
-          openLevels: openLevelSnapshot,
-          openQty: shares + qty,
-          openEquity,
-          sellTime,
-          sellPrice: price,
-          sellQty: qty,
-          closeQty,
-          closeEquity,
-          qtyRetained,
-          cumQtyRetained: cumulativeRetained,
-          daysHeld,
-          profit,
-          cumProfit: realizedProfit,
-          runningPnl: closeNetPL,
-          drawdown: drawdownNetPL,
-          closeNetCashflowTrades,
-          closeHoldingsValue,
-          closeNetPL,
-          drawdownNetPL,
-          roiPct: order.buyPrice > 0 ? ((price - order.buyPrice) / order.buyPrice) * 100 : 0,
-          remainingSellQty: order.remainingSellQty
-        });
-        return true;
-      };
-
-      const processMove = (start, end, timestamp, contextRow) => {
-        if (!Number.isFinite(start) || !Number.isFinite(end)) return;
-        const scale = Math.max(1, Math.abs(start), Math.abs(end));
-        const threshold = priceTolerance * scale;
-        if (end > start + threshold) {
-          const sells = collectOrdersInRange(activeSells, start, end, true);
-          for (const order of sells) executeSell(order, timestamp);
-        } else if (end < start - threshold) {
-          const buys = collectOrdersInRange(activeBuys, end, start, false);
-          for (const order of buys) executeBuy(order, timestamp, contextRow);
-        }
-        if (timestamp instanceof Date) {
-          ladderHistory.push({
-            time: new Date(timestamp.getTime()),
-            buys: activeBuys.size,
-            sells: activeSells.size,
-            queued: 0
-          });
-        }
-      };
-
-      const buildPath = (fromPrice, row) => {
-        const path = [];
-        let start = Number(fromPrice);
-        if (!Number.isFinite(start)) start = Number(row.open) || Number(row.close) || 0;
-        path.push(start);
-        const addPoint = (value) => {
-          const num = Number(value);
-          if (!Number.isFinite(num)) return;
-          if (Math.abs(num - path[path.length - 1]) < priceTolerance * Math.max(1, num)) return;
-          path.push(num);
-        };
-        const open = Number(row.open);
-        const high = Number(row.high);
-        const low = Number(row.low);
-        const close = Number(row.close);
-        if (Number.isFinite(open)) addPoint(open);
-        const upBar = Number.isFinite(close) && Number.isFinite(open) ? (close >= open) : true;
-        if (upBar) {
-          if (Number.isFinite(high)) addPoint(high);
-          if (Number.isFinite(low)) addPoint(low);
-        } else {
-          if (Number.isFinite(low)) addPoint(low);
-          if (Number.isFinite(high)) addPoint(high);
-        }
-        if (Number.isFinite(close)) addPoint(close);
-        return path;
-      };
-
-      for (const row of rows) {
-        if (!row || !(row.caldt instanceof Date)) continue;
-        const path = buildPath(prevPrice, row);
-        for (let i = 1; i < path.length; i++) {
-          const from = path[i - 1];
-          const to = path[i];
-          processMove(from, to, row.caldt, row);
-        }
-        prevPrice = path[path.length - 1];
-        const holdingsValue = shares * prevPrice;
-        const netPL = netCashflowTrades + holdingsValue;
-        const equity = cashBalance + holdingsValue;
-        if (netPL > peakNetPL) peakNetPL = netPL;
-        const drawdownNetPL = netPL - peakNetPL;
-        if (drawdownNetPL < maxDrawdownNetPL) maxDrawdownNetPL = drawdownNetPL;
-        updateRequiredCapital();
-        checkLedgerInvariant(equity, netPL, holdingsValue);
-        lastEquityTime = new Date(row.caldt.getTime());
-        equitySeries.push({
-          time: new Date(row.caldt.getTime()),
-          markPrice: prevPrice,
-          shares,
-          holdingsValue,
-          netCashflowTrades,
-          netPL,
-          cashBalance,
-          cash: cashBalance,
-          capitalContributed,
-          equity,
-          drawdownNetPL,
-          requiredCapital,
-          cashDeployed: Math.max(0, -netCashflowTrades),
-          capitalBudget: capitalContributed
-        });
-      }
-
-      const finalHoldings = shares * prevPrice;
-      const netPLFinal = netCashflowTrades + finalHoldings;
-      const finalEquity = cashBalance + finalHoldings;
-      const millis = firstEquityTime && lastEquityTime ? (lastEquityTime.getTime() - firstEquityTime.getTime()) : 0;
-      const years = millis > 0 ? (millis / (365.25 * 24 * 60 * 60 * 1000)) : 0;
-      const cagrStart = requiredCapital;
-      const cagrEnd = requiredCapital + netPLFinal;
-      const cagr = (years > 0 && cagrStart > 0 && cagrEnd > 0)
-        ? Math.pow(cagrEnd / cagrStart, 1 / years) - 1
-        : 0;
-      const drawdownDenom = Math.max(requiredCapital, 1e-9);
-      const maxDrawdownPct = drawdownDenom > 0 ? (maxDrawdownNetPL / drawdownDenom) * 100 : 0;
-      summary.totalTrades = trades.length;
-      summary.netProfit = netPLFinal;
-      summary.profitPerLevel = summary.maxOpenLevels > 0 ? netPLFinal / summary.maxOpenLevels : 0;
-      summary.finalEquity = finalEquity;
-      summary.totalRetainedShares = cumulativeRetained;
-      summary.cash = cashBalance;
-      summary.minCash = minCashBalance;
-      summary.shares = shares;
-      summary.maxDrawdown = maxDrawdownNetPL;
-      summary.maxDrawdownPct = maxDrawdownPct;
-      summary.maxSharesHeld = maxSharesHeld;
-      summary.cagr = cagr;
-      summary.maxDeployedCapital = requiredCapital;
       summary.requiredCapital = requiredCapital;
       summary.netPLFinal = netPLFinal;
       summary.realizedProfit = realizedProfit;
@@ -4332,545 +3753,6 @@
       summary.netCashflowTradesFinal = netCashflowTrades;
       summary.holdingsValueFinal = finalHoldings;
       summary.accountEquityFinal = finalEquity;
-      summary.minCashBalance = minCashBalance;
-      return finalizeResult();
-    }
-
-    function runProgressiveGrid(rows, params) {
-      const trades = [];
-      const equitySeries = [];
-      const ladderHistory = [];
-      const summary = {
-        totalTrades: 0,
-        netProfit: 0,
-        profitPerLevel: 0,
-        finalEquity: 0,
-        totalRetainedShares: 0,
-        cash: 0,
-        minCash: 0,
-        shares: 0,
-        maxDrawdown: 0,
-        maxSharesHeld: 0,
-        maxOpenLevels: 0,
-        maxDeployedCapital: 0,
-        cagr: 0
-      };
-      const buyLevelSet = new Set();
-      const sellLevelSet = new Set();
-      let gridLevels = [];
-      let resolveBaseLevel = () => NaN;
-      const finalizeResult = () => ({
-        trades,
-        summary,
-        equitySeries,
-        ladderHistory,
-        buyLevels: Array.from(buyLevelSet).sort((a, b) => b - a),
-        sellLevels: Array.from(sellLevelSet).sort((a, b) => a - b),
-        gridLevels: Array.isArray(gridLevels) ? gridLevels : [],
-        baseLevel: (() => {
-          const val = resolveBaseLevel();
-          return Number.isFinite(val) ? val : null;
-        })()
-      });
-      if (!Array.isArray(rows) || !rows.length) {
-        return finalizeResult();
-      }
-      const rawGridSize = Number(params?.gridSize);
-      const rawBasePrice = Number(params?.basePrice);
-      const gridSpacingType = (params?.gridSpacingType || GRID_DEFAULTS.gridSpacingType).toLowerCase();
-      const tradeValue = Number(params?.tradeValue);
-      const tickSize = Number(params?.tickSize);
-      const resolvedTickSize = Number.isFinite(tickSize) && tickSize > 0 ? tickSize : 0.01;
-      const fractional = !!params?.fractionalShares;
-      const retentionMode = (params?.retentionMode || 'profit').toLowerCase();
-      const entryFilter = (params?.entryFilter || 'none').toLowerCase();
-      if (!Number.isFinite(rawGridSize) || rawGridSize <= 0 || !Number.isFinite(tradeValue) || tradeValue <= 0) {
-        return finalizeResult();
-      }
-      let firstPrice = [rows[0]?.open, rows[0]?.close, rows[0]?.high, rows[0]?.low].map(Number).find(Number.isFinite);
-      if (!Number.isFinite(firstPrice) || firstPrice <= 0) {
-        return finalizeResult();
-      }
-      const basePrice = Number.isFinite(rawBasePrice) && rawBasePrice > 0 ? rawBasePrice : firstPrice;
-
-      let minPrice = firstPrice;
-      let maxPrice = firstPrice;
-      for (const row of rows) {
-        if (!row) continue;
-        const low = Number(row.low);
-        const high = Number(row.high);
-        if (Number.isFinite(low)) minPrice = Math.min(minPrice, low);
-        if (Number.isFinite(high)) maxPrice = Math.max(maxPrice, high);
-      }
-      if (!Number.isFinite(minPrice) || !Number.isFinite(maxPrice) || minPrice <= 0 || maxPrice <= 0) {
-        return finalizeResult();
-      }
-
-      const spacing = createGridSpacingHelpers({
-        spacingType: gridSpacingType,
-        gridSize: rawGridSize,
-        basePrice,
-        firstPrice,
-        minPrice,
-        maxPrice,
-        tickSize: resolvedTickSize
-      });
-      if (spacing.error) {
-        console.warn('Grid spacing configuration invalid:', spacing.error);
-        return finalizeResult();
-      }
-      const snapLevel = spacing.snap;
-      const keyFor = spacing.key;
-      const nextUpLevel = spacing.nextUp;
-      const nextDownLevel = spacing.nextDown;
-      const stepsBetween = spacing.stepsBetween;
-      const priceTolerance = spacing.priceTolerance ?? 1e-9;
-      const usePercentSpacing = spacing.type === 'percent';
-      const shouldRatchetUp = usePercentSpacing && spacing.anchorMode === 'ratchet_up' && typeof spacing.setAnchor === 'function' && typeof spacing.getAnchor === 'function';
-      const refreshEntryRungs = () => {
-        pendingBuys.forEach(entry => {
-          if (entry) entry.rungIndex = computeRungIndex(entry.level);
-        });
-        pendingSells.forEach(entry => {
-          if (entry) entry.buyRung = computeRungIndex(entry.buyPrice);
-        });
-      };
-      const ratchetAnchorIfNeeded = (candidate) => {
-        if (!shouldRatchetUp || !Number.isFinite(candidate)) return;
-        const currentAnchor = spacing.getAnchor && spacing.getAnchor();
-        if (!Number.isFinite(currentAnchor)) return;
-        const tolerance = priceTolerance * Math.max(1, candidate);
-        if (candidate <= currentAnchor + tolerance) return;
-        const snapped = snapLevel(candidate);
-        spacing.setAnchor(snapped);
-        refreshEntryRungs();
-      };
-      const initialBaseLevel = snapLevel(basePrice);
-      resolveBaseLevel = () => {
-        if (usePercentSpacing && typeof spacing.getAnchor === 'function') {
-          const anchor = spacing.getAnchor();
-          if (Number.isFinite(anchor)) return anchor;
-        }
-        return initialBaseLevel;
-      };
-      const currentBaseLevel = () => {
-        if (usePercentSpacing && typeof spacing.getAnchor === 'function') {
-          const anchor = spacing.getAnchor();
-          if (Number.isFinite(anchor)) return anchor;
-        }
-        return initialBaseLevel;
-      };
-      const computeRungIndex = (level) => {
-        const anchor = currentBaseLevel();
-        if (!Number.isFinite(level) || !Number.isFinite(anchor)) return 0;
-        const diff = stepsBetween(anchor, level);
-        if (!Number.isFinite(diff)) return 0;
-        return Math.round(diff);
-      };
-
-      const minGridLevel = spacing.floor(minPrice);
-
-      let cash = 0;
-      let minCashBalance = cash;
-      const initialEquity = cash;
-      let fundedLevels = 0;
-      let openPositions = 0;
-      const firstEquityTime = rows[0]?.caldt instanceof Date ? new Date(rows[0].caldt.getTime()) : null;
-      let lastEquityTime = firstEquityTime;
-      let shares = 0;
-      let realizedProfit = 0;
-      let cumulativeRetained = 0;
-      let prevPrice = firstPrice;
-      let peakEquity = cash + shares * firstPrice;
-      let maxDrawdown = 0;
-      let maxDrawdownPct = 0;
-      let maxSharesHeld = shares;
-
-      const pendingBuys = new Map(); // key -> { key, level, groupId, direction }
-      const pendingSells = new Set(); // entries with level, qty, buyPrice, buyTime
-      let sellSeq = 1;
-      let buyGroupSeq = 1;
-
-      const queueBuy = (price, groupId = 0, direction = 'neutral') => {
-        const level = snapLevel(price);
-        if (!Number.isFinite(level) || level <= 0) return null;
-        buyLevelSet.add(level);
-        const key = keyFor(level);
-        if (pendingBuys.has(key)) {
-          const existing = pendingBuys.get(key);
-          if (groupId > 0) existing.groupId = groupId;
-          if (direction) existing.direction = direction;
-          return existing;
-        }
-        const entry = { key, level, groupId: groupId > 0 ? groupId : 0, direction, rungIndex: computeRungIndex(level) };
-        pendingBuys.set(key, entry);
-        return entry;
-      };
-
-      const queueSell = (price, qty, buyPrice, buyTime, rungIndex) => {
-        const level = snapLevel(price);
-        if (!Number.isFinite(level) || level <= 0) return null;
-        sellLevelSet.add(level);
-        const entry = {
-          id: sellSeq++,
-          level,
-          qty,
-          buyPrice,
-          buyTime: buyTime instanceof Date ? new Date(buyTime.getTime()) : new Date(),
-          buyRung: Number.isFinite(rungIndex) ? rungIndex : computeRungIndex(buyPrice)
-        };
-        pendingSells.add(entry);
-        return entry;
-      };
-
-      const ensureDownCoverage = (fromLevel) => {
-        let level = snapLevel(fromLevel);
-        if (!Number.isFinite(level)) return;
-        let safety = 0;
-        while (Number.isFinite(level) && level >= minGridLevel - priceTolerance * Math.max(1, level) && safety < 2000) {
-          queueBuy(level, 0, 'down');
-          const nextLevel = nextDownLevel(level);
-          if (!Number.isFinite(nextLevel) || Math.abs(nextLevel - level) <= priceTolerance * Math.max(1, level)) break;
-          level = nextLevel;
-          safety += 1;
-        }
-      };
-
-      const hasPendingSellAtOrAbove = (level) => {
-        if (!Number.isFinite(level)) return false;
-        const tolerance = priceTolerance * Math.max(1, Math.abs(level));
-        for (const entry of pendingSells) {
-          if (!entry || !Number.isFinite(entry.level)) continue;
-          if (entry.level >= level - tolerance) {
-            return true;
-          }
-        }
-        return false;
-      };
-
-      const executeBuy = (entry, timestamp, contextRow) => {
-        if (!entry) return false;
-        const price = entry.level;
-        if (!passesEntryFilter(price, contextRow, entryFilter)) {
-          return false;
-        }
-        const qtyRaw = tradeValue / price;
-        let qty = fractional ? qtyRaw : Math.floor(qtyRaw);
-        if (!Number.isFinite(qty) || qty <= 0) return false;
-        const neededPositions = openPositions + 1;
-        if (neededPositions > fundedLevels) {
-          const levelsToAdd = neededPositions - fundedLevels;
-          cash += levelsToAdd * tradeValue;
-          fundedLevels += levelsToAdd;
-          const deployed = fundedLevels * tradeValue;
-          if (deployed > summary.maxDeployedCapital) {
-            summary.maxDeployedCapital = deployed;
-          }
-        }
-        const cost = qty * price;
-        pendingBuys.delete(entry.key);
-        if (entry.groupId > 0 && entry.direction === 'down') {
-          const keysToRemove = [];
-          for (const [otherKey, otherEntry] of pendingBuys.entries()) {
-            if (otherEntry.groupId === entry.groupId) keysToRemove.push(otherKey);
-          }
-          for (const key of keysToRemove) pendingBuys.delete(key);
-        }
-        cash -= cost;
-        if (cash < minCashBalance) minCashBalance = cash;
-        shares += qty;
-        if (shares > maxSharesHeld) maxSharesHeld = shares;
-        openPositions += 1;
-        if (openPositions > summary.maxOpenLevels) summary.maxOpenLevels = openPositions;
-        const buyTime = timestamp instanceof Date ? new Date(timestamp.getTime()) : new Date();
-        const sellLevel = nextUpLevel(price);
-        if (Number.isFinite(sellLevel) && sellLevel > 0) {
-          queueSell(sellLevel, qty, price, buyTime, Number.isFinite(entry?.rungIndex) ? entry.rungIndex : computeRungIndex(price));
-        }
-        if (entry.direction === 'down') {
-          const downLevel = nextDownLevel(price);
-          if (Number.isFinite(downLevel) && downLevel > 0) {
-            queueBuy(downLevel, buyGroupSeq++, 'down');
-          }
-        } else if (entry.direction === 'up') {
-          const desired = nextDownLevel(price);
-          if (Number.isFinite(desired) && desired > 0) {
-            const key = keyFor(desired);
-            if (!pendingBuys.has(key)) {
-              queueBuy(desired, buyGroupSeq++, 'down');
-            }
-          }
-        }
-        const coverageOrigin = nextDownLevel(price);
-        if (Number.isFinite(coverageOrigin)) {
-          ensureDownCoverage(coverageOrigin);
-        }
-        return true;
-      };
-
-      const executeSell = (entry, timestamp) => {
-        if (!entry) return false;
-        pendingSells.delete(entry);
-        const price = entry.level;
-        const openQty = shares;
-        const desiredRaw = tradeValue / price;
-        let desired = fractional ? desiredRaw : Math.floor(desiredRaw);
-        const execution = computeSellExecution({
-          baseQty: entry.qty,
-          desiredQty: desired,
-          sharesAvailable: shares,
-          mode: retentionMode,
-          fractional
-        });
-        let qty = execution.qty;
-        if (qty <= 0) return false;
-        const revenue = qty * price;
-        const costBasis = qty * entry.buyPrice;
-        cash += revenue;
-        shares -= qty;
-        if (openPositions > 0) openPositions -= 1;
-        const profit = revenue - costBasis;
-        realizedProfit += profit;
-        const qtyRetained = execution.retained;
-        cumulativeRetained += qtyRetained;
-        const closeQty = shares;
-        const closeEquity = cash + shares * price;
-        const totalContributed = Math.max(0, openPositions) * tradeValue;
-        const runningPnl = closeEquity - totalContributed;
-        const nextPeak = Math.max(peakEquity, closeEquity);
-        const drawdown = closeEquity - nextPeak;
-        peakEquity = nextPeak;
-        const sellTime = timestamp instanceof Date ? new Date(timestamp.getTime()) : new Date();
-        const buyTime = entry.buyTime instanceof Date ? new Date(entry.buyTime.getTime()) : new Date();
-        const msHeld = sellTime.getTime() - buyTime.getTime();
-        const daysHeld = Number.isFinite(msHeld) ? Math.max(0, msHeld / 86400000) : 0;
-        const openTradesCount = pendingSells.size;
-        const openLevelSnapshot = openTradesCount + 1;
-        if (openLevelSnapshot > summary.maxOpenLevels) {
-          summary.maxOpenLevels = openLevelSnapshot;
-        }
-        const openEquity = openLevelSnapshot * tradeValue;
-        trades.push({
-          buyTime,
-          buyPrice: entry.buyPrice,
-          buyQty: entry.qty,
-          gridLevel: Number.isFinite(entry.buyRung) ? entry.buyRung : computeRungIndex(entry.buyPrice),
-          openLevels: openLevelSnapshot,
-          openQty,
-          openEquity,
-          sellTime,
-          sellPrice: price,
-          sellQty: qty,
-          closeQty,
-          closeEquity,
-          qtyRetained,
-          cumQtyRetained: cumulativeRetained,
-          daysHeld,
-          profit,
-          cumProfit: realizedProfit,
-          runningPnl,
-          drawdown,
-          roiPct: costBasis > 0 ? (profit / costBasis) * 100 : 0
-        });
-        const groupId = buyGroupSeq++;
-        const upLevel = nextUpLevel(price);
-        if (Number.isFinite(upLevel) && upLevel > 0 && !hasPendingSellAtOrAbove(upLevel)) {
-          queueBuy(upLevel, groupId, 'up');
-        }
-        const downLevel = nextDownLevel(price);
-        if (Number.isFinite(downLevel) && downLevel > 0) queueBuy(downLevel, groupId, 'down');
-        if (Number.isFinite(downLevel)) ensureDownCoverage(downLevel);
-        return true;
-      };
-
-      const getNextSellAbove = (cursor, target) => {
-        let best = null;
-        for (const entry of pendingSells) {
-          const lvl = entry.level;
-          const lowerTol = priceTolerance * Math.max(1, Math.abs(lvl), Math.abs(cursor));
-          const upperTol = priceTolerance * Math.max(1, Math.abs(lvl), Math.abs(target));
-          if (lvl > cursor + lowerTol && lvl <= target + upperTol) {
-            if (!best || lvl < best.level) best = entry;
-          }
-        }
-        return best;
-      };
-
-      const getNextBuyAbove = (cursor, target) => {
-        let best = null;
-        for (const entry of pendingBuys.values()) {
-          const lvl = entry.level;
-          const lowerTol = priceTolerance * Math.max(1, Math.abs(lvl), Math.abs(cursor));
-          const upperTol = priceTolerance * Math.max(1, Math.abs(lvl), Math.abs(target));
-          if (lvl > cursor + lowerTol && lvl <= target + upperTol) {
-            if (!best || lvl < best.level) best = entry;
-          }
-        }
-        return best;
-      };
-
-      const getNextBuyBelow = (target, cursor) => {
-        let best = null;
-        for (const entry of pendingBuys.values()) {
-          const lvl = entry.level;
-          const upperTol = priceTolerance * Math.max(1, Math.abs(lvl), Math.abs(cursor));
-          const lowerTol = priceTolerance * Math.max(1, Math.abs(lvl), Math.abs(target));
-          if (lvl < cursor - upperTol && lvl >= target - lowerTol) {
-            if (!best || lvl > best.level) best = entry;
-          }
-        }
-        return best;
-      };
-
-      const processMove = (start, end, timestamp, contextRow) => {
-        const eventTime = timestamp instanceof Date ? new Date(timestamp.getTime()) : new Date();
-        const scale = Math.max(1, Math.abs(start), Math.abs(end));
-        const threshold = priceTolerance * scale;
-        if (end > start + threshold) {
-          let cursor = start;
-          const target = end;
-          let guard = 0;
-          while (guard < 2000) {
-            guard += 1;
-            const nextSell = getNextSellAbove(cursor, target);
-            const nextBuy = getNextBuyAbove(cursor, target);
-            let nextEntry = null;
-            let type = null;
-            if (nextSell && nextBuy) {
-              const compareTol = priceTolerance * Math.max(1, Math.abs(nextSell.level), Math.abs(nextBuy.level));
-              if (nextSell.level <= nextBuy.level + compareTol) {
-                nextEntry = nextSell;
-                type = 'sell';
-              } else {
-                nextEntry = nextBuy;
-                type = 'buy';
-              }
-            } else if (nextSell) {
-              nextEntry = nextSell;
-              type = 'sell';
-            } else if (nextBuy) {
-              nextEntry = nextBuy;
-              type = 'buy';
-            } else {
-              break;
-            }
-            cursor = nextEntry.level;
-            if (type === 'sell') {
-              if (!executeSell(nextEntry, eventTime)) break;
-            } else {
-              if (!executeBuy(nextEntry, eventTime, contextRow)) break;
-            }
-          }
-          ratchetAnchorIfNeeded(end);
-        } else if (end < start - threshold) {
-          let cursor = start;
-          const target = end;
-          let guard = 0;
-          while (guard < 2000) {
-            guard += 1;
-            const nextBuy = getNextBuyBelow(target, cursor);
-            if (!nextBuy) break;
-            cursor = nextBuy.level;
-            if (!executeBuy(nextBuy, eventTime, contextRow)) break;
-          }
-        }
-      };
-
-      const buildPath = (fromPrice, row) => {
-        const path = [];
-        let start = Number(fromPrice);
-        if (!Number.isFinite(start)) start = Number(row.open) || Number(row.close) || 0;
-        path.push(start);
-        const addPoint = (value) => {
-          const num = Number(value);
-          if (!Number.isFinite(num)) return;
-          if (Math.abs(num - path[path.length - 1]) < priceTolerance * Math.max(1, num)) return;
-          path.push(num);
-        };
-        const open = Number(row.open);
-        const high = Number(row.high);
-        const low = Number(row.low);
-        const close = Number(row.close);
-        if (Number.isFinite(open)) addPoint(open);
-        const upBar = Number.isFinite(close) && Number.isFinite(open) ? (close >= open) : true;
-        if (upBar) {
-          if (Number.isFinite(high)) addPoint(high);
-          if (Number.isFinite(low)) addPoint(low);
-        } else {
-          if (Number.isFinite(low)) addPoint(low);
-          if (Number.isFinite(high)) addPoint(high);
-        }
-        if (Number.isFinite(close)) addPoint(close);
-        return path;
-      };
-
-      const firstRow = Array.isArray(rows) && rows.length ? rows[0] : null;
-      const initialTime = firstRow?.caldt instanceof Date ? new Date(firstRow.caldt.getTime()) : new Date();
-      const initialBuy = queueBuy(firstPrice, buyGroupSeq++, 'down');
-      if (initialBuy) executeBuy(initialBuy, initialTime, firstRow);
-      const initialCoverageLevel = nextDownLevel(firstPrice);
-      if (Number.isFinite(initialCoverageLevel)) {
-        ensureDownCoverage(initialCoverageLevel);
-      }
-
-      for (const row of rows) {
-        if (!row || !(row.caldt instanceof Date)) continue;
-        const path = buildPath(prevPrice, row);
-        for (let i = 1; i < path.length; i++) {
-          const from = path[i - 1];
-          const to = path[i];
-          processMove(from, to, row.caldt, row);
-        }
-        prevPrice = path[path.length - 1];
-        const equity = cash + shares * prevPrice;
-        const openBuyOrders = pendingBuys.size;
-        if (equity > peakEquity) peakEquity = equity;
-        const drawdown = equity - peakEquity;
-        if (drawdown < maxDrawdown) maxDrawdown = drawdown;
-        const drawdownPct = peakEquity > 0 ? drawdown / peakEquity : 0;
-        if (drawdownPct < maxDrawdownPct) maxDrawdownPct = drawdownPct;
-        lastEquityTime = new Date(row.caldt.getTime());
-        ladderHistory.push({
-          time: new Date(row.caldt.getTime()),
-          buys: pendingBuys.size,
-          sells: pendingSells.size,
-          queued: 0
-        });
-        equitySeries.push({
-          time: new Date(row.caldt.getTime()),
-          equity,
-          cash: cash,
-          cashDeployed: openBuyOrders * tradeValue,
-          capitalBudget: fundedLevels * tradeValue
-        });
-      }
-
-      const finalEquity = cash + shares * prevPrice;
-      const millis = firstEquityTime && lastEquityTime ? (lastEquityTime.getTime() - firstEquityTime.getTime()) : 0;
-      const years = millis > 0 ? (millis / (365.25 * 24 * 60 * 60 * 1000)) : 0;
-      const maxLevelsUsed = Number.isFinite(summary.maxOpenLevels) ? summary.maxOpenLevels : 0;
-      const derivedMaxCapital = (tradeValue > 0 && maxLevelsUsed > 0)
-        ? tradeValue * maxLevelsUsed
-        : 0;
-      const trackedCapital = summary.maxDeployedCapital > 0 ? summary.maxDeployedCapital : (fundedLevels * tradeValue);
-      const maxDeployedCapital = Math.max(derivedMaxCapital, trackedCapital);
-      const cagrBaseEquity = maxDeployedCapital > 0 ? maxDeployedCapital : initialEquity;
-      const cagr = (years > 0 && cagrBaseEquity > 0 && finalEquity > 0)
-        ? Math.pow(finalEquity / cagrBaseEquity, 1 / years) - 1
-        : 0;
-      summary.totalTrades = trades.length;
-      summary.netProfit = realizedProfit;
-      summary.profitPerLevel = maxLevelsUsed > 0 ? realizedProfit / maxLevelsUsed : 0;
-      summary.finalEquity = finalEquity;
-      summary.totalRetainedShares = cumulativeRetained;
-      summary.cash = cash;
-      summary.minCash = minCashBalance;
-      summary.shares = shares;
-      summary.maxDrawdown = maxDrawdown;
-      summary.maxDrawdownPct = maxDrawdownPct * 100;
-      summary.maxSharesHeld = maxSharesHeld;
-      summary.cagr = cagr;
-      summary.maxDeployedCapital = maxDeployedCapital;
       return finalizeResult();
     }
 
@@ -4936,10 +3818,7 @@
       }
       setGridStatus('Running backtest…');
       try {
-        const gridType = (params?.gridType || 'pullback').toLowerCase();
-        const result = gridType === 'buy_the_dip'
-          ? (runGridSimulation(rowsForRun, params) || {})
-          : (runPullbackGridSimulation(rowsForRun, params) || {});
+        const result = runBuyTheGridSimulation(rowsForRun, params) || {};
         const safeResult = {
           trades: Array.isArray(result.trades) ? result.trades : [],
           summary: result.summary || null,
@@ -4951,6 +3830,17 @@
           gridLevels: Array.isArray(result.gridLevels) ? result.gridLevels : []
         };
         GRID_STATE = safeResult;
+        const backtestOutput = {
+          generated_at: new Date().toISOString(),
+          symbol: currentTicker || null,
+          params: params || null,
+          meta: collectGridBacktestPayload(),
+          results: {
+            summary: safeResult.summary || null
+          }
+        };
+        console.log('GRID_BACKTEST_OUTPUT');
+        console.log(JSON.stringify(backtestOutput, null, 2));
         renderGridSummary(safeResult.summary);
         renderGridTrades(safeResult.trades, { resetPage: true });
         renderGridEquityChart(safeResult.equitySeries);
@@ -4970,7 +3860,7 @@
           setGridStatus('No completed trades for the selected parameters.');
         }
       } catch (err) {
-        console.error('Buy-the-dip grid backtest error', err);
+        console.error('Buy the Dip backtest error', err);
         setGridStatus('Failed to run backtest. See console for details.');
         renderLadderChart([]);
         renderFillsPerDayChart([]);
@@ -5064,7 +3954,6 @@
         });
       }
       const inputs = [
-        document.getElementById('selGridType'),
         document.getElementById('selGridSpacing'),
         document.getElementById('selEntryFilter'),
         document.getElementById('selRetentionMode'),
