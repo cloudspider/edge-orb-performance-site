@@ -278,9 +278,19 @@
           </label>
         </div>
         <div id="status" class="text-xs text-slate-500 whitespace-normal break-words"></div>
+        <div class="mt-2 flex items-center justify-end">
+          <label class="inline-flex items-center gap-2 text-xs text-slate-500 cursor-pointer">
+            <span>Show Details</span>
+            <span class="relative inline-flex h-5 w-9 items-center">
+              <input id="toggleSymbolProfile" type="checkbox" class="peer sr-only">
+              <span class="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-emerald-500"></span>
+              <span class="absolute left-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition peer-checked:translate-x-4"></span>
+            </span>
+          </label>
+        </div>
       </div>
     </section>
-    <section id="symbolProfileSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-3">
+    <section id="symbolProfileSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-3 hidden">
       <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <h2 class="font-semibold text-slate-700">Symbol Profile</h2>
         <span id="symbolProfileLabel" class="text-xs text-slate-500"></span>
@@ -447,7 +457,7 @@
       </div>
     </section>
 
-    <section id="gridLevelsSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
+    <section id="gridLevelsSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4 hidden">
       <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div class="flex flex-col gap-1">
           <h2 class="font-semibold text-slate-700">Grid Levels</h2>
@@ -1010,6 +1020,17 @@
       return null;
     }
 
+    function roundUpBaseAnchor(maxPrice) {
+      if (!Number.isFinite(maxPrice) || maxPrice <= 0) return null;
+      let step = 1;
+      if (maxPrice > 100) {
+        step = 100;
+      } else if (maxPrice > 1) {
+        step = 10;
+      }
+      return Math.ceil(maxPrice / step) * step;
+    }
+
     function updateSymbolBasePriceFromRows(symbol) {
       const sym = (symbol || '').toUpperCase();
       if (!sym) return;
@@ -1027,15 +1048,9 @@
       if (!Number.isFinite(minPrice) || !Number.isFinite(maxPrice) || minPrice <= 0 || maxPrice <= 0) return;
       const meta = ensureSymbolMetaEntry(sym);
       if (!meta) return;
-      const currentBase = Number(meta.basePrice);
-      const tolerance = 1e-6 * Math.max(1, minPrice, maxPrice);
-      const inRange = Number.isFinite(currentBase)
-        && currentBase >= (minPrice - tolerance)
-        && currentBase <= (maxPrice + tolerance);
-      if (inRange) return;
-      const firstPrice = findFirstPriceFromRows(rows);
-      if (!Number.isFinite(firstPrice) || firstPrice <= 0) return;
-      meta.basePrice = firstPrice;
+      const roundedBase = roundUpBaseAnchor(maxPrice);
+      if (!Number.isFinite(roundedBase) || roundedBase <= 0) return;
+      meta.basePrice = roundedBase;
       SYMBOL_META.set(sym, meta);
       updateBasePriceInput(sym);
     }
@@ -4814,6 +4829,18 @@
       initGridControls();
       initTradeTableControls();
       initWatchlistControls();
+      const profileToggle = document.getElementById('toggleSymbolProfile');
+      const profileSection = document.getElementById('symbolProfileSection');
+      const gridLevelsSection = document.getElementById('gridLevelsSection');
+      if (profileToggle && (profileSection || gridLevelsSection)) {
+        const syncProfileVisibility = () => {
+          const shouldShow = profileToggle.checked;
+          if (profileSection) profileSection.classList.toggle('hidden', !shouldShow);
+          if (gridLevelsSection) gridLevelsSection.classList.toggle('hidden', !shouldShow);
+        };
+        profileToggle.addEventListener('change', syncProfileVisibility);
+        syncProfileVisibility();
+      }
       loadWatchlists().finally(() => populateTickerSegment());
       document.addEventListener('click', (e) => {
         const target = e.target;

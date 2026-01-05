@@ -42,7 +42,13 @@
       "KTOS",
       "RKLB",
       "ASTS",
-      "PL"
+      "PL",
+      "JOBY",
+      "PONY",
+      "ACHR",
+      "ALAB",
+      "ZETA",
+      "PLTR"
     ]
   },
   "symbol_meta": {
@@ -133,6 +139,34 @@
     "SMR": {
       "name": "NuScale Power Corp",
       "sector": "Nulear Power"
+    },
+    "JOBY": {
+      "name": "JOBY",
+      "sector": "Autonomy Transportation"
+    },
+    "PONY": {
+      "name": "Pony.ai, Inc.",
+      "sector": "Autonomy Transportation"
+    },
+    "ACHR": {
+      "name": "Archer Aviation, Inc",
+      "sector": "Autonomy Transportation"
+    },
+    "ALAB": {
+      "name": "Astera Labs, Inc",
+      "sector": "AI Infrastructure"
+    },
+    "ZETA": {
+      "name": "Zeta Global Holdings Corp",
+      "sector": "AI Software"
+    },
+    "CEG": {
+      "name": "Constellation Energy Corp",
+      "sector": "Nulear Power"
+    },
+    "PLTR": {
+      "name": "Palantir Technologies, Inc.",
+      "sector": "AI Software"
     }
   }
 }
