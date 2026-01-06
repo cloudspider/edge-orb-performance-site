@@ -263,6 +263,13 @@
           >
             Delete
           </button>
+          <button
+            type="button"
+            id="watchlistBacktestAllBtn"
+            class="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 shadow-sm transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:text-emerald-300"
+          >
+            Backtest All
+          </button>
         </div>
         <div class="flex items-center gap-2 mb-2">
           <div class="flex-1 min-w-0">
@@ -522,6 +529,36 @@
           </div>
           <div id="sumMonthMultiList" class="max-h-64 overflow-auto text-sm text-slate-700"></div>
         </div>
+      </div>
+    </section>
+
+    <section id="batchResultsSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4 hidden">
+      <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h2 class="font-semibold text-slate-700">Batch Results</h2>
+          <p class="text-sm text-slate-500">Backtest all symbols in the active watchlist and compare summary outcomes.</p>
+        </div>
+        <div id="batchResultsStatus" class="text-xs text-slate-500"></div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="text-[11px] uppercase tracking-wide text-slate-500">
+            <tr>
+              <th class="px-3 py-2 text-left sortable" data-batch-sort="symbol" data-sort="none"><button type="button"><span>Symbol</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-batch-sort="trades" data-sort="none"><button type="button"><span>Trades</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-batch-sort="netProfit" data-sort="none"><button type="button"><span>Net Profit</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-batch-sort="finalEquity" data-sort="none"><button type="button"><span>Final Equity</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-batch-sort="cash" data-sort="none"><button type="button"><span>Cash</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-batch-sort="shares" data-sort="none"><button type="button"><span>Shares</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-batch-sort="maxDrawdownPct" data-sort="none"><button type="button"><span>Max DD %</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-batch-sort="cagr" data-sort="none"><button type="button"><span>CAGR</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-batch-sort="maxLevels" data-sort="none"><button type="button"><span>Max Levels</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-batch-sort="profitPerLevel" data-sort="none"><button type="button"><span>Profit / Level</span><span class="sort-indicator"></span></button></th>
+            </tr>
+          </thead>
+          <tbody id="batchResultsBody" class="divide-y divide-slate-100"></tbody>
+        </table>
+        <div id="batchResultsEmpty" class="py-6 text-center text-sm text-slate-500">No batch results yet.</div>
       </div>
     </section>
 
@@ -867,6 +904,10 @@
     let LAST_ACTIVE_WATCHLIST = 'Default';
     let LAST_ADHOC_SYMBOL = '';
     let GRID_STATE = { trades: [], summary: null, equitySeries: [], ladderHistory: [], buyLevels: [], sellLevels: [], baseLevel: null, gridLevels: [] };
+    let BACKTEST_ALL_RESULTS = [];
+    let BACKTEST_ALL_RUNNING = false;
+    let BACKTEST_ALL_SELECTED = '';
+    let BACKTEST_ALL_SORT = { key: 'symbol', dir: 'asc' };
     let TRADE_SORT_STATE = { key: 'buyTime', dir: 'asc' };
     let gridEquityChartInst = null;
     let gridLadderChartInst = null;
@@ -910,6 +951,11 @@
 
     function setGridStatus(msg) {
       const el = document.getElementById('gridStatus');
+      if (el) el.textContent = msg || '';
+    }
+
+    function setBatchResultsStatus(msg) {
+      const el = document.getElementById('batchResultsStatus');
       if (el) el.textContent = msg || '';
     }
 
@@ -4419,6 +4465,218 @@
       return new Set(list);
     }
 
+    async function getSymbolsForBatchBacktest() {
+      let symbols = [];
+      const active = getActiveWatchlistName();
+      if (active !== WATCHLIST_ALL) {
+        symbols = Array.isArray(WATCHLIST_STATE.watchlists[active])
+          ? WATCHLIST_STATE.watchlists[active].slice()
+          : [];
+      } else {
+        if (!Array.isArray(SYMBOL_LIST_CACHE) || !SYMBOL_LIST_CACHE.length) {
+          await populateTickerSegment();
+        }
+        if (Array.isArray(SYMBOL_LIST_CACHE) && SYMBOL_LIST_CACHE.length) {
+          const normalized = normalizeSymbolEntries(SYMBOL_LIST_CACHE);
+          symbols = Array.isArray(normalized.list)
+            ? normalized.list.map((meta) => meta.symbol)
+            : [];
+        }
+      }
+      const seen = new Set();
+      const cleaned = [];
+      symbols.forEach((symbol) => {
+        const sym = normalizeSymbolInput(symbol);
+        if (!sym || seen.has(sym)) return;
+        seen.add(sym);
+        cleaned.push(sym);
+      });
+      return cleaned;
+    }
+
+    function getBatchSortValue(entry, key) {
+      const summary = entry && entry.summary ? entry.summary : {};
+      switch (key) {
+        case 'symbol':
+          return String(entry?.symbol || '');
+        case 'trades':
+          return Number(summary?.totalTrades);
+        case 'netProfit':
+          return Number(summary?.netProfit);
+        case 'finalEquity':
+          return Number(summary?.finalEquity);
+        case 'cash':
+          return Number(summary?.cash);
+        case 'shares':
+          return Number(summary?.shares);
+        case 'maxDrawdownPct':
+          return Number(summary?.maxDrawdownPct);
+        case 'cagr':
+          return Number(summary?.cagr);
+        case 'maxLevels':
+          return Number(summary?.maxOpenLevels);
+        case 'profitPerLevel':
+          return Number(summary?.profitPerLevel);
+        default:
+          return '';
+      }
+    }
+
+    function sortBatchResults(results) {
+      const list = Array.isArray(results) ? results.slice() : [];
+      if (list.length <= 1) return list;
+      const { key, dir } = BACKTEST_ALL_SORT;
+      const direction = dir === 'desc' ? -1 : 1;
+      const numericKeys = new Set([
+        'trades',
+        'netProfit',
+        'finalEquity',
+        'cash',
+        'shares',
+        'maxDrawdownPct',
+        'cagr',
+        'maxLevels',
+        'profitPerLevel'
+      ]);
+      return list.sort((a, b) => {
+        const va = getBatchSortValue(a, key);
+        const vb = getBatchSortValue(b, key);
+        if (numericKeys.has(key)) {
+          const aNum = Number.isFinite(va) ? va : NaN;
+          const bNum = Number.isFinite(vb) ? vb : NaN;
+          const aMissing = !Number.isFinite(aNum);
+          const bMissing = !Number.isFinite(bNum);
+          if (aMissing && bMissing) return 0;
+          if (aMissing) return 1;
+          if (bMissing) return -1;
+          if (aNum === bNum) return 0;
+          return aNum > bNum ? direction : -direction;
+        }
+        const aStr = String(va || '');
+        const bStr = String(vb || '');
+        const comp = aStr.localeCompare(bStr, undefined, { numeric: true, sensitivity: 'base' });
+        return comp * direction;
+      });
+    }
+
+    function updateBatchSortIndicators() {
+      const headers = document.querySelectorAll('#batchResultsSection th[data-batch-sort]');
+      headers.forEach((th) => {
+        const key = th.getAttribute('data-batch-sort');
+        if (!key) return;
+        if (key === BACKTEST_ALL_SORT.key) {
+          th.setAttribute('data-sort', BACKTEST_ALL_SORT.dir);
+        } else {
+          th.setAttribute('data-sort', 'none');
+        }
+      });
+    }
+
+    function renderBatchResults() {
+      const section = document.getElementById('batchResultsSection');
+      const body = document.getElementById('batchResultsBody');
+      const empty = document.getElementById('batchResultsEmpty');
+      if (section) {
+        const shouldShow = BACKTEST_ALL_RUNNING || BACKTEST_ALL_RESULTS.length > 0;
+        section.classList.toggle('hidden', !shouldShow);
+      }
+      if (!body) return;
+      body.innerHTML = '';
+      if (!BACKTEST_ALL_RESULTS.length) {
+        if (empty) empty.classList.remove('hidden');
+        return;
+      }
+      if (empty) empty.classList.add('hidden');
+      const formatCurrencyOrDash = (value) => (Number.isFinite(value) ? formatCurrency(value) : '—');
+      const formatNumberOrDash = (value, digits = 2) => (Number.isFinite(value) ? formatNumber(value, digits) : '—');
+      const formatPercentOrDash = (value) => (Number.isFinite(value) ? formatPercent(value) : '—');
+      const sorted = sortBatchResults(BACKTEST_ALL_RESULTS);
+      updateBatchSortIndicators();
+      sorted.forEach((entry) => {
+        const summary = entry.summary || {};
+        const trades = Number.isFinite(summary?.totalTrades) ? summary.totalTrades.toLocaleString() : '—';
+        const netProfit = formatCurrencyOrDash(summary?.netProfit);
+        const finalEquity = formatCurrencyOrDash(summary?.finalEquity);
+        const cash = formatCurrencyOrDash(summary?.cash);
+        const shares = formatNumberOrDash(summary?.shares, 4);
+        const maxDdPct = formatPercentOrDash(summary?.maxDrawdownPct);
+        const cagrPct = Number.isFinite(summary?.cagr) ? summary.cagr * 100 : NaN;
+        const cagr = formatPercentOrDash(cagrPct);
+        const maxLevels = formatNumberOrDash(summary?.maxOpenLevels, 0);
+        const profitPerLevel = formatCurrencyOrDash(summary?.profitPerLevel);
+        const row = document.createElement('tr');
+        const isSelected = entry.symbol && entry.symbol === BACKTEST_ALL_SELECTED;
+        row.className = `cursor-pointer transition ${isSelected ? 'bg-emerald-50' : 'hover:bg-slate-50'}`;
+        row.setAttribute('data-batch-symbol', entry.symbol || '');
+        row.innerHTML = `
+          <td class="px-3 py-2 font-semibold text-slate-700">${entry.symbol || '—'}</td>
+          <td class="px-3 py-2 text-right text-slate-700">${trades}</td>
+          <td class="px-3 py-2 text-right text-slate-700">${netProfit}</td>
+          <td class="px-3 py-2 text-right text-slate-700">${finalEquity}</td>
+          <td class="px-3 py-2 text-right text-slate-700">${cash}</td>
+          <td class="px-3 py-2 text-right text-slate-700">${shares}</td>
+          <td class="px-3 py-2 text-right text-slate-700">${maxDdPct}</td>
+          <td class="px-3 py-2 text-right text-slate-700">${cagr}</td>
+          <td class="px-3 py-2 text-right text-slate-700">${maxLevels}</td>
+          <td class="px-3 py-2 text-right text-slate-700">${profitPerLevel}</td>
+        `;
+        body.appendChild(row);
+      });
+      window.BACKTEST_ALL_RESULTS = BACKTEST_ALL_RESULTS;
+    }
+
+    async function runBatchBacktest() {
+      if (BACKTEST_ALL_RUNNING) return;
+      const btn = document.getElementById('watchlistBacktestAllBtn');
+      BACKTEST_ALL_RUNNING = true;
+      if (btn) btn.disabled = true;
+      BACKTEST_ALL_RESULTS = [];
+      BACKTEST_ALL_SELECTED = '';
+      BACKTEST_ALL_SORT = { key: 'symbol', dir: 'asc' };
+      renderBatchResults();
+      setBatchResultsStatus('');
+      const symbols = await getSymbolsForBatchBacktest();
+      if (!symbols.length) {
+        setBatchResultsStatus('No symbols available in the active watchlist.');
+        BACKTEST_ALL_RUNNING = false;
+        if (btn) btn.disabled = false;
+        renderBatchResults();
+        return;
+      }
+      for (let i = 0; i < symbols.length; i += 1) {
+        const symbol = symbols[i];
+        setBatchResultsStatus(`Backtesting ${symbol} (${i + 1}/${symbols.length})…`);
+        setTicker(symbol);
+        const loaded = await loadSymbolData(symbol);
+        if (!loaded || !GRID_STATE?.summary) {
+          BACKTEST_ALL_RESULTS.push({
+            symbol,
+            status: 'error',
+            error: loaded ? 'No summary generated' : 'Data load failed',
+            summary: null,
+            params: getGridParamsFromUI(),
+            meta: null,
+            generatedAt: new Date().toISOString()
+          });
+          renderBatchResults();
+          continue;
+        }
+        BACKTEST_ALL_RESULTS.push({
+          symbol,
+          status: 'ok',
+          summary: GRID_STATE.summary,
+          params: getGridParamsFromUI(),
+          meta: collectGridBacktestPayload(),
+          generatedAt: new Date().toISOString()
+        });
+        renderBatchResults();
+      }
+      setBatchResultsStatus(`Completed ${BACKTEST_ALL_RESULTS.length} / ${symbols.length} symbols.`);
+      BACKTEST_ALL_RUNNING = false;
+      if (btn) btn.disabled = false;
+      renderBatchResults();
+    }
+
     function updateWatchlistControls() {
       const select = document.getElementById('watchlistSelect');
       const delBtn = document.getElementById('watchlistDeleteBtn');
@@ -4719,6 +4977,10 @@
           }
         });
       }
+      const batchBtn = document.getElementById('watchlistBacktestAllBtn');
+      if (batchBtn) {
+        batchBtn.addEventListener('click', () => runBatchBacktest());
+      }
     }
 
     function closeAllWatchlistMenus() {
@@ -4829,6 +5091,37 @@
       initGridControls();
       initTradeTableControls();
       initWatchlistControls();
+      renderBatchResults();
+      const batchSection = document.getElementById('batchResultsSection');
+      if (batchSection) {
+        batchSection.addEventListener('click', (e) => {
+          const btn = e.target.closest('[data-batch-sort]');
+          if (!btn) return;
+          const key = btn.getAttribute('data-batch-sort');
+          if (!key) return;
+          if (BACKTEST_ALL_SORT.key === key) {
+            BACKTEST_ALL_SORT.dir = BACKTEST_ALL_SORT.dir === 'asc' ? 'desc' : 'asc';
+          } else {
+            BACKTEST_ALL_SORT.key = key;
+            BACKTEST_ALL_SORT.dir = 'asc';
+          }
+          renderBatchResults();
+        });
+      }
+      const batchBody = document.getElementById('batchResultsBody');
+      if (batchBody) {
+        batchBody.addEventListener('click', (e) => {
+          const row = e.target.closest('tr[data-batch-symbol]');
+          if (!row) return;
+          if (BACKTEST_ALL_RUNNING) return;
+          const symbol = row.getAttribute('data-batch-symbol');
+          if (!symbol) return;
+          BACKTEST_ALL_SELECTED = symbol;
+          renderBatchResults();
+          setTicker(symbol);
+          loadSymbolData(symbol);
+        });
+      }
       const profileToggle = document.getElementById('toggleSymbolProfile');
       const profileSection = document.getElementById('symbolProfileSection');
       const gridLevelsSection = document.getElementById('gridLevelsSection');
