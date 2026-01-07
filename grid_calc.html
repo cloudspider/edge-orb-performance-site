@@ -16,12 +16,600 @@
   <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
+    :root {
+      --color-slate-900: #0f172a;
+      --color-slate-300: #cbd5e1;
+      --color-slate-200: #e2e8f0;
+      --color-slate-600: #475569;
+      --color-emerald-500: #10b981;
+      --color-violet-500: #a855f7;
+      --radius-pill: 999px;
+      --app-bg: #f8fafc;
+      --app-surface: #ffffff;
+      --app-surface-muted: #f1f5f9;
+      --app-surface-strong: #e2e8f0;
+      --app-border: #e2e8f0;
+      --app-border-muted: rgba(148, 163, 184, 0.4);
+      --app-text: #0f172a;
+      --app-text-muted: #475569;
+      --app-text-subtle: #94a3b8;
+      --app-header-bg: rgba(255, 255, 255, 0.9);
+      --app-header-border: #e2e8f0;
+      --app-sidebar-bg: #f8fafc;
+      --app-tabbar-bg: #ffffff;
+      --app-shadow-soft: 0 25px 45px rgba(15, 23, 42, 0.08);
+      --app-shadow-elevated: 0 16px 32px rgba(15, 23, 42, 0.12);
+      --app-log-bg: #0b1221;
+      --app-log-border: rgba(148, 163, 184, 0.35);
+      --app-chart-card-bg: #ffffff;
+      --app-chart-card-border: rgba(226, 232, 240, 0.9);
+      --app-chart-stat-bg: rgba(241, 245, 249, 0.9);
+      --app-chart-stat-border: rgba(226, 232, 240, 0.9);
+      --app-chart-dot: rgba(148, 163, 184, 0.8);
+      --app-chart-dot-hover: rgba(100, 116, 139, 0.9);
+      --app-chart-overlay-bg: rgba(255, 255, 255, 0.82);
+      --app-chart-key-harvest: rgba(16, 185, 129, 0.95);
+      --app-chart-key-cash: rgba(139, 92, 246, 0.95);
+      --app-chart-axis-text: #64748b;
+      --app-chart-grid: rgba(226, 232, 240, 0.9);
+      --app-chart-legend-text: #334155;
+      --app-chart-cash-line: rgba(139, 92, 246, 0.95);
+      --app-chart-cash-fill: rgba(139, 92, 246, 0.1);
+      --app-chart-harvest-line: rgba(16, 185, 129, 0.95);
+      --app-chart-harvest-fill: rgba(16, 185, 129, 0.1);
+      --app-overlay-bg: rgba(15, 23, 42, 0.75);
+      --app-overlay-text: #ffffff;
+      --app-badge-warning-bg: rgba(251, 146, 60, 0.15);
+      --app-badge-warning-border: rgba(251, 146, 60, 0.35);
+      --app-badge-warning-text: #c2410c;
+      --app-badge-neutral-bg: rgba(148, 163, 184, 0.15);
+      --app-badge-info-hover: rgba(59, 130, 246, 0.12);
+      --app-badge-info-bg: rgba(59, 130, 246, 0.18);
+      --app-badge-info-border: rgba(59, 130, 246, 0.8);
+      --app-badge-info-ring: rgba(59, 130, 246, 0.25);
+      --app-badge-info-text: #e0f2fe;
+      --app-badge-success-hover: rgba(16, 185, 129, 0.14);
+      --app-badge-success-bg: rgba(16, 185, 129, 0.18);
+      --app-badge-success-border: rgba(16, 185, 129, 0.75);
+      --app-badge-success-ring: rgba(16, 185, 129, 0.25);
+      --app-badge-success-text: #dcfce7;
+      --app-live-badge-on-bg: #10b981;
+      --app-live-badge-on-text: #ffffff;
+      --app-live-badge-off-bg: #e2e8f0;
+      --app-live-badge-off-text: #64748b;
+      --app-live-badge-off-border: #cbd5e1;
+      --app-alert-warning-bg: #fffbeb;
+      --app-alert-warning-border: #fde68a;
+      --app-alert-warning-text: #92400e;
+      --app-status-inactive-bg: #f2f2f2;
+      --app-status-idle-bg: var(--color-slate-300);
+      --app-status-armed-bg: #69e499;
+      --app-status-waiting-bg: #ff5654;
+      --app-status-orphan-bg: var(--color-violet-500);
+      --app-card-buy-bg: #69e499;
+      --app-card-buy-border: #7bd79f;
+      --app-card-sell-bg: #ffa3a2;
+      --app-card-sell-border: #f97374;
+      --app-split-buy-bg: #c7f5d9;
+      --app-split-sell-bg: #ff3d3b;
+      --app-market-open-bg: linear-gradient(135deg, #ecfdf3, #dcfce7);
+      --app-market-open-border: #34d399;
+      --app-market-open-text: #065f46;
+      --app-market-open-shadow: 0 15px 35px rgba(16, 185, 129, 0.2);
+      --app-market-open-icon-bg: #d1fae5;
+      --app-market-open-icon-text: #047857;
+      --app-market-closed-bg: linear-gradient(135deg, #fef2f2, #fee2e2);
+      --app-market-closed-border: #fca5a5;
+      --app-market-closed-text: #991b1b;
+      --app-market-closed-shadow: 0 15px 35px rgba(248, 113, 113, 0.2);
+      --app-market-closed-icon-bg: #fee2e2;
+      --app-market-closed-icon-text: #b91c1c;
+      --app-market-guard-bg: linear-gradient(135deg, #fffbeb, #fef3c7);
+      --app-market-guard-border: #facc15;
+      --app-market-guard-text: #854d0e;
+      --app-market-guard-shadow: 0 15px 35px rgba(250, 204, 21, 0.18);
+      --app-market-guard-icon-bg: #fef9c3;
+      --app-market-guard-icon-text: #a16207;
+      --app-pill-neutral-bg: linear-gradient(135deg, var(--color-slate-200), #f8fafc);
+      --app-pill-neutral-border: var(--color-slate-300);
+      --app-pill-neutral-text: var(--color-slate-900);
+      --app-pill-buy-bg: linear-gradient(135deg, var(--color-emerald-500), #34d399);
+      --app-pill-buy-border: #059669;
+      --app-pill-buy-text: #ecfdf3;
+      --app-pill-sell-bg: linear-gradient(135deg, #f43f5e, #ef4444);
+      --app-pill-sell-border: #e11d48;
+      --app-pill-sell-text: #fff1f2;
+      --app-accent: #2563eb;
+      --app-accent-strong: #1d4ed8;
+      --app-scrollbar-thumb: rgba(148, 163, 184, 0.6);
+      --app-sort-indicator: #cbd5f5;
+      --app-spinner-border: rgba(148, 163, 184, 0.6);
+      --app-tooltip-bg: #0f172a;
+      --app-tooltip-text: #f1f5f9;
+      --app-tooltip-shadow: 0 20px 45px rgba(15, 23, 42, 0.4);
+      --app-tooltip-button-bg: #0f172a;
+      --app-tooltip-button-border: rgba(255, 255, 255, 0.15);
+      --app-tooltip-button-text: #f1f5f9;
+      --app-tooltip-button-hover-bg: #111b33;
+      --app-tooltip-button-hover-border: rgba(16, 185, 129, 0.35);
+      --app-tooltip-button-ring: rgba(52, 211, 153, 0.6);
+      --app-tooltip-button-success-bg: #10b981;
+      --app-tooltip-button-success-border: #10b981;
+      --app-tooltip-button-success-text: #f8fbff;
+      --app-tooltip-close-bg: rgba(15, 23, 42, 0.6);
+      --app-tooltip-close-hover-bg: rgba(15, 23, 42, 0.9);
+      --app-tooltip-close-text: #cbd5f5;
+      --app-tooltip-close-hover-text: #ffffff;
+      --app-tooltip-code-bg: rgba(255, 255, 255, 0.08);
+      --app-tooltip-code-border: rgba(255, 255, 255, 0.12);
+      --app-focus-ring: rgba(16, 185, 129, 0.7);
+      --app-segment-active-shadow: 0 4px 12px rgba(16, 185, 129, 0.35);
+      --app-pull-bg: rgba(248, 250, 252, 0.92);
+      --app-pull-border: rgba(148, 163, 184, 0.5);
+      --app-pull-text: #475569;
+      --app-pull-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+      --app-border-strong: #cbd5e1;
+      --app-row-hover-bg: rgba(16, 185, 129, 0.08);
+      --app-row-selected-bg: rgba(16, 185, 129, 0.16);
+      --app-row-selected-ring: rgba(16, 185, 129, 0.4);
+      --app-checkbox-border: #94a3b8;
+      --app-checkbox-bg: #ffffff;
+      --app-checkbox-indeterminate-bg: #e2e8f0;
+      --app-checkbox-indeterminate-border: #94a3b8;
+      --app-checkbox-indeterminate-icon: #64748b;
+      --app-level-metric-bg: rgba(241, 245, 249, 0.9);
+      --app-level-metric-border: rgba(226, 232, 240, 0.9);
+      --app-level-metric-label: rgba(100, 116, 139, 0.95);
+      --app-level-bar-bg: #f1f5f9;
+      --app-level-bar-border: rgba(15, 23, 42, 0.06);
+      --app-level-bar-divider: rgba(15, 23, 42, 0.18);
+      --app-level-marker: rgba(15, 23, 42, 0.25);
+      --app-level-price-label: #1f2937;
+      --app-level-price-dot: #0ee932;
+      --app-level-price-dot-border: #ecfeff;
+      --app-level-price-dot-shadow: 0 2px 6px rgba(14, 165, 233, 0.4);
+      --app-menu-bg: #0f172a;
+      --app-menu-text: #e2e8f0;
+      --app-menu-border: rgba(148, 163, 184, 0.35);
+      --app-menu-item-bg: rgba(255, 255, 255, 0.04);
+      --app-menu-item-border: rgba(255, 255, 255, 0.08);
+      --app-menu-item-text: #f8fafc;
+      --app-menu-item-hover-bg: rgba(16, 185, 129, 0.16);
+      --app-menu-item-hover-border: rgba(16, 185, 129, 0.45);
+      --app-menu-item-hover-text: #befae0;
+      --app-sheet-bg: #ffffff;
+      --app-sheet-text: #0f172a;
+      --app-sheet-border: rgba(148, 163, 184, 0.22);
+      --app-sheet-shadow: 0 -18px 45px rgba(15, 23, 42, 0.18);
+      --app-sheet-backdrop: rgba(15, 23, 42, 0.35);
+      --app-sheet-handle: rgba(15, 23, 42, 0.18);
+      --app-sheet-title: #0f172a;
+      --app-sheet-subtitle: #64748b;
+      --app-sheet-close: #334155;
+      --app-sheet-close-hover: #047857;
+      --app-sheet-item-bg: #ffffff;
+      --app-sheet-item-text: #0f172a;
+      --app-sheet-item-border: rgba(148, 163, 184, 0.28);
+      --app-sheet-item-shadow: 0 10px 22px rgba(15, 23, 42, 0.06);
+      --app-sheet-item-hover-border: rgba(16, 185, 129, 0.55);
+      --app-sheet-item-hover-shadow: 0 12px 28px rgba(16, 185, 129, 0.12);
+      --app-sheet-icon-bg: rgba(15, 23, 42, 0.06);
+      --app-sheet-icon-text: #0f172a;
+      --app-negative-text: #dc2626;
+      --app-highlight-symbol: #fde047;
+      --app-market-pill-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 15px 35px rgba(15, 23, 42, 0.08);
+      --app-market-icon-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 8px 18px rgba(15, 23, 42, 0.12);
+      --app-meta-tile-shadow: 0 10px 25px rgba(15, 23, 42, 0.2);
+      --app-on-accent-text: #ffffff;
+      --app-meta-text: #ffffff;
+      --app-meta-subtext: rgba(255, 255, 255, 0.85);
+      --app-success-border: #059669;
+      --app-success-ring: rgba(16, 185, 129, 0.18);
+      --app-on-success-text: #ffffff;
+      --app-order-ref-default: #334155;
+      --app-order-ref-buy: #047857;
+      --app-order-ref-sell: #b91c1c;
+      --app-order-accent-emerald: #10b981;
+      --app-order-accent-sky: #0ea5e9;
+      --app-order-accent-amber: #f59e0b;
+      --app-order-accent-purple: #a855f7;
+      --app-order-accent-rose: #f43f5e;
+      --app-order-accent-indigo: #6366f1;
+      --app-level-action-sell-text: #b91c1c;
+      --app-level-action-sell-bg: rgba(248, 113, 113, 0.16);
+      --app-level-action-buy-text: #047857;
+      --app-level-action-buy-bg: rgba(16, 185, 129, 0.16);
+      --app-level-action-grid-text: #0f172a;
+      --app-level-action-grid-bg: rgba(15, 23, 42, 0.07);
+      --app-level-action-split-text: #1d4ed8;
+      --app-level-action-split-bg: rgba(59, 130, 246, 0.16);
+      --app-badge-emerald-bg: #d1fae5;
+      --app-badge-emerald-text: #047857;
+      --app-badge-sky-bg: #e0f2fe;
+      --app-badge-sky-text: #0369a1;
+      --app-badge-amber-bg: #fef3c7;
+      --app-badge-amber-border: #fcd34d;
+      --app-badge-amber-text: #b45309;
+      --app-badge-purple-bg: #f3e8ff;
+      --app-badge-purple-text: #6b21a8;
+      --app-badge-rose-bg: #ffe4e6;
+      --app-badge-rose-text: #be123c;
+      --app-badge-indigo-bg: #e0e7ff;
+      --app-badge-indigo-text: #4338ca;
+      --app-timeline-bg: linear-gradient(135deg, #f8fbff, #f1f5f9);
+      --app-timeline-border: #e2e8f0;
+      --app-timeline-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+      --app-timeline-chip-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.05), 0 8px 18px rgba(15, 23, 42, 0.06);
+      --app-timeline-chip-icon-bg: rgba(255, 255, 255, 0.42);
+      --app-timeline-chip-icon-border: rgba(255, 255, 255, 0.28);
+      --app-timeline-chip-time: rgba(15, 23, 42, 0.8);
+      --app-timeline-axis-text: #475569;
+      --app-timeline-axis-strong: #0f172a;
+      --app-timeline-axis-line: rgba(148, 163, 184, 0.35);
+      --app-timeline-axis-tick: rgba(148, 163, 184, 0.7);
+      --app-timeline-now: #fbbf24;
+      --app-timeline-now-ring: rgba(251, 191, 36, 0.25);
+      --app-timeline-now-glow-start: rgba(251, 191, 36, 0.16);
+      --app-timeline-now-glow-end: rgba(251, 191, 36, 0.08);
+      --app-live-panel-bg: transparent;
+      --app-live-panel-border: #e2e8f0;
+      --session-overnight-bg: #e2e8f0;
+      --session-overnight-text: #0f172a;
+      --session-premarket-bg: #fcd34d;
+      --session-premarket-text: #92400e;
+      --session-market-bg: rgba(34, 197, 94, 0.85);
+      --session-market-text: #064e3b;
+      --session-afterhours-bg: #7c9cf5;
+      --session-afterhours-text: #1e3a8a;
+    }
+
+    html[data-theme="dark"] {
+      color-scheme: dark;
+      --app-bg: #0b1120;
+      --app-surface: #111827;
+      --app-surface-muted: #0f172a;
+      --app-surface-strong: #1f2937;
+      --app-border: #1f2937;
+      --app-border-muted: rgba(148, 163, 184, 0.2);
+      --app-text: #f8fafc;
+      --app-text-muted: #cbd5e1;
+      --app-text-subtle: #94a3b8;
+      --app-header-bg: rgba(15, 23, 42, 0.92);
+      --app-header-border: #1f2937;
+      --app-sidebar-bg: #0f172a;
+      --app-tabbar-bg: #0f172a;
+      --app-shadow-soft: 0 25px 45px rgba(0, 0, 0, 0.35);
+      --app-shadow-elevated: 0 16px 32px rgba(0, 0, 0, 0.45);
+      --app-log-bg: #0b1221;
+      --app-log-border: rgba(148, 163, 184, 0.25);
+      --app-chart-card-bg: #111827;
+      --app-chart-card-border: rgba(31, 41, 55, 0.9);
+      --app-chart-stat-bg: rgba(15, 23, 42, 0.9);
+      --app-chart-stat-border: rgba(31, 41, 55, 0.9);
+      --app-chart-dot: rgba(148, 163, 184, 0.55);
+      --app-chart-dot-hover: rgba(148, 163, 184, 0.8);
+      --app-chart-overlay-bg: rgba(15, 23, 42, 0.72);
+      --app-chart-key-harvest: rgba(52, 211, 153, 0.95);
+      --app-chart-key-cash: rgba(167, 139, 250, 0.95);
+      --app-chart-axis-text: #94a3b8;
+      --app-chart-grid: rgba(148, 163, 184, 0.2);
+      --app-chart-legend-text: #e2e8f0;
+      --app-chart-cash-line: rgba(167, 139, 250, 0.95);
+      --app-chart-cash-fill: rgba(167, 139, 250, 0.2);
+      --app-chart-harvest-line: rgba(52, 211, 153, 0.95);
+      --app-chart-harvest-fill: rgba(52, 211, 153, 0.2);
+      --app-overlay-bg: rgba(2, 6, 23, 0.7);
+      --app-overlay-text: #e2e8f0;
+      --app-badge-warning-bg: rgba(251, 146, 60, 0.2);
+      --app-badge-warning-border: rgba(251, 146, 60, 0.45);
+      --app-badge-warning-text: #fdba74;
+      --app-badge-neutral-bg: rgba(148, 163, 184, 0.2);
+      --app-badge-info-hover: rgba(59, 130, 246, 0.2);
+      --app-badge-info-bg: rgba(59, 130, 246, 0.22);
+      --app-badge-info-border: rgba(59, 130, 246, 0.85);
+      --app-badge-info-ring: rgba(59, 130, 246, 0.35);
+      --app-badge-info-text: #bfdbfe;
+      --app-badge-success-hover: rgba(16, 185, 129, 0.2);
+      --app-badge-success-bg: rgba(16, 185, 129, 0.24);
+      --app-badge-success-border: rgba(16, 185, 129, 0.7);
+      --app-badge-success-ring: rgba(16, 185, 129, 0.35);
+      --app-badge-success-text: #bbf7d0;
+      --app-live-badge-on-bg: #10b981;
+      --app-live-badge-on-text: #ecfdf5;
+      --app-live-badge-off-bg: #1f2937;
+      --app-live-badge-off-text: #94a3b8;
+      --app-live-badge-off-border: #334155;
+      --app-alert-warning-bg: rgba(180, 83, 9, 0.2);
+      --app-alert-warning-border: rgba(251, 191, 36, 0.4);
+      --app-alert-warning-text: #fcd34d;
+      --app-status-inactive-bg: #334155;
+      --app-status-idle-bg: #475569;
+      --app-status-armed-bg: #22c55edd;
+      --app-status-waiting-bg: #f59e0b;
+      --app-status-orphan-bg: #8b5cf6;
+      --app-card-buy-bg: #14532d;
+      --app-card-buy-border: #22c55e;
+      --app-card-sell-bg: #4c0519;
+      --app-card-sell-border: #f43f5e;
+      --app-split-buy-bg: #065f46;
+      --app-split-sell-bg: #b45309;
+      --app-market-open-bg: linear-gradient(135deg, #064e3b, #0f766e);
+      --app-market-open-border: #34d399;
+      --app-market-open-text: #d1fae5;
+      --app-market-open-shadow: 0 15px 35px rgba(16, 185, 129, 0.35);
+      --app-market-open-icon-bg: #065f46;
+      --app-market-open-icon-text: #a7f3d0;
+      --app-market-closed-bg: linear-gradient(135deg, #7f1d1d, #991b1b);
+      --app-market-closed-border: #f87171;
+      --app-market-closed-text: #fee2e2;
+      --app-market-closed-shadow: 0 15px 35px rgba(248, 113, 113, 0.3);
+      --app-market-closed-icon-bg: #7f1d1d;
+      --app-market-closed-icon-text: #fecaca;
+      --app-market-guard-bg: linear-gradient(135deg, #78350f, #92400e);
+      --app-market-guard-border: #fbbf24;
+      --app-market-guard-text: #fef3c7;
+      --app-market-guard-shadow: 0 15px 35px rgba(250, 204, 21, 0.25);
+      --app-market-guard-icon-bg: #78350f;
+      --app-market-guard-icon-text: #fde68a;
+      --app-pill-neutral-bg: linear-gradient(135deg, #1f2937, #111827);
+      --app-pill-neutral-border: #334155;
+      --app-pill-neutral-text: #e2e8f0;
+      --app-pill-buy-bg: linear-gradient(135deg, #059669, #34d399);
+      --app-pill-buy-border: #10b981;
+      --app-pill-buy-text: #ecfdf3;
+      --app-pill-sell-bg: linear-gradient(135deg, #be123c, #f43f5e);
+      --app-pill-sell-border: #f43f5e;
+      --app-pill-sell-text: #ffe4e6;
+      --app-accent: #60a5fa;
+      --app-accent-strong: #3b82f6;
+      --app-scrollbar-thumb: rgba(148, 163, 184, 0.45);
+      --app-sort-indicator: #475569;
+      --app-spinner-border: rgba(148, 163, 184, 0.35);
+      --app-tooltip-bg: #0b1221;
+      --app-tooltip-text: #f8fafc;
+      --app-tooltip-shadow: 0 20px 45px rgba(0, 0, 0, 0.5);
+      --app-tooltip-button-bg: #111827;
+      --app-tooltip-button-border: rgba(148, 163, 184, 0.2);
+      --app-tooltip-button-text: #e2e8f0;
+      --app-tooltip-button-hover-bg: #1e293b;
+      --app-tooltip-button-hover-border: rgba(16, 185, 129, 0.5);
+      --app-tooltip-button-ring: rgba(52, 211, 153, 0.45);
+      --app-tooltip-button-success-bg: #059669;
+      --app-tooltip-button-success-border: #059669;
+      --app-tooltip-button-success-text: #ecfdf3;
+      --app-tooltip-close-bg: rgba(15, 23, 42, 0.7);
+      --app-tooltip-close-hover-bg: rgba(15, 23, 42, 0.95);
+      --app-tooltip-close-text: #cbd5f5;
+      --app-tooltip-close-hover-text: #ffffff;
+      --app-tooltip-code-bg: rgba(148, 163, 184, 0.15);
+      --app-tooltip-code-border: rgba(148, 163, 184, 0.25);
+      --app-focus-ring: rgba(16, 185, 129, 0.45);
+      --app-segment-active-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+      --app-pull-bg: rgba(15, 23, 42, 0.85);
+      --app-pull-border: rgba(148, 163, 184, 0.35);
+      --app-pull-text: #cbd5e1;
+      --app-pull-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+      --app-border-strong: #334155;
+      --app-row-hover-bg: rgba(16, 185, 129, 0.16);
+      --app-row-selected-bg: rgba(16, 185, 129, 0.24);
+      --app-row-selected-ring: rgba(16, 185, 129, 0.45);
+      --app-checkbox-border: #64748b;
+      --app-checkbox-bg: #0f172a;
+      --app-checkbox-indeterminate-bg: #1f2937;
+      --app-checkbox-indeterminate-border: #64748b;
+      --app-checkbox-indeterminate-icon: #94a3b8;
+      --app-level-metric-bg: rgba(15, 23, 42, 0.9);
+      --app-level-metric-border: rgba(31, 41, 55, 0.9);
+      --app-level-metric-label: rgba(148, 163, 184, 0.9);
+      --app-level-bar-bg: #0f172a;
+      --app-level-bar-border: rgba(148, 163, 184, 0.18);
+      --app-level-bar-divider: rgba(148, 163, 184, 0.35);
+      --app-level-marker: rgba(148, 163, 184, 0.4);
+      --app-level-price-label: #e2e8f0;
+      --app-level-price-dot: #22c55e;
+      --app-level-price-dot-border: #ecfeff;
+      --app-level-price-dot-shadow: 0 2px 6px rgba(34, 197, 94, 0.3);
+      --app-menu-bg: #0b1221;
+      --app-menu-text: #e2e8f0;
+      --app-menu-border: rgba(148, 163, 184, 0.25);
+      --app-menu-item-bg: rgba(148, 163, 184, 0.08);
+      --app-menu-item-border: rgba(148, 163, 184, 0.18);
+      --app-menu-item-text: #e2e8f0;
+      --app-menu-item-hover-bg: rgba(16, 185, 129, 0.2);
+      --app-menu-item-hover-border: rgba(16, 185, 129, 0.5);
+      --app-menu-item-hover-text: #bbf7d0;
+      --app-sheet-bg: #0f172a;
+      --app-sheet-text: #e2e8f0;
+      --app-sheet-border: rgba(148, 163, 184, 0.2);
+      --app-sheet-shadow: 0 -18px 45px rgba(0, 0, 0, 0.5);
+      --app-sheet-backdrop: rgba(2, 6, 23, 0.6);
+      --app-sheet-handle: rgba(148, 163, 184, 0.35);
+      --app-sheet-title: #f8fafc;
+      --app-sheet-subtitle: #94a3b8;
+      --app-sheet-close: #cbd5e1;
+      --app-sheet-close-hover: #34d399;
+      --app-sheet-item-bg: #111827;
+      --app-sheet-item-text: #e2e8f0;
+      --app-sheet-item-border: rgba(148, 163, 184, 0.22);
+      --app-sheet-item-shadow: 0 10px 22px rgba(0, 0, 0, 0.35);
+      --app-sheet-item-hover-border: rgba(52, 211, 153, 0.6);
+      --app-sheet-item-hover-shadow: 0 12px 28px rgba(16, 185, 129, 0.2);
+      --app-sheet-icon-bg: rgba(148, 163, 184, 0.15);
+      --app-sheet-icon-text: #e2e8f0;
+      --app-negative-text: #f87171;
+      --app-highlight-symbol: #fcd34d;
+      --app-market-pill-shadow: inset 0 1px 0 rgba(15, 23, 42, 0.6), 0 15px 35px rgba(0, 0, 0, 0.35);
+      --app-market-icon-shadow: inset 0 1px 0 rgba(15, 23, 42, 0.4), 0 8px 18px rgba(0, 0, 0, 0.4);
+      --app-meta-tile-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+      --app-on-accent-text: #ffffff;
+      --app-meta-text: #ffffff;
+      --app-meta-subtext: rgba(255, 255, 255, 0.85);
+      --app-success-border: #10b981;
+      --app-success-ring: rgba(16, 185, 129, 0.25);
+      --app-on-success-text: #ffffff;
+      --app-order-ref-default: #cbd5e1;
+      --app-order-ref-buy: #34d399;
+      --app-order-ref-sell: #f87171;
+      --app-order-accent-emerald: #34d399;
+      --app-order-accent-sky: #38bdf8;
+      --app-order-accent-amber: #fbbf24;
+      --app-order-accent-purple: #c084fc;
+      --app-order-accent-rose: #fb7185;
+      --app-order-accent-indigo: #818cf8;
+      --app-level-action-sell-text: #f87171;
+      --app-level-action-sell-bg: rgba(248, 113, 113, 0.2);
+      --app-level-action-buy-text: #34d399;
+      --app-level-action-buy-bg: rgba(16, 185, 129, 0.2);
+      --app-level-action-grid-text: #e2e8f0;
+      --app-level-action-grid-bg: rgba(148, 163, 184, 0.15);
+      --app-level-action-split-text: #93c5fd;
+      --app-level-action-split-bg: rgba(59, 130, 246, 0.2);
+      --app-badge-emerald-bg: rgba(16, 185, 129, 0.2);
+      --app-badge-emerald-text: #6ee7b7;
+      --app-badge-sky-bg: rgba(56, 189, 248, 0.2);
+      --app-badge-sky-text: #7dd3fc;
+      --app-badge-amber-bg: rgba(251, 191, 36, 0.2);
+      --app-badge-amber-border: rgba(251, 191, 36, 0.45);
+      --app-badge-amber-text: #fcd34d;
+      --app-badge-purple-bg: rgba(192, 132, 252, 0.2);
+      --app-badge-purple-text: #e9d5ff;
+      --app-badge-rose-bg: rgba(251, 113, 133, 0.2);
+      --app-badge-rose-text: #fda4af;
+      --app-badge-indigo-bg: rgba(129, 140, 248, 0.2);
+      --app-badge-indigo-text: #c7d2fe;
+      --app-timeline-bg: linear-gradient(135deg, #0f172a, #111827);
+      --app-timeline-border: #1f2937;
+      --app-timeline-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+      --app-timeline-chip-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.4), 0 8px 18px rgba(0, 0, 0, 0.4);
+      --app-timeline-chip-icon-bg: rgba(15, 23, 42, 0.35);
+      --app-timeline-chip-icon-border: rgba(148, 163, 184, 0.25);
+      --app-timeline-chip-time: rgba(226, 232, 240, 0.8);
+      --app-timeline-axis-text: #94a3b8;
+      --app-timeline-axis-strong: #e2e8f0;
+      --app-timeline-axis-line: rgba(148, 163, 184, 0.2);
+      --app-timeline-axis-tick: rgba(148, 163, 184, 0.45);
+      --app-timeline-now: #fbbf24;
+      --app-timeline-now-ring: rgba(251, 191, 36, 0.35);
+      --app-timeline-now-glow-start: rgba(251, 191, 36, 0.2);
+      --app-timeline-now-glow-end: rgba(251, 191, 36, 0.1);
+      --app-live-panel-bg: transparent;
+      --app-live-panel-border: var(--app-border);
+      --session-overnight-bg: #1f2937;
+      --session-overnight-text: #e2e8f0;
+      --session-premarket-bg: #f59e0b;
+      --session-premarket-text: #1f2937;
+      --session-market-bg: rgba(34, 197, 94, 0.35);
+      --session-market-text: #bbf7d0;
+      --session-afterhours-bg: #3b82f6;
+      --session-afterhours-text: #eff6ff;
+    }
+
+    html,
+    body {
+      background: var(--app-bg);
+      color: var(--app-text);
+    }
+    .bg-white {
+      background-color: var(--app-surface) !important;
+    }
+    .bg-slate-50 {
+      background-color: var(--app-bg) !important;
+    }
+    .bg-slate-100 {
+      background-color: var(--app-surface-muted) !important;
+    }
+    .bg-slate-200 {
+      background-color: var(--app-surface-strong) !important;
+    }
+    .text-slate-500 {
+      color: var(--app-text-subtle) !important;
+    }
+    .text-slate-600,
+    .text-slate-700 {
+      color: var(--app-text-muted) !important;
+    }
+    .text-slate-800,
+    .text-slate-900 {
+      color: var(--app-text) !important;
+    }
+    .border-slate-100 {
+      border-color: var(--app-border-muted) !important;
+    }
+    .border-slate-200 {
+      border-color: var(--app-border) !important;
+    }
+    .border-slate-300 {
+      border-color: var(--app-border-strong) !important;
+    }
+    .hover\\:bg-slate-50:hover {
+      background-color: var(--app-row-hover-bg) !important;
+    }
+    .hover\\:bg-slate-100:hover {
+      background-color: var(--app-surface-muted) !important;
+    }
+    .bg-emerald-50 {
+      background-color: var(--app-row-selected-bg) !important;
+    }
+    .shadow-soft {
+      box-shadow: var(--app-shadow-soft);
+    }
+    .sticky-th {
+      background: var(--app-surface);
+    }
+    thead th {
+      background: var(--app-surface);
+    }
+    input:not([type="checkbox"]):not([type="radio"]),
+    select,
+    textarea {
+      background-color: var(--app-surface);
+      color: var(--app-text);
+      border-color: var(--app-border);
+    }
+    input::placeholder,
+    textarea::placeholder {
+      color: var(--app-text-subtle);
+    }
+    .table-row:hover {
+      background-color: var(--app-row-hover-bg) !important;
+    }
+    .table-row.table-row-selected {
+      background-color: var(--app-row-selected-bg) !important;
+      box-shadow: inset 0 0 0 1px var(--app-row-selected-ring);
+    }
+    #gridLadderContainer table,
+    #gridLadderContainer thead tr,
+    #breakeven-matrix-table table,
+    #breakeven-matrix-table thead tr {
+      border-color: var(--app-border-muted);
+    }
+    #gridLadderContainer thead,
+    #breakeven-matrix-table thead {
+      background-color: var(--app-surface-muted);
+      color: var(--app-text-subtle);
+    }
+    #gridLadderContainer thead th,
+    #breakeven-matrix-table thead th {
+      color: var(--app-text-subtle);
+    }
+    #gridLadderContainer tbody td:not(.num-pos):not(.num-neg):not(.text-emerald-700) {
+      color: var(--app-text-muted);
+    }
+    #breakeven-matrix-table tbody td:not(.text-emerald-700):not(.text-yellow-700):not(.text-orange-700):not(.text-red-700) {
+      color: var(--app-text-muted);
+    }
+    #gridLadderContainer .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+    #gridLadderContainer .divide-slate-200 > :not([hidden]) ~ :not([hidden]),
+    #breakeven-matrix-table .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+    #breakeven-matrix-table .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+      border-color: var(--app-border-muted);
+    }
     .num-pos { color: #119d6e !important; }
     .num-neg { color: #ff0000 !important; }
     .pnl-strong { font-size: 1.8rem !important; }
-    .sticky-th { position: sticky; top: 0; background: white; z-index: 1; }
-    .shadow-soft { box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
-    thead th { position: sticky; top: 0; background: white; z-index: 1; }
+    .sticky-th { position: sticky; top: 0; background: var(--app-surface); z-index: 1; }
+    .shadow-soft { box-shadow: var(--app-shadow-soft); }
+    thead th { position: sticky; top: 0; background: var(--app-surface); z-index: 1; }
 
     /* Hide native spin buttons for key numeric inputs */
     #inp_orb_m::-webkit-outer-spin-button,
@@ -92,6 +680,14 @@
           <a data-nav href="grid_about.html" class="px-3 py-1.5 rounded-lg text-sm text-slate-700 hover:bg-slate-100">About</a>
         </div>
       </div>
+      <label class="inline-flex items-center gap-2 text-xs text-slate-500 cursor-pointer">
+        <span>Dark mode</span>
+        <span class="relative inline-flex h-5 w-9 items-center">
+          <input id="toggleTheme" type="checkbox" class="peer sr-only">
+          <span class="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-emerald-500"></span>
+          <span class="absolute left-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition peer-checked:translate-x-4"></span>
+        </span>
+      </label>
     </div>
   </nav>
   <script>
@@ -489,11 +1085,31 @@
       { max: 600, className: 'bg-orange-50 text-orange-700' },
       { max: Infinity, className: 'bg-red-50 text-red-700' }
     ];
+    const THEME_STORAGE_KEY = 'grid_theme';
+    const THEME_DARK = 'dark';
+    const THEME_LIGHT = 'light';
     let activeTab = 'grid-calculator';
     let LAST_GRID_JSON = '';
     let gridOverviewChart = null;
     let gridPlChart = null;
     let gridCashflowChart = null;
+
+    function applyTheme(theme) {
+      const next = theme === THEME_DARK ? THEME_DARK : THEME_LIGHT;
+      document.documentElement.setAttribute('data-theme', next);
+      return next;
+    }
+
+    function getPreferredTheme() {
+      try {
+        const stored = localStorage.getItem(THEME_STORAGE_KEY);
+        if (stored === THEME_DARK || stored === THEME_LIGHT) return stored;
+      } catch {}
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        return THEME_DARK;
+      }
+      return THEME_LIGHT;
+    }
 
     function decimals(step) {
       if (!Number.isFinite(step)) return 0;
@@ -783,7 +1399,7 @@
         const profitLossPctClass = profitLossPctValue > 0 ? 'num-pos' : (profitLossPctValue < 0 ? 'num-neg' : 'text-slate-500');
         const baseCellClass = `px-4 py-2 text-sm ${isStart ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`;
         return `
-          <tr class="${isStart ? 'bg-emerald-50' : ''}">
+          <tr class="table-row${isStart ? ' table-row-selected' : ''}">
             <td class="${baseCellClass}">${row.label}</td>
             <td class="${baseCellClass}">${row.direction}</td>
             <td class="${baseCellClass}">$${priceFormatter.format(row.price)}</td>
@@ -1293,7 +1909,7 @@
 
       let bodyHtml = '';
       for (let level = 1; level <= clampedLevels; level++) {
-        const rowClass = level % 2 === 0 ? 'bg-slate-50/70' : 'bg-white';
+        const rowClass = `table-row ${level % 2 === 0 ? 'bg-slate-50/70' : 'bg-white'}`;
         const levelCell = `<td class="px-4 py-2 text-sm font-medium text-slate-700 text-left">${level}</td>`;
         const cells = tpValues.map((tp) => {
           const tpRatio = tp / 100;
@@ -1437,6 +2053,18 @@
     });
 
     document.addEventListener('DOMContentLoaded', () => {
+      const themeToggle = document.getElementById('toggleTheme');
+      const initialTheme = applyTheme(getPreferredTheme());
+      if (themeToggle) {
+        themeToggle.checked = initialTheme === THEME_DARK;
+        themeToggle.addEventListener('change', () => {
+          const next = themeToggle.checked ? THEME_DARK : THEME_LIGHT;
+          applyTheme(next);
+          try {
+            localStorage.setItem(THEME_STORAGE_KEY, next);
+          } catch {}
+        });
+      }
       setupTabs();
       setupCarousel();
       updateGridSizeLabel();
