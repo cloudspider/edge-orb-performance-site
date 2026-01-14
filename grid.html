@@ -797,6 +797,11 @@
           const active = href === file || (file === '' && href.endsWith('index.html'));
           a.classList.toggle('bg-slate-800', active);
           a.classList.toggle('text-white', active);
+          if (active) {
+            a.classList.remove('text-slate-700');
+          } else {
+            a.classList.add('text-slate-700');
+          }
           a.classList.toggle('hover:bg-slate-100', !active);
           if (active) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current');
         });
@@ -1172,6 +1177,9 @@
               <th class="px-3 py-2 text-right sortable" data-batch-sort="cagr" data-sort="none"><button type="button"><span>CAGR</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 text-right sortable" data-batch-sort="maxLevels" data-sort="none"><button type="button"><span>Max Levels</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 text-right sortable" data-batch-sort="profitPerLevel" data-sort="none"><button type="button"><span>Profit / Level</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-batch-sort="calmSells" data-sort="none"><button type="button"><span>Calm</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-batch-sort="normalSells" data-sort="none"><button type="button"><span>Normal</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-batch-sort="volatileSells" data-sort="none"><button type="button"><span>Volatile</span><span class="sort-indicator"></span></button></th>
             </tr>
           </thead>
           <tbody id="batchResultsBody" class="divide-y divide-slate-100"></tbody>
@@ -1197,83 +1205,102 @@
           <span id="summaryOpenLevels" class="text-sm font-semibold text-slate-800">0</span>
         </div>
       </div>
-      <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
-          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Capital Contributed</dt>
-          <dd id="summaryCapitalContributed" class="mt-2 text-xl font-semibold text-slate-800">—</dd>
-          <span class="summary-tooltip">Total capital deposited into the strategy over the backtest (autofund deposits). Used for reconciliation: Account Equity = Capital Contributed + Net P/L.</span>
-        </div>
-        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
-          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Net Trade Cashflow</dt>
-          <dd id="summaryNetCashflow" class="mt-2 text-xl font-semibold text-slate-800">—</dd>
-          <span class="summary-tooltip">Net cashflow from trades only (buys negative, sells positive, commissions included). This is the cash ledger truth.</span>
-        </div>
-        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
-          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Harvested Profit</dt>
-          <dd id="summaryHarvestedProfit" class="mt-2 text-xl font-semibold text-slate-800">—</dd>
-          <span class="summary-tooltip">Realized profit from completed trades only (sells minus cost basis). Excludes open inventory and unrealized holdings value.</span>
-        </div>
-        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
-          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Holdings Value</dt>
-          <dd id="summaryHoldingsValue" class="mt-2 text-xl font-semibold text-slate-800">—</dd>
-          <span class="summary-tooltip">Market value of current holdings at the final price: shares × final price.</span>
-        </div>
-        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
-          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Net P/L (if liquidated)</dt>
-          <dd id="summaryNetProfit" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
-          <span class="summary-tooltip">Net P/L if liquidated at the final price: netCashflowTrades + holdingsValue.</span>
-        </div>
-        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
-          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Account Equity</dt>
-          <dd id="summaryAccountEquity" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
-          <span class="summary-tooltip">Account equity at the final price: cashBalance + holdingsValue. Also equals Capital Contributed + Net P/L.</span>
-        </div>
-        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
-          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Completed Trades</dt>
-          <dd id="summaryTotalTrades" class="mt-2 text-xl font-semibold text-slate-800">0</dd>
-          <span class="summary-tooltip">Number of completed SELL executions (fills) recorded by the backtest.</span>
-        </div>
-        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
-          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Levels</dt>
-          <dd id="summaryMaxLevels" class="mt-2 text-xl font-semibold text-slate-800">0</dd>
-          <span class="summary-tooltip">Maximum number of concurrently open grid sell orders (ladder activity metric).</span>
-        </div>
-        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
-          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Profit per Level</dt>
-          <dd id="summaryProfitPerLevel" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
-          <span class="summary-tooltip">Net P/L normalized by ladder size: net profit ÷ peak open levels.</span>
-        </div>
-        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
-          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">CAGR</dt>
-          <dd id="summaryCagr" class="mt-2 text-xl font-semibold text-slate-800">0.00%</dd>
-          <span class="summary-tooltip">Annualised return using Required Capital as the base: ((Required Capital + Net P/L) / Required Capital) over the backtest period.</span>
-        </div>
-        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
-          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Retained Shares</dt>
-          <dd id="summaryRetained" class="mt-2 text-xl font-semibold text-slate-800">0</dd>
-          <span class="summary-tooltip">Total shares intentionally retained by the retention rule (planned retention only; excludes unsold due to rounding/availability).</span>
-        </div>
-        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
-          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Required Capital</dt>
-          <dd id="summaryRequiredCapital" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
-          <span class="summary-tooltip">Peak cash required by the strategy, measured as max(-netCashflowTrades). If this is below Capital Contributed, it means harvested profits reduced the net cash needed before the max open levels were reached.</span>
-        </div>
-        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
-          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Min Cash</dt>
-          <dd id="summaryMinCash" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
-          <span class="summary-tooltip">Minimum account cash balance (cashBalance). In autofund mode this may stay near 0; in margin mode it can go negative.</span>
-        </div>
-        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
-          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Drawdown</dt>
-          <dd id="summaryMaxDD" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
-          <span class="summary-tooltip">Worst peak-to-trough drawdown of account equity (cash + holdings value) over the backtest path.</span>
-        </div>
-        <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
-          <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Drawdown %</dt>
-          <dd id="summaryMaxDDPct" class="mt-2 text-xl font-semibold text-slate-800">0.00%</dd>
-          <span class="summary-tooltip">Max equity drawdown divided by peak equity at the time of the peak.</span>
-        </div>
-      </dl>
+      <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
+        <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Capital Contributed</dt>
+            <dd id="summaryCapitalContributed" class="mt-2 text-xl font-semibold text-slate-800">—</dd>
+            <span class="summary-tooltip">Total capital deposited into the strategy over the backtest (autofund deposits). Used for reconciliation: Account Equity = Capital Contributed + Net P/L.</span>
+          </div>
+          <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Net Trade Cashflow</dt>
+            <dd id="summaryNetCashflow" class="mt-2 text-xl font-semibold text-slate-800">—</dd>
+            <span class="summary-tooltip">Net cashflow from trades only (buys negative, sells positive, commissions included). This is the cash ledger truth.</span>
+          </div>
+          <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Harvested Profit</dt>
+            <dd id="summaryHarvestedProfit" class="mt-2 text-xl font-semibold text-slate-800">—</dd>
+            <span class="summary-tooltip">Realized profit from completed trades only (sells minus cost basis). Excludes open inventory and unrealized holdings value.</span>
+          </div>
+          <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Holdings Value</dt>
+            <dd id="summaryHoldingsValue" class="mt-2 text-xl font-semibold text-slate-800">—</dd>
+            <span class="summary-tooltip">Market value of current holdings at the final price: shares × final price.</span>
+          </div>
+          <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Net P/L (if liquidated)</dt>
+            <dd id="summaryNetProfit" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
+            <span class="summary-tooltip">Net P/L if liquidated at the final price: netCashflowTrades + holdingsValue.</span>
+          </div>
+          <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Account Equity</dt>
+            <dd id="summaryAccountEquity" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
+            <span class="summary-tooltip">Account equity at the final price: cashBalance + holdingsValue. Also equals Capital Contributed + Net P/L.</span>
+          </div>
+          <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Completed Trades</dt>
+            <dd id="summaryTotalTrades" class="mt-2 text-xl font-semibold text-slate-800">0</dd>
+            <span class="summary-tooltip">Number of completed SELL executions (fills) recorded by the backtest.</span>
+          </div>
+          <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Levels</dt>
+            <dd id="summaryMaxLevels" class="mt-2 text-xl font-semibold text-slate-800">0</dd>
+            <span class="summary-tooltip">Maximum number of concurrently open grid sell orders (ladder activity metric).</span>
+          </div>
+          <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Profit per Level</dt>
+            <dd id="summaryProfitPerLevel" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
+            <span class="summary-tooltip">Net P/L normalized by ladder size: net profit ÷ peak open levels.</span>
+          </div>
+          <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">CAGR</dt>
+            <dd id="summaryCagr" class="mt-2 text-xl font-semibold text-slate-800">0.00%</dd>
+            <span class="summary-tooltip">Annualised return using Required Capital as the base: ((Required Capital + Net P/L) / Required Capital) over the backtest period.</span>
+          </div>
+          <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Retained Shares</dt>
+            <dd id="summaryRetained" class="mt-2 text-xl font-semibold text-slate-800">0</dd>
+            <span class="summary-tooltip">Total shares intentionally retained by the retention rule (planned retention only; excludes unsold due to rounding/availability).</span>
+          </div>
+          <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Required Capital</dt>
+            <dd id="summaryRequiredCapital" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
+            <span class="summary-tooltip">Peak cash required by the strategy, measured as max(-netCashflowTrades). If this is below Capital Contributed, it means harvested profits reduced the net cash needed before the max open levels were reached.</span>
+          </div>
+          <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Min Cash</dt>
+            <dd id="summaryMinCash" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
+            <span class="summary-tooltip">Minimum account cash balance (cashBalance). In autofund mode this may stay near 0; in margin mode it can go negative.</span>
+          </div>
+          <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Drawdown</dt>
+            <dd id="summaryMaxDD" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
+            <span class="summary-tooltip">Worst peak-to-trough drawdown of account equity (cash + holdings value) over the backtest path.</span>
+          </div>
+          <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Drawdown %</dt>
+            <dd id="summaryMaxDDPct" class="mt-2 text-xl font-semibold text-slate-800">0.00%</dd>
+            <span class="summary-tooltip">Max equity drawdown divided by peak equity at the time of the peak.</span>
+          </div>
+        </dl>
+        <dl class="grid gap-4">
+          <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Calm-Day Sells (Median)</dt>
+            <dd id="summaryCalmDaySells" class="mt-2 text-xl font-semibold text-slate-800">0</dd>
+            <span class="summary-tooltip">Median number of sell fills per day over the selected lookback period. Represents a typical low-volatility or quiet market day and is robust to outlier spikes.</span>
+          </div>
+          <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Normal-Market Sells (5–95% Avg)</dt>
+            <dd id="summaryNormalMarketSells" class="mt-2 text-xl font-semibold text-slate-800">0</dd>
+            <span class="summary-tooltip">Average daily sell fills after excluding the top and bottom 5% of days. Captures expected activity under normal market conditions while filtering extreme volatility events.</span>
+          </div>
+          <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Volatility-Day Sells (95th %ile)</dt>
+            <dd id="summaryVolatilityDaySells" class="mt-2 text-xl font-semibold text-slate-800">0</dd>
+            <span class="summary-tooltip">95th percentile of daily sell fills. Indicates high-activity or stress days and is useful for capacity planning, rate limits, and risk monitoring.</span>
+          </div>
+        </dl>
+      </div>
     </section>
 
     <section id="gridEquitySection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
@@ -3196,6 +3223,56 @@
       return { entries, totals };
     }
 
+    function computeQuantile(values, quantile) {
+      if (!Array.isArray(values) || !values.length) return NaN;
+      const sorted = values.slice().sort((a, b) => a - b);
+      const clamped = Math.min(Math.max(quantile, 0), 1);
+      const pos = (sorted.length - 1) * clamped;
+      const base = Math.floor(pos);
+      const rest = pos - base;
+      if (sorted[base + 1] === undefined) return sorted[base];
+      return sorted[base] + rest * (sorted[base + 1] - sorted[base]);
+    }
+
+    function computeTrimmedMean(values, trimPct) {
+      if (!Array.isArray(values) || !values.length) return NaN;
+      const sorted = values.slice().sort((a, b) => a - b);
+      const trimCount = Math.floor(sorted.length * trimPct);
+      const trimmed = sorted.slice(trimCount, sorted.length - trimCount);
+      const sample = trimmed.length ? trimmed : sorted;
+      const sum = sample.reduce((acc, val) => acc + val, 0);
+      return sample.length ? sum / sample.length : NaN;
+    }
+
+    function computeSellFillStats(entries) {
+      const values = Array.isArray(entries)
+        ? entries.map(entry => Number(entry?.sell) || 0)
+        : [];
+      if (!values.length) {
+        return { median: 0, trimmedMean: 0, pct95: 0 };
+      }
+      return {
+        median: computeQuantile(values, 0.5),
+        trimmedMean: computeTrimmedMean(values, 0.05),
+        pct95: computeQuantile(values, 0.95)
+      };
+    }
+
+    function updateSellFillSummaryTiles(stats) {
+      const calmEl = document.getElementById('summaryCalmDaySells');
+      const normalEl = document.getElementById('summaryNormalMarketSells');
+      const volEl = document.getElementById('summaryVolatilityDaySells');
+      if (!calmEl && !normalEl && !volEl) return;
+      const formatter = new Intl.NumberFormat(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+      const formatCount = (value) => (Number.isFinite(value) ? formatter.format(value) : '0');
+      const median = Number.isFinite(stats?.median) ? stats.median : 0;
+      const trimmedMean = Number.isFinite(stats?.trimmedMean) ? stats.trimmedMean : 0;
+      const pct95 = Number.isFinite(stats?.pct95) ? stats.pct95 : 0;
+      if (calmEl) calmEl.textContent = formatCount(median);
+      if (normalEl) normalEl.textContent = formatCount(trimmedMean);
+      if (volEl) volEl.textContent = formatCount(pct95);
+    }
+
     function computeDailyOpenLevels(history) {
       const source = Array.isArray(history) ? history : [];
       const perDay = new Map();
@@ -3232,6 +3309,7 @@
         fillsPerDayChartInst = echarts.init(container);
       }
       const { entries, totals } = computeDailyFillEntries(trades);
+      updateSellFillSummaryTiles(computeSellFillStats(entries));
       if (!entries.length) {
         fillsPerDayChartInst.clear();
         if (emptyState) emptyState.classList.remove('hidden');
@@ -5156,6 +5234,12 @@
           return Number(summary?.maxOpenLevels);
         case 'profitPerLevel':
           return Number(summary?.profitPerLevel);
+        case 'calmSells':
+          return Number(entry?.sellFillStats?.median);
+        case 'normalSells':
+          return Number(entry?.sellFillStats?.trimmedMean);
+        case 'volatileSells':
+          return Number(entry?.sellFillStats?.pct95);
         default:
           return '';
       }
@@ -5175,7 +5259,10 @@
         'maxDrawdownPct',
         'cagr',
         'maxLevels',
-        'profitPerLevel'
+        'profitPerLevel',
+        'calmSells',
+        'normalSells',
+        'volatileSells'
       ]);
       return list.sort((a, b) => {
         const va = getBatchSortValue(a, key);
@@ -5243,6 +5330,9 @@
         const cagr = formatPercentOrDash(cagrPct);
         const maxLevels = formatNumberOrDash(summary?.maxOpenLevels, 0);
         const profitPerLevel = formatCurrencyOrDash(summary?.profitPerLevel);
+        const calmSells = formatNumberOrDash(entry?.sellFillStats?.median, 2);
+        const normalSells = formatNumberOrDash(entry?.sellFillStats?.trimmedMean, 2);
+        const volatileSells = formatNumberOrDash(entry?.sellFillStats?.pct95, 2);
         const row = document.createElement('tr');
         const isSelected = entry.symbol && entry.symbol === BACKTEST_ALL_SELECTED;
         row.className = `table-row cursor-pointer transition${isSelected ? ' table-row-selected' : ''}`;
@@ -5258,6 +5348,9 @@
           <td class="px-3 py-2 text-right text-slate-700">${cagr}</td>
           <td class="px-3 py-2 text-right text-slate-700">${maxLevels}</td>
           <td class="px-3 py-2 text-right text-slate-700">${profitPerLevel}</td>
+          <td class="px-3 py-2 text-right text-slate-700">${calmSells}</td>
+          <td class="px-3 py-2 text-right text-slate-700">${normalSells}</td>
+          <td class="px-3 py-2 text-right text-slate-700">${volatileSells}</td>
         `;
         body.appendChild(row);
       });
@@ -5288,22 +5381,26 @@
         setTicker(symbol);
         const loaded = await loadSymbolData(symbol);
         if (!loaded || !GRID_STATE?.summary) {
-          BACKTEST_ALL_RESULTS.push({
-            symbol,
-            status: 'error',
-            error: loaded ? 'No summary generated' : 'Data load failed',
-            summary: null,
-            params: getGridParamsFromUI(),
-            meta: null,
-            generatedAt: new Date().toISOString()
-          });
+        BACKTEST_ALL_RESULTS.push({
+          symbol,
+          status: 'error',
+          error: loaded ? 'No summary generated' : 'Data load failed',
+          summary: null,
+          sellFillStats: null,
+          params: getGridParamsFromUI(),
+          meta: null,
+          generatedAt: new Date().toISOString()
+        });
           renderBatchResults();
           continue;
         }
+        const fillEntries = computeDailyFillEntries(GRID_STATE.trades).entries;
+        const sellFillStats = computeSellFillStats(fillEntries);
         BACKTEST_ALL_RESULTS.push({
           symbol,
           status: 'ok',
           summary: GRID_STATE.summary,
+          sellFillStats,
           params: getGridParamsFromUI(),
           meta: collectGridBacktestPayload(),
           generatedAt: new Date().toISOString()
