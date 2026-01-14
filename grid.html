@@ -760,6 +760,17 @@
       background-color: var(--app-row-selected-bg) !important;
       box-shadow: inset 0 0 0 1px var(--app-row-selected-ring);
     }
+    .equity-carousel {
+      overflow: hidden;
+    }
+    .equity-carousel-track {
+      display: flex;
+      transition: transform 0.4s ease;
+      will-change: transform;
+    }
+    .equity-carousel-slide {
+      min-width: 100%;
+    }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800">
@@ -1304,14 +1315,46 @@
     </section>
 
     <section id="gridEquitySection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
-      <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-        <h2 class="font-semibold text-slate-700">Equity Curve</h2>
-        <span id="equitySummaryLabel" class="text-sm text-slate-500"></span>
+      <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div class="flex items-center gap-3">
+          <h2 class="font-semibold text-slate-700">Equity &amp; P/L</h2>
+          <span id="equityCarouselIndex" class="text-xs text-slate-400"></span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="equityCarouselPrev" type="button" class="h-8 w-8 rounded-full border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40" aria-label="Previous chart">
+            <i class="fa-solid fa-chevron-left"></i>
+          </button>
+          <button id="equityCarouselNext" type="button" class="h-8 w-8 rounded-full border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40" aria-label="Next chart">
+            <i class="fa-solid fa-chevron-right"></i>
+          </button>
+        </div>
       </div>
-      <div class="relative">
-        <div id="gridEquityChart" class="w-full h-72 md:h-96"></div>
-        <div id="gridEquityEmpty" class="absolute inset-0 flex items-center justify-center text-sm text-slate-500">
-          Run the backtest to plot equity over time.
+      <div class="equity-carousel">
+        <div id="equityCarouselTrack" class="equity-carousel-track">
+          <div class="equity-carousel-slide" data-carousel-slide="equity">
+            <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <h3 class="text-sm font-semibold text-slate-600">Account Equity</h3>
+              <span id="equitySummaryLabel" class="text-sm text-slate-500"></span>
+            </div>
+            <div class="relative">
+              <div id="gridEquityChart" class="w-full h-72 md:h-96"></div>
+              <div id="gridEquityEmpty" class="absolute inset-0 flex items-center justify-center text-sm text-slate-500">
+                Run the backtest to plot equity over time.
+              </div>
+            </div>
+          </div>
+          <div class="equity-carousel-slide" data-carousel-slide="netpnl">
+            <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <h3 class="text-sm font-semibold text-slate-600">Net P/L (if liquidated)</h3>
+              <span id="netPnlSummaryLabel" class="text-sm text-slate-500"></span>
+            </div>
+            <div class="relative">
+              <div id="gridNetPnlChart" class="w-full h-72 md:h-96"></div>
+              <div id="gridNetPnlEmpty" class="absolute inset-0 flex items-center justify-center text-sm text-slate-500">
+                Run the backtest to plot net P/L (if liquidated) over time.
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -1575,6 +1618,7 @@
     let BACKTEST_ALL_SORT = { key: 'symbol', dir: 'asc' };
     let TRADE_SORT_STATE = { key: 'buyTime', dir: 'asc' };
     let gridEquityChartInst = null;
+    let gridNetPnlChartInst = null;
     let gridLadderChartInst = null;
     let fillsPerDayChartInst = null;
     let fillsPerMonthChartInst = null;
@@ -2971,6 +3015,50 @@
       }
     }
 
+    function setupEquityCarousel() {
+      const track = document.getElementById('equityCarouselTrack');
+      const slides = track ? Array.from(track.querySelectorAll('.equity-carousel-slide')) : [];
+      const prevBtn = document.getElementById('equityCarouselPrev');
+      const nextBtn = document.getElementById('equityCarouselNext');
+      const indexLabel = document.getElementById('equityCarouselIndex');
+      if (!track || !slides.length) return;
+      let index = 0;
+      const maxIndex = slides.length - 1;
+      const sync = () => {
+        index = Math.max(0, Math.min(index, maxIndex));
+        track.style.transform = `translateX(-${index * 100}%)`;
+        slides.forEach((slide, idx) => {
+          slide.setAttribute('aria-hidden', idx === index ? 'false' : 'true');
+        });
+        if (indexLabel) indexLabel.textContent = `${index + 1} of ${slides.length}`;
+        if (prevBtn) prevBtn.disabled = index === 0;
+        if (nextBtn) nextBtn.disabled = index === maxIndex;
+        if (prevBtn) prevBtn.classList.toggle('opacity-40', index === 0);
+        if (nextBtn) nextBtn.classList.toggle('opacity-40', index === maxIndex);
+        requestAnimationFrame(() => {
+          if (gridEquityChartInst) {
+            try { gridEquityChartInst.resize(); } catch {}
+          }
+          if (gridNetPnlChartInst) {
+            try { gridNetPnlChartInst.resize(); } catch {}
+          }
+        });
+      };
+      if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+          index -= 1;
+          sync();
+        });
+      }
+      if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+          index += 1;
+          sync();
+        });
+      }
+      sync();
+    }
+
     function renderGridEquityChart(series) {
       const container = document.getElementById('gridEquityChart');
       const emptyState = document.getElementById('gridEquityEmpty');
@@ -3075,6 +3163,111 @@
             showSymbol: false,
             lineStyle: { color: '#64748b', width: 1.5, type: 'dashed' },
             data: cashData
+          }
+        ]
+      }, true);
+    }
+
+    function renderNetPnlChart(series) {
+      const container = document.getElementById('gridNetPnlChart');
+      const emptyState = document.getElementById('gridNetPnlEmpty');
+      const label = document.getElementById('netPnlSummaryLabel');
+      if (!container) return;
+      if (typeof echarts === 'undefined' || !echarts.init) return;
+      if (!gridNetPnlChartInst) {
+        gridNetPnlChartInst = echarts.init(container);
+      }
+      if (!Array.isArray(series) || !series.length) {
+        if (emptyState) emptyState.classList.remove('hidden');
+        if (label) label.textContent = '';
+        gridNetPnlChartInst.clear();
+        return;
+      }
+      if (emptyState) emptyState.classList.add('hidden');
+      const pnlData = series.map(point => {
+        const time = point.time instanceof Date ? point.time : new Date(point.time);
+        let netPnl = Number(point.netPnl);
+        if (!Number.isFinite(netPnl)) {
+          const equity = Number(point.equity);
+          const capital = Number(point.capitalContributed);
+          if (Number.isFinite(equity) && Number.isFinite(capital)) {
+            netPnl = equity - capital;
+          }
+        }
+        return [time.getTime(), netPnl];
+      }).filter(item => Number.isFinite(item[0]) && Number.isFinite(item[1]));
+      pnlData.sort((a, b) => a[0] - b[0]);
+      if (!pnlData.length) {
+        gridNetPnlChartInst.clear();
+        if (label) label.textContent = '';
+        if (emptyState) emptyState.classList.remove('hidden');
+        return;
+      }
+      const first = pnlData[0];
+      const last = pnlData[pnlData.length - 1];
+      if (label && first && last) {
+        const start = new Date(first[0]);
+        const end = new Date(last[0]);
+        label.textContent = `${start.toISOString().slice(0, 10)} → ${end.toISOString().slice(0, 10)} (${pnlData.length.toLocaleString()} points)`;
+      }
+      const gradient = (echarts.graphic && echarts.graphic.LinearGradient)
+        ? new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(14, 165, 233, 0.25)' },
+            { offset: 1, color: 'rgba(14, 165, 233, 0)' }
+          ])
+        : 'rgba(14, 165, 233, 0.1)';
+      gridNetPnlChartInst.setOption({
+        grid: { left: '3%', right: '3%', top: 40, bottom: 40, containLabel: true },
+        legend: {
+          data: ['Net P/L (if liquidated)'],
+          textStyle: { color: '#475569' }
+        },
+        dataZoom: [
+          {
+            type: 'inside',
+            xAxisIndex: 0,
+            filterMode: 'filter'
+          },
+          {
+            type: 'inside',
+            yAxisIndex: 0,
+            filterMode: 'weakFilter'
+          }
+        ],
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: { type: 'cross' },
+          valueFormatter: (val) => formatCurrency(val)
+        },
+        xAxis: {
+          type: 'time',
+          boundaryGap: false,
+          axisLabel: { color: '#64748b' }
+        },
+        yAxis: {
+          type: 'value',
+          scale: true,
+          axisLabel: {
+            formatter: (val) => formatCurrency(val).replace('$', ''),
+            color: '#64748b'
+          },
+          splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.2)' } }
+        },
+        series: [
+          {
+            name: 'Net P/L (if liquidated)',
+            type: 'line',
+            smooth: true,
+            showSymbol: false,
+            lineStyle: { color: '#0ea5e9', width: 2 },
+            areaStyle: gradient ? { color: gradient } : undefined,
+            markLine: {
+              symbol: 'none',
+              lineStyle: { color: 'rgba(148, 163, 184, 0.6)', type: 'dashed' },
+              label: { formatter: '$0', color: '#64748b' },
+              data: [{ yAxis: 0 }]
+            },
+            data: pnlData
           }
         ]
       }, true);
@@ -3996,6 +4189,7 @@
       setGridStatus(message || 'Load data and run the backtest to populate results.');
       setSaveButtonEnabled(false);
       renderGridEquityChart(null);
+      renderNetPnlChart(null);
       renderLadderChart([]);
       renderFillsPerDayChart([]);
       renderOpenLevelsChart([]);
@@ -4649,6 +4843,8 @@
           time: new Date(row.caldt.getTime()),
           equity,
           cash: cash,
+          capitalContributed,
+          netPnl: equity - capitalContributed,
           cashDeployed: openBuyOrders * tradeValue,
           capitalBudget: fundedLevels * tradeValue
         });
@@ -4709,6 +4905,7 @@
         renderGridSummary(null);
         renderGridTrades([], { resetPage: true });
         renderGridEquityChart(null);
+        renderNetPnlChart(null);
         renderLadderChart([]);
         renderFillsPerDayChart([]);
         renderOpenLevelsChart([]);
@@ -4731,6 +4928,7 @@
           renderGridSummary(null);
           renderGridTrades([], { resetPage: true });
           renderGridEquityChart(null);
+          renderNetPnlChart(null);
           renderLadderChart([]);
           renderFillsPerDayChart([]);
           renderOpenLevelsChart([]);
@@ -4746,6 +4944,7 @@
           renderGridSummary(null);
           renderGridTrades([], { resetPage: true });
           renderGridEquityChart(null);
+          renderNetPnlChart(null);
           renderLadderChart([]);
           renderFillsPerDayChart([]);
           renderOpenLevelsChart([]);
@@ -4785,6 +4984,7 @@
         renderGridSummary(safeResult.summary);
         renderGridTrades(safeResult.trades, { resetPage: true });
         renderGridEquityChart(safeResult.equitySeries);
+        renderNetPnlChart(safeResult.equitySeries);
         renderLadderChart(safeResult.trades);
         renderFillsPerDayChart(safeResult.trades);
         renderOpenLevelsChart(safeResult.ladderHistory);
@@ -5020,6 +5220,7 @@
           renderGridSummary(null);
           renderGridTrades([], { resetPage: true });
           renderGridEquityChart(null);
+          renderNetPnlChart(null);
           renderLadderChart([]);
           renderFillsPerDayChart([]);
           renderOpenLevelsChart([]);
@@ -5046,6 +5247,7 @@
       renderGridSummary(null);
       renderGridTrades([], { resetPage: true });
       renderGridEquityChart(null);
+      renderNetPnlChart(null);
       renderLadderChart([]);
       renderFillsPerDayChart([]);
       renderOpenLevelsChart([]);
@@ -5838,6 +6040,7 @@
       }
       initGridControls();
       initTradeTableControls();
+      setupEquityCarousel();
       initWatchlistControls();
       renderBatchResults();
       const batchSection = document.getElementById('batchResultsSection');
@@ -5918,6 +6121,9 @@
     window.addEventListener('resize', () => {
       if (gridEquityChartInst) {
         try { gridEquityChartInst.resize(); } catch {}
+      }
+      if (gridNetPnlChartInst) {
+        try { gridNetPnlChartInst.resize(); } catch {}
       }
       if (gridLadderChartInst) {
         try { gridLadderChartInst.resize(); } catch {}

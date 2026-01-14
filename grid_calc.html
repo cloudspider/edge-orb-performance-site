@@ -663,6 +663,9 @@
     .details-icon summary::marker {
       content: '';
     }
+    nav a[data-nav].bg-slate-800 {
+      color: #ffffff !important;
+    }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-800">
@@ -700,6 +703,11 @@
           const active = href === file || (file === '' && href.endsWith('index.html'));
           a.classList.toggle('bg-slate-800', active);
           a.classList.toggle('text-white', active);
+          if (active) {
+            a.classList.remove('text-slate-700');
+          } else {
+            a.classList.add('text-slate-700');
+          }
           a.classList.toggle('hover:bg-slate-100', !active);
           if (active) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current');
         });
@@ -756,11 +764,21 @@
       tabindex="0"
     >
     <section id="gridParameters" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
-      <div class="flex flex-col gap-1">
-        <h2 class="font-semibold text-slate-700">Grid Parameters</h2>
-        <p class="text-sm text-slate-500">Adjust the inputs below to preview ladder levels around the starting price.</p>
+      <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div class="flex flex-col gap-1">
+          <h2 class="font-semibold text-slate-700">Grid Parameters</h2>
+          <p class="text-sm text-slate-500">Adjust the inputs below to preview ladder levels around the starting price.</p>
+        </div>
+        <label class="inline-flex items-center gap-2 text-xs text-slate-500 cursor-pointer">
+          <span>Explain</span>
+          <span class="relative inline-flex h-5 w-9 items-center">
+            <input id="toggleExplain" type="checkbox" class="peer sr-only">
+            <span class="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-emerald-500"></span>
+            <span class="absolute left-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition peer-checked:translate-x-4"></span>
+          </span>
+        </label>
       </div>
-      <div class="grid grid-flow-col auto-cols-[minmax(180px,1fr)] gap-4 overflow-x-auto pb-2">
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-4">
         <label class="block">
           <span class="text-sm text-slate-600">Start Price ($)</span>
           <div class="mt-1 relative">
@@ -777,6 +795,27 @@
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd" /></svg>
               </button>
               <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease start price" data-num-target="inpStartPrice" data-num-step="-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd" /></svg>
+              </button>
+            </div>
+          </div>
+        </label>
+        <label class="block">
+          <span class="text-sm text-slate-600">Start Shares</span>
+          <div class="mt-1 relative">
+            <input
+              id="inpShares"
+              type="number"
+              min="0"
+              step="50"
+              value="0"
+              class="w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+            />
+            <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
+              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase shares" data-num-target="inpShares" data-num-step="1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd" /></svg>
+              </button>
+              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease shares" data-num-target="inpShares" data-num-step="-1">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd" /></svg>
               </button>
             </div>
@@ -922,7 +961,7 @@
               <details class="details-icon w-full" data-chart-info>
                 <summary class="sr-only">Chart notes</summary>
                 <div class="rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm text-slate-600">
-                  This chart compares the return of a hypothetical lump-sum buy-and-hold investment with the realised profit and loss of a grid strategy at each grid level. While buy-and-hold fully captures the asset's price movement-both gains and drawdowns-the grid progressively deploys and releases capital, resulting in a materially compressed payoff profile. The grid reduces downside drawdowns at the cost of limiting upside participation, trading raw exposure for improved capital survivability.
+                  This chart compares the buy-and-hold market value against grid equity (cash extracted plus remaining shares) at each grid level. While buy-and-hold fully captures the asset's price movement, the grid progressively converts inventory to cash on the way up, changing the equity profile across levels.
                 </div>
               </details>
             </div>
@@ -959,12 +998,44 @@
               </details>
             </div>
           </div>
+          <div class="min-w-full p-3 md:p-4">
+            <div class="space-y-4">
+              <div class="relative h-80 md:h-96 rounded-xl border border-slate-200 bg-white p-3">
+                <button type="button" class="absolute right-3 top-3 p-0 text-slate-400 transition hover:text-emerald-600 focus:outline-none" aria-label="Show chart notes" data-chart-info-toggle>
+                  <ion-icon name="information-circle-outline" class="text-sm"></ion-icon>
+                </button>
+                <canvas id="gridSharesChart" class="h-full w-full"></canvas>
+              </div>
+              <details class="details-icon w-full" data-chart-info>
+                <summary class="sr-only">Chart notes</summary>
+                <div class="rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-sm text-slate-600">
+                  This chart tracks shares held across grid levels. Watch for flat or slowly rising lines as price moves lower; an asymptote suggests the grid keeps adding smaller increments and may behave like an infinite grid if spacing and trade size remain unchanged.
+                </div>
+              </details>
+            </div>
+          </div>
         </div>
       </div>
       <div class="flex items-center justify-center gap-2">
         <button type="button" data-carousel-dot="0" class="h-2.5 w-2.5 rounded-full bg-emerald-500" aria-label="Show view 1" aria-current="true"></button>
         <button type="button" data-carousel-dot="1" class="h-2.5 w-2.5 rounded-full bg-slate-300" aria-label="Show view 2"></button>
         <button type="button" data-carousel-dot="2" class="h-2.5 w-2.5 rounded-full bg-slate-300" aria-label="Show view 3"></button>
+        <button type="button" data-carousel-dot="3" class="h-2.5 w-2.5 rounded-full bg-slate-300" aria-label="Show view 4"></button>
+      </div>
+    </section>
+    <section id="gridExplainPanel" class="hidden bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
+      <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <h3 class="text-sm font-semibold text-slate-700">Explanation</h3>
+        <div id="gridExplainSegment" class="inline-flex rounded-full border border-slate-200 bg-slate-100 p-1 text-xs font-semibold text-slate-600">
+          <button type="button" data-explain-view="brief" class="px-3 py-1 rounded-full">Brief</button>
+          <button type="button" data-explain-view="compact" class="px-3 py-1 rounded-full">Compact</button>
+          <button type="button" data-explain-view="verbose" class="px-3 py-1 rounded-full">Verbose</button>
+        </div>
+      </div>
+      <div class="rounded-xl border border-slate-200 bg-white p-4 space-y-2">
+        <div id="gridExplainBrief" class="text-sm text-slate-600 leading-relaxed space-y-4"></div>
+        <div id="gridExplainCompact" class="text-sm text-slate-600 leading-relaxed space-y-4 hidden"></div>
+        <div id="gridExplainVerbose" class="text-sm text-slate-600 leading-relaxed space-y-4 hidden"></div>
       </div>
     </section>
 
@@ -1093,6 +1164,7 @@
     let gridOverviewChart = null;
     let gridPlChart = null;
     let gridCashflowChart = null;
+    let gridSharesChart = null;
 
     function applyTheme(theme) {
       const next = theme === THEME_DARK ? THEME_DARK : THEME_LIGHT;
@@ -1185,6 +1257,8 @@
       const levelCount = Math.max(0, Math.floor(Number(params?.levelCount ?? params?.rungCount)));
       const levelsUp = Math.max(0, Math.floor(Number(params?.levelsUp)));
       const tradeAmount = Math.max(0, Number(params?.tradeAmount));
+      const shareCountRaw = Number(params?.shares);
+      const shareCount = Number.isFinite(shareCountRaw) && shareCountRaw > 0 ? shareCountRaw : 0;
       const tickSize = Number(params?.tickSize);
       const resolvedTickSize = Number.isFinite(tickSize) && tickSize > 0 ? tickSize : 0.01;
       const startPrice = snapToTick(rawStartPrice, resolvedTickSize);
@@ -1212,7 +1286,7 @@
 
       let priceAccumulator = startPrice;
       let cumulativeSellCashflow = 0;
-      let cumulativeSellProfit = 0;
+      let cumulativeSharesSold = 0;
       for (let i = 1; i <= aboveLimit; i++) {
         let price;
         if (usePercentSpacing) {
@@ -1226,11 +1300,11 @@
         if (!Number.isFinite(price) || price <= 0) continue;
         const diff = price - startPrice;
         const diffPct = startPrice !== 0 ? (diff / startPrice) * 100 : 0;
-        const trancheRevenue = perLevelInvestment > 0 ? perLevelInvestment * (price / startPrice) : 0;
-        const trancheProfit = trancheRevenue - perLevelInvestment;
         if (perLevelInvestment > 0) {
-          cumulativeSellCashflow += trancheRevenue;
-          cumulativeSellProfit += trancheProfit;
+          cumulativeSellCashflow += perLevelInvestment;
+        }
+        if (shareCount > 0 && perLevelInvestment > 0) {
+          cumulativeSharesSold += perLevelInvestment / price;
         }
         above.push({
           key: `above-${i}`,
@@ -1242,12 +1316,14 @@
           diffPct,
           direction: 'Above',
           cashflow: cumulativeSellCashflow,
-          profitLoss: cumulativeSellProfit,
-          costBasis: investedForLevel(i)
+          profitLoss: 0,
+          costBasis: investedForLevel(i),
+          sharesHeld: shareCount - cumulativeSharesSold
         });
       }
 
       priceAccumulator = startPrice;
+      let cumulativeSharesBought = 0;
       for (let i = 1; i <= levelCount; i++) {
         let price;
         if (usePercentSpacing) {
@@ -1261,6 +1337,11 @@
         const diff = price - startPrice;
         const diffPct = startPrice !== 0 ? (diff / startPrice) * 100 : 0;
         const totalLoss = computeTotalLoss(price);
+        let sharesBought = 0;
+        if (perLevelInvestment > 0) {
+          sharesBought = perLevelInvestment / price;
+          cumulativeSharesBought += sharesBought;
+        }
         below.push({
           key: `below-${i}`,
           type: 'below',
@@ -1272,7 +1353,8 @@
           direction: 'Below',
           cashflow: -investedForLevel(i),
           profitLoss: -totalLoss,
-          costBasis: investedForLevel(i)
+          costBasis: investedForLevel(i),
+          sharesHeld: shareCount + cumulativeSharesBought
         });
         if (perLevelInvestment > 0) {
           entryPrices.push(price);
@@ -1290,7 +1372,8 @@
         direction: 'Start',
         cashflow: 0,
         profitLoss: 0,
-        costBasis: 0
+        costBasis: 0,
+        sharesHeld: shareCount
       };
 
       const allRows = [...above, startRow, ...below];
@@ -1304,6 +1387,7 @@
           spacingType,
           gridSize,
           levelCount,
+          startShares: shareCount,
           tickSize: resolvedTickSize,
           aboveCount: above.length,
           belowCount: below.length
@@ -1326,6 +1410,7 @@
         levelCount: readNumericInput('inpLevelCount'),
         levelsUp: readNumericInput('inpLevelCountUp'),
         tradeAmount: readNumericInput('inpTradeAmount'),
+        shares: readNumericInput('inpShares'),
         tickSize: readNumericInput('selTickSize')
       };
       const result = calculateGridLadder(params);
@@ -1337,6 +1422,8 @@
         updateGridOverviewChart(result);
         updateGridPlChart(result);
         updateGridCashflowChart(result);
+        updateGridSharesChart(result);
+        renderGridExplanation(result);
         renderGridJson(result);
         return;
       }
@@ -1346,6 +1433,7 @@
         minimumFractionDigits: precision,
         maximumFractionDigits: precision
       });
+      const sharesFormatter = new Intl.NumberFormat(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 4 });
       const diffFormatter = new Intl.NumberFormat(undefined, {
         minimumFractionDigits: precision,
         maximumFractionDigits: precision
@@ -1360,6 +1448,7 @@
       });
       const showInvestmentMetrics = Number.isFinite(tradeAmount) && tradeAmount > 0;
       const perLevelInvestment = showInvestmentMetrics ? Number(tradeAmount) : 0;
+      const showSharesColumn = true;
 
       const spacingDescriptor = summary.spacingType === 'percent'
         ? `${Number(summary.gridSize).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 4 })}% per level (compounded)`
@@ -1386,28 +1475,68 @@
           ? (cashflowValue === 0 ? '$0.00' : `${cashflowValue > 0 ? '+' : '-'}$${cashFormatter.format(Math.abs(cashflowValue))}`)
           : '—';
         const cashflowClass = cashflowValue > 0 ? 'num-pos' : (cashflowValue < 0 ? 'num-neg' : 'text-slate-500');
-        const profitLossValue = showInvestmentMetrics ? Number(row.profitLoss) || 0 : 0;
-        const profitLossText = showInvestmentMetrics
+        const showGridPLMetrics = showInvestmentMetrics && row.type !== 'above';
+        const profitLossValue = showGridPLMetrics ? Number(row.profitLoss) || 0 : 0;
+        const profitLossText = showGridPLMetrics
           ? (profitLossValue === 0 ? '$0.00' : `${profitLossValue > 0 ? '+' : '-'}$${cashFormatter.format(Math.abs(profitLossValue))}`)
-          : '—';
-        const profitLossClass = profitLossValue > 0 ? 'num-pos' : (profitLossValue < 0 ? 'num-neg' : 'text-slate-500');
-        const costBasis = showInvestmentMetrics ? Number(row.costBasis) || 0 : 0;
+          : '-';
+        const profitLossClass = showGridPLMetrics
+          ? (profitLossValue > 0 ? 'num-pos' : (profitLossValue < 0 ? 'num-neg' : 'text-slate-500'))
+          : 'text-slate-500';
+        const costBasis = showGridPLMetrics ? Number(row.costBasis) || 0 : 0;
         const profitLossPctValue = costBasis > 0 ? (profitLossValue / costBasis) * 100 : 0;
-        const profitLossPctText = showInvestmentMetrics
+        const profitLossPctText = showGridPLMetrics
           ? (profitLossPctValue === 0 ? '0.00%' : `${profitLossPctValue > 0 ? '+' : '-'}${pctFormatter.format(Math.abs(profitLossPctValue))}%`)
-          : '—';
-        const profitLossPctClass = profitLossPctValue > 0 ? 'num-pos' : (profitLossPctValue < 0 ? 'num-neg' : 'text-slate-500');
+          : '-';
+        const profitLossPctClass = showGridPLMetrics
+          ? (profitLossPctValue > 0 ? 'num-pos' : (profitLossPctValue < 0 ? 'num-neg' : 'text-slate-500'))
+          : 'text-slate-500';
         const baseCellClass = `px-4 py-2 text-sm ${isStart ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`;
+        const sharesCellClass = `px-4 py-2 text-sm ${isStart ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`;
+        const mvCellClass = `px-4 py-2 text-sm ${isStart ? 'text-emerald-700 font-semibold' : 'text-slate-700'}`;
+        const sharesRemaining = Number.isFinite(row.sharesHeld) ? row.sharesHeld : NaN;
+        const sharesText = Number.isFinite(sharesRemaining) ? sharesFormatter.format(sharesRemaining) : '—';
+        const startShares = Number.isFinite(summary?.startShares) ? summary.startShares : 0;
+        const gridMvValue = Number.isFinite(sharesRemaining) ? sharesRemaining * row.price : NaN;
+        const bhMvValue = startShares * row.price;
+        const formatMoney = (value) => {
+          if (!Number.isFinite(value)) return '—';
+          if (value === 0) return '$0.00';
+          const sign = value < 0 ? '-' : '';
+          return `${sign}$${cashFormatter.format(Math.abs(value))}`;
+        };
+        const gridMvText = formatMoney(gridMvValue);
+        const gridEquityValue = Number.isFinite(gridMvValue)
+          ? gridMvValue + (showInvestmentMetrics ? cashflowValue : 0)
+          : NaN;
+        const gridEquityText = formatMoney(gridEquityValue);
+        const bhMvText = formatMoney(bhMvValue);
+        const gridPlValue = showGridPLMetrics ? profitLossValue : 0;
+        const gridVsBhDelta = (Number.isFinite(gridEquityValue) ? gridEquityValue : 0) - (Number.isFinite(bhMvValue) ? bhMvValue : 0);
+        const gridVsBhDeltaPct = Number.isFinite(bhMvValue) && bhMvValue !== 0
+          ? (gridVsBhDelta / bhMvValue) * 100
+          : NaN;
+        const deltaText = formatMoney(gridVsBhDelta);
+        const deltaPctText = Number.isFinite(gridVsBhDeltaPct)
+          ? (gridVsBhDeltaPct === 0 ? '0.00%' : `${gridVsBhDeltaPct > 0 ? '+' : '-'}${pctFormatter.format(Math.abs(gridVsBhDeltaPct))}%`)
+          : '—';
+        const deltaClass = gridVsBhDelta > 0 ? 'num-pos' : (gridVsBhDelta < 0 ? 'num-neg' : 'text-slate-500');
+        const deltaPctClass = gridVsBhDeltaPct > 0 ? 'num-pos' : (gridVsBhDeltaPct < 0 ? 'num-neg' : 'text-slate-500');
         return `
           <tr class="table-row${isStart ? ' table-row-selected' : ''}">
             <td class="${baseCellClass}">${row.label}</td>
-            <td class="${baseCellClass}">${row.direction}</td>
             <td class="${baseCellClass}">$${priceFormatter.format(row.price)}</td>
             <td class="px-4 py-2 text-sm ${diffClass}">${diffText}</td>
             <td class="px-4 py-2 text-sm ${pctClass}">${pctText}</td>
             <td class="px-4 py-2 text-sm ${cashflowClass}">${cashflowText}</td>
             <td class="px-4 py-2 text-sm ${profitLossClass}">${profitLossText}</td>
             <td class="px-4 py-2 text-sm ${profitLossPctClass}">${profitLossPctText}</td>
+            ${showSharesColumn ? `<td class="${sharesCellClass}">${sharesText}</td>` : ''}
+            <td class="${mvCellClass}">${gridMvText}</td>
+            <td class="${mvCellClass}">${gridEquityText}</td>
+            <td class="${mvCellClass}">${bhMvText}</td>
+            <td class="px-4 py-2 text-sm ${deltaClass}">${deltaText}</td>
+            <td class="px-4 py-2 text-sm ${deltaPctClass}">${deltaPctText}</td>
           </tr>
         `;
       }).join('');
@@ -1417,13 +1546,18 @@
           <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
             <tr>
               <th scope="col" class="px-4 py-2 text-left">Level</th>
-              <th scope="col" class="px-4 py-2 text-left">Direction</th>
               <th scope="col" class="px-4 py-2 text-left">Price</th>
               <th scope="col" class="px-4 py-2 text-left">Buy-and-Hold P/L ($)</th>
               <th scope="col" class="px-4 py-2 text-left">Buy-and-Hold Return (%)</th>
               <th scope="col" class="px-4 py-2 text-left">Cashflow ($)</th>
               <th scope="col" class="px-4 py-2 text-left">Grid P/L ($)</th>
               <th scope="col" class="px-4 py-2 text-left">Grid P/L (%)</th>
+              ${showSharesColumn ? '<th scope="col" class="px-4 py-2 text-left">Shares</th>' : ''}
+              <th scope="col" class="px-4 py-2 text-left">Grid MV</th>
+              <th scope="col" class="px-4 py-2 text-left">Grid Equity</th>
+              <th scope="col" class="px-4 py-2 text-left">B&H MV</th>
+              <th scope="col" class="px-4 py-2 text-left">Grid Δ vs B&amp;H ($)</th>
+              <th scope="col" class="px-4 py-2 text-left">Grid Δ vs B&amp;H (%)</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
@@ -1435,7 +1569,267 @@
       updateGridOverviewChart(result);
       updateGridPlChart(result);
       updateGridCashflowChart(result);
+      updateGridSharesChart(result);
+      renderGridExplanation(result);
       renderGridJson(result);
+    }
+
+    function renderGridExplanation(result) {
+      const briefEl = document.getElementById('gridExplainBrief');
+      const compactEl = document.getElementById('gridExplainCompact');
+      const verboseEl = document.getElementById('gridExplainVerbose');
+      if (!briefEl || !compactEl || !verboseEl) return;
+
+      if (!result || !Array.isArray(result.rows) || !result.rows.length || !result.summary) {
+        const placeholder = 'Run the calculator to generate explanation text.';
+        briefEl.textContent = placeholder;
+        compactEl.textContent = placeholder;
+        verboseEl.textContent = placeholder;
+        return;
+      }
+
+      const summary = result.summary || {};
+      const startPrice = Number(summary.startPrice);
+      const startShares = Number.isFinite(summary.startShares) ? summary.startShares : 0;
+      const gridSize = Number(summary.gridSize);
+      const spacingType = (summary.spacingType || 'percent').toLowerCase();
+      const tradeAmount = Number(result.tradeAmount);
+      const levelsUp = Number.isFinite(summary.aboveCount) ? summary.aboveCount : 0;
+      const levelsDown = Number.isFinite(summary.belowCount) ? summary.belowCount : 0;
+      const tickSize = Number(summary.tickSize);
+      const resolvedTickSize = Number.isFinite(tickSize) && tickSize > 0 ? tickSize : 0.01;
+      const pricePrecision = Math.max(DEFAULT_PRICE_PRECISION, decimals(resolvedTickSize));
+
+      const priceFormatter = new Intl.NumberFormat(undefined, {
+        minimumFractionDigits: pricePrecision,
+        maximumFractionDigits: pricePrecision
+      });
+      const cashFormatter = new Intl.NumberFormat(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+      const sharesFormatter = new Intl.NumberFormat(undefined, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 4
+      });
+      const pctFormatter = new Intl.NumberFormat(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+
+      const formatMoney = (value) => {
+        if (!Number.isFinite(value)) return '—';
+        const sign = value < 0 ? '-' : '';
+        return `${sign}$${cashFormatter.format(Math.abs(value))}`;
+      };
+      const formatPct = (value, withSign = false) => {
+        if (!Number.isFinite(value)) return '—';
+        const pct = value * 100;
+        const sign = withSign ? (pct > 0 ? '+' : (pct < 0 ? '-' : '')) : (pct < 0 ? '-' : '');
+        return `${sign}${pctFormatter.format(Math.abs(pct))}%`;
+      };
+      const fmtShares = (value) => (Number.isFinite(value) ? sharesFormatter.format(value) : '—');
+      const fmtPrice = (value) => (Number.isFinite(value) ? `$${priceFormatter.format(value)}` : '—');
+      const fmtLevel = (value) => {
+        if (!Number.isFinite(value)) return '—';
+        if (value > 0) return `+${value}`;
+        return `${value}`;
+      };
+
+      const gridDownPct = spacingType === 'percent'
+        ? gridSize / 100
+        : (Number.isFinite(startPrice) && startPrice !== 0 ? gridSize / startPrice : NaN);
+      const downStepPct = gridDownPct;
+      const upStep = Number.isFinite(gridDownPct) && gridDownPct > 0 && gridDownPct < 1
+        ? 1 / (1 - gridDownPct)
+        : NaN;
+      const upStepPct = Number.isFinite(upStep) ? upStep - 1 : NaN;
+      const downStepMultiplier = Number.isFinite(gridDownPct) ? (1 - gridDownPct) : NaN;
+
+      const priceAtLevel = (k) => {
+        if (!Number.isFinite(startPrice)) return NaN;
+        if (k === 0) return startPrice;
+        if (spacingType === 'percent') {
+          const step = 1 - gridDownPct;
+          if (!Number.isFinite(step) || step <= 0) return NaN;
+          const multiplier = k > 0
+            ? Math.pow(1 / step, k)
+            : Math.pow(step, Math.abs(k));
+          return snapToTick(startPrice * multiplier, resolvedTickSize);
+        }
+        return snapToTick(startPrice + gridSize * k, resolvedTickSize);
+      };
+
+      const sharesAtLevel = (k) => {
+        if (!Number.isFinite(startShares)) return NaN;
+        let shares = startShares;
+        if (!Number.isFinite(tradeAmount) || tradeAmount === 0) return shares;
+        const steps = Math.abs(Math.trunc(k));
+        for (let i = 1; i <= steps; i++) {
+          const level = k > 0 ? i : -i;
+          const price = priceAtLevel(level);
+          if (!Number.isFinite(price) || price <= 0) return NaN;
+          const delta = tradeAmount / price;
+          shares += k > 0 ? -delta : delta;
+        }
+        return shares;
+      };
+
+      const cashExtractedAtLevel = (k) => (Number.isFinite(tradeAmount) ? tradeAmount * k : 0);
+
+      const rowByLevel = new Map();
+      result.rows.forEach((row) => {
+        const level = row?.type === 'below'
+          ? -Number(row.level || 0)
+          : (row?.type === 'above' ? Number(row.level || 0) : 0);
+        rowByLevel.set(level, row);
+      });
+
+      const buildLevelMetrics = (k) => {
+        const level = Math.trunc(k);
+        const row = rowByLevel.get(level);
+        const price = row && Number.isFinite(row.price) ? Number(row.price) : priceAtLevel(level);
+        const shares = row && Number.isFinite(row.sharesHeld) ? Number(row.sharesHeld) : sharesAtLevel(level);
+        const cash = row && Number.isFinite(row.cashflow) ? Number(row.cashflow) : cashExtractedAtLevel(level);
+        const gridMV = Number.isFinite(price) && Number.isFinite(shares) ? price * shares : NaN;
+        const gridEquity = Number.isFinite(gridMV) ? gridMV + cash : NaN;
+        const bhMV = Number.isFinite(price) ? startShares * price : NaN;
+        const delta = Number.isFinite(gridEquity) && Number.isFinite(bhMV) ? gridEquity - bhMV : NaN;
+        const deltaPct = Number.isFinite(bhMV) && bhMV !== 0 && Number.isFinite(delta) ? delta / bhMV : NaN;
+        return { level, price, shares, gridMV, cashflow: cash, gridEquity, bhMV, delta, deltaPct };
+      };
+
+      let sharesNeededInfinite = NaN;
+      if (spacingType === 'percent'
+        && Number.isFinite(gridDownPct)
+        && gridDownPct > 0
+        && gridDownPct < 1
+        && Number.isFinite(startPrice)
+        && startPrice > 0
+        && Number.isFinite(tradeAmount)
+        && tradeAmount > 0) {
+        sharesNeededInfinite = (tradeAmount / startPrice) * ((1 - gridDownPct) / gridDownPct);
+      }
+      const isInfinite = Number.isFinite(sharesNeededInfinite) && startShares >= sharesNeededInfinite;
+      const tailShares = isInfinite ? Math.max(0, startShares - sharesNeededInfinite) : 0;
+
+      const computeMaxSellableLevelsUp = () => {
+        if (isInfinite) return Infinity;
+        if (!Number.isFinite(tradeAmount) || tradeAmount <= 0) return 0;
+        if (!Number.isFinite(startShares) || startShares <= 0) return 0;
+        let shares = startShares;
+        const maxIterations = 5000;
+        for (let level = 1; level <= maxIterations; level++) {
+          const price = priceAtLevel(level);
+          if (!Number.isFinite(price) || price <= 0) return level - 1;
+          const sharesToSell = tradeAmount / price;
+          if (shares < sharesToSell - 1e-9) return level - 1;
+          shares -= sharesToSell;
+        }
+        return maxIterations;
+      };
+
+      const maxSellableLevelsUp = computeMaxSellableLevelsUp();
+      const hasFiniteSellCap = Number.isFinite(maxSellableLevelsUp);
+      const sellLevelsShown = hasFiniteSellCap
+        ? Math.min(levelsUp, maxSellableLevelsUp)
+        : levelsUp;
+      const runOutLevelUp = hasFiniteSellCap && levelsUp > maxSellableLevelsUp
+        ? maxSellableLevelsUp + 1
+        : null;
+      const runOutPriceUp = Number.isFinite(runOutLevelUp) ? priceAtLevel(runOutLevelUp) : NaN;
+
+      const downMetrics = buildLevelMetrics(-levelsDown);
+      const upMetrics = buildLevelMetrics(sellLevelsShown);
+
+      const deltaMoneySpan = (value) => {
+        if (!Number.isFinite(value)) return '<span class="text-slate-500">—</span>';
+        const cls = value > 0 ? 'num-pos' : (value < 0 ? 'num-neg' : 'text-slate-500');
+        return `<span class="${cls}">${formatMoney(value)}</span>`;
+      };
+      const deltaPctSpan = (value) => {
+        if (!Number.isFinite(value)) return '<span class="text-slate-500">—</span>';
+        const cls = value > 0 ? 'num-pos' : (value < 0 ? 'num-neg' : 'text-slate-500');
+        return `<span class="${cls}">${formatPct(value, true)}</span>`;
+      };
+
+      const baseValue = Number.isFinite(startShares) && Number.isFinite(startPrice) ? startShares * startPrice : NaN;
+      const hasUpside = startShares > 0;
+
+      const downsideBriefLines = [
+        `Starting with ${fmtShares(startShares)} shares @ ${fmtPrice(startPrice)}, this grid buys ${formatMoney(tradeAmount)} each time price drops ${formatPct(downStepPct)}. After ${levelsDown} down-levels (price ${fmtPrice(downMetrics.price)}) you'd hold ${fmtShares(downMetrics.shares)} shares and have invested ${formatMoney(Math.abs(downMetrics.cashflow))} net.`
+      ];
+      if (startShares > 0) {
+        downsideBriefLines.push(`GRID equity would be ${formatMoney(downMetrics.gridEquity)} vs B&H ${formatMoney(downMetrics.bhMV)} -> Delta ${deltaMoneySpan(downMetrics.delta)} (${deltaPctSpan(downMetrics.deltaPct)}).`);
+      }
+      const upsideBriefLines = [
+        `This grid sells ${formatMoney(tradeAmount)} each time price rises ${formatPct(upStepPct)}. After ${sellLevelsShown} up-levels (price ${fmtPrice(upMetrics.price)}) you'd have ${fmtShares(upMetrics.shares)} shares remaining and extracted ${formatMoney(upMetrics.cashflow)} cash.`
+      ];
+      if (Number.isFinite(runOutLevelUp)) {
+        upsideBriefLines.push(`It runs out of shares near level ${fmtLevel(runOutLevelUp)} (approx ${fmtPrice(runOutPriceUp)}).`);
+      } else if (isInfinite) {
+        upsideBriefLines.push(`Infinite inventory: it never runs out of shares to sell (retains ~${fmtShares(tailShares)} shares).`);
+      }
+      const briefHtmlParts = [
+        `<div class="space-y-2"><div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Downside (Accumulation)</div>${downsideBriefLines.map(line => `<p>${line}</p>`).join('')}</div>`
+      ];
+      if (hasUpside) {
+        briefHtmlParts.push(`<div class="space-y-2"><div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Upside (Distribution)</div>${upsideBriefLines.map(line => `<p>${line}</p>`).join('')}</div>`);
+      }
+      briefEl.innerHTML = briefHtmlParts.join('');
+
+      const compactDownsideItems = [
+        `Start: ${fmtShares(startShares)} shares @ ${fmtPrice(startPrice)}`,
+        `Rule: Buy ${formatMoney(tradeAmount)} every ${formatPct(downStepPct)} drop`,
+        `After ${levelsDown} levels down: price ${fmtPrice(downMetrics.price)}, shares ${fmtShares(downMetrics.shares)}, net invested ${formatMoney(Math.abs(downMetrics.cashflow))}`
+      ];
+      if (startShares > 0) {
+        compactDownsideItems.push(`Value: GRID equity ${formatMoney(downMetrics.gridEquity)} vs B&H ${formatMoney(downMetrics.bhMV)} -> Delta ${deltaMoneySpan(downMetrics.delta)} (${deltaPctSpan(downMetrics.deltaPct)})`);
+      }
+      const compactSections = [
+        `<div class="space-y-2"><div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Downside (Accumulation)</div><ul class="list-disc pl-5 space-y-1">${compactDownsideItems.map(item => `<li>${item}</li>`).join('')}</ul></div>`
+      ];
+      if (hasUpside) {
+        const compactUpsideItems = [
+          `Rule: Sell ${formatMoney(tradeAmount)} every ${formatPct(upStepPct)} rise`,
+          `After ${sellLevelsShown} levels up: price ${fmtPrice(upMetrics.price)}, shares ${fmtShares(upMetrics.shares)}, cash extracted ${formatMoney(upMetrics.cashflow)}`,
+          `Value: GRID equity ${formatMoney(upMetrics.gridEquity)} vs B&H ${formatMoney(upMetrics.bhMV)} -> Delta ${deltaMoneySpan(upMetrics.delta)} (${deltaPctSpan(upMetrics.deltaPct)})`
+        ];
+        if (Number.isFinite(runOutLevelUp)) {
+          compactUpsideItems.push(`Finite: runs out near level ${fmtLevel(runOutLevelUp)} (approx ${fmtPrice(runOutPriceUp)})`);
+        } else if (isInfinite) {
+          compactUpsideItems.push(`Infinite: never runs out (retains ~${fmtShares(tailShares)} shares)`);
+        }
+        compactSections.push(`<div class="space-y-2"><div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Upside (Distribution)</div><ul class="list-disc pl-5 space-y-1">${compactUpsideItems.map(item => `<li>${item}</li>`).join('')}</ul></div>`);
+      }
+      compactEl.innerHTML = compactSections.join('');
+
+      const verboseSections = [];
+      const verboseDownsideLines = [
+        'This calculator is a one-way ladder (no oscillations): it shows what your inventory and net cash invested or extracted would look like if price stepped rung-by-rung away from the start.',
+        `Downside (Accumulation): Starting with ${fmtShares(startShares)} shares @ ${fmtPrice(startPrice)}, the grid buys ${formatMoney(tradeAmount)} each time price drops ${formatPct(downStepPct)} (prices step by x${formatPct(downStepMultiplier)} each rung). Each buy adds approximately tradeAmount / rung price shares, so you accumulate more shares as price falls.`,
+        `After ${levelsDown} down-levels, price is ${fmtPrice(downMetrics.price)}, shares held are ${fmtShares(downMetrics.shares)}, and net capital invested from level 0 is ${formatMoney(Math.abs(downMetrics.cashflow))}. The remaining inventory is worth ${formatMoney(downMetrics.gridMV)}, so total GRID equity (inventory + net cashflow) is ${formatMoney(downMetrics.gridEquity)}.`
+      ];
+      if (startShares > 0) {
+        verboseDownsideLines.push(`At this same price, Buy & Hold would be worth ${formatMoney(downMetrics.bhMV)}, so GRID is ${deltaMoneySpan(downMetrics.delta)} (${deltaPctSpan(downMetrics.deltaPct)}) vs holding at this point on the ladder.`);
+      } else {
+        verboseDownsideLines.push('(Buy & Hold comparisons are omitted because you started with zero inventory.)');
+      }
+      verboseSections.push(`<div class="space-y-2"><div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Downside (Accumulation)</div>${verboseDownsideLines.map(line => `<p>${line}</p>`).join('')}</div>`);
+      if (hasUpside) {
+        const verboseUpsideLines = [
+          `Upside (Distribution): On the way up, the grid sells ${formatMoney(tradeAmount)} notional each time price rises ${formatPct(upStepPct)} (prices step by x${formatPct(upStep)} per rung). Because you sell a fixed dollar amount, shares sold per rung = tradeAmount / rung price, so you sell fewer shares as price rises.`,
+          `After ${sellLevelsShown} up-levels, price is ${fmtPrice(upMetrics.price)}, shares remaining are ${fmtShares(upMetrics.shares)}, and cash extracted is ${formatMoney(upMetrics.cashflow)}. Inventory market value is ${formatMoney(upMetrics.gridMV)}, so GRID equity is ${formatMoney(upMetrics.gridEquity)}.`,
+          `At the same price, Buy & Hold would be worth ${formatMoney(upMetrics.bhMV)}. The difference (${deltaMoneySpan(upMetrics.delta)} / ${deltaPctSpan(upMetrics.deltaPct)}) is the opportunity cost of de-risking into cash during an uninterrupted rise.`
+        ];
+        if (Number.isFinite(runOutLevelUp)) {
+          verboseUpsideLines.push(`This setup is finite on the upside: it runs out of shares to sell near level ${fmtLevel(runOutLevelUp)} (approx ${fmtPrice(runOutPriceUp)}).`);
+        } else if (isInfinite) {
+          verboseUpsideLines.push(`This setup is an infinite inventory grid: it never runs out of shares to sell and asymptotically retains ~${fmtShares(tailShares)} shares.`);
+        }
+        verboseSections.push(`<div class="space-y-2"><div class="text-xs font-semibold uppercase tracking-wide text-slate-500">Upside (Distribution)</div>${verboseUpsideLines.map(line => `<p>${line}</p>`).join('')}</div>`);
+      }
+      verboseEl.innerHTML = verboseSections.join('');
     }
 
     function updateGridOverviewChart(result) {
@@ -1458,19 +1852,31 @@
 
       const chartRows = rows.slice().sort((a, b) => signedLevel(a) - signedLevel(b));
       const labels = chartRows.map((row) => String(signedLevel(row)));
-      const buyHold = chartRows.map((row) => Number(row?.diffPct) || 0);
-      const gridPL = chartRows.map((row) => {
-        const costBasis = Number(row?.costBasis) || 0;
-        const profitLoss = Number(row?.profitLoss) || 0;
-        if (costBasis <= 0) return 0;
-        return (profitLoss / costBasis) * 100;
+      const startShares = Number.isFinite(result?.summary?.startShares) ? Number(result.summary.startShares) : 0;
+      const buyHold = chartRows.map((row) => {
+        const price = Number(row?.price) || 0;
+        return startShares * price;
       });
+      const gridEquity = chartRows.map((row) => {
+        const price = Number(row?.price) || 0;
+        const shares = Number(row?.sharesHeld) || 0;
+        const cashflow = Number(row?.cashflow) || 0;
+        return shares * price + cashflow;
+      });
+      const currencyFormatter = new Intl.NumberFormat(undefined, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2
+      });
+      const formatCurrency = (value) => {
+        const sign = value < 0 ? '-' : '';
+        return `${sign}$${currencyFormatter.format(Math.abs(value))}`;
+      };
 
       const data = {
         labels,
         datasets: [
           {
-            label: 'Buy-and-Hold Return (%)',
+            label: 'Buy-and-Hold MV ($)',
             data: buyHold,
             borderColor: '#2563eb',
             backgroundColor: 'rgba(37, 99, 235, 0.12)',
@@ -1479,8 +1885,8 @@
             pointHoverRadius: 4
           },
           {
-            label: 'Grid P/L (%)',
-            data: gridPL,
+            label: 'Grid Equity ($)',
+            data: gridEquity,
             borderColor: '#059669',
             backgroundColor: 'rgba(5, 150, 105, 0.12)',
             tension: 0.25,
@@ -1501,14 +1907,14 @@
           },
           title: {
             display: true,
-            text: 'Buy-and-Hold Return vs Grid P/L Across Grid Levels'
+            text: 'Buy-and-Hold MV vs Grid Equity Across Grid Levels'
           },
           tooltip: {
             callbacks: {
               label: (context) => {
                 const label = context.dataset.label || '';
                 const value = Number(context.parsed?.y) || 0;
-                return `${label}: ${value.toFixed(2)}%`;
+                return `${label}: ${formatCurrency(value)}`;
               }
             }
           }
@@ -1518,9 +1924,9 @@
             title: { display: true, text: 'Level' }
           },
           y: {
-            title: { display: true, text: 'Return (%)' },
+            title: { display: true, text: 'Value ($)' },
             ticks: {
-              callback: (val) => `${val}%`
+              callback: (val) => formatCurrency(Number(val))
             }
           }
         }
@@ -1719,6 +2125,107 @@
 
       const ctx = canvas.getContext('2d');
       gridCashflowChart = new Chart(ctx, { type: 'line', data, options });
+    }
+
+    function updateGridSharesChart(result) {
+      const canvas = document.getElementById('gridSharesChart');
+      if (!canvas || typeof Chart === 'undefined') return;
+      const rows = Array.isArray(result?.rows) ? result.rows : [];
+      if (!rows.length) {
+        if (gridSharesChart) {
+          gridSharesChart.destroy();
+          gridSharesChart = null;
+        }
+        return;
+      }
+
+      const signedLevel = (row) => {
+        if (row?.type === 'below') return -Number(row.level || 0);
+        if (row?.type === 'above') return Number(row.level || 0);
+        return 0;
+      };
+
+      const chartRows = rows.slice().sort((a, b) => signedLevel(a) - signedLevel(b));
+      const labels = chartRows.map((row) => String(signedLevel(row)));
+      const shares = chartRows.map((row) => Number(row?.sharesHeld) || 0);
+      const sharesFormatter = new Intl.NumberFormat(undefined, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 4
+      });
+
+      const data = {
+        labels,
+        datasets: [
+          {
+            label: 'Shares Held',
+            data: shares,
+            borderColor: '#0ea5e9',
+            backgroundColor: 'rgba(14, 165, 233, 0.12)',
+            tension: 0.25,
+            pointRadius: 3,
+            pointHoverRadius: 4,
+            order: 1
+          },
+          {
+            label: 'Zero Line',
+            data: labels.map(() => 0),
+            borderColor: 'rgba(148, 163, 184, 0.85)',
+            borderDash: [6, 6],
+            borderWidth: 1,
+            pointRadius: 0,
+            pointHoverRadius: 0,
+            fill: false,
+            order: 0
+          }
+        ]
+      };
+
+      const options = {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: { usePointStyle: true }
+          },
+          title: {
+            display: true,
+            text: 'Shares Held vs Grid Level'
+          },
+          tooltip: {
+            filter: (context) => context.datasetIndex === 0,
+            callbacks: {
+              label: (context) => {
+                const label = context.dataset.label || '';
+                const value = Number(context.parsed?.y) || 0;
+                return `${label}: ${sharesFormatter.format(value)}`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            title: { display: true, text: 'Level' }
+          },
+          y: {
+            title: { display: true, text: 'Shares' },
+            ticks: {
+              callback: (val) => sharesFormatter.format(Number(val))
+            }
+          }
+        }
+      };
+
+      if (gridSharesChart) {
+        gridSharesChart.data = data;
+        gridSharesChart.options = options;
+        gridSharesChart.update();
+        return;
+      }
+
+      const ctx = canvas.getContext('2d');
+      gridSharesChart = new Chart(ctx, { type: 'line', data, options });
     }
 
     function buildGridJsonFromResult(result) {
@@ -2065,6 +2572,46 @@
           } catch {}
         });
       }
+      const explainToggle = document.getElementById('toggleExplain');
+      const explainPanel = document.getElementById('gridExplainPanel');
+      const updateExplainPanel = () => {
+        if (!explainPanel || !explainToggle) return;
+        explainPanel.classList.toggle('hidden', !explainToggle.checked);
+      };
+      if (explainToggle) {
+        explainToggle.checked = false;
+        explainToggle.addEventListener('change', updateExplainPanel);
+      }
+      updateExplainPanel();
+      const explainSegment = document.getElementById('gridExplainSegment');
+      const explainButtons = explainSegment ? Array.from(explainSegment.querySelectorAll('[data-explain-view]')) : [];
+      const explainPanels = {
+        brief: document.getElementById('gridExplainBrief'),
+        compact: document.getElementById('gridExplainCompact'),
+        verbose: document.getElementById('gridExplainVerbose')
+      };
+      const setExplainView = (view) => {
+        const activeView = explainPanels[view] ? view : 'brief';
+        Object.entries(explainPanels).forEach(([key, panel]) => {
+          if (!panel) return;
+          panel.classList.toggle('hidden', key !== activeView);
+        });
+        explainButtons.forEach((btn) => {
+          const isActive = btn.getAttribute('data-explain-view') === activeView;
+          btn.classList.toggle('bg-white', isActive);
+          btn.classList.toggle('text-slate-900', isActive);
+          btn.classList.toggle('shadow-sm', isActive);
+          btn.classList.toggle('text-slate-500', !isActive);
+        });
+      };
+      if (explainButtons.length) {
+        explainButtons.forEach((btn) => {
+          btn.addEventListener('click', () => {
+            setExplainView(btn.getAttribute('data-explain-view'));
+          });
+        });
+      }
+      setExplainView('brief');
       setupTabs();
       setupCarousel();
       updateGridSizeLabel();
@@ -2090,6 +2637,11 @@
       if (tradeAmountEl) {
         tradeAmountEl.addEventListener('input', renderGridLadder);
         tradeAmountEl.addEventListener('change', renderGridLadder);
+      }
+      const sharesEl = document.getElementById('inpShares');
+      if (sharesEl) {
+        sharesEl.addEventListener('input', renderGridLadder);
+        sharesEl.addEventListener('change', renderGridLadder);
       }
 
       const levelEl = document.getElementById('inpLevelCount');
