@@ -28,6 +28,7 @@ if not API_KEY:
 
 # Set to True if you have a paid Polygon subscription; otherwise, set to False.
 PAID_POLYGON_SUBSCRIPTION = False
+INCLUDE_OVERNIGHT = True
 
 
 FREE_TIER_REQUEST_INTERVAL = 12.0  # seconds; Polygon free tier allows up to 5 requests/minute
@@ -259,10 +260,13 @@ def process_data(results: List[Dict[str, Any]]) -> pd.DataFrame:
     df["caldt"] = df["datetime_et"].dt.tz_localize(None)
 
     df = df.set_index("datetime_et").sort_index()
-    try:
-        market_data = df.between_time("04:00", "19:59", inclusive="both").reset_index()
-    except TypeError:
-        market_data = df.between_time("04:00", "19:59").reset_index()
+    if INCLUDE_OVERNIGHT:
+        market_data = df.reset_index()
+    else:
+        try:
+            market_data = df.between_time("04:00", "19:59", inclusive="both").reset_index()
+        except TypeError:
+            market_data = df.between_time("04:00", "19:59").reset_index()
 
     market_data["date"] = market_data["datetime_et"].dt.date
     market_data = market_data.rename(

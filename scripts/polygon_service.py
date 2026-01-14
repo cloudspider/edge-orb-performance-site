@@ -310,8 +310,8 @@ class PolygonRequestHandler(SimpleHTTPRequestHandler):
 
 
 def main() -> None:
-    server = ThreadingHTTPServer(("localhost", 8000), PolygonRequestHandler)
-    print("Serving on http://localhost:8000 (CTRL+C to stop)")
+    server = ThreadingHTTPServer(("0.0.0.0", 8000), PolygonRequestHandler)
+    print("Serving on http://0.0.0.0:8000 (CTRL+C to stop)")
     server.serve_forever()
 
 
