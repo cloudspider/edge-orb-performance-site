@@ -1086,6 +1086,27 @@
             class="mt-1 w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
           />
         </label>
+        <label class="block">
+          <span class="text-sm text-slate-600">P/L Sizing (%)</span>
+          <div class="mt-1 relative">
+            <input
+              id="inpPlSizingPct"
+              type="number"
+              step="0.1"
+              min="0"
+              value="0"
+              class="w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+            />
+            <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
+              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase P/L sizing" data-num-target="inpPlSizingPct" data-num-step="0.1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd" /></svg>
+              </button>
+              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease P/L sizing" data-num-target="inpPlSizingPct" data-num-step="-0.1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd" /></svg>
+              </button>
+            </div>
+          </div>
+        </label>
         <label class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 shadow-sm transition focus-within:ring-2 focus-within:ring-emerald-500/60">
           <input
             id="inpFractionalShares"
@@ -1490,6 +1511,7 @@
               <th class="px-3 py-2 sortable" data-sort-key="buyTime"><button type="button"><span>Buy Time</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 text-right sortable" data-sort-key="buyPrice"><button type="button"><span>Buy Price</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 text-right sortable" data-sort-key="buyQty"><button type="button"><span>Buy Qty</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-sort-key="tradeValue"><button type="button"><span>Trade Value</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 text-right sortable" data-sort-key="openQty"><button type="button"><span>Open Qty</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 text-right sortable" data-sort-key="openEquity"><button type="button"><span>Open Equity</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 text-right sortable" data-sort-key="openLevels"><button type="button"><span>Open Levels</span><span class="sort-indicator"></span></button></th>
@@ -1538,6 +1560,7 @@
       gridSize: 5,
       gridSpacingType: 'percent_fixed',
       tradeValue: 1000,
+      plSizingPct: 0,
       fractionalShares: true,
       entryFilter: 'none'
     };
@@ -2342,6 +2365,7 @@
       const gridSize = Number(document.getElementById('inpGridSize')?.value ?? GRID_DEFAULTS.gridSize);
       const basePrice = Number(document.getElementById('inpBasePrice')?.value ?? 100);
       const tradeValue = Number(document.getElementById('inpTradeValue')?.value ?? GRID_DEFAULTS.tradeValue);
+      const plSizingPct = Number(document.getElementById('inpPlSizingPct')?.value ?? GRID_DEFAULTS.plSizingPct);
       const fractionalShares = !!document.getElementById('inpFractionalShares')?.checked;
       const gridType = GRID_TYPE;
       const gridSpacingType = (document.getElementById('selGridSpacing')?.value || GRID_DEFAULTS.gridSpacingType).toLowerCase();
@@ -2352,6 +2376,7 @@
         gridSize: Number.isFinite(gridSize) ? gridSize : GRID_DEFAULTS.gridSize,
         basePrice: Number.isFinite(basePrice) ? basePrice : 100,
         tradeValue: Number.isFinite(tradeValue) ? tradeValue : GRID_DEFAULTS.tradeValue,
+        plSizingPct: Number.isFinite(plSizingPct) ? plSizingPct : GRID_DEFAULTS.plSizingPct,
         fractionalShares,
         gridType,
         gridSpacingType,
@@ -2543,6 +2568,7 @@
         case 'buyPrice':
         case 'sellPrice':
         case 'buyQty':
+        case 'tradeValue':
         case 'openQty':
         case 'openEquity':
         case 'sellQty':
@@ -2845,6 +2871,7 @@
           <td class="px-3 py-2 whitespace-nowrap">${formatDateTime(trade.buyTime)}</td>
           <td class="px-3 py-2 text-right">${formatNumber(trade.buyPrice, 4)}</td>
           <td class="px-3 py-2 text-right">${formatNumber(trade.buyQty, 4)}</td>
+          <td class="px-3 py-2 text-right">${formatCurrency(trade.tradeValue ?? 0)}</td>
           <td class="px-3 py-2 text-right">${formatNumber(trade.openQty ?? 0, 4)}</td>
           <td class="px-3 py-2 text-right">${formatCurrency(trade.openEquity ?? 0)}</td>
           <td class="px-3 py-2 text-right">${openLevelsLabel}</td>
@@ -4374,7 +4401,7 @@
       return out;
     }
 
-    function runBuyTheGridSimulation(rows, params) {
+    function runBuyTheDipSimulation(rows, params) {
       const trades = [];
       const equitySeries = [];
       const ladderHistory = [];
@@ -4416,13 +4443,14 @@
       const rawGridSize = Number(params?.gridSize);
       const rawBasePrice = Number(params?.basePrice);
       const gridSpacingType = (params?.gridSpacingType || GRID_DEFAULTS.gridSpacingType).toLowerCase();
-      const tradeValue = Number(params?.tradeValue);
+      const baseTradeValue = Number(params?.tradeValue);
+      const plSizingPct = Number(params?.plSizingPct);
       const tickSize = Number(params?.tickSize);
       const resolvedTickSize = Number.isFinite(tickSize) && tickSize > 0 ? tickSize : 0.01;
       const fractional = !!params?.fractionalShares;
       const retentionMode = (params?.retentionMode || 'profit').toLowerCase();
       const entryFilter = (params?.entryFilter || 'none').toLowerCase();
-      if (!Number.isFinite(rawGridSize) || rawGridSize <= 0 || !Number.isFinite(tradeValue) || tradeValue <= 0) {
+      if (!Number.isFinite(rawGridSize) || rawGridSize <= 0 || !Number.isFinite(baseTradeValue) || baseTradeValue <= 0) {
         return finalizeResult();
       }
       let firstPrice = [rows[0]?.open, rows[0]?.close, rows[0]?.high, rows[0]?.low].map(Number).find(Number.isFinite);
@@ -4456,7 +4484,6 @@
         console.warn('Grid spacing configuration invalid:', spacing.error);
         return finalizeResult();
       }
-      gridLevels = Array.isArray(spacing.gridLevels) ? spacing.gridLevels : [];
       gridLevels = Array.isArray(spacing.gridLevels) ? spacing.gridLevels : [];
       const snapLevel = spacing.snap;
       const keyFor = spacing.key;
@@ -4522,6 +4549,7 @@
       const addSellOrder = (level, buyInfo) => {
         const price = snapLevel(level);
         if (!Number.isFinite(price) || price <= 0) return null;
+        sellLevelSet.add(price);
         const key = keyFor(price);
         if (!activeSells.has(key)) activeSells.set(key, []);
         const order = {
@@ -4529,6 +4557,7 @@
           level: price,
           buyPrice: Number(buyInfo?.price),
           buyQty: Number(buyInfo?.qty),
+          tradeValue: Number(buyInfo?.tradeValue),
           buyTime: buyInfo?.time instanceof Date ? new Date(buyInfo.time.getTime()) : new Date(),
           buyRung: Number.isFinite(buyInfo?.rungIndex) ? buyInfo.rungIndex : computeRungIndex(price)
         };
@@ -4574,6 +4603,13 @@
       applyBaseAnchor(basePrice);
       seedDownLadderFromBase(basePrice);
 
+      const resolveTradeValue = (netPnlIfLiquidated) => {
+        if (!Number.isFinite(baseTradeValue) || baseTradeValue <= 0) return 0;
+        if (!Number.isFinite(plSizingPct) || plSizingPct === 0) return baseTradeValue;
+        const pnl = Number.isFinite(netPnlIfLiquidated) ? netPnlIfLiquidated : 0;
+        const next = baseTradeValue + (plSizingPct / 100) * pnl;
+        return Math.max(0, next);
+      };
       let cash = 0;
       let minCashBalance = cash;
       let capitalContributed = 0;
@@ -4658,7 +4694,13 @@
         if (!passesEntryFilter(price, contextRow, entryFilter)) {
           return false;
         }
-        const qtyRaw = tradeValue / price;
+        const holdingsValue = shares * price;
+        const netPnlIfLiquidated = netCashflowTrades + holdingsValue;
+        const effectiveTradeValue = resolveTradeValue(netPnlIfLiquidated);
+        if (!Number.isFinite(effectiveTradeValue) || effectiveTradeValue <= 0) {
+          return false;
+        }
+        const qtyRaw = effectiveTradeValue / price;
         let qty = fractional ? qtyRaw : Math.floor(qtyRaw);
         if (!Number.isFinite(qty) || qty <= 0) {
           removeOrder(activeBuys, order);
@@ -4667,13 +4709,12 @@
         const neededPositions = openPositions + 1;
         if (neededPositions > fundedLevels) {
           const levelsToAdd = neededPositions - fundedLevels;
-          const deposit = levelsToAdd * tradeValue;
+          const deposit = levelsToAdd * effectiveTradeValue;
           cash += deposit;
           capitalContributed += deposit;
           fundedLevels += levelsToAdd;
-          const deployed = fundedLevels * tradeValue;
-          if (deployed > summary.maxDeployedCapital) {
-            summary.maxDeployedCapital = deployed;
+          if (capitalContributed > summary.maxDeployedCapital) {
+            summary.maxDeployedCapital = capitalContributed;
           }
         }
         const cost = qty * price;
@@ -4688,7 +4729,13 @@
         removeOrder(activeBuys, order);
         const sellLevel = nextUpLevel(price);
         if (Number.isFinite(sellLevel) && sellLevel > 0) {
-          addSellOrder(sellLevel, { price, qty, time: timestamp, rungIndex: Number.isFinite(order?.rungIndex) ? order.rungIndex : computeRungIndex(price) });
+          addSellOrder(sellLevel, {
+            price,
+            qty,
+            time: timestamp,
+            tradeValue: effectiveTradeValue,
+            rungIndex: Number.isFinite(order?.rungIndex) ? order.rungIndex : computeRungIndex(price)
+          });
         }
         return true;
       };
@@ -4697,7 +4744,10 @@
         if (!order) return false;
         const price = order.level;
         const openQty = shares;
-        const desiredRaw = tradeValue / price;
+        // Capture open levels count BEFORE removal for accurate snapshot
+        const openLevelSnapshot = Array.from(activeSells.values()).reduce((acc, arr) => acc + (Array.isArray(arr) ? arr.length : 0), 0);
+        const tradeValueForOrder = Number.isFinite(order.tradeValue) ? order.tradeValue : baseTradeValue;
+        const desiredRaw = tradeValueForOrder / price;
         let desired = fractional ? desiredRaw : Math.floor(desiredRaw);
         const exec = computeSellExecution({
           baseQty: order.buyQty,
@@ -4725,7 +4775,7 @@
         cumulativeRetained += qtyRetained;
         const closeQty = shares;
         const closeEquity = cash + shares * price;
-        const totalContributed = Math.max(0, openPositions) * tradeValue;
+        const totalContributed = capitalContributed;
         const runningPnl = closeEquity - totalContributed;
         const nextPeak = Math.max(peakEquity, closeEquity);
         const drawdown = closeEquity - nextPeak;
@@ -4734,16 +4784,15 @@
         const buyTime = order.buyTime instanceof Date ? new Date(order.buyTime.getTime()) : new Date();
         const msHeld = sellTime.getTime() - buyTime.getTime();
         const daysHeld = Number.isFinite(msHeld) ? Math.max(0, msHeld / 86400000) : 0;
-        const openTradesCount = Array.from(activeSells.values()).reduce((acc, arr) => acc + (Array.isArray(arr) ? arr.length : 0), 0);
-        const openLevelSnapshot = openTradesCount + 1;
         if (openLevelSnapshot > summary.maxOpenLevels) {
           summary.maxOpenLevels = openLevelSnapshot;
         }
-        const openEquity = openLevelSnapshot * tradeValue;
+        const openEquity = totalContributed;
         trades.push({
           buyTime,
           buyPrice: order.buyPrice,
           buyQty: order.buyQty,
+          tradeValue: tradeValueForOrder,
           gridLevel: Number.isFinite(order.buyRung) ? order.buyRung : computeRungIndex(order.buyPrice),
           openLevels: openLevelSnapshot,
           openQty,
@@ -4845,8 +4894,8 @@
           cash: cash,
           capitalContributed,
           netPnl: equity - capitalContributed,
-          cashDeployed: openBuyOrders * tradeValue,
-          capitalBudget: fundedLevels * tradeValue
+          cashDeployed: openBuyOrders * baseTradeValue,
+          capitalBudget: capitalContributed
         });
       }
 
@@ -4856,11 +4905,11 @@
       const millis = firstEquityTime && lastEquityTime ? (lastEquityTime.getTime() - firstEquityTime.getTime()) : 0;
       const years = millis > 0 ? (millis / (365.25 * 24 * 60 * 60 * 1000)) : 0;
       const maxLevelsUsed = Number.isFinite(summary.maxOpenLevels) ? summary.maxOpenLevels : 0;
-      const derivedMaxCapital = (tradeValue > 0 && maxLevelsUsed > 0)
-        ? tradeValue * maxLevelsUsed
+      const derivedMaxCapital = (baseTradeValue > 0 && maxLevelsUsed > 0)
+        ? baseTradeValue * maxLevelsUsed
         : 0;
-      const trackedCapital = summary.maxDeployedCapital > 0 ? summary.maxDeployedCapital : (fundedLevels * tradeValue);
-      const maxDeployedCapital = Math.max(derivedMaxCapital, trackedCapital);
+      const trackedCapital = summary.maxDeployedCapital > 0 ? summary.maxDeployedCapital : capitalContributed;
+      const maxDeployedCapital = Math.max(derivedMaxCapital, trackedCapital, capitalContributed);
       const cagrBaseEquity = maxDeployedCapital > 0 ? maxDeployedCapital : initialEquity;
       const cagr = (years > 0 && cagrBaseEquity > 0 && finalEquity > 0)
         ? Math.pow(finalEquity / cagrBaseEquity, 1 / years) - 1
@@ -4958,7 +5007,7 @@
       }
       setGridStatus('Running backtest…');
       try {
-        const result = runBuyTheGridSimulation(rowsForRun, params) || {};
+        const result = runBuyTheDipSimulation(rowsForRun, params) || {};
         const safeResult = {
           trades: Array.isArray(result.trades) ? result.trades : [],
           summary: result.summary || null,
@@ -5116,6 +5165,7 @@
         document.getElementById('inpGridSize'),
         document.getElementById('inpBasePrice'),
         document.getElementById('inpTradeValue'),
+        document.getElementById('inpPlSizingPct'),
         document.getElementById('inpFractionalShares')
       ];
       inputs.forEach(el => {
