@@ -4830,11 +4830,11 @@
           const buys = collectOrdersInRange(activeBuys, end, start, false);
           for (const order of buys) executeBuy(order, timestamp, contextRow);
         }
-      const maxVal = Math.max(start, end);
-      ensureRunupBuys(maxVal);
-      activateQueuedBuys(maxVal);
-      if (timestamp instanceof Date) {
-        ladderHistory.push({
+        const maxVal = Math.max(start, end);
+        ensureRunupBuys(maxVal);
+        activateQueuedBuys(maxVal);
+        if (timestamp instanceof Date) {
+          ladderHistory.push({
             time: new Date(timestamp.getTime()),
             buys: activeBuys.size,
             sells: activeSells.size,
