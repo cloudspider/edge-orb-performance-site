@@ -4623,6 +4623,7 @@
       let shares = 0;
       let realizedProfit = 0;
       let cumulativeRetained = 0;
+      let openPositionCost = 0;
       let prevPrice = firstPrice;
       let peakEquity = cash + shares * firstPrice;
       let maxDrawdown = 0;
@@ -4720,6 +4721,10 @@
         const cost = qty * price;
         cash -= cost;
         netCashflowTrades -= cost;
+        openPositionCost += cost;
+        if (!Number.isFinite(openPositionCost) || openPositionCost < 0) {
+          openPositionCost = Math.max(0, openPositionCost);
+        }
         updateRequiredCapital();
         if (cash < minCashBalance) minCashBalance = cash;
         shares += qty;
@@ -4765,6 +4770,10 @@
         const costBasis = qty * order.buyPrice;
         cash += revenue;
         netCashflowTrades += revenue;
+        openPositionCost -= costBasis;
+        if (openPositionCost < 0 || !Number.isFinite(openPositionCost)) {
+          openPositionCost = 0;
+        }
         updateRequiredCapital();
         shares -= qty;
         if (openPositions > 0) openPositions -= 1;
@@ -4844,36 +4853,49 @@
       };
 
       const buildPath = (fromPrice, row) => {
-        const path = [];
-        let start = Number(fromPrice);
-        if (!Number.isFinite(start)) start = Number(row.open) || Number(row.close) || 0;
-        path.push(start);
-        const addPoint = (value) => {
-          const num = Number(value);
-          if (!Number.isFinite(num)) return;
-          if (Math.abs(num - path[path.length - 1]) < priceTolerance * Math.max(1, num)) return;
-          path.push(num);
-        };
         const open = Number(row.open);
         const high = Number(row.high);
         const low = Number(row.low);
         const close = Number(row.close);
-        if (Number.isFinite(open)) addPoint(open);
+        // Require at least one valid OHLC value to build a path
+        const validPrices = [open, high, low, close].filter(v => Number.isFinite(v) && v > 0);
+        if (!validPrices.length) {
+          return null; // Signal to skip this row entirely
+        }
+        const path = [];
+        let start = Number(fromPrice);
+        // Fall back to first valid OHLC value, never to 0
+        if (!Number.isFinite(start) || start <= 0) {
+          start = validPrices[0];
+        }
+        path.push(start);
+        const addPoint = (value) => {
+          const num = Number(value);
+          if (!Number.isFinite(num) || num <= 0) return;
+          if (Math.abs(num - path[path.length - 1]) < priceTolerance * Math.max(1, num)) return;
+          path.push(num);
+        };
+        if (Number.isFinite(open) && open > 0) addPoint(open);
         const upBar = Number.isFinite(close) && Number.isFinite(open) ? (close >= open) : true;
         if (upBar) {
-          if (Number.isFinite(high)) addPoint(high);
-          if (Number.isFinite(low)) addPoint(low);
+          if (Number.isFinite(high) && high > 0) addPoint(high);
+          if (Number.isFinite(low) && low > 0) addPoint(low);
         } else {
-          if (Number.isFinite(low)) addPoint(low);
-          if (Number.isFinite(high)) addPoint(high);
+          if (Number.isFinite(low) && low > 0) addPoint(low);
+          if (Number.isFinite(high) && high > 0) addPoint(high);
         }
-        if (Number.isFinite(close)) addPoint(close);
+        if (Number.isFinite(close) && close > 0) addPoint(close);
         return path;
       };
 
+      let skippedRows = 0;
       for (const row of rows) {
         if (!row || !(row.caldt instanceof Date)) continue;
         const path = buildPath(prevPrice, row);
+        if (!path || !path.length) {
+          skippedRows++;
+          continue; // Skip rows with no valid OHLC data
+        }
         for (let i = 1; i < path.length; i++) {
           const from = path[i - 1];
           const to = path[i];
@@ -4881,22 +4903,26 @@
         }
         prevPrice = path[path.length - 1];
         const equity = cash + shares * prevPrice;
-        const openBuyOrders = Array.from(activeBuys.values()).reduce((acc, arr) => acc + (Array.isArray(arr) ? arr.length : 0), 0);
         if (equity > peakEquity) peakEquity = equity;
         const drawdown = equity - peakEquity;
         if (drawdown < maxDrawdown) maxDrawdown = drawdown;
         const equityPct = peakEquity > 0 ? (equity - peakEquity) / peakEquity : 0;
         if (equityPct < maxDrawdownPct) maxDrawdownPct = equityPct;
         lastEquityTime = new Date(row.caldt.getTime());
+        const deployedCapitalSnapshot = Math.max(0, openPositionCost);
         equitySeries.push({
           time: new Date(row.caldt.getTime()),
           equity,
           cash: cash,
           capitalContributed,
           netPnl: equity - capitalContributed,
-          cashDeployed: openBuyOrders * baseTradeValue,
+          cashDeployed: deployedCapitalSnapshot,
           capitalBudget: capitalContributed
         });
+      }
+
+      if (skippedRows > 0) {
+        console.warn(`Grid backtest skipped ${skippedRows} row(s) due to missing or invalid OHLC data.`);
       }
 
       const finalHoldings = shares * prevPrice;
