@@ -4405,6 +4405,7 @@
       const trades = [];
       const equitySeries = [];
       const ladderHistory = [];
+      let lastLadderSnapshot = null;
       const summary = {
         totalTrades: 0,
         netProfit: 0,
@@ -4718,6 +4719,12 @@
             summary.maxDeployedCapital = capitalContributed;
           }
         }
+        const sellLevel = nextUpLevel(price);
+        if (!Number.isFinite(sellLevel) || sellLevel <= 0) {
+          console.warn('Grid backtest skipped buy: missing sell level for', price);
+          removeOrder(activeBuys, order);
+          return false;
+        }
         const cost = qty * price;
         cash -= cost;
         netCashflowTrades -= cost;
@@ -4732,15 +4739,17 @@
         openPositions += 1;
         if (openPositions > summary.maxOpenLevels) summary.maxOpenLevels = openPositions;
         removeOrder(activeBuys, order);
-        const sellLevel = nextUpLevel(price);
         if (Number.isFinite(sellLevel) && sellLevel > 0) {
-          addSellOrder(sellLevel, {
+          const sellOrder = addSellOrder(sellLevel, {
             price,
             qty,
             time: timestamp,
             tradeValue: effectiveTradeValue,
             rungIndex: Number.isFinite(order?.rungIndex) ? order.rungIndex : computeRungIndex(price)
           });
+          if (!sellOrder) {
+            console.warn('Grid backtest could not seed sell order for', price);
+          }
         }
         return true;
       };
@@ -4749,7 +4758,6 @@
         if (!order) return false;
         const price = order.level;
         const openQty = shares;
-        // Capture open levels count BEFORE removal for accurate snapshot
         const openLevelSnapshot = Array.from(activeSells.values()).reduce((acc, arr) => acc + (Array.isArray(arr) ? arr.length : 0), 0);
         const tradeValueForOrder = Number.isFinite(order.tradeValue) ? order.tradeValue : baseTradeValue;
         const desiredRaw = tradeValueForOrder / price;
@@ -4793,9 +4801,6 @@
         const buyTime = order.buyTime instanceof Date ? new Date(order.buyTime.getTime()) : new Date();
         const msHeld = sellTime.getTime() - buyTime.getTime();
         const daysHeld = Number.isFinite(msHeld) ? Math.max(0, msHeld / 86400000) : 0;
-        if (openLevelSnapshot > summary.maxOpenLevels) {
-          summary.maxOpenLevels = openLevelSnapshot;
-        }
         const openEquity = totalContributed;
         trades.push({
           buyTime,
@@ -4843,12 +4848,24 @@
         ensureRunupBuys(maxVal);
         activateQueuedBuys(maxVal);
         if (timestamp instanceof Date) {
-          ladderHistory.push({
-            time: new Date(timestamp.getTime()),
-            buys: activeBuys.size,
-            sells: activeSells.size,
-            queued: queuedBuyActivations.length
-          });
+          const buys = activeBuys.size;
+          const sells = activeSells.size;
+          const queued = queuedBuyActivations.length;
+          if (
+            !lastLadderSnapshot ||
+            lastLadderSnapshot.buys !== buys ||
+            lastLadderSnapshot.sells !== sells ||
+            lastLadderSnapshot.queued !== queued
+          ) {
+            const snapshot = {
+              time: new Date(timestamp.getTime()),
+              buys,
+              sells,
+              queued
+            };
+            ladderHistory.push(snapshot);
+            lastLadderSnapshot = snapshot;
+          }
         }
       };
 
