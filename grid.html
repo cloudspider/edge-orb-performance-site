@@ -656,6 +656,68 @@
     #tickerSegment button {
       width: 100%;
       height: 100%;
+      overflow: hidden;
+    }
+    .watchlist-options-toggle {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.4rem;
+      width: 1.7rem;
+      height: 1.7rem;
+      border-radius: 50%;
+      border: 1px solid rgba(248, 250, 252, 0.4);
+      background: rgba(15, 23, 42, 0.9);
+      color: rgba(248, 250, 252, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.95rem;
+      line-height: 1;
+      box-shadow: inset 0 0 0 1px rgba(248, 250, 252, 0.2), 0 12px 25px rgba(0, 0, 0, 0.45);
+      transition: border-color 0.2s ease, color 0.2s ease, transform 0.2s ease, background 0.2s ease;
+      z-index: 60;
+    }
+    .watchlist-options-toggle:hover {
+      border-color: rgba(16, 185, 129, 0.8);
+      color: #10b981;
+      background: rgba(15, 23, 42, 0.65);
+      transform: translateY(-1px);
+    }
+    .watchlist-options-toggle::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      padding: 0.1rem;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15);
+    }
+    .watchlist-options-panel {
+      position: absolute;
+      width: 220px;
+      padding: 0.4rem 0;
+      border-radius: 0.85rem;
+      background: var(--app-surface, #111827);
+      color: var(--app-text, #f8fafc);
+      box-shadow: 0 18px 30px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      z-index: 120;
+      display: flex;
+      flex-direction: column;
+    }
+    .watchlist-options-panel.hidden {
+      display: none;
+    }
+    .watchlist-options-panel button {
+      border: none;
+      background: transparent;
+      width: 100%;
+      text-align: left;
+      padding: 0.55rem 1rem;
+      font-size: 0.95rem;
+      letter-spacing: 0.01em;
+    }
+    .watchlist-options-panel button:hover {
+      background: rgba(255, 255, 255, 0.08);
     }
     #sessionSegment {
       display: flex;
@@ -907,7 +969,7 @@
         </div>
         <div class="flex items-center gap-2 mb-2">
           <div class="flex-1 min-w-0">
-            <div id="tickerSegment" class="w-full rounded-xl border border-slate-200 bg-slate-200 p-px overflow-hidden">
+      <div id="tickerSegment" class="w-full rounded-xl border border-slate-200 bg-slate-200 p-px overflow-visible">
               <span class="px-3 py-1.5 text-sm text-slate-500">Loading…</span>
             </div>
           </div>
@@ -1108,7 +1170,7 @@
             <input
               id="inpPlSizingPct"
               type="number"
-              step="0.1"
+              step="1"
               min="0"
               value="0"
               class="w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
@@ -1316,11 +1378,6 @@
             <span class="summary-tooltip">Peak cash required by the strategy, measured as max(-netCashflowTrades). If this is below Capital Contributed, it means harvested profits reduced the net cash needed before the max open levels were reached.</span>
           </div>
           <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
-            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Min Cash</dt>
-            <dd id="summaryMinCash" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
-            <span class="summary-tooltip">Minimum account cash balance (cashBalance). In autofund mode this may stay near 0; in margin mode it can go negative.</span>
-          </div>
-          <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
             <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Drawdown</dt>
             <dd id="summaryMaxDD" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
             <p id="summaryMaxDDDate" class="mt-1 text-[11px] text-slate-500">—</p>
@@ -1411,7 +1468,11 @@
         </label>
         <label class="block text-xs text-slate-500 mb-3">
           Exchange
-          <input id="watchlistEditExchange" type="text" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200" />
+          <select id="watchlistEditExchange" class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-900 uppercase focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200">
+            <option value="NYSE">NYSE</option>
+            <option value="AMEX">AMEX</option>
+            <option value="NASDAQ">NASDAQ</option>
+          </select>
         </label>
         <div class="flex items-center justify-end gap-2">
           <button type="button" class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50" onclick="this.closest('dialog').close()">Cancel</button>
@@ -1419,6 +1480,10 @@
         </div>
       </form>
     </dialog>
+    <div id="watchlistOptionsMenu" class="watchlist-options-panel hidden" data-symbol="" data-visible="0">
+      <button type="button" data-watchlist-action="edit">Edit</button>
+      <button type="button" data-watchlist-action="remove" class="text-rose-300">Remove</button>
+    </div>
 
     <section id="gridLadderSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
       <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -1661,6 +1726,9 @@
     let BACKTEST_ALL_SORT = { key: 'symbol', dir: 'asc' };
     let TRADE_SORT_STATE = { key: 'buyTime', dir: 'asc' };
     let gridEquityChartInst = null;
+
+    const GRID_BACKTEST_DEBOUNCE_MS = 1000;
+    let GRID_BACKTEST_DEBOUNCE_TIMER = null;
     let gridNetPnlChartInst = null;
     let gridLadderChartInst = null;
     let fillsPerDayChartInst = null;
@@ -2487,7 +2555,6 @@
       const maxDdPctEl = document.getElementById('summaryMaxDDPct');
       const maxDdPctDateEl = document.getElementById('summaryMaxDDPctDate');
       const maxDdDateEl = document.getElementById('summaryMaxDDDate');
-      const minCashEl = document.getElementById('summaryMinCash');
       const cashEl = document.getElementById('summaryCash');
       const sharesEl = document.getElementById('summaryShares');
       const lastPriceEl = document.getElementById('summaryLastPrice');
@@ -2526,9 +2593,6 @@
       const netCashflowTradesFinal = Number.isFinite(safeSummary?.netCashflowTradesFinal)
         ? safeSummary.netCashflowTradesFinal
         : (Number.isFinite(safeSummary?.netCashflowTrades) ? safeSummary.netCashflowTrades : NaN);
-      const minCashBalance = Number.isFinite(safeSummary?.minCashBalance)
-        ? safeSummary.minCashBalance
-        : (Number.isFinite(safeSummary?.minCash) ? safeSummary.minCash : NaN);
       const lastPrice = Number.isFinite(safeSummary?.lastPrice)
         ? safeSummary.lastPrice
         : (Number.isFinite(holdingsValueFinal)
@@ -2645,7 +2709,6 @@
       if (maxDdPctDateEl) {
         maxDdPctDateEl.textContent = drawdownPctDateKey ? `on ${drawdownPctDateKey}` : '—';
       }
-      if (minCashEl) minCashEl.textContent = formatCurrencyOrDash(minCashBalance);
       if (cashEl) cashEl.textContent = formatCurrencyOrDash(safeSummary.cash);
       if (sharesEl) sharesEl.textContent = formatNumberOrDash(safeSummary.shares, 4);
       if (lastPriceEl) lastPriceEl.textContent = formatCurrencyOrDash(lastPrice);
@@ -4508,7 +4571,6 @@
         finalEquity: 0,
         totalRetainedShares: 0,
         cash: 0,
-        minCash: 0,
         shares: 0,
         maxDrawdown: 0,
         maxSharesHeld: 0,
@@ -4709,7 +4771,6 @@
         return Math.max(0, next);
       };
       let cash = 0;
-      let minCashBalance = cash;
       let capitalContributed = 0;
       let netCashflowTrades = 0;
       let requiredCapital = 0;
@@ -4832,7 +4893,6 @@
           openPositionCost = Math.max(0, openPositionCost);
         }
         updateRequiredCapital();
-        if (cash < minCashBalance) minCashBalance = cash;
         shares += qty;
         if (shares > maxSharesHeld) maxSharesHeld = shares;
         openPositions += 1;
@@ -5069,8 +5129,6 @@
       summary.finalEquity = finalEquity;
       summary.totalRetainedShares = cumulativeRetained;
       summary.cash = cash;
-      summary.minCash = minCashBalance;
-      summary.minCashBalance = minCashBalance;
       summary.shares = shares;
       summary.lastPrice = prevPrice;
       summary.openLevelsFinal = openPositions;
@@ -5094,6 +5152,10 @@
     }
 
     function runGridBacktest() {
+      if (GRID_BACKTEST_DEBOUNCE_TIMER) {
+        clearTimeout(GRID_BACKTEST_DEBOUNCE_TIMER);
+        GRID_BACKTEST_DEBOUNCE_TIMER = null;
+      }
       if (!Array.isArray(ROWS) || !ROWS.length) {
         setGridStatus('Load symbol data before running the backtest.');
         return;
@@ -5212,6 +5274,16 @@
         renderCumulativeLevelDistributionChart([]);
         renderGridLevels([], [], null);
       }
+    }
+
+    function scheduleGridBacktest() {
+      if (GRID_BACKTEST_DEBOUNCE_TIMER) {
+        clearTimeout(GRID_BACKTEST_DEBOUNCE_TIMER);
+      }
+      GRID_BACKTEST_DEBOUNCE_TIMER = setTimeout(() => {
+        GRID_BACKTEST_DEBOUNCE_TIMER = null;
+        runGridBacktest();
+      }, GRID_BACKTEST_DEBOUNCE_MS);
     }
 
     function initGridControls() {
@@ -5346,7 +5418,7 @@
           if (el.id === 'selGridSpacing') updateGridSizeLabel();
           persistGridParamsFromUI();
           if (!Array.isArray(ROWS) || !ROWS.length) return;
-          runGridBacktest();
+          scheduleGridBacktest();
         };
         const eventName = el.tagName === 'SELECT' || el.type === 'checkbox' ? 'change' : 'input';
         el.addEventListener(eventName, handler);
@@ -6008,16 +6080,22 @@
         const displayTitle = displaySector ? `${displayName} - ${displaySector}` : displayName;
         const toggleHtml = isWatchlistMode
           ? (isInList
-            ? `<span class="absolute top-1 right-1 inline-flex items-center justify-center h-4 w-4 rounded-full border border-emerald-200 text-emerald-700 bg-emerald-50 text-[10px] font-bold leading-none" data-watchlist-menu="1" data-symbol="${meta.symbol}" title="Options" aria-label="Options">...</span>
-               <div class="absolute top-6 right-1 z-20 hidden min-w-[140px] rounded-lg border border-slate-200 bg-white shadow-soft p-1 text-xs text-slate-700" data-watchlist-menu-panel="${meta.symbol}">
-                 <button type="button" class="w-full text-left px-2 py-1 rounded-md hover:bg-slate-100" data-watchlist-action="edit" data-symbol="${meta.symbol}">Edit</button>
-                 <button type="button" class="w-full text-left px-2 py-1 rounded-md text-rose-600 hover:bg-rose-50" data-watchlist-action="remove" data-symbol="${meta.symbol}">Remove</button>
-               </div>`
+            ? `<span
+                 class="watchlist-options-toggle"
+                 data-watchlist-menu="1"
+                 data-symbol="${meta.symbol}"
+                 aria-label="Symbol options"
+                 title="Symbol options"
+                 role="button"
+                 tabindex="0"
+               >
+                 ⋮
+               </span>`
             : `<span class="absolute top-1 right-1 inline-flex items-center justify-center text-[10px] uppercase tracking-wide font-semibold px-2 py-0.5 rounded-full border border-slate-200 text-slate-500 bg-white" data-watchlist-toggle="1" data-symbol="${meta.symbol}">Add</span>`)
           : '';
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'w-full h-full px-3 py-2 text-left bg-white hover:bg-emerald-50 transition relative';
+        btn.className = 'w-full h-full px-3 py-2 text-left bg-white hover:bg-emerald-50 transition relative overflow-visible';
         btn.setAttribute('data-symbol', meta.symbol);
         btn.setAttribute('title', displayTitle);
         btn.dataset.multiplier = String(meta.multiplier);
@@ -6145,18 +6223,41 @@
     }
 
     function closeAllWatchlistMenus() {
-      document.querySelectorAll('[data-watchlist-menu-panel]').forEach((panel) => {
-        panel.classList.add('hidden');
-      });
+      const panel = document.getElementById('watchlistOptionsMenu');
+      if (!panel) return;
+      panel.classList.add('hidden');
+      panel.dataset.visible = '0';
+      panel.dataset.symbol = '';
+      panel.style.left = '';
+      panel.style.top = '';
+      panel.style.display = '';
+      panel.style.visibility = '';
     }
 
     function toggleWatchlistMenu(symbol) {
       if (!symbol) return;
-      const panel = document.querySelector(`[data-watchlist-menu-panel="${symbol}"]`);
+      const panel = document.getElementById('watchlistOptionsMenu');
       if (!panel) return;
-      const isHidden = panel.classList.contains('hidden');
+      const button = document.querySelector(`[data-watchlist-menu][data-symbol="${symbol}"]`);
+      if (!button) return;
+      const isOpen = panel.dataset.visible === '1' && panel.dataset.symbol === symbol;
       closeAllWatchlistMenus();
-      if (isHidden) panel.classList.remove('hidden');
+      if (isOpen) return;
+      panel.dataset.symbol = symbol;
+      panel.dataset.visible = '1';
+      panel.classList.remove('hidden');
+      panel.style.left = '8px';
+      panel.style.top = '8px';
+      panel.style.display = 'flex';
+      panel.style.visibility = 'hidden';
+      document.body.appendChild(panel);
+      const rect = button.getBoundingClientRect();
+      const panelWidth = panel.offsetWidth;
+      const offsetLeft = Math.min(Math.max(rect.right - panelWidth, 8), window.innerWidth - panelWidth - 8);
+      panel.style.left = `${offsetLeft}px`;
+      const offsetTop = window.scrollY + rect.bottom + 6;
+      panel.style.top = `${offsetTop}px`;
+      panel.style.visibility = '';
     }
 
     function openWatchlistEditDialog(symbol) {
@@ -6218,11 +6319,12 @@
         toggleWatchlistMenu(symbol);
         return;
       }
-      const menuAction = e.target.closest('[data-watchlist-action][data-symbol]');
+      const menuAction = e.target.closest('[data-watchlist-action]');
       if (menuAction) {
         e.preventDefault();
         e.stopPropagation();
-        const symbol = menuAction.getAttribute('data-symbol');
+        const panel = document.getElementById('watchlistOptionsMenu');
+        const symbol = menuAction.getAttribute('data-symbol') || (panel ? panel.dataset.symbol : '');
         const action = menuAction.getAttribute('data-watchlist-action');
         closeAllWatchlistMenus();
         if (action === 'edit') {
@@ -6310,12 +6412,12 @@
       }
       loadWatchlists().finally(() => populateTickerSegment());
       document.addEventListener('click', (e) => {
-        const target = e.target;
-        if (target && (target.closest('[data-watchlist-menu-panel]') || target.closest('[data-watchlist-menu]'))) {
-          return;
-        }
-        closeAllWatchlistMenus();
-      });
+      const target = e.target;
+      if (target && (target.closest('#watchlistOptionsMenu') || target.closest('[data-watchlist-menu]'))) {
+        return;
+      }
+      closeAllWatchlistMenus();
+    });
       const dialog = document.getElementById('watchlistEditDialog');
       if (dialog) {
         dialog.addEventListener('close', () => {
