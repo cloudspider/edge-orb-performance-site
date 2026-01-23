@@ -1318,9 +1318,9 @@
       <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
         <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
-            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Capital Contributed</dt>
-            <dd id="summaryCapitalContributed" class="mt-2 text-xl font-semibold text-slate-800">—</dd>
-            <span class="summary-tooltip">Total capital deposited into the strategy over the backtest (autofund deposits). Used for reconciliation: Account Equity = Capital Contributed + Net P/L.</span>
+            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Peak Funding</dt>
+            <dd id="summaryPeakFunding" class="mt-2 text-xl font-semibold text-slate-800">—</dd>
+            <span class="summary-tooltip">Peak funding requirement: the worst negative net trade cashflow. Equivalent to the capital committed to keep the ladder fully funded.</span>
           </div>
           <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
             <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Net Trade Cashflow</dt>
@@ -1371,11 +1371,6 @@
             <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Retained Shares</dt>
             <dd id="summaryRetained" class="mt-2 text-xl font-semibold text-slate-800">0</dd>
             <span class="summary-tooltip">Total shares intentionally retained by the retention rule (planned retention only; excludes unsold due to rounding/availability).</span>
-          </div>
-          <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
-            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Required Capital</dt>
-            <dd id="summaryRequiredCapital" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
-            <span class="summary-tooltip">Peak funding requirement: the worst negative net trade cashflow. Equivalent to the capital committed to keep the ladder fully funded.</span>
           </div>
           <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
             <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Drawdown</dt>
@@ -2541,14 +2536,13 @@
     function renderGridSummary(summary) {
       const totalTradesEl = document.getElementById('summaryTotalTrades');
       const maxLevelsEl = document.getElementById('summaryMaxLevels');
-      const capitalContributedEl = document.getElementById('summaryCapitalContributed');
+      const peakFundingEl = document.getElementById('summaryPeakFunding');
       const netCashflowEl = document.getElementById('summaryNetCashflow');
       const harvestedEl = document.getElementById('summaryHarvestedProfit');
       const holdingsValueEl = document.getElementById('summaryHoldingsValue');
       const netProfitEl = document.getElementById('summaryNetProfit');
       const profitPerLevelEl = document.getElementById('summaryProfitPerLevel');
       const accountEquityEl = document.getElementById('summaryAccountEquity');
-      const requiredCapitalEl = document.getElementById('summaryRequiredCapital');
       const retainedEl = document.getElementById('summaryRetained');
       const cagrEl = document.getElementById('summaryCagr');
       const maxDdEl = document.getElementById('summaryMaxDD');
@@ -2565,14 +2559,8 @@
       const safeSummary = summary || {};
       const maxLevels = Number.isFinite(safeSummary?.maxOpenLevels) ? safeSummary.maxOpenLevels : 0;
       const hasLedger = Number.isFinite(safeSummary?.netPLFinal)
-        || Number.isFinite(safeSummary?.netCashflowTradesFinal)
         || Number.isFinite(safeSummary?.netCashflowTrades)
-        || Number.isFinite(safeSummary?.capitalContributed)
-        || Number.isFinite(safeSummary?.capitalContributedFinal)
-        || Number.isFinite(safeSummary?.requiredCapital);
-      const requiredCapital = Number.isFinite(safeSummary?.requiredCapital)
-        ? safeSummary.requiredCapital
-        : NaN;
+        || Number.isFinite(safeSummary?.capitalContributed);
       let netPLFinal = Number.isFinite(safeSummary?.netPLFinal)
         ? safeSummary.netPLFinal
         : NaN;
@@ -2587,12 +2575,12 @@
       const accountEquityFinal = Number.isFinite(safeSummary?.finalEquity)
         ? safeSummary.finalEquity
         : (Number.isFinite(safeSummary?.accountEquityFinal) ? safeSummary.accountEquityFinal : NaN);
-      const capitalContributedFinal = Number.isFinite(safeSummary?.capitalContributedFinal)
-        ? safeSummary.capitalContributedFinal
-        : (Number.isFinite(safeSummary?.capitalContributed) ? safeSummary.capitalContributed : NaN);
-      const netCashflowTradesFinal = Number.isFinite(safeSummary?.netCashflowTradesFinal)
-        ? safeSummary.netCashflowTradesFinal
-        : (Number.isFinite(safeSummary?.netCashflowTrades) ? safeSummary.netCashflowTrades : NaN);
+      const capitalContributedValue = Number.isFinite(safeSummary?.capitalContributed)
+        ? safeSummary.capitalContributed
+        : NaN;
+      const netCashflowTradesValue = Number.isFinite(safeSummary?.netCashflowTrades)
+        ? safeSummary.netCashflowTrades
+        : NaN;
       const lastPrice = Number.isFinite(safeSummary?.lastPrice)
         ? safeSummary.lastPrice
         : (Number.isFinite(holdingsValueFinal)
@@ -2608,9 +2596,9 @@
         ? safeSummary.maxDrawdownPct
         : NaN;
       if (!Number.isFinite(netPLFinal)
-        && Number.isFinite(netCashflowTradesFinal)
+        && Number.isFinite(netCashflowTradesValue)
         && Number.isFinite(holdingsValueFinal)) {
-        netPLFinal = netCashflowTradesFinal + holdingsValueFinal;
+        netPLFinal = netCashflowTradesValue + holdingsValueFinal;
       }
       if (!Number.isFinite(netPLFinal) && Number.isFinite(netProfitFallback)) {
         netPLFinal = netProfitFallback;
@@ -2618,9 +2606,8 @@
       const profitPerLevel = (Number.isFinite(netPLFinal) && maxLevels > 0)
         ? netPLFinal / maxLevels
         : NaN;
-      const requiredCapitalValue = hasLedger ? capitalContributedFinal : NaN;
-      const netCashflowValue = hasLedger ? netCashflowTradesFinal : NaN;
-      const capitalContributedValue = hasLedger ? capitalContributedFinal : NaN;
+      const peakFundingValue = hasLedger ? capitalContributedValue : NaN;
+      const netCashflowValue = hasLedger ? netCashflowTradesValue : NaN;
       const harvestedProfit = Number.isFinite(safeSummary?.realizedProfit)
         ? safeSummary.realizedProfit
         : NaN;
@@ -2633,7 +2620,7 @@
       }
       if (totalTradesEl) totalTradesEl.textContent = String(safeSummary.totalTrades ?? 0);
       if (maxLevelsEl) maxLevelsEl.textContent = maxLevels.toLocaleString();
-      if (capitalContributedEl) capitalContributedEl.textContent = formatCurrencyOrDash(capitalContributedValue);
+      if (peakFundingEl) peakFundingEl.textContent = formatCurrencyOrDash(peakFundingValue);
       if (netCashflowEl) netCashflowEl.textContent = formatCurrencyOrDash(netCashflowValue);
       if (harvestedEl) {
         harvestedEl.textContent = formatCurrencyOrDash(harvestedProfit);
@@ -2648,7 +2635,6 @@
       }
       if (holdingsValueEl) holdingsValueEl.textContent = formatCurrencyOrDash(holdingsValueFinal);
       if (accountEquityEl) accountEquityEl.textContent = formatCurrencyOrDash(accountEquityFinal);
-      if (requiredCapitalEl) requiredCapitalEl.textContent = formatCurrencyOrDash(requiredCapitalValue);
       if (netProfitEl) {
         netProfitEl.textContent = formatCurrencyOrDash(netPLFinal);
         netProfitEl.classList.remove('text-slate-800', 'text-emerald-600', 'text-red-600');
@@ -5144,13 +5130,10 @@
       summary.maxSharesHeld = maxSharesHeld;
       summary.cagr = cagr;
       summary.maxDeployedCapital = maxDeployedCapital;
-      summary.requiredCapital = capitalContributed;
       summary.netPLFinal = netPLFinal;
       summary.realizedProfit = realizedProfit;
       summary.capitalContributed = capitalContributed;
       summary.netCashflowTrades = netCashflowTrades;
-      summary.capitalContributedFinal = capitalContributed;
-      summary.netCashflowTradesFinal = netCashflowTrades;
       summary.holdingsValueFinal = finalHoldings;
       summary.accountEquityFinal = finalEquity;
       return finalizeResult();
