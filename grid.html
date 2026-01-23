@@ -1375,7 +1375,7 @@
           <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
             <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Required Capital</dt>
             <dd id="summaryRequiredCapital" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
-            <span class="summary-tooltip">Peak cash required by the strategy, measured as max(-netCashflowTrades). If this is below Capital Contributed, it means harvested profits reduced the net cash needed before the max open levels were reached.</span>
+            <span class="summary-tooltip">Peak funding requirement: the worst negative net trade cashflow. Equivalent to the capital committed to keep the ladder fully funded.</span>
           </div>
           <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
             <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Drawdown</dt>
@@ -2618,7 +2618,7 @@
       const profitPerLevel = (Number.isFinite(netPLFinal) && maxLevels > 0)
         ? netPLFinal / maxLevels
         : NaN;
-      const requiredCapitalValue = hasLedger ? requiredCapital : NaN;
+      const requiredCapitalValue = hasLedger ? capitalContributedFinal : NaN;
       const netCashflowValue = hasLedger ? netCashflowTradesFinal : NaN;
       const capitalContributedValue = hasLedger ? capitalContributedFinal : NaN;
       const harvestedProfit = Number.isFinite(safeSummary?.realizedProfit)
@@ -4773,7 +4773,6 @@
       let cash = 0;
       let capitalContributed = 0;
       let netCashflowTrades = 0;
-      let requiredCapital = 0;
       const initialEquity = cash;
       let fundedLevels = 0;
       let openPositions = 0;
@@ -4791,8 +4790,14 @@
       let maxDrawdownPctDate = null;
       let maxSharesHeld = shares;
 
-      const updateRequiredCapital = () => {
-        requiredCapital = Math.max(requiredCapital, -netCashflowTrades);
+      const updateCapitalExposure = () => {
+        const required = Math.max(0, -netCashflowTrades);
+        if (required > capitalContributed) {
+          capitalContributed = required;
+          if (capitalContributed > summary.maxDeployedCapital) {
+            summary.maxDeployedCapital = capitalContributed;
+          }
+        }
       };
 
       const hasActiveBuy = (level) => {
@@ -4892,7 +4897,7 @@
         if (!Number.isFinite(openPositionCost) || openPositionCost < 0) {
           openPositionCost = Math.max(0, openPositionCost);
         }
-        updateRequiredCapital();
+        updateCapitalExposure();
         shares += qty;
         if (shares > maxSharesHeld) maxSharesHeld = shares;
         openPositions += 1;
@@ -4942,7 +4947,7 @@
         if (openPositionCost < 0 || !Number.isFinite(openPositionCost)) {
           openPositionCost = 0;
         }
-        updateRequiredCapital();
+        updateCapitalExposure();
         shares -= qty;
         if (openPositions > 0) openPositions -= 1;
         removeOrder(activeSells, order);
@@ -5139,7 +5144,7 @@
       summary.maxSharesHeld = maxSharesHeld;
       summary.cagr = cagr;
       summary.maxDeployedCapital = maxDeployedCapital;
-      summary.requiredCapital = requiredCapital;
+      summary.requiredCapital = capitalContributed;
       summary.netPLFinal = netPLFinal;
       summary.realizedProfit = realizedProfit;
       summary.capitalContributed = capitalContributed;
