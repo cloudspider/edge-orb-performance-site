@@ -604,6 +604,25 @@
     #breakeven-matrix-table .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
       border-color: var(--app-border-muted);
     }
+    html[data-theme="dark"] #breakeven-matrix-table {
+      background-color: var(--app-surface);
+      border-color: var(--app-border);
+    }
+    html[data-theme="dark"] #breakeven-matrix-table > div {
+      color: var(--app-text-subtle);
+    }
+    html[data-theme="dark"] #breakeven-matrix-table table {
+      background-color: var(--app-surface);
+    }
+    html[data-theme="dark"] #breakeven-matrix-table tbody tr {
+      background-color: var(--app-surface) !important;
+    }
+    html[data-theme="dark"] #breakeven-matrix-table tbody tr:nth-child(even) {
+      background-color: var(--app-surface-muted) !important;
+    }
+    html[data-theme="dark"] #breakeven-matrix-table tbody td:first-child {
+      color: var(--app-text);
+    }
     .num-pos { color: #119d6e !important; }
     .num-neg { color: #ff0000 !important; }
     .pnl-strong { font-size: 1.8rem !important; }

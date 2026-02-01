@@ -1365,7 +1365,7 @@
           <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
             <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">CAGR</dt>
             <dd id="summaryCagr" class="mt-2 text-xl font-semibold text-slate-800">0.00%</dd>
-            <span class="summary-tooltip">Annualised return using Required Capital as the base: ((Required Capital + Net P/L) / Required Capital) over the backtest period.</span>
+            <span class="summary-tooltip">Annualised return using the recorded Peak Funding as the base: ((Peak Funding + Net P/L) / Peak Funding) over the backtest period.</span>
           </div>
           <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
             <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Retained Shares</dt>
@@ -1382,7 +1382,7 @@
             <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Drawdown %</dt>
             <dd id="summaryMaxDDPct" class="mt-2 text-xl font-semibold text-slate-800">0.00%</dd>
             <p id="summaryMaxDDPctDate" class="mt-1 text-[11px] text-slate-500">—</p>
-            <span class="summary-tooltip">Max equity drawdown divided by peak equity at the time of the peak.</span>
+            <span class="summary-tooltip">Worst peak-to-trough net P/L drawdown divided by Peak Funding.</span>
           </div>
         </dl>
         <dl class="grid gap-4">
@@ -1422,15 +1422,27 @@
       </div>
       <div class="equity-carousel">
         <div id="equityCarouselTrack" class="equity-carousel-track">
-          <div class="equity-carousel-slide" data-carousel-slide="equity">
+          <div class="equity-carousel-slide" data-carousel-slide="account-equity">
             <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <h3 class="text-sm font-semibold text-slate-600">Account Equity</h3>
-              <span id="equitySummaryLabel" class="text-sm text-slate-500"></span>
+              <span id="accountEquitySummaryLabel" class="text-sm text-slate-500"></span>
+            </div>
+            <div class="relative">
+              <div id="gridAccountEquityChart" class="w-full h-72 md:h-96"></div>
+              <div id="gridAccountEquityEmpty" class="absolute inset-0 flex items-center justify-center text-sm text-slate-500">
+                Run the backtest to plot account equity over time.
+              </div>
+            </div>
+          </div>
+          <div class="equity-carousel-slide" data-carousel-slide="net-cashflow">
+            <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <h3 class="text-sm font-semibold text-slate-600">Net Cashflow</h3>
+              <span id="netCashflowSummaryLabel" class="text-sm text-slate-500"></span>
             </div>
             <div class="relative">
               <div id="gridEquityChart" class="w-full h-72 md:h-96"></div>
-              <div id="gridEquityEmpty" class="absolute inset-0 flex items-center justify-center text-sm text-slate-500">
-                Run the backtest to plot equity over time.
+              <div id="gridNetCashflowEmpty" class="absolute inset-0 flex items-center justify-center text-sm text-slate-500">
+                Run the backtest to plot net cashflow over time.
               </div>
             </div>
           </div>
@@ -1720,6 +1732,7 @@
     let BACKTEST_ALL_SELECTED = '';
     let BACKTEST_ALL_SORT = { key: 'symbol', dir: 'asc' };
     let TRADE_SORT_STATE = { key: 'buyTime', dir: 'asc' };
+    let gridAccountEquityChartInst = null;
     let gridEquityChartInst = null;
 
     const GRID_BACKTEST_DEBOUNCE_MS = 1000;
@@ -3207,6 +3220,9 @@
         if (prevBtn) prevBtn.classList.toggle('opacity-40', index === 0);
         if (nextBtn) nextBtn.classList.toggle('opacity-40', index === maxIndex);
         requestAnimationFrame(() => {
+          if (gridAccountEquityChartInst) {
+            try { gridAccountEquityChartInst.resize(); } catch {}
+          }
           if (gridEquityChartInst) {
             try { gridEquityChartInst.resize(); } catch {}
           }
@@ -3230,19 +3246,19 @@
       sync();
     }
 
-    function renderGridEquityChart(series) {
-      const container = document.getElementById('gridEquityChart');
-      const emptyState = document.getElementById('gridEquityEmpty');
-      const label = document.getElementById('equitySummaryLabel');
+    function renderAccountEquityChart(series) {
+      const container = document.getElementById('gridAccountEquityChart');
+      const emptyState = document.getElementById('gridAccountEquityEmpty');
+      const label = document.getElementById('accountEquitySummaryLabel');
       if (!container) return;
       if (typeof echarts === 'undefined' || !echarts.init) return;
-      if (!gridEquityChartInst) {
-        gridEquityChartInst = echarts.init(container);
+      if (!gridAccountEquityChartInst) {
+        gridAccountEquityChartInst = echarts.init(container);
       }
       if (!Array.isArray(series) || !series.length) {
         if (emptyState) emptyState.classList.remove('hidden');
         if (label) label.textContent = '';
-        gridEquityChartInst.clear();
+        gridAccountEquityChartInst.clear();
         return;
       }
       if (emptyState) emptyState.classList.add('hidden');
@@ -3251,13 +3267,8 @@
         return [time.getTime(), Number(point.equity) || 0];
       }).filter(item => Number.isFinite(item[0]) && Number.isFinite(item[1]));
       equityData.sort((a, b) => a[0] - b[0]);
-      const cashData = series.map(point => {
-        const time = point.time instanceof Date ? point.time : new Date(point.time);
-        return [time.getTime(), Number(point.cash)];
-      }).filter(item => Number.isFinite(item[0]) && Number.isFinite(item[1]));
-      cashData.sort((a, b) => a[0] - b[0]);
       if (!equityData.length) {
-        gridEquityChartInst.clear();
+        gridAccountEquityChartInst.clear();
         if (label) label.textContent = '';
         if (emptyState) emptyState.classList.remove('hidden');
         return;
@@ -3275,14 +3286,13 @@
             { offset: 1, color: 'rgba(15, 118, 110, 0)' }
           ])
         : 'rgba(15, 118, 110, 0.1)';
-      gridEquityChartInst.setOption({
+      gridAccountEquityChartInst.setOption({
         grid: { left: '3%', right: '3%', top: 40, bottom: 40, containLabel: true },
         legend: {
-          data: ['Equity', 'Cash Balance'],
+          data: ['Account Equity'],
           textStyle: { color: '#475569' },
           selected: {
-            Equity: true,
-            'Cash Balance': true
+            'Account Equity': true
           }
         },
         dataZoom: [
@@ -3319,21 +3329,108 @@
         },
         series: [
           {
-            name: 'Equity',
+            name: 'Account Equity',
             type: 'line',
             smooth: true,
             showSymbol: false,
             lineStyle: { color: '#0f766e', width: 2 },
             areaStyle: gradient ? { color: gradient } : undefined,
             data: equityData
+          }
+        ]
+      }, true);
+    }
+
+    function renderGridEquityChart(series) {
+      const container = document.getElementById('gridEquityChart');
+      const emptyState = document.getElementById('gridNetCashflowEmpty');
+      const label = document.getElementById('netCashflowSummaryLabel');
+      if (!container) return;
+      if (typeof echarts === 'undefined' || !echarts.init) return;
+      if (!gridEquityChartInst) {
+        gridEquityChartInst = echarts.init(container);
+      }
+      if (!Array.isArray(series) || !series.length) {
+        if (emptyState) emptyState.classList.remove('hidden');
+        if (label) label.textContent = '';
+        gridEquityChartInst.clear();
+        return;
+      }
+      if (emptyState) emptyState.classList.add('hidden');
+      const netCashflowData = series.map(point => {
+        const time = point.time instanceof Date ? point.time : new Date(point.time);
+        return [time.getTime(), Number(point.netCashflow) || 0];
+      }).filter(item => Number.isFinite(item[0]) && Number.isFinite(item[1]));
+      netCashflowData.sort((a, b) => a[0] - b[0]);
+      if (!netCashflowData.length) {
+        gridEquityChartInst.clear();
+        if (label) label.textContent = '';
+        if (emptyState) emptyState.classList.remove('hidden');
+        return;
+      }
+      const first = netCashflowData[0];
+      const last = netCashflowData[netCashflowData.length - 1];
+      if (label && first && last) {
+        const start = new Date(first[0]);
+        const end = new Date(last[0]);
+        label.textContent = `${start.toISOString().slice(0, 10)} → ${end.toISOString().slice(0, 10)} (${netCashflowData.length.toLocaleString()} points)`;
+      }
+      const gradient = (echarts.graphic && echarts.graphic.LinearGradient)
+        ? new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(15, 118, 110, 0.25)' },
+            { offset: 1, color: 'rgba(15, 118, 110, 0)' }
+          ])
+        : 'rgba(15, 118, 110, 0.1)';
+      gridEquityChartInst.setOption({
+        grid: { left: '3%', right: '3%', top: 40, bottom: 40, containLabel: true },
+        legend: {
+          data: ['Net Cashflow'],
+          textStyle: { color: '#475569' },
+          selected: {
+            'Net Cashflow': true
+          }
+        },
+        dataZoom: [
+          {
+            type: 'inside',
+            xAxisIndex: 0,
+            filterMode: 'filter'
           },
           {
-            name: 'Cash Balance',
+            type: 'inside',
+            yAxisIndex: 0,
+            filterMode: 'weakFilter'
+          }
+        ],
+        visualMap: undefined,
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: { type: 'cross' },
+          valueFormatter: (val) => formatCurrency(val)
+        },
+        xAxis: {
+          type: 'time',
+          boundaryGap: false,
+          axisLabel: { color: '#64748b' }
+        },
+        yAxis: {
+          type: 'value',
+          scale: true,
+          axisLabel: {
+            formatter: (val) => formatCurrency(val).replace('$', ''),
+            color: '#64748b'
+          },
+          splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.2)' } }
+        },
+        series: [
+          {
+            name: 'Net Cashflow',
             type: 'line',
             smooth: true,
             showSymbol: false,
-            lineStyle: { color: '#64748b', width: 1.5, type: 'dashed' },
-            data: cashData
+            lineStyle: { color: '#0f766e', width: 2 },
+            areaStyle: gradient ? { color: gradient } : undefined,
+            data: netCashflowData
           }
         ]
       }, true);
@@ -4359,6 +4456,7 @@
       renderGridTrades([], { resetPage: true });
       setGridStatus(message || 'Load data and run the backtest to populate results.');
       setSaveButtonEnabled(false);
+      renderAccountEquityChart(null);
       renderGridEquityChart(null);
       renderNetPnlChart(null);
       renderLadderChart([]);
@@ -4759,9 +4857,12 @@
       let cash = 0;
       let capitalContributed = 0;
       let netCashflowTrades = 0;
+      let minNetCashflow = 0;
+      let peakFundingValue = 0;
       const initialEquity = cash;
-      let fundedLevels = 0;
       let openPositions = 0;
+      const drawdownThreshold = 10000;
+      let drawdownReady = false;
       const firstEquityTime = rows[0]?.caldt instanceof Date ? new Date(rows[0].caldt.getTime()) : null;
       let lastEquityTime = firstEquityTime;
       let shares = 0;
@@ -4776,14 +4877,13 @@
       let maxDrawdownPctDate = null;
       let maxSharesHeld = shares;
 
-      const updateCapitalExposure = () => {
-        const required = Math.max(0, -netCashflowTrades);
-        if (required > capitalContributed) {
-          capitalContributed = required;
-          if (capitalContributed > summary.maxDeployedCapital) {
-            summary.maxDeployedCapital = capitalContributed;
-          }
+      const recordNetCashflowMin = () => {
+        minNetCashflow = Math.min(minNetCashflow, netCashflowTrades);
+        capitalContributed = Math.max(0, -minNetCashflow);
+        if (capitalContributed > summary.maxDeployedCapital) {
+          summary.maxDeployedCapital = capitalContributed;
         }
+        peakFundingValue = capitalContributed;
       };
 
       const hasActiveBuy = (level) => {
@@ -4859,17 +4959,6 @@
           removeOrder(activeBuys, order);
           return false;
         }
-        const neededPositions = openPositions + 1;
-        if (neededPositions > fundedLevels) {
-          const levelsToAdd = neededPositions - fundedLevels;
-          const deposit = levelsToAdd * effectiveTradeValue;
-          cash += deposit;
-          capitalContributed += deposit;
-          fundedLevels += levelsToAdd;
-          if (capitalContributed > summary.maxDeployedCapital) {
-            summary.maxDeployedCapital = capitalContributed;
-          }
-        }
         const sellLevel = nextUpLevel(price);
         if (!Number.isFinite(sellLevel) || sellLevel <= 0) {
           console.warn('Grid backtest skipped buy: missing sell level for', price);
@@ -4883,7 +4972,7 @@
         if (!Number.isFinite(openPositionCost) || openPositionCost < 0) {
           openPositionCost = Math.max(0, openPositionCost);
         }
-        updateCapitalExposure();
+        recordNetCashflowMin();
         shares += qty;
         if (shares > maxSharesHeld) maxSharesHeld = shares;
         openPositions += 1;
@@ -4933,7 +5022,7 @@
         if (openPositionCost < 0 || !Number.isFinite(openPositionCost)) {
           openPositionCost = 0;
         }
-        updateCapitalExposure();
+        recordNetCashflowMin();
         shares -= qty;
         if (openPositions > 0) openPositions -= 1;
         removeOrder(activeSells, order);
@@ -5071,16 +5160,26 @@
         }
         prevPrice = path[path.length - 1];
         const equity = cash + shares * prevPrice;
-        if (equity > peakEquity) peakEquity = equity;
-        const drawdown = equity - peakEquity;
-        if (drawdown < maxDrawdown) {
-          maxDrawdown = drawdown;
-          maxDrawdownDate = new Date(row.caldt.getTime());
+        if (!drawdownReady) {
+          if (equity >= drawdownThreshold) {
+            drawdownReady = true;
+            peakEquity = equity;
+          } else if (equity > peakEquity) {
+            peakEquity = equity;
+          }
         }
-        const equityPct = peakEquity > 0 ? (equity - peakEquity) / peakEquity : 0;
-        if (equityPct < maxDrawdownPct) {
-          maxDrawdownPct = equityPct;
-          maxDrawdownPctDate = new Date(row.caldt.getTime());
+        if (drawdownReady) {
+          if (equity > peakEquity) peakEquity = equity;
+          const drawdown = equity - peakEquity;
+          if (drawdown < maxDrawdown) {
+            maxDrawdown = drawdown;
+            maxDrawdownDate = new Date(row.caldt.getTime());
+          }
+          const equityPct = peakEquity > 0 ? drawdown / peakEquity : 0;
+          if (equityPct < maxDrawdownPct) {
+            maxDrawdownPct = equityPct;
+            maxDrawdownPctDate = new Date(row.caldt.getTime());
+          }
         }
         lastEquityTime = new Date(row.caldt.getTime());
         const deployedCapitalSnapshot = Math.max(0, openPositionCost);
@@ -5090,6 +5189,7 @@
           cash: cash,
           capitalContributed,
           netPnl: equity - capitalContributed,
+          netCashflow: netCashflowTrades,
           cashDeployed: deployedCapitalSnapshot,
           capitalBudget: capitalContributed
         });
@@ -5108,9 +5208,10 @@
       const derivedMaxCapital = (baseTradeValue > 0 && maxLevelsUsed > 0)
         ? baseTradeValue * maxLevelsUsed
         : 0;
-      const trackedCapital = summary.maxDeployedCapital > 0 ? summary.maxDeployedCapital : capitalContributed;
-      const maxDeployedCapital = Math.max(derivedMaxCapital, trackedCapital, capitalContributed);
-      const cagrBaseEquity = maxDeployedCapital > 0 ? maxDeployedCapital : initialEquity;
+      const peakFundingSummaryValue = Number.isFinite(summary.peakFunding) ? summary.peakFunding : Math.max(0, capitalContributed);
+      const trackedCapital = Math.max(derivedMaxCapital, summary.maxDeployedCapital, capitalContributed, peakFundingSummaryValue);
+      const maxDeployedCapital = trackedCapital;
+      const cagrBaseEquity = peakFundingSummaryValue > 0 ? peakFundingSummaryValue : (trackedCapital > 0 ? trackedCapital : initialEquity);
       const cagr = (years > 0 && cagrBaseEquity > 0 && finalEquity > 0)
         ? Math.pow(finalEquity / cagrBaseEquity, 1 / years) - 1
         : 0;
@@ -5133,6 +5234,8 @@
       summary.netPLFinal = netPLFinal;
       summary.realizedProfit = realizedProfit;
       summary.capitalContributed = capitalContributed;
+      summary.minNetCashflow = minNetCashflow;
+      summary.peakFunding = capitalContributed;
       summary.netCashflowTrades = netCashflowTrades;
       summary.holdingsValueFinal = finalHoldings;
       summary.accountEquityFinal = finalEquity;
@@ -5154,6 +5257,7 @@
         setGridStatus('No data available for the selected month filter. Clear the filter or load more data.');
         renderGridSummary(null);
         renderGridTrades([], { resetPage: true });
+        renderAccountEquityChart(null);
         renderGridEquityChart(null);
         renderNetPnlChart(null);
         renderLadderChart([]);
@@ -5177,6 +5281,7 @@
           setGridStatus(`Entry filter (${window}-day SMA) needs ${window} completed days. Dataset has ${totalDays.toLocaleString()} day${totalDays === 1 ? '' : 's'} — insufficient for this filter.`);
           renderGridSummary(null);
           renderGridTrades([], { resetPage: true });
+          renderAccountEquityChart(null);
           renderGridEquityChart(null);
           renderNetPnlChart(null);
           renderLadderChart([]);
@@ -5193,6 +5298,7 @@
           setGridStatus(`Entry filter (${window}-day SMA) needs ${window} completed day(s), but the current month filter only leaves ${uniqueFilteredDays.size.toLocaleString()} day${uniqueFilteredDays.size === 1 ? '' : 's'}. Adjust the filter or load additional data.`);
           renderGridSummary(null);
           renderGridTrades([], { resetPage: true });
+          renderAccountEquityChart(null);
           renderGridEquityChart(null);
           renderNetPnlChart(null);
           renderLadderChart([]);
@@ -5233,6 +5339,7 @@
         console.log(JSON.stringify(backtestOutput, null, 2));
         renderGridSummary(safeResult.summary);
         renderGridTrades(safeResult.trades, { resetPage: true });
+        renderAccountEquityChart(safeResult.equitySeries);
         renderGridEquityChart(safeResult.equitySeries);
         renderNetPnlChart(safeResult.equitySeries);
         renderLadderChart(safeResult.trades);
@@ -5502,6 +5609,7 @@
           updateLoadedStatus();
           renderGridSummary(null);
           renderGridTrades([], { resetPage: true });
+          renderAccountEquityChart(null);
           renderGridEquityChart(null);
           renderNetPnlChart(null);
           renderLadderChart([]);
@@ -5529,6 +5637,7 @@
       DAYS = [];
       renderGridSummary(null);
       renderGridTrades([], { resetPage: true });
+      renderAccountEquityChart(null);
       renderGridEquityChart(null);
       renderNetPnlChart(null);
       renderLadderChart([]);
@@ -6432,6 +6541,9 @@
     });
 
     window.addEventListener('resize', () => {
+      if (gridAccountEquityChartInst) {
+        try { gridAccountEquityChartInst.resize(); } catch {}
+      }
       if (gridEquityChartInst) {
         try { gridEquityChartInst.resize(); } catch {}
       }
