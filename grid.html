@@ -1033,12 +1033,6 @@
 
       <div class="grid gap-4 md:grid-cols-8">
         <label class="block">
-          <span class="text-sm text-slate-600">Grid Type</span>
-          <div class="mt-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-            Buy the Dip
-          </div>
-        </label>
-        <label class="block">
           <span class="text-sm text-slate-600">Entry Filter</span>
           <div class="relative mt-1">
             <select
@@ -1165,34 +1159,48 @@
           />
         </label>
         <label class="block">
+          <span class="text-sm text-slate-600">Levels Funded at Start</span>
+          <div class="relative mt-1">
+            <select
+              id="inpStartupFundedLevels"
+              class="w-full appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-9 py-2 text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+            >
+              <option value="25">25</option>
+              <option value="50">50</option>
+              <option value="75">75</option>
+              <option value="100" selected>100</option>
+              <option value="125">125</option>
+              <option value="150">150</option>
+              <option value="175">175</option>
+              <option value="200">200</option>
+            </select>
+            <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.06 1.06l-4.24 4.39a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
+              </svg>
+            </span>
+          </div>
+        </label>
+        <label class="block">
           <span class="text-sm text-slate-600">P/L Sizing (%)</span>
           <div class="mt-1 relative">
             <input
               id="inpPlSizingPct"
               type="number"
-              step="1"
+              step="0.5"
               min="0"
               value="0"
               class="w-full border border-slate-200 bg-white text-slate-700 shadow-sm rounded-xl pl-3 pr-10 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
             />
             <div class="absolute inset-y-0 right-1 flex flex-col justify-center py-1">
-              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase P/L sizing" data-num-target="inpPlSizingPct" data-num-step="0.1">
+              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Increase P/L sizing" data-num-target="inpPlSizingPct" data-num-step="1">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 12.79a.75.75 0 001.06-.02L10 9.06l3.71 3.71a.75.75 0 001.06-1.06l-4.24-4.24a.75.75 0 00-1.06 0l-4.24 4.24a.75.75 0 00.02 1.08z" clip-rule="evenodd" /></svg>
               </button>
-              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease P/L sizing" data-num-target="inpPlSizingPct" data-num-step="-0.1">
+              <button type="button" class="h-4 w-6 text-slate-500 hover:text-slate-700" aria-label="Decrease P/L sizing" data-num-target="inpPlSizingPct" data-num-step="-1">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M14.77 7.21a.75.75 0 00-1.06.02L10 10.94 6.29 7.23a.75.75 0 10-1.06 1.06l4.24 4.24a.75.75 0 001.06 0l4.24-4.24a.75.75 0 00-.02-1.08z" clip-rule="evenodd" /></svg>
               </button>
             </div>
           </div>
-        </label>
-        <label class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 shadow-sm transition focus-within:ring-2 focus-within:ring-emerald-500/60">
-          <input
-            id="inpFractionalShares"
-            type="checkbox"
-            class="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
-            checked
-          />
-          <span>Allow fractional shares</span>
         </label>
       </div>
     </section>
@@ -1301,7 +1309,7 @@
     <section id="gridSummarySection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
       <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 class="font-semibold text-slate-700">Summary</h2>
+          <h2 id="gridSummaryTitle" class="font-semibold text-slate-700">Summary</h2>
           <p id="gridStatus" class="text-sm text-slate-500">Load data and run the backtest to populate results.</p>
         </div>
         <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-slate-500">
@@ -1345,7 +1353,7 @@
           <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
             <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Account Equity</dt>
             <dd id="summaryAccountEquity" class="mt-2 text-xl font-semibold text-slate-800">$0.00</dd>
-            <span class="summary-tooltip">Account equity at the final price: cashBalance + holdingsValue. Also equals Capital Contributed + Net P/L.</span>
+            <span class="summary-tooltip">Account equity at the final price: cashBalance + holdingsValue. Also equals Starting Equity + Net P/L.</span>
           </div>
           <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
             <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Completed Trades</dt>
@@ -1365,7 +1373,7 @@
           <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
             <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">CAGR</dt>
             <dd id="summaryCagr" class="mt-2 text-xl font-semibold text-slate-800">0.00%</dd>
-            <span class="summary-tooltip">Annualised return using the recorded Peak Funding as the base: ((Peak Funding + Net P/L) / Peak Funding) over the backtest period.</span>
+            <span class="summary-tooltip">Annualised return using Starting Equity (trade value × startup funded levels) as the base.</span>
           </div>
           <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
             <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Retained Shares</dt>
@@ -1382,7 +1390,7 @@
             <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Max Drawdown %</dt>
             <dd id="summaryMaxDDPct" class="mt-2 text-xl font-semibold text-slate-800">0.00%</dd>
             <p id="summaryMaxDDPctDate" class="mt-1 text-[11px] text-slate-500">—</p>
-            <span class="summary-tooltip">Worst peak-to-trough net P/L drawdown divided by Peak Funding.</span>
+            <span class="summary-tooltip">Worst peak-to-trough account equity drawdown percentage (drawdown ÷ rolling peak equity).</span>
           </div>
         </dl>
         <dl class="grid gap-4">
@@ -1650,11 +1658,13 @@
       gridSize: 5,
       gridSpacingType: 'percent_fixed',
       tradeValue: 1000,
+      startupFundedLevels: 100,
       plSizingPct: 0,
       fractionalShares: true,
       entryFilter: 'none',
       retentionPortionPct: 100
     };
+    const STARTUP_FUNDED_LEVEL_OPTIONS = [25, 50, 75, 100, 125, 150, 175, 200];
     const GRID_PARAMS_STORAGE_KEY = 'grid_last_params';
     const GRID_TYPE = 'buy_the_dip';
     const WATCHLIST_ALL = '__all__';
@@ -2458,22 +2468,34 @@
       };
     }
 
+    function normalizeStartupFundedLevels(value) {
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) return GRID_DEFAULTS.startupFundedLevels;
+      const rounded = Math.round(numeric);
+      return STARTUP_FUNDED_LEVEL_OPTIONS.includes(rounded)
+        ? rounded
+        : GRID_DEFAULTS.startupFundedLevels;
+    }
+
     function getGridParamsFromUI() {
       const gridSize = Number(document.getElementById('inpGridSize')?.value ?? GRID_DEFAULTS.gridSize);
       const basePrice = Number(document.getElementById('inpBasePrice')?.value ?? 100);
       const tradeValue = Number(document.getElementById('inpTradeValue')?.value ?? GRID_DEFAULTS.tradeValue);
+      const startupFundedLevelsRaw = Number(document.getElementById('inpStartupFundedLevels')?.value ?? GRID_DEFAULTS.startupFundedLevels);
       const plSizingPct = Number(document.getElementById('inpPlSizingPct')?.value ?? GRID_DEFAULTS.plSizingPct);
-      const fractionalShares = !!document.getElementById('inpFractionalShares')?.checked;
+      const fractionalShares = true;
       const gridType = GRID_TYPE;
       const gridSpacingType = (document.getElementById('selGridSpacing')?.value || GRID_DEFAULTS.gridSpacingType).toLowerCase();
       const retentionMode = (document.getElementById('selRetentionMode')?.value || 'profit').toLowerCase();
       const retentionPortionPct = Number(document.getElementById('inpRetentionPortionPct')?.value ?? GRID_DEFAULTS.retentionPortionPct);
       const entryFilter = (document.getElementById('selEntryFilter')?.value || GRID_DEFAULTS.entryFilter).toLowerCase();
       const tickSize = getActiveTickSize();
+      const startupFundedLevels = normalizeStartupFundedLevels(startupFundedLevelsRaw);
       return {
         gridSize: Number.isFinite(gridSize) ? gridSize : GRID_DEFAULTS.gridSize,
         basePrice: Number.isFinite(basePrice) ? basePrice : 100,
         tradeValue: Number.isFinite(tradeValue) ? tradeValue : GRID_DEFAULTS.tradeValue,
+        startupFundedLevels,
         plSizingPct: Number.isFinite(plSizingPct) ? plSizingPct : GRID_DEFAULTS.plSizingPct,
         fractionalShares,
         gridType,
@@ -2501,6 +2523,7 @@
         gridSize: Number.isFinite(params.gridSize) ? params.gridSize : null,
         basePrice: Number.isFinite(params.basePrice) ? params.basePrice : null,
         tradeValue: Number.isFinite(params.tradeValue) ? params.tradeValue : null,
+        startupFundedLevels: Number.isFinite(params.startupFundedLevels) ? params.startupFundedLevels : null,
         plSizingPct: Number.isFinite(params.plSizingPct) ? params.plSizingPct : null,
         fractionalShares: !!params.fractionalShares,
         gridSpacingType: typeof params.gridSpacingType === 'string' ? params.gridSpacingType : null,
@@ -2538,12 +2561,12 @@
       setNumberValue('inpGridSize', stored.gridSize);
       setNumberValue('inpBasePrice', stored.basePrice);
       setNumberValue('inpTradeValue', stored.tradeValue);
+      setSelectValue('inpStartupFundedLevels', String(normalizeStartupFundedLevels(stored.startupFundedLevels)));
       setNumberValue('inpPlSizingPct', stored.plSizingPct);
       setNumberValue('inpRetentionPortionPct', stored.retentionPortionPct);
       setSelectValue('selGridSpacing', stored.gridSpacingType);
       setSelectValue('selRetentionMode', stored.retentionMode);
       setSelectValue('selEntryFilter', stored.entryFilter);
-      setCheckboxValue('inpFractionalShares', stored.fractionalShares);
     }
 
     function renderGridSummary(summary) {
@@ -2864,6 +2887,8 @@
         grid_type: params?.gridType || null,
         grid_size: Number.isFinite(params?.gridSize) ? params.gridSize : null,
         trade_value: Number.isFinite(params?.tradeValue) ? params.tradeValue : null,
+        startup_funded_levels: Number.isFinite(params?.startupFundedLevels) ? params.startupFundedLevels : null,
+        starting_equity: Number.isFinite(summary?.startingEquity) ? summary.startingEquity : null,
         retention_mode: params?.retentionMode || null,
         retention_portion_pct: Number.isFinite(params?.retentionPortionPct) ? params.retentionPortionPct : null,
         max_levels: Number.isFinite(summary?.maxOpenLevels) ? summary.maxOpenLevels : null,
@@ -3457,9 +3482,14 @@
         let netPnl = Number(point.netPnl);
         if (!Number.isFinite(netPnl)) {
           const equity = Number(point.equity);
-          const capital = Number(point.capitalContributed);
-          if (Number.isFinite(equity) && Number.isFinite(capital)) {
-            netPnl = equity - capital;
+          const capitalBudget = Number(point.capitalBudget);
+          const capitalContributed = Number(point.capitalContributed);
+          if (Number.isFinite(equity) && Number.isFinite(capitalBudget)) {
+            netPnl = equity - capitalBudget;
+          } else if (Number.isFinite(equity) && Number.isFinite(capitalContributed)) {
+            netPnl = equity - capitalContributed;
+          } else if (Number.isFinite(equity)) {
+            netPnl = equity;
           }
         }
         return [time.getTime(), netPnl];
@@ -4436,10 +4466,12 @@
     function setTicker(sym) {
       currentTicker = (sym || '').toUpperCase();
       const titleEl = document.getElementById('mainTitle');
+      const summaryTitleEl = document.getElementById('gridSummaryTitle');
       const meta = ensureSymbolMetaEntry(currentTicker);
       const friendlyName = meta && meta.name && meta.name.toUpperCase() !== currentTicker ? ` · ${meta.name}` : '';
       const fullTitle = currentTicker ? `${currentTicker}${friendlyName} - Buy the Dip Backtest` : 'Buy the Dip Backtest';
       if (titleEl) titleEl.textContent = fullTitle;
+      if (summaryTitleEl) summaryTitleEl.textContent = currentTicker ? `Summary - ${currentTicker}` : 'Summary';
       document.title = fullTitle;
       highlightTickerButton(currentTicker);
       updateBasePriceInput(currentTicker);
@@ -4686,10 +4718,15 @@
       const rawBasePrice = Number(params?.basePrice);
       const gridSpacingType = (params?.gridSpacingType || GRID_DEFAULTS.gridSpacingType).toLowerCase();
       const baseTradeValue = Number(params?.tradeValue);
+      const startupFundedLevelsRaw = Number(params?.startupFundedLevels);
+      const startupFundedLevels = normalizeStartupFundedLevels(startupFundedLevelsRaw);
+      const startingEquity = (Number.isFinite(baseTradeValue) && baseTradeValue > 0)
+        ? baseTradeValue * startupFundedLevels
+        : 0;
       const plSizingPct = Number(params?.plSizingPct);
       const tickSize = Number(params?.tickSize);
       const resolvedTickSize = Number.isFinite(tickSize) && tickSize > 0 ? tickSize : 0.01;
-      const fractional = !!params?.fractionalShares;
+      const fractional = true;
       const retentionMode = (params?.retentionMode || 'profit').toLowerCase();
       const retentionPortionPctRaw = Number.isFinite(params?.retentionPortionPct) ? params.retentionPortionPct : GRID_DEFAULTS.retentionPortionPct;
       const retentionPortionFraction = Math.min(1, Math.max(0, retentionPortionPctRaw / 100));
@@ -4854,15 +4891,12 @@
         const next = baseTradeValue + (plSizingPct / 100) * pnl;
         return Math.max(0, next);
       };
-      let cash = 0;
+      let cash = startingEquity;
       let capitalContributed = 0;
       let netCashflowTrades = 0;
       let minNetCashflow = 0;
-      let peakFundingValue = 0;
       const initialEquity = cash;
       let openPositions = 0;
-      const drawdownThreshold = 10000;
-      let drawdownReady = false;
       const firstEquityTime = rows[0]?.caldt instanceof Date ? new Date(rows[0].caldt.getTime()) : null;
       let lastEquityTime = firstEquityTime;
       let shares = 0;
@@ -4870,7 +4904,7 @@
       let cumulativeRetained = 0;
       let openPositionCost = 0;
       let prevPrice = firstPrice;
-      let peakEquity = cash + shares * firstPrice;
+      let peakEquity = initialEquity;
       let maxDrawdown = 0;
       let maxDrawdownDate = null;
       let maxDrawdownPct = 0;
@@ -4883,7 +4917,6 @@
         if (capitalContributed > summary.maxDeployedCapital) {
           summary.maxDeployedCapital = capitalContributed;
         }
-        peakFundingValue = capitalContributed;
       };
 
       const hasActiveBuy = (level) => {
@@ -5014,6 +5047,7 @@
           removeOrder(activeSells, order);
           return false;
         }
+        const openEquity = cash + shares * price;
         const revenue = qty * price;
         const costBasis = qty * order.buyPrice;
         cash += revenue;
@@ -5032,8 +5066,7 @@
         cumulativeRetained += qtyRetained;
         const closeQty = shares;
         const closeEquity = cash + shares * price;
-        const totalContributed = capitalContributed;
-        const runningPnl = closeEquity - totalContributed;
+        const runningPnl = closeEquity - initialEquity;
         const nextPeak = Math.max(peakEquity, closeEquity);
         const drawdown = closeEquity - nextPeak;
         peakEquity = nextPeak;
@@ -5041,7 +5074,6 @@
         const buyTime = order.buyTime instanceof Date ? new Date(order.buyTime.getTime()) : new Date();
         const msHeld = sellTime.getTime() - buyTime.getTime();
         const daysHeld = Number.isFinite(msHeld) ? Math.max(0, msHeld / 86400000) : 0;
-        const openEquity = totalContributed;
         trades.push({
           buyTime,
           buyPrice: order.buyPrice,
@@ -5159,23 +5191,18 @@
           processMove(from, to, row.caldt, row);
         }
         prevPrice = path[path.length - 1];
-        const equity = cash + shares * prevPrice;
-        if (!drawdownReady) {
-          if (equity >= drawdownThreshold) {
-            drawdownReady = true;
-            peakEquity = equity;
-          } else if (equity > peakEquity) {
-            peakEquity = equity;
-          }
+        const holdingsValueNow = shares * prevPrice;
+        const equity = cash + holdingsValueNow;
+        if (equity > peakEquity) {
+          peakEquity = equity;
         }
-        if (drawdownReady) {
-          if (equity > peakEquity) peakEquity = equity;
-          const drawdown = equity - peakEquity;
-          if (drawdown < maxDrawdown) {
-            maxDrawdown = drawdown;
-            maxDrawdownDate = new Date(row.caldt.getTime());
-          }
-          const equityPct = peakEquity > 0 ? drawdown / peakEquity : 0;
+        const drawdown = equity - peakEquity;
+        if (drawdown < maxDrawdown) {
+          maxDrawdown = drawdown;
+          maxDrawdownDate = new Date(row.caldt.getTime());
+        }
+        if (peakEquity > 0) {
+          const equityPct = drawdown / peakEquity;
           if (equityPct < maxDrawdownPct) {
             maxDrawdownPct = equityPct;
             maxDrawdownPctDate = new Date(row.caldt.getTime());
@@ -5188,10 +5215,10 @@
           equity,
           cash: cash,
           capitalContributed,
-          netPnl: equity - capitalContributed,
+          netPnl: equity - initialEquity,
           netCashflow: netCashflowTrades,
           cashDeployed: deployedCapitalSnapshot,
-          capitalBudget: capitalContributed
+          capitalBudget: initialEquity
         });
       }
 
@@ -5211,7 +5238,7 @@
       const peakFundingSummaryValue = Number.isFinite(summary.peakFunding) ? summary.peakFunding : Math.max(0, capitalContributed);
       const trackedCapital = Math.max(derivedMaxCapital, summary.maxDeployedCapital, capitalContributed, peakFundingSummaryValue);
       const maxDeployedCapital = trackedCapital;
-      const cagrBaseEquity = peakFundingSummaryValue > 0 ? peakFundingSummaryValue : (trackedCapital > 0 ? trackedCapital : initialEquity);
+      const cagrBaseEquity = initialEquity > 0 ? initialEquity : (trackedCapital > 0 ? trackedCapital : peakFundingSummaryValue);
       const cagr = (years > 0 && cagrBaseEquity > 0 && finalEquity > 0)
         ? Math.pow(finalEquity / cagrBaseEquity, 1 / years) - 1
         : 0;
@@ -5236,6 +5263,8 @@
       summary.capitalContributed = capitalContributed;
       summary.minNetCashflow = minNetCashflow;
       summary.peakFunding = capitalContributed;
+      summary.startingEquity = initialEquity;
+      summary.startupFundedLevels = startupFundedLevels;
       summary.netCashflowTrades = netCashflowTrades;
       summary.holdingsValueFinal = finalHoldings;
       summary.accountEquityFinal = finalEquity;
@@ -5503,8 +5532,8 @@
         document.getElementById('inpGridSize'),
         document.getElementById('inpBasePrice'),
         document.getElementById('inpTradeValue'),
+        document.getElementById('inpStartupFundedLevels'),
         document.getElementById('inpPlSizingPct'),
-        document.getElementById('inpFractionalShares'),
         retentionPortionInput
       ];
       inputs.forEach(el => {
