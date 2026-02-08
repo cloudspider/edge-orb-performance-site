@@ -1331,9 +1331,9 @@
             <span class="summary-tooltip">Peak funding requirement: the worst negative net trade cashflow. Equivalent to the capital committed to keep the ladder fully funded.</span>
           </div>
           <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
-            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Net Trade Cashflow</dt>
+            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Cashflow</dt>
             <dd id="summaryNetCashflow" class="mt-2 text-xl font-semibold text-slate-800">—</dd>
-            <span class="summary-tooltip">Net cashflow from trades only (buys negative, sells positive, commissions included). This is the cash ledger truth.</span>
+            <span class="summary-tooltip">Cashflow from trades only (buys negative, sells positive, commissions included). This is the cash ledger truth.</span>
           </div>
           <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
             <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Harvested Profit</dt>
@@ -1736,7 +1736,7 @@
     let WATCHLIST_STATE = { ...WATCHLIST_DEFAULTS };
     let LAST_ACTIVE_WATCHLIST = 'Default';
     let LAST_ADHOC_SYMBOL = '';
-    let GRID_STATE = { trades: [], summary: null, equitySeries: [], ladderHistory: [], buyLevels: [], sellLevels: [], baseLevel: null, gridLevels: [] };
+    let GRID_STATE = { trades: [], fillSequence: [], summary: null, equitySeries: [], ladderHistory: [], buyLevels: [], sellLevels: [], baseLevel: null, gridLevels: [] };
     let BACKTEST_ALL_RESULTS = [];
     let BACKTEST_ALL_RUNNING = false;
     let BACKTEST_ALL_SELECTED = '';
@@ -4483,7 +4483,7 @@
     }
 
     function resetGridOutputs(message) {
-      GRID_STATE = { trades: [], summary: null, equitySeries: [], ladderHistory: [], buyLevels: [], sellLevels: [], baseLevel: null, gridLevels: [] };
+      GRID_STATE = { trades: [], fillSequence: [], summary: null, equitySeries: [], ladderHistory: [], buyLevels: [], sellLevels: [], baseLevel: null, gridLevels: [] };
       renderGridSummary(null);
       renderGridTrades([], { resetPage: true });
       setGridStatus(message || 'Load data and run the backtest to populate results.');
@@ -4677,6 +4677,7 @@
 
     function runBuyTheDipSimulation(rows, params) {
       const trades = [];
+      const fillSequence = [];
       const equitySeries = [];
       const ladderHistory = [];
       let lastLadderSnapshot = null;
@@ -4700,6 +4701,7 @@
       let resolveBaseLevel = () => NaN;
       const finalizeResult = () => ({
         trades,
+        fillSequence,
         summary,
         equitySeries,
         ladderHistory,
@@ -5023,6 +5025,7 @@
             console.warn('Grid backtest could not seed sell order for', price);
           }
         }
+        fillSequence.push('B');
         return true;
       };
 
@@ -5102,6 +5105,7 @@
           addBuyOrder(buyLevel);
         }
         queueDelayedBuy(price);
+        fillSequence.push('S');
         return true;
       };
 
@@ -5301,13 +5305,13 @@
       }
       const uniqueFilteredDays = new Set(rowsForRun.map(row => row?.dayKey).filter(Boolean));
       const entryFilter = params?.entryFilter || 'none';
-      const window = getEntryFilterWindow(entryFilter);
-      if (window) {
+      const filterWindow = getEntryFilterWindow(entryFilter);
+      if (filterWindow) {
         const info = describeSmaAvailability(entryFilter);
         const available = info?.availableDays || 0;
         if (available <= 0) {
           const totalDays = info?.totalDays ?? DAYS.length;
-          setGridStatus(`Entry filter (${window}-day SMA) needs ${window} completed days. Dataset has ${totalDays.toLocaleString()} day${totalDays === 1 ? '' : 's'} — insufficient for this filter.`);
+          setGridStatus(`Entry filter (${filterWindow}-day SMA) needs ${filterWindow} completed days. Dataset has ${totalDays.toLocaleString()} day${totalDays === 1 ? '' : 's'} — insufficient for this filter.`);
           renderGridSummary(null);
           renderGridTrades([], { resetPage: true });
           renderAccountEquityChart(null);
@@ -5323,8 +5327,8 @@
           renderGridLevels([], [], null);
           return;
         }
-        if (uniqueFilteredDays.size < window) {
-          setGridStatus(`Entry filter (${window}-day SMA) needs ${window} completed day(s), but the current month filter only leaves ${uniqueFilteredDays.size.toLocaleString()} day${uniqueFilteredDays.size === 1 ? '' : 's'}. Adjust the filter or load additional data.`);
+        if (uniqueFilteredDays.size < filterWindow) {
+          setGridStatus(`Entry filter (${filterWindow}-day SMA) needs ${filterWindow} completed day(s), but the current month filter only leaves ${uniqueFilteredDays.size.toLocaleString()} day${uniqueFilteredDays.size === 1 ? '' : 's'}. Adjust the filter or load additional data.`);
           renderGridSummary(null);
           renderGridTrades([], { resetPage: true });
           renderAccountEquityChart(null);
@@ -5346,6 +5350,7 @@
         const result = runBuyTheDipSimulation(rowsForRun, params) || {};
         const safeResult = {
           trades: Array.isArray(result.trades) ? result.trades : [],
+          fillSequence: Array.isArray(result.fillSequence) ? result.fillSequence : [],
           summary: result.summary || null,
           equitySeries: Array.isArray(result.equitySeries) ? result.equitySeries : [],
           ladderHistory: Array.isArray(result.ladderHistory) ? result.ladderHistory : [],
@@ -5366,6 +5371,9 @@
         };
         console.log('GRID_BACKTEST_OUTPUT');
         console.log(JSON.stringify(backtestOutput, null, 2));
+        window.GRID_FILL_SEQUENCE = safeResult.fillSequence.slice();
+        console.log('GRID_FILL_SEQUENCE', window.GRID_FILL_SEQUENCE);
+        console.log('GRID_FILL_SEQUENCE_JSON', JSON.stringify(window.GRID_FILL_SEQUENCE));
         renderGridSummary(safeResult.summary);
         renderGridTrades(safeResult.trades, { resetPage: true });
         renderAccountEquityChart(safeResult.equitySeries);
