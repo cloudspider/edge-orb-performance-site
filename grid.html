@@ -1392,6 +1392,11 @@
             <p id="summaryMaxDDPctDate" class="mt-1 text-[11px] text-slate-500">—</p>
             <span class="summary-tooltip">Worst peak-to-trough account equity drawdown percentage (drawdown ÷ rolling peak equity).</span>
           </div>
+          <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
+            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">MAR</dt>
+            <dd id="summaryMar" class="mt-2 text-xl font-semibold text-slate-800">—</dd>
+            <span class="summary-tooltip">MAR ratio: CAGR ÷ |Max Drawdown %|. Higher indicates stronger return per unit of drawdown risk.</span>
+          </div>
         </dl>
         <dl class="grid gap-4">
           <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
@@ -2581,6 +2586,7 @@
       const accountEquityEl = document.getElementById('summaryAccountEquity');
       const retainedEl = document.getElementById('summaryRetained');
       const cagrEl = document.getElementById('summaryCagr');
+      const marEl = document.getElementById('summaryMar');
       const maxDdEl = document.getElementById('summaryMaxDD');
       const maxDdPctEl = document.getElementById('summaryMaxDDPct');
       const maxDdPctDateEl = document.getElementById('summaryMaxDDPctDate');
@@ -2627,10 +2633,16 @@
       const openLevelsFinal = Number.isFinite(safeSummary?.openLevelsFinal)
         ? safeSummary.openLevelsFinal
         : NaN;
+      const cagrValue = Number.isFinite(safeSummary?.cagr) ? safeSummary.cagr : NaN;
       const maxDrawdown = Number.isFinite(safeSummary?.maxDrawdown) ? safeSummary.maxDrawdown : NaN;
       const maxDrawdownPct = Number.isFinite(safeSummary?.maxDrawdownPct)
         ? safeSummary.maxDrawdownPct
         : NaN;
+      const marValue = Number.isFinite(safeSummary?.mar)
+        ? safeSummary.mar
+        : (Number.isFinite(cagrValue) && Number.isFinite(maxDrawdownPct) && maxDrawdownPct < -1e-8
+          ? (cagrValue * 100) / Math.abs(maxDrawdownPct)
+          : NaN);
       if (!Number.isFinite(netPLFinal)
         && Number.isFinite(netCashflowTradesValue)
         && Number.isFinite(holdingsValueFinal)) {
@@ -2695,13 +2707,12 @@
       }
       if (retainedEl) retainedEl.textContent = formatNumberOrDash(safeSummary.totalRetainedShares, 4);
       if (cagrEl) {
-        const cagr = safeSummary.cagr;
-        const pct = Number.isFinite(cagr) ? cagr * 100 : NaN;
+        const pct = Number.isFinite(cagrValue) ? cagrValue * 100 : NaN;
         cagrEl.textContent = formatPercentOrDash(pct);
         cagrEl.classList.remove('text-slate-800', 'text-emerald-600', 'text-red-600');
-        if (Number.isFinite(cagr) && cagr > 1e-6) {
+        if (Number.isFinite(cagrValue) && cagrValue > 1e-6) {
           cagrEl.classList.add('text-emerald-600');
-        } else if (Number.isFinite(cagr) && cagr < -1e-6) {
+        } else if (Number.isFinite(cagrValue) && cagrValue < -1e-6) {
           cagrEl.classList.add('text-red-600');
         } else {
           cagrEl.classList.add('text-slate-800');
@@ -2730,6 +2741,17 @@
       }
       if (maxDdPctDateEl) {
         maxDdPctDateEl.textContent = drawdownPctDateKey ? `on ${drawdownPctDateKey}` : '—';
+      }
+      if (marEl) {
+        marEl.textContent = Number.isFinite(marValue) ? `${formatNumber(marValue, 2)}x` : '—';
+        marEl.classList.remove('text-slate-800', 'text-emerald-600', 'text-red-600');
+        if (Number.isFinite(marValue) && marValue > 1e-6) {
+          marEl.classList.add('text-emerald-600');
+        } else if (Number.isFinite(marValue) && marValue < -1e-6) {
+          marEl.classList.add('text-red-600');
+        } else {
+          marEl.classList.add('text-slate-800');
+        }
       }
       if (cashEl) cashEl.textContent = formatCurrencyOrDash(safeSummary.cash);
       if (sharesEl) sharesEl.textContent = formatNumberOrDash(safeSummary.shares, 4);
@@ -4693,7 +4715,8 @@
         maxSharesHeld: 0,
         maxOpenLevels: 0,
         maxDeployedCapital: 0,
-        cagr: 0
+        cagr: 0,
+        mar: null
       };
       const buyLevelSet = new Set();
       const sellLevelSet = new Set();
@@ -5246,6 +5269,9 @@
       const cagr = (years > 0 && cagrBaseEquity > 0 && finalEquity > 0)
         ? Math.pow(finalEquity / cagrBaseEquity, 1 / years) - 1
         : 0;
+      const mar = (Number.isFinite(cagr) && Number.isFinite(maxDrawdownPct) && maxDrawdownPct < -1e-8)
+        ? (cagr / Math.abs(maxDrawdownPct))
+        : null;
       summary.totalTrades = trades.length;
       summary.netProfit = netPLFinal;
       summary.profitPerLevel = maxLevelsUsed > 0 ? netPLFinal / maxLevelsUsed : 0;
@@ -5261,6 +5287,7 @@
       summary.maxDrawdownPctDate = maxDrawdownPctDate ? maxDrawdownPctDate.toISOString() : null;
       summary.maxSharesHeld = maxSharesHeld;
       summary.cagr = cagr;
+      summary.mar = mar;
       summary.maxDeployedCapital = maxDeployedCapital;
       summary.netPLFinal = netPLFinal;
       summary.realizedProfit = realizedProfit;
