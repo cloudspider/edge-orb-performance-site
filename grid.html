@@ -658,6 +658,56 @@
       height: 100%;
       overflow: hidden;
     }
+    #tickerSegment button .symbol-update-badge {
+      position: absolute;
+      top: 0.45rem;
+      left: 0.45rem;
+      width: 0.72rem;
+      height: 0.72rem;
+      border-radius: 9999px;
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      background: rgba(148, 163, 184, 0.9);
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.28);
+      pointer-events: none;
+      z-index: 25;
+      display: none;
+    }
+    #tickerSegment button[data-update-state] .symbol-update-badge {
+      display: inline-flex;
+    }
+    #tickerSegment button[data-update-state="running"] {
+      box-shadow: inset 0 0 0 2px rgba(14, 165, 233, 0.9);
+    }
+    #tickerSegment button[data-update-state="running"] .symbol-update-badge {
+      width: 0.92rem;
+      height: 0.92rem;
+      border: 2px solid var(--app-spinner-border);
+      border-top-color: transparent;
+      background: transparent;
+      animation: tickerUpdateSpin 0.8s linear infinite;
+    }
+    #tickerSegment button[data-update-state="ok"] {
+      box-shadow: inset 0 0 0 2px rgba(16, 185, 129, 0.85);
+    }
+    #tickerSegment button[data-update-state="ok"] .symbol-update-badge {
+      background: rgba(16, 185, 129, 0.95);
+    }
+    #tickerSegment button[data-update-state="uptodate"] {
+      box-shadow: inset 0 0 0 2px rgba(59, 130, 246, 0.75);
+    }
+    #tickerSegment button[data-update-state="uptodate"] .symbol-update-badge {
+      background: rgba(59, 130, 246, 0.9);
+    }
+    #tickerSegment button[data-update-state="error"] {
+      box-shadow: inset 0 0 0 2px rgba(239, 68, 68, 0.85);
+    }
+    #tickerSegment button[data-update-state="error"] .symbol-update-badge {
+      background: rgba(239, 68, 68, 0.95);
+    }
+    @keyframes tickerUpdateSpin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
     .watchlist-options-toggle {
       position: absolute;
       top: 0.5rem;
@@ -966,7 +1016,15 @@
           >
             Backtest All
           </button>
+          <button
+            type="button"
+            id="watchlistUpdateAllBtn"
+            class="inline-flex items-center gap-1 rounded-lg border border-sky-300 bg-sky-300 px-2.5 py-1.5 text-xs font-semibold text-slate-900 shadow-sm transition hover:bg-sky-200 disabled:cursor-not-allowed disabled:text-slate-400"
+          >
+            Update Watchlist Data
+          </button>
         </div>
+        <div id="watchlistUpdateStatus" class="mb-2 text-xs text-slate-500"></div>
         <div class="flex items-center gap-2 mb-2">
           <div class="flex-1 min-w-0">
       <div id="tickerSegment" class="w-full rounded-xl border border-slate-200 bg-slate-200 p-px overflow-visible">
@@ -1256,7 +1314,11 @@
     <section id="gridFiltersSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
       <div class="flex flex-col gap-2">
         <h2 class="font-semibold text-slate-700">Filters</h2>
-        <p class="text-sm text-slate-500">Limit the displayed results to specific months.</p>
+        <p class="text-sm text-slate-500">Use quick timeframe presets or advanced month selection to limit displayed results.</p>
+      </div>
+      <div class="space-y-2">
+        <div id="timeframePresetGroup" class="flex flex-wrap gap-2" aria-label="Timeframe presets"></div>
+        <p id="timeFilterModeLabel" class="text-xs text-slate-500">Mode: All</p>
       </div>
       <div class="relative inline-block" aria-label="Months">
         <button id="sumMonthMultiBtn" type="button" class="inline-flex items-center justify-between gap-2 bg-white text-slate-800 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm min-w-[200px]">
@@ -1313,6 +1375,8 @@
           <p id="gridStatus" class="text-sm text-slate-500">Load data and run the backtest to populate results.</p>
         </div>
         <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-slate-500">
+          <span title="Number of trading days included in the current backtest run (after active filters).">Days:</span>
+          <span id="summaryDayCount" class="text-sm font-semibold text-slate-800">0</span>
           <span title="Final account cash balance (cashBalance).">Cash:</span>
           <span id="summaryCash" class="text-sm font-semibold text-slate-800">$0.00</span>
           <span title="Final holdings quantity.">Shares:</span>
@@ -1761,9 +1825,41 @@
     let levelDistributionChartInst = null;
     let cumulativeLevelDistributionChartInst = null;
     let AVAILABLE_MONTHS = [];
-    let VIEW_MONTHS = new Set();
+    const TIMEFRAME_PRESETS = [
+      { id: 'all', label: 'All', kind: 'all' },
+      { id: 'today', label: 'Today', kind: 'calendar' },
+      { id: 'yesterday', label: 'Yesterday', kind: 'calendar' },
+      { id: 'this_week', label: 'This Week', kind: 'calendar' },
+      { id: 'last_week', label: 'Last Week', kind: 'calendar' },
+      { id: 'this_month', label: 'This Month', kind: 'calendar' },
+      { id: 'last_5d', label: 'Last 5D', kind: 'rolling', value: 5 },
+      { id: 'last_10d', label: 'Last 10D', kind: 'rolling', value: 10 },
+      { id: 'last_20d', label: 'Last 20D', kind: 'rolling', value: 20 },
+      { id: 'last_30d', label: 'Last 30D', kind: 'rolling', value: 30 }
+    ];
+    let TIME_FILTER_STATE = {
+      mode: 'all',
+      presetId: null,
+      months: new Set()
+    };
     let PRICE_DISTRIBUTION_VIEW = 'buy';
     const TRADE_TABLE_STATE = { page: 1, pageSize: 250 };
+    const WATCHLIST_UPDATE_DELAY_MS = 10000;
+    let WATCHLIST_UPDATE_RUNNING = false;
+    let ADHOC_DOWNLOAD_BUSY = false;
+    let WATCHLIST_UPDATE_PROGRESS = createWatchlistUpdateProgress();
+
+    function createWatchlistUpdateProgress() {
+      return {
+        bySymbol: {},
+        total: 0,
+        done: 0,
+        ok: 0,
+        uptodate: 0,
+        error: 0,
+        currentSymbol: ''
+      };
+    }
 
     function setStatus(msg) {
       const el = document.getElementById('status');
@@ -1800,6 +1896,116 @@
     function setBatchResultsStatus(msg) {
       const el = document.getElementById('batchResultsStatus');
       if (el) el.textContent = msg || '';
+    }
+
+    function setWatchlistUpdateStatus(msg) {
+      const el = document.getElementById('watchlistUpdateStatus');
+      if (el) el.textContent = msg || '';
+    }
+
+    function sleep(ms) {
+      const delay = Number(ms);
+      return new Promise((resolve) => {
+        setTimeout(resolve, Number.isFinite(delay) && delay > 0 ? delay : 0);
+      });
+    }
+
+    function syncBatchAndUpdateButtons() {
+      const batchBtn = document.getElementById('watchlistBacktestAllBtn');
+      const updateBtn = document.getElementById('watchlistUpdateAllBtn');
+      const disable = BACKTEST_ALL_RUNNING || WATCHLIST_UPDATE_RUNNING;
+      if (batchBtn) {
+        batchBtn.disabled = disable;
+        batchBtn.classList.toggle('opacity-70', disable);
+      }
+      if (updateBtn) {
+        updateBtn.disabled = disable;
+        updateBtn.classList.toggle('opacity-70', disable);
+      }
+    }
+
+    function syncWatchlistManagementControls() {
+      const select = document.getElementById('watchlistSelect');
+      const newBtn = document.getElementById('watchlistNewBtn');
+      const delBtn = document.getElementById('watchlistDeleteBtn');
+      if (select) select.disabled = WATCHLIST_UPDATE_RUNNING;
+      if (newBtn) newBtn.disabled = WATCHLIST_UPDATE_RUNNING;
+      if (delBtn) {
+        const canDelete = delBtn.dataset.canDelete === '1';
+        delBtn.disabled = WATCHLIST_UPDATE_RUNNING || !canDelete;
+      }
+    }
+
+    function syncAdhocDownloadControls() {
+      const btn = document.getElementById('btnAdhocGetData');
+      const watchBtn = document.getElementById('watchlistAddAdhocBtn');
+      const input = document.getElementById('inpAdhocSymbol');
+      const busy = ADHOC_DOWNLOAD_BUSY || WATCHLIST_UPDATE_RUNNING;
+      if (btn) btn.disabled = busy;
+      if (input) input.disabled = busy;
+      if (watchBtn) watchBtn.disabled = busy || !LAST_ADHOC_SYMBOL;
+    }
+
+    function setWatchlistUpdateControlsBusy(isBusy) {
+      WATCHLIST_UPDATE_RUNNING = !!isBusy;
+      syncBatchAndUpdateButtons();
+      syncWatchlistManagementControls();
+      syncAdhocDownloadControls();
+    }
+
+    function resetWatchlistUpdateProgress() {
+      WATCHLIST_UPDATE_PROGRESS = createWatchlistUpdateProgress();
+      applySymbolUpdateStatesToTiles();
+    }
+
+    function setSymbolUpdateState(symbol, state, detail) {
+      const sym = normalizeSymbolInput(symbol);
+      if (!sym) return;
+      if (!state) {
+        delete WATCHLIST_UPDATE_PROGRESS.bySymbol[sym];
+      } else {
+        WATCHLIST_UPDATE_PROGRESS.bySymbol[sym] = {
+          state,
+          detail: detail ? String(detail) : ''
+        };
+      }
+      applySymbolUpdateStatesToTiles();
+    }
+
+    function applySymbolUpdateStatesToTiles() {
+      const seg = document.getElementById('tickerSegment');
+      if (!seg) return;
+      seg.querySelectorAll('button[data-symbol]').forEach((btn) => {
+        const symbol = normalizeSymbolInput(btn.getAttribute('data-symbol'));
+        const stateEntry = symbol ? WATCHLIST_UPDATE_PROGRESS.bySymbol[symbol] : null;
+        const badge = btn.querySelector('[data-update-badge]');
+        if (!stateEntry || !stateEntry.state) {
+          btn.removeAttribute('data-update-state');
+          btn.removeAttribute('data-update-detail');
+          btn.removeAttribute('aria-busy');
+          if (badge) {
+            badge.removeAttribute('title');
+            badge.removeAttribute('aria-label');
+          }
+          return;
+        }
+        btn.setAttribute('data-update-state', stateEntry.state);
+        if (stateEntry.detail) {
+          btn.setAttribute('data-update-detail', stateEntry.detail);
+        } else {
+          btn.removeAttribute('data-update-detail');
+        }
+        if (stateEntry.state === 'running') {
+          btn.setAttribute('aria-busy', 'true');
+        } else {
+          btn.removeAttribute('aria-busy');
+        }
+        if (badge) {
+          const badgeLabel = stateEntry.detail || stateEntry.state;
+          badge.setAttribute('title', badgeLabel);
+          badge.setAttribute('aria-label', badgeLabel);
+        }
+      });
     }
 
     function setRunButtonEnabled(enabled) {
@@ -2591,6 +2797,7 @@
       const maxDdPctEl = document.getElementById('summaryMaxDDPct');
       const maxDdPctDateEl = document.getElementById('summaryMaxDDPctDate');
       const maxDdDateEl = document.getElementById('summaryMaxDDDate');
+      const dayCountEl = document.getElementById('summaryDayCount');
       const cashEl = document.getElementById('summaryCash');
       const sharesEl = document.getElementById('summaryShares');
       const lastPriceEl = document.getElementById('summaryLastPrice');
@@ -2638,6 +2845,9 @@
       const maxDrawdownPct = Number.isFinite(safeSummary?.maxDrawdownPct)
         ? safeSummary.maxDrawdownPct
         : NaN;
+      const dayCountValue = Number.isFinite(safeSummary?.dayCount)
+        ? Math.max(0, Math.round(safeSummary.dayCount))
+        : 0;
       const marValue = Number.isFinite(safeSummary?.mar)
         ? safeSummary.mar
         : (Number.isFinite(cagrValue) && Number.isFinite(maxDrawdownPct) && maxDrawdownPct < -1e-8
@@ -2742,6 +2952,7 @@
       if (maxDdPctDateEl) {
         maxDdPctDateEl.textContent = drawdownPctDateKey ? `on ${drawdownPctDateKey}` : '—';
       }
+      if (dayCountEl) dayCountEl.textContent = formatNumberOrDash(dayCountValue, 0);
       if (marEl) {
         marEl.textContent = Number.isFinite(marValue) ? `${formatNumber(marValue, 2)}x` : '—';
         marEl.classList.remove('text-slate-800', 'text-emerald-600', 'text-red-600');
@@ -2828,6 +3039,15 @@
       return `${mm}/${yy}`;
     }
 
+    function formatDayKeyFromDate(value) {
+      const date = value instanceof Date ? value : new Date(value);
+      if (!(date instanceof Date) || isNaN(date)) return null;
+      const mm = pad2(date.getMonth() + 1);
+      const dd = pad2(date.getDate());
+      const yy = date.getFullYear();
+      return `${yy}-${mm}-${dd}`;
+    }
+
     function monthChoicesFromDays() {
       if (!Array.isArray(DAYS) || !DAYS.length) return [];
       const set = new Set();
@@ -2843,8 +3063,16 @@
       });
     }
 
-    function isMonthFilterStrict() {
-      return VIEW_MONTHS.size > 0 && VIEW_MONTHS.size < AVAILABLE_MONTHS.length;
+    function parseDayKey(dayKey) {
+      if (typeof dayKey !== 'string') return null;
+      const match = dayKey.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (!match) return null;
+      const year = Number(match[1]);
+      const month = Number(match[2]);
+      const day = Number(match[3]);
+      if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
+      const date = new Date(year, month - 1, day);
+      return Number.isNaN(date.getTime()) ? null : date;
     }
 
     function formatDayKeyToMonth(dayKey) {
@@ -2852,23 +3080,180 @@
       return `${dayKey.slice(5, 7)}/${dayKey.slice(0, 4)}`;
     }
 
+    function startOfWeekMonday(date) {
+      if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
+      const out = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      const weekday = out.getDay(); // 0-6, Sunday=0
+      const delta = weekday === 0 ? -6 : (1 - weekday);
+      out.setDate(out.getDate() + delta);
+      return out;
+    }
+
+    function addDays(date, days) {
+      if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
+      const out = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      out.setDate(out.getDate() + days);
+      return out;
+    }
+
+    function findTimeframePresetById(presetId) {
+      const key = String(presetId || '').toLowerCase();
+      return TIMEFRAME_PRESETS.find((preset) => preset.id === key) || null;
+    }
+
+    function resolvePresetDayKeySet(presetId) {
+      const dayKeys = Array.isArray(DAYS) ? DAYS : [];
+      const set = new Set();
+      if (!dayKeys.length) return set;
+      const latestKey = dayKeys[dayKeys.length - 1];
+      const latestDate = parseDayKey(latestKey);
+      if (!latestDate) return set;
+      const preset = findTimeframePresetById(presetId);
+      if (!preset || preset.kind === 'all') return null;
+      if (preset.id === 'today') {
+        set.add(latestKey);
+        return set;
+      }
+      if (preset.id === 'yesterday') {
+        if (dayKeys.length > 1) set.add(dayKeys[dayKeys.length - 2]);
+        return set;
+      }
+      if (preset.id === 'this_month') {
+        const monthPrefix = latestKey.slice(0, 7);
+        dayKeys.forEach((dayKey) => {
+          if (dayKey.startsWith(monthPrefix)) set.add(dayKey);
+        });
+        return set;
+      }
+      if (preset.id === 'this_week' || preset.id === 'last_week') {
+        const thisWeekStart = startOfWeekMonday(latestDate);
+        if (!thisWeekStart) return set;
+        const windowStart = preset.id === 'last_week' ? addDays(thisWeekStart, -7) : thisWeekStart;
+        const windowEnd = preset.id === 'last_week' ? addDays(thisWeekStart, -1) : latestDate;
+        if (!windowStart || !windowEnd) return set;
+        dayKeys.forEach((dayKey) => {
+          const dayDate = parseDayKey(dayKey);
+          if (!dayDate) return;
+          if (dayDate >= windowStart && dayDate <= windowEnd) set.add(dayKey);
+        });
+        return set;
+      }
+      if (preset.kind === 'rolling') {
+        const count = Number(preset.value);
+        const n = Number.isFinite(count) && count > 0 ? Math.floor(count) : 0;
+        if (n <= 0) return set;
+        const start = Math.max(0, dayKeys.length - n);
+        return new Set(dayKeys.slice(start));
+      }
+      return set;
+    }
+
+    function getMonthDayKeySet(monthSet) {
+      if (!(monthSet instanceof Set) || !monthSet.size) return null;
+      const set = new Set();
+      (Array.isArray(DAYS) ? DAYS : []).forEach((dayKey) => {
+        const monthKey = formatDayKeyToMonth(dayKey);
+        if (monthKey && monthSet.has(monthKey)) set.add(dayKey);
+      });
+      return set;
+    }
+
+    function getActiveDayKeySet() {
+      if (TIME_FILTER_STATE.mode === 'preset') {
+        return resolvePresetDayKeySet(TIME_FILTER_STATE.presetId);
+      }
+      if (TIME_FILTER_STATE.mode === 'months') {
+        return getMonthDayKeySet(TIME_FILTER_STATE.months);
+      }
+      return null;
+    }
+
+    function isMonthFilterStrict() {
+      return getActiveDayKeySet() !== null;
+    }
+
     function applyMonthFilter(trades) {
       if (!Array.isArray(trades) || !trades.length) return [];
-      if (!VIEW_MONTHS.size) return trades.slice();
+      const activeDays = getActiveDayKeySet();
+      if (activeDays == null) return trades.slice();
+      if (!activeDays.size) return [];
       return trades.filter((trade) => {
-        const key = formatMonthKeyFromDate(trade?.buyTime);
-        return key && VIEW_MONTHS.has(key);
+        const dayKey = formatDayKeyFromDate(trade?.buyTime);
+        return dayKey && activeDays.has(dayKey);
       });
     }
 
     function filterRowsBySelectedMonths(rows) {
       if (!Array.isArray(rows) || !rows.length) return [];
-      if (!VIEW_MONTHS.size) return rows.slice();
+      const activeDays = getActiveDayKeySet();
+      if (activeDays == null) return rows.slice();
+      if (!activeDays.size) return [];
       return rows.filter((row) => {
         if (!row || !row.dayKey) return false;
-        const key = formatDayKeyToMonth(row.dayKey);
-        return key && VIEW_MONTHS.has(key);
+        return activeDays.has(row.dayKey);
       });
+    }
+
+    function buildTimeframePresetButtons() {
+      const container = document.getElementById('timeframePresetGroup');
+      if (!container) return;
+      container.innerHTML = TIMEFRAME_PRESETS.map((preset) => `
+        <button
+          type="button"
+          data-timeframe-preset="${preset.id}"
+          class="inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+        >
+          ${preset.label}
+        </button>
+      `).join('');
+      updateTimeframePresetButtons();
+    }
+
+    function updateTimeframePresetButtons() {
+      document.querySelectorAll('#timeframePresetGroup button[data-timeframe-preset]').forEach((btn) => {
+        const id = btn.getAttribute('data-timeframe-preset');
+        const active = id === 'all'
+          ? TIME_FILTER_STATE.mode === 'all'
+          : (TIME_FILTER_STATE.mode === 'preset' && TIME_FILTER_STATE.presetId === id);
+        btn.classList.remove(
+          'border-slate-200',
+          'bg-white',
+          'text-slate-700',
+          'hover:bg-slate-50',
+          'border-emerald-500',
+          'bg-emerald-600',
+          'text-white'
+        );
+        if (active) {
+          btn.classList.add('border-emerald-500', 'bg-emerald-600', 'text-white');
+          btn.setAttribute('aria-pressed', 'true');
+        } else {
+          btn.classList.add('border-slate-200', 'bg-white', 'text-slate-700', 'hover:bg-slate-50');
+          btn.setAttribute('aria-pressed', 'false');
+        }
+      });
+    }
+
+    function updateTimeFilterModeLabel() {
+      const label = document.getElementById('timeFilterModeLabel');
+      if (!label) return;
+      if (TIME_FILTER_STATE.mode === 'preset' && TIME_FILTER_STATE.presetId) {
+        const preset = findTimeframePresetById(TIME_FILTER_STATE.presetId);
+        const presetName = preset ? preset.label : TIME_FILTER_STATE.presetId;
+        label.textContent = `Mode: Preset - ${presetName}`;
+        return;
+      }
+      if (TIME_FILTER_STATE.mode === 'months') {
+        label.textContent = 'Mode: Months';
+        return;
+      }
+      label.textContent = 'Mode: All';
+    }
+
+    function refreshTimeFilterSelection() {
+      updateMonthFilterLabel();
+      updateTimeframePresetButtons();
+      updateTimeFilterModeLabel();
     }
 
     function rerunBacktestIfDataLoaded() {
@@ -2974,12 +3359,8 @@
     }
 
     function setAdhocDownloadBusy(isBusy) {
-      const btn = document.getElementById('btnAdhocGetData');
-      const watchBtn = document.getElementById('watchlistAddAdhocBtn');
-      const input = document.getElementById('inpAdhocSymbol');
-      if (btn) btn.disabled = !!isBusy;
-      if (input) input.disabled = !!isBusy;
-      if (watchBtn) watchBtn.disabled = !!isBusy || !LAST_ADHOC_SYMBOL;
+      ADHOC_DOWNLOAD_BUSY = !!isBusy;
+      syncAdhocDownloadControls();
     }
 
     async function requestAdhocDownload(symbol) {
@@ -2999,8 +3380,7 @@
 
     function setAdhocWatchlistSymbol(symbol) {
       LAST_ADHOC_SYMBOL = (symbol || '').toUpperCase().trim();
-      const watchBtn = document.getElementById('watchlistAddAdhocBtn');
-      if (watchBtn) watchBtn.disabled = !LAST_ADHOC_SYMBOL;
+      syncAdhocDownloadControls();
     }
 
     function updateTradePaginationControls(totalRows, range) {
@@ -3041,7 +3421,7 @@
       if (!filtered.length) {
         if (emptyState) {
           emptyState.textContent = filterActive
-            ? 'No trades match the selected month filter.'
+            ? 'No trades match the selected timeframe filter.'
             : 'Run the backtest to see individual trades.';
           emptyState.classList.remove('hidden');
         }
@@ -3103,44 +3483,47 @@
 
     function updateMonthFilterLabel() {
       const lbl = document.getElementById('sumMonthMultiLabel');
+      const btn = document.getElementById('sumMonthMultiBtn');
       if (!lbl) return;
-      if (!VIEW_MONTHS.size || VIEW_MONTHS.size === AVAILABLE_MONTHS.length) {
+      const months = TIME_FILTER_STATE.months;
+      if (btn) {
+        btn.classList.toggle('border-emerald-500', TIME_FILTER_STATE.mode === 'months');
+      }
+      if (!months.size || months.size === AVAILABLE_MONTHS.length) {
         lbl.textContent = 'All months';
         return;
       }
-      if (VIEW_MONTHS.size <= 2) {
-        lbl.textContent = Array.from(VIEW_MONTHS).sort().join(', ');
+      if (months.size <= 2) {
+        lbl.textContent = Array.from(months).sort().join(', ');
         return;
       }
-      lbl.textContent = `${VIEW_MONTHS.size} selected`;
+      lbl.textContent = `${months.size} selected`;
     }
 
     function buildMonthFilterOptions() {
       AVAILABLE_MONTHS = monthChoicesFromDays();
       const list = document.getElementById('sumMonthMultiList');
       if (!list) return;
+      const validMonths = new Set();
+      TIME_FILTER_STATE.months.forEach((key) => {
+        if (AVAILABLE_MONTHS.includes(key)) validMonths.add(key);
+      });
+      TIME_FILTER_STATE.months = validMonths;
       if (!AVAILABLE_MONTHS.length) {
         list.innerHTML = '<div class="px-2 py-1 text-xs text-slate-500">No data loaded.</div>';
       } else {
         list.innerHTML = AVAILABLE_MONTHS.map(key => `
           <label class="flex items-center gap-2 px-2 py-1 rounded hover:bg-slate-50 cursor-pointer">
-            <input type="checkbox" class="h-4 w-4 rounded border-slate-300" data-month="${key}" ${VIEW_MONTHS.has(key) ? 'checked' : ''} />
+            <input type="checkbox" class="h-4 w-4 rounded border-slate-300" data-month="${key}" ${TIME_FILTER_STATE.months.has(key) ? 'checked' : ''} />
             <span class="text-sm text-slate-800">${key}</span>
           </label>
         `).join('');
       }
-      if (VIEW_MONTHS.size && VIEW_MONTHS.size >= AVAILABLE_MONTHS.length) {
-        VIEW_MONTHS = new Set(AVAILABLE_MONTHS);
-      } else {
-        const valid = new Set();
-        VIEW_MONTHS.forEach(key => { if (AVAILABLE_MONTHS.includes(key)) valid.add(key); });
-        VIEW_MONTHS = valid;
-      }
       document.querySelectorAll('#sumMonthMultiList input[data-month]').forEach(cb => {
         const key = cb.getAttribute('data-month');
-        cb.checked = VIEW_MONTHS.has(key);
+        cb.checked = TIME_FILTER_STATE.months.has(key);
       });
-      updateMonthFilterLabel();
+      refreshTimeFilterSelection();
     }
 
     document.addEventListener('click', (e) => {
@@ -3157,16 +3540,53 @@
     });
 
     document.addEventListener('click', (e) => {
+      const presetBtn = e.target.closest('#timeframePresetGroup button[data-timeframe-preset]');
+      if (!presetBtn) return;
+      const presetId = presetBtn.getAttribute('data-timeframe-preset');
+      if (!presetId) return;
+      if (presetId === 'all') {
+        TIME_FILTER_STATE = {
+          mode: 'all',
+          presetId: null,
+          months: new Set()
+        };
+      } else if (TIME_FILTER_STATE.mode === 'preset' && TIME_FILTER_STATE.presetId === presetId) {
+        TIME_FILTER_STATE = {
+          mode: 'all',
+          presetId: null,
+          months: new Set()
+        };
+      } else {
+        TIME_FILTER_STATE = {
+          mode: 'preset',
+          presetId,
+          months: new Set()
+        };
+      }
+      buildMonthFilterOptions();
+      renderGridTrades(GRID_STATE.trades || [], { resetPage: true });
+      rerunBacktestIfDataLoaded();
+    });
+
+    document.addEventListener('click', (e) => {
       const selAll = e.target.closest('#sumMonthSelectAll');
       const clrAll = e.target.closest('#sumMonthClearAll');
       if (!selAll && !clrAll) return;
-      if (selAll) VIEW_MONTHS = new Set(AVAILABLE_MONTHS);
-      if (clrAll) VIEW_MONTHS = new Set();
+      if (selAll) {
+        TIME_FILTER_STATE.mode = 'months';
+        TIME_FILTER_STATE.presetId = null;
+        TIME_FILTER_STATE.months = new Set(AVAILABLE_MONTHS);
+      }
+      if (clrAll) {
+        TIME_FILTER_STATE.mode = 'months';
+        TIME_FILTER_STATE.presetId = null;
+        TIME_FILTER_STATE.months = new Set();
+      }
       document.querySelectorAll('#sumMonthMultiList input[data-month]').forEach(cb => {
         const key = cb.getAttribute('data-month');
-        cb.checked = VIEW_MONTHS.has(key);
+        cb.checked = TIME_FILTER_STATE.months.has(key);
       });
-      updateMonthFilterLabel();
+      refreshTimeFilterSelection();
       renderGridTrades(GRID_STATE.trades || [], { resetPage: true });
       rerunBacktestIfDataLoaded();
     });
@@ -3176,8 +3596,10 @@
       if (!cb) return;
       const key = cb.getAttribute('data-month');
       if (!key) return;
-      if (cb.checked) VIEW_MONTHS.add(key); else VIEW_MONTHS.delete(key);
-      updateMonthFilterLabel();
+      TIME_FILTER_STATE.mode = 'months';
+      TIME_FILTER_STATE.presetId = null;
+      if (cb.checked) TIME_FILTER_STATE.months.add(key); else TIME_FILTER_STATE.months.delete(key);
+      refreshTimeFilterSelection();
       renderGridTrades(GRID_STATE.trades || [], { resetPage: true });
       rerunBacktestIfDataLoaded();
     });
@@ -4401,6 +4823,7 @@
           nameSpan.classList.toggle('text-slate-500', !active);
         }
       });
+      applySymbolUpdateStatesToTiles();
     }
 
     function renderDataSummary() {
@@ -5314,7 +5737,7 @@
       const params = getGridParamsFromUI();
       const rowsForRun = filterRowsBySelectedMonths(ROWS);
       if (!rowsForRun.length) {
-        setGridStatus('No data available for the selected month filter. Clear the filter or load more data.');
+        setGridStatus('No data available for the selected timeframe filter. Clear the filter or load more data.');
         renderGridSummary(null);
         renderGridTrades([], { resetPage: true });
         renderAccountEquityChart(null);
@@ -5355,7 +5778,7 @@
           return;
         }
         if (uniqueFilteredDays.size < filterWindow) {
-          setGridStatus(`Entry filter (${filterWindow}-day SMA) needs ${filterWindow} completed day(s), but the current month filter only leaves ${uniqueFilteredDays.size.toLocaleString()} day${uniqueFilteredDays.size === 1 ? '' : 's'}. Adjust the filter or load additional data.`);
+          setGridStatus(`Entry filter (${filterWindow}-day SMA) needs ${filterWindow} completed day(s), but the current timeframe filter only leaves ${uniqueFilteredDays.size.toLocaleString()} day${uniqueFilteredDays.size === 1 ? '' : 's'}. Adjust the filter or load additional data.`);
           renderGridSummary(null);
           renderGridTrades([], { resetPage: true });
           renderAccountEquityChart(null);
@@ -5386,6 +5809,9 @@
           baseLevel: Number.isFinite(result.baseLevel) ? result.baseLevel : null,
           gridLevels: Array.isArray(result.gridLevels) ? result.gridLevels : []
         };
+        if (safeResult.summary) {
+          safeResult.summary.dayCount = uniqueFilteredDays.size;
+        }
         GRID_STATE = safeResult;
         const backtestOutput = {
           generated_at: new Date().toISOString(),
@@ -5446,6 +5872,8 @@
     }
 
     function initGridControls() {
+      buildTimeframePresetButtons();
+      refreshTimeFilterSelection();
       const btn = document.getElementById('btnRunGridBacktest');
       if (btn) {
         btn.addEventListener('click', () => runGridBacktest());
@@ -6015,60 +6443,136 @@
       window.BACKTEST_ALL_RESULTS = BACKTEST_ALL_RESULTS;
     }
 
+    function formatWatchlistUpdateSummary(prefix = 'Completed') {
+      const { done, total, ok, uptodate, error } = WATCHLIST_UPDATE_PROGRESS;
+      return `${prefix} ${done}/${total} symbols. Updated: ${ok}, up-to-date: ${uptodate}, failed: ${error}.`;
+    }
+
     async function runBatchBacktest() {
-      if (BACKTEST_ALL_RUNNING) return;
-      const btn = document.getElementById('watchlistBacktestAllBtn');
+      if (BACKTEST_ALL_RUNNING || WATCHLIST_UPDATE_RUNNING) return;
       BACKTEST_ALL_RUNNING = true;
-      if (btn) btn.disabled = true;
+      syncBatchAndUpdateButtons();
       BACKTEST_ALL_RESULTS = [];
       BACKTEST_ALL_SELECTED = '';
       BACKTEST_ALL_SORT = { key: 'symbol', dir: 'asc' };
       renderBatchResults();
       setBatchResultsStatus('');
-      const symbols = await getSymbolsForBatchBacktest();
-      if (!symbols.length) {
-        setBatchResultsStatus('No symbols available in the active watchlist.');
-        BACKTEST_ALL_RUNNING = false;
-        if (btn) btn.disabled = false;
-        renderBatchResults();
-        return;
-      }
-      for (let i = 0; i < symbols.length; i += 1) {
-        const symbol = symbols[i];
-        setBatchResultsStatus(`Backtesting ${symbol} (${i + 1}/${symbols.length})…`);
-        setTicker(symbol);
-        const loaded = await loadSymbolData(symbol);
-        if (!loaded || !GRID_STATE?.summary) {
-        BACKTEST_ALL_RESULTS.push({
-          symbol,
-          status: 'error',
-          error: loaded ? 'No summary generated' : 'Data load failed',
-          summary: null,
-          sellFillStats: null,
-          params: getGridParamsFromUI(),
-          meta: null,
-          generatedAt: new Date().toISOString()
-        });
+      try {
+        const symbols = await getSymbolsForBatchBacktest();
+        if (!symbols.length) {
+          setBatchResultsStatus('No symbols available in the active watchlist.');
           renderBatchResults();
-          continue;
+          return;
         }
-        const fillEntries = computeDailyFillEntries(GRID_STATE.trades).entries;
-        const sellFillStats = computeSellFillStats(fillEntries);
-        BACKTEST_ALL_RESULTS.push({
-          symbol,
-          status: 'ok',
-          summary: GRID_STATE.summary,
-          sellFillStats,
-          params: getGridParamsFromUI(),
-          meta: collectGridBacktestPayload(),
-          generatedAt: new Date().toISOString()
-        });
+        for (let i = 0; i < symbols.length; i += 1) {
+          const symbol = symbols[i];
+          setBatchResultsStatus(`Backtesting ${symbol} (${i + 1}/${symbols.length})…`);
+          setTicker(symbol);
+          const loaded = await loadSymbolData(symbol);
+          if (!loaded || !GRID_STATE?.summary) {
+            BACKTEST_ALL_RESULTS.push({
+              symbol,
+              status: 'error',
+              error: loaded ? 'No summary generated' : 'Data load failed',
+              summary: null,
+              sellFillStats: null,
+              params: getGridParamsFromUI(),
+              meta: null,
+              generatedAt: new Date().toISOString()
+            });
+            renderBatchResults();
+            continue;
+          }
+          const fillEntries = computeDailyFillEntries(GRID_STATE.trades).entries;
+          const sellFillStats = computeSellFillStats(fillEntries);
+          BACKTEST_ALL_RESULTS.push({
+            symbol,
+            status: 'ok',
+            summary: GRID_STATE.summary,
+            sellFillStats,
+            params: getGridParamsFromUI(),
+            meta: collectGridBacktestPayload(),
+            generatedAt: new Date().toISOString()
+          });
+          renderBatchResults();
+        }
+        setBatchResultsStatus(`Completed ${BACKTEST_ALL_RESULTS.length} / ${symbols.length} symbols.`);
+      } finally {
+        BACKTEST_ALL_RUNNING = false;
+        syncBatchAndUpdateButtons();
         renderBatchResults();
       }
-      setBatchResultsStatus(`Completed ${BACKTEST_ALL_RESULTS.length} / ${symbols.length} symbols.`);
-      BACKTEST_ALL_RUNNING = false;
-      if (btn) btn.disabled = false;
-      renderBatchResults();
+    }
+
+    async function runWatchlistDataUpdate() {
+      if (WATCHLIST_UPDATE_RUNNING || BACKTEST_ALL_RUNNING) return;
+      const startingTicker = normalizeSymbolInput(currentTicker);
+      let shouldRefreshCurrent = false;
+      resetWatchlistUpdateProgress();
+      setWatchlistUpdateStatus('');
+      setWatchlistUpdateControlsBusy(true);
+      try {
+        const symbols = await getSymbolsForBatchBacktest();
+        if (!symbols.length) {
+          setWatchlistUpdateStatus('No symbols available in the active watchlist.');
+          return;
+        }
+        WATCHLIST_UPDATE_PROGRESS.total = symbols.length;
+        for (let i = 0; i < symbols.length; i += 1) {
+          const symbol = symbols[i];
+          WATCHLIST_UPDATE_PROGRESS.currentSymbol = symbol;
+          setSymbolUpdateState(symbol, 'running', `Updating ${symbol}…`);
+          setWatchlistUpdateStatus(`Updating ${symbol} (${i + 1}/${symbols.length})…`);
+          let finalState = 'error';
+          let detail = '';
+          try {
+            const result = await requestAdhocDownload(symbol);
+            const rows = Number(result?.rows);
+            const note = String(result?.note || '').toLowerCase();
+            if (note === 'up-to-date' || rows === 0) {
+              finalState = 'uptodate';
+              detail = 'Up to date';
+              WATCHLIST_UPDATE_PROGRESS.uptodate += 1;
+            } else {
+              finalState = 'ok';
+              detail = Number.isFinite(rows) ? `Updated ${rows.toLocaleString()} rows` : 'Updated';
+              WATCHLIST_UPDATE_PROGRESS.ok += 1;
+            }
+          } catch (err) {
+            const msg = err && err.message ? err.message : String(err);
+            finalState = 'error';
+            detail = `Failed: ${msg}`;
+            WATCHLIST_UPDATE_PROGRESS.error += 1;
+          }
+          WATCHLIST_UPDATE_PROGRESS.done += 1;
+          WATCHLIST_UPDATE_PROGRESS.currentSymbol = '';
+          setSymbolUpdateState(symbol, finalState, detail);
+          if (symbol === startingTicker && (finalState === 'ok' || finalState === 'uptodate')) {
+            shouldRefreshCurrent = true;
+          }
+          const isLast = i === symbols.length - 1;
+          if (!isLast) {
+            setWatchlistUpdateStatus(`${formatWatchlistUpdateSummary('Processed')} Next update in 10s…`);
+            await sleep(WATCHLIST_UPDATE_DELAY_MS);
+          }
+        }
+        let completionMessage = formatWatchlistUpdateSummary('Completed');
+        if (shouldRefreshCurrent && startingTicker) {
+          setWatchlistUpdateStatus(`${completionMessage} Refreshing ${startingTicker} view…`);
+          const refreshed = await loadSymbolData(startingTicker);
+          if (!refreshed) {
+            completionMessage = `${completionMessage} Current view refresh failed for ${startingTicker}.`;
+          }
+        }
+        setWatchlistUpdateStatus(completionMessage);
+      } catch (err) {
+        const msg = err && err.message ? err.message : String(err);
+        setWatchlistUpdateStatus(`Watchlist update failed: ${msg}`);
+      } finally {
+        WATCHLIST_UPDATE_PROGRESS.currentSymbol = '';
+        applySymbolUpdateStatesToTiles();
+        setWatchlistUpdateControlsBusy(false);
+      }
     }
 
     function updateWatchlistControls() {
@@ -6091,8 +6595,11 @@
       select.value = active;
       if (delBtn) {
         const canDelete = active !== WATCHLIST_ALL && active !== 'Default' && !!WATCHLIST_STATE.watchlists[active];
-        delBtn.disabled = !canDelete;
+        delBtn.dataset.canDelete = canDelete ? '1' : '0';
       }
+      syncWatchlistManagementControls();
+      syncBatchAndUpdateButtons();
+      applySymbolUpdateStatesToTiles();
     }
 
     async function loadWatchlists() {
@@ -6261,6 +6768,7 @@
         btn.setAttribute('title', displayTitle);
         btn.dataset.multiplier = String(meta.multiplier);
         btn.innerHTML = `
+          <span class="symbol-update-badge" data-update-badge aria-hidden="true"></span>
           <div class="flex items-start justify-between gap-2">
             <div class="flex flex-col gap-0.5 leading-tight">
               <span class="text-sm font-semibold">${meta.symbol}</span>
@@ -6273,6 +6781,7 @@
         container.appendChild(btn);
       });
       highlightTickerButton(currentTicker);
+      applySymbolUpdateStatesToTiles();
       if (!currentTicker && list[0]) {
         setTicker(list[0].symbol);
         loadSymbolData(list[0].symbol);
@@ -6381,6 +6890,12 @@
       if (batchBtn) {
         batchBtn.addEventListener('click', () => runBatchBacktest());
       }
+      const updateBtn = document.getElementById('watchlistUpdateAllBtn');
+      if (updateBtn) {
+        updateBtn.addEventListener('click', () => runWatchlistDataUpdate());
+      }
+      syncWatchlistManagementControls();
+      syncBatchAndUpdateButtons();
     }
 
     function closeAllWatchlistMenus() {
