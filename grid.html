@@ -1347,11 +1347,13 @@
         <table class="min-w-full text-sm">
           <thead class="text-[11px] uppercase tracking-wide text-slate-500">
             <tr>
+              <th class="px-3 py-2 text-center text-[10px] text-slate-400">Sel</th>
               <th class="px-3 py-2 text-left sortable" data-batch-sort="symbol" data-sort="none"><button type="button"><span>Symbol</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 text-right sortable" data-batch-sort="trades" data-sort="none"><button type="button"><span>Trades</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-batch-sort="harvestedProfit" data-sort="none"><button type="button"><span>Harvested Profit</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 text-right sortable" data-batch-sort="netProfit" data-sort="none"><button type="button"><span>Net Profit</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 text-right sortable" data-batch-sort="finalEquity" data-sort="none"><button type="button"><span>Final Equity</span><span class="sort-indicator"></span></button></th>
-              <th class="px-3 py-2 text-right sortable" data-batch-sort="cash" data-sort="none"><button type="button"><span>Cash</span><span class="sort-indicator"></span></button></th>
+              <th class="px-3 py-2 text-right sortable" data-batch-sort="cashflow" data-sort="none"><button type="button"><span>Cashflow</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 text-right sortable" data-batch-sort="shares" data-sort="none"><button type="button"><span>Shares</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 text-right sortable" data-batch-sort="maxDrawdownPct" data-sort="none"><button type="button"><span>Max DD %</span><span class="sort-indicator"></span></button></th>
               <th class="px-3 py-2 text-right sortable" data-batch-sort="cagr" data-sort="none"><button type="button"><span>CAGR</span><span class="sort-indicator"></span></button></th>
@@ -1809,6 +1811,7 @@
     let BACKTEST_ALL_RESULTS = [];
     let BACKTEST_ALL_RUNNING = false;
     let BACKTEST_ALL_SELECTED = '';
+    let BACKTEST_ALL_CHECKED = new Set();
     let BACKTEST_ALL_SORT = { key: 'symbol', dir: 'asc' };
     let TRADE_SORT_STATE = { key: 'buyTime', dir: 'asc' };
     let gridAccountEquityChartInst = null;
@@ -6304,12 +6307,15 @@
           return String(entry?.symbol || '');
         case 'trades':
           return Number(summary?.totalTrades);
+        case 'harvestedProfit':
+          return Number(summary?.realizedProfit);
         case 'netProfit':
           return Number(summary?.netProfit);
         case 'finalEquity':
           return Number(summary?.finalEquity);
+        case 'cashflow':
         case 'cash':
-          return Number(summary?.cash);
+          return Number(summary?.netCashflowTrades ?? summary?.cashflow);
         case 'shares':
           return Number(summary?.shares);
         case 'maxDrawdownPct':
@@ -6338,9 +6344,10 @@
       const direction = dir === 'desc' ? -1 : 1;
       const numericKeys = new Set([
         'trades',
+        'harvestedProfit',
         'netProfit',
         'finalEquity',
-        'cash',
+        'cashflow',
         'shares',
         'maxDrawdownPct',
         'cagr',
@@ -6398,18 +6405,46 @@
         if (empty) empty.classList.remove('hidden');
         return;
       }
+      const availableSymbols = new Set(
+        BACKTEST_ALL_RESULTS
+          .map((entry) => String(entry?.symbol || ''))
+          .filter(Boolean)
+      );
+      for (const symbol of Array.from(BACKTEST_ALL_CHECKED)) {
+        if (!availableSymbols.has(symbol)) {
+          BACKTEST_ALL_CHECKED.delete(symbol);
+        }
+      }
       if (empty) empty.classList.add('hidden');
       const formatCurrencyOrDash = (value) => (Number.isFinite(value) ? formatCurrency(value) : '—');
       const formatNumberOrDash = (value, digits = 2) => (Number.isFinite(value) ? formatNumber(value, digits) : '—');
       const formatPercentOrDash = (value) => (Number.isFinite(value) ? formatPercent(value) : '—');
       const sorted = sortBatchResults(BACKTEST_ALL_RESULTS);
       updateBatchSortIndicators();
+      let selectedCount = 0;
+      const totals = {
+        trades: 0,
+        harvestedProfit: 0,
+        netProfit: 0,
+        finalEquity: 0,
+        cashflow: 0,
+        shares: 0,
+        maxDrawdownPct: 0,
+        cagrPct: 0,
+        maxLevels: 0,
+        profitPerLevel: 0,
+        calmSells: 0,
+        normalSells: 0,
+        volatileSells: 0
+      };
       sorted.forEach((entry) => {
         const summary = entry.summary || {};
+        const isChecked = entry.symbol && BACKTEST_ALL_CHECKED.has(entry.symbol);
         const trades = Number.isFinite(summary?.totalTrades) ? summary.totalTrades.toLocaleString() : '—';
+        const harvestedProfit = formatCurrencyOrDash(summary?.realizedProfit);
         const netProfit = formatCurrencyOrDash(summary?.netProfit);
         const finalEquity = formatCurrencyOrDash(summary?.finalEquity);
-        const cash = formatCurrencyOrDash(summary?.cash);
+        const cashflow = formatCurrencyOrDash(summary?.netCashflowTrades ?? summary?.cashflow);
         const shares = formatNumberOrDash(summary?.shares, 4);
         const maxDdPct = formatPercentOrDash(summary?.maxDrawdownPct);
         const cagrPct = Number.isFinite(summary?.cagr) ? summary.cagr * 100 : NaN;
@@ -6424,11 +6459,15 @@
         row.className = `table-row cursor-pointer transition${isSelected ? ' table-row-selected' : ''}`;
         row.setAttribute('data-batch-symbol', entry.symbol || '');
         row.innerHTML = `
+          <td class="px-3 py-2 text-center">
+            <input type="checkbox" class="h-4 w-4 rounded border-slate-300 text-slate-700 focus:ring-slate-400" data-batch-check="${entry.symbol || ''}" ${isChecked ? 'checked' : ''} aria-label="Select ${entry.symbol || 'row'} for totals" />
+          </td>
           <td class="px-3 py-2 font-semibold text-slate-700">${entry.symbol || '—'}</td>
           <td class="px-3 py-2 text-right text-slate-700">${trades}</td>
+          <td class="px-3 py-2 text-right text-slate-700">${harvestedProfit}</td>
           <td class="px-3 py-2 text-right text-slate-700">${netProfit}</td>
           <td class="px-3 py-2 text-right text-slate-700">${finalEquity}</td>
-          <td class="px-3 py-2 text-right text-slate-700">${cash}</td>
+          <td class="px-3 py-2 text-right text-slate-700">${cashflow}</td>
           <td class="px-3 py-2 text-right text-slate-700">${shares}</td>
           <td class="px-3 py-2 text-right text-slate-700">${maxDdPct}</td>
           <td class="px-3 py-2 text-right text-slate-700">${cagr}</td>
@@ -6439,7 +6478,47 @@
           <td class="px-3 py-2 text-right text-slate-700">${volatileSells}</td>
         `;
         body.appendChild(row);
+
+        if (isChecked) {
+          selectedCount += 1;
+          if (Number.isFinite(summary?.totalTrades)) totals.trades += Number(summary.totalTrades);
+          if (Number.isFinite(summary?.realizedProfit)) totals.harvestedProfit += Number(summary.realizedProfit);
+          if (Number.isFinite(summary?.netProfit)) totals.netProfit += Number(summary.netProfit);
+          if (Number.isFinite(summary?.finalEquity)) totals.finalEquity += Number(summary.finalEquity);
+          const cashflowValue = Number(summary?.netCashflowTrades ?? summary?.cashflow);
+          if (Number.isFinite(cashflowValue)) totals.cashflow += cashflowValue;
+          if (Number.isFinite(summary?.shares)) totals.shares += Number(summary.shares);
+          if (Number.isFinite(summary?.maxDrawdownPct)) totals.maxDrawdownPct += Number(summary.maxDrawdownPct);
+          if (Number.isFinite(summary?.cagr)) totals.cagrPct += Number(summary.cagr) * 100;
+          if (Number.isFinite(summary?.maxOpenLevels)) totals.maxLevels += Number(summary.maxOpenLevels);
+          if (Number.isFinite(summary?.profitPerLevel)) totals.profitPerLevel += Number(summary.profitPerLevel);
+          if (Number.isFinite(entry?.sellFillStats?.median)) totals.calmSells += Number(entry.sellFillStats.median);
+          if (Number.isFinite(entry?.sellFillStats?.trimmedMean)) totals.normalSells += Number(entry.sellFillStats.trimmedMean);
+          if (Number.isFinite(entry?.sellFillStats?.pct95)) totals.volatileSells += Number(entry.sellFillStats.pct95);
+        }
       });
+      if (selectedCount > 0) {
+        const totalRow = document.createElement('tr');
+        totalRow.className = 'bg-slate-100 font-semibold';
+        totalRow.innerHTML = `
+          <td class="px-3 py-2 text-center text-slate-600">Σ</td>
+          <td class="px-3 py-2 text-slate-700">Totals (${selectedCount})</td>
+          <td class="px-3 py-2 text-right text-slate-700">${totals.trades.toLocaleString()}</td>
+          <td class="px-3 py-2 text-right text-slate-700">${formatCurrencyOrDash(totals.harvestedProfit)}</td>
+          <td class="px-3 py-2 text-right text-slate-700">${formatCurrencyOrDash(totals.netProfit)}</td>
+          <td class="px-3 py-2 text-right text-slate-700">${formatCurrencyOrDash(totals.finalEquity)}</td>
+          <td class="px-3 py-2 text-right text-slate-700">${formatCurrencyOrDash(totals.cashflow)}</td>
+          <td class="px-3 py-2 text-right text-slate-700">${formatNumberOrDash(totals.shares, 4)}</td>
+          <td class="px-3 py-2 text-right text-slate-700">${formatPercentOrDash(totals.maxDrawdownPct)}</td>
+          <td class="px-3 py-2 text-right text-slate-700">${formatPercentOrDash(totals.cagrPct)}</td>
+          <td class="px-3 py-2 text-right text-slate-700">${formatNumberOrDash(totals.maxLevels, 0)}</td>
+          <td class="px-3 py-2 text-right text-slate-700">${formatCurrencyOrDash(totals.profitPerLevel)}</td>
+          <td class="px-3 py-2 text-right text-slate-700">${formatNumberOrDash(totals.calmSells, 2)}</td>
+          <td class="px-3 py-2 text-right text-slate-700">${formatNumberOrDash(totals.normalSells, 2)}</td>
+          <td class="px-3 py-2 text-right text-slate-700">${formatNumberOrDash(totals.volatileSells, 2)}</td>
+        `;
+        body.appendChild(totalRow);
+      }
       window.BACKTEST_ALL_RESULTS = BACKTEST_ALL_RESULTS;
     }
 
@@ -6454,6 +6533,7 @@
       syncBatchAndUpdateButtons();
       BACKTEST_ALL_RESULTS = [];
       BACKTEST_ALL_SELECTED = '';
+      BACKTEST_ALL_CHECKED = new Set();
       BACKTEST_ALL_SORT = { key: 'symbol', dir: 'asc' };
       renderBatchResults();
       setBatchResultsStatus('');
@@ -7062,7 +7142,20 @@
       }
       const batchBody = document.getElementById('batchResultsBody');
       if (batchBody) {
+        batchBody.addEventListener('change', (e) => {
+          const checkbox = e.target.closest('input[type="checkbox"][data-batch-check]');
+          if (!checkbox) return;
+          const symbol = checkbox.getAttribute('data-batch-check');
+          if (!symbol) return;
+          if (checkbox.checked) {
+            BACKTEST_ALL_CHECKED.add(symbol);
+          } else {
+            BACKTEST_ALL_CHECKED.delete(symbol);
+          }
+          renderBatchResults();
+        });
         batchBody.addEventListener('click', (e) => {
+          if (e.target.closest('input[type="checkbox"][data-batch-check]')) return;
           const row = e.target.closest('tr[data-batch-symbol]');
           if (!row) return;
           if (BACKTEST_ALL_RUNNING) return;
