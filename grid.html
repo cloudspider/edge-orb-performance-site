@@ -1314,11 +1314,18 @@
     <section id="gridFiltersSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
       <div class="flex flex-col gap-2">
         <h2 class="font-semibold text-slate-700">Filters</h2>
-        <p class="text-sm text-slate-500">Use quick timeframe presets or advanced month selection to limit displayed results.</p>
+        <p class="text-sm text-slate-500">Use quick timeframe presets or advanced year/month selection to limit displayed results.</p>
       </div>
       <div class="space-y-2">
         <div id="timeframePresetGroup" class="flex flex-wrap gap-2" aria-label="Timeframe presets"></div>
         <p id="timeFilterModeLabel" class="text-xs text-slate-500">Mode: All</p>
+      </div>
+      <div class="space-y-2">
+        <div class="flex items-center justify-between gap-2">
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Years</p>
+          <button id="yearFilterClearBtn" type="button" class="text-xs text-slate-600 hover:text-slate-800 hover:underline">All years</button>
+        </div>
+        <div id="yearFilterGroup" class="flex flex-wrap gap-2" aria-label="Year filters"></div>
       </div>
       <div class="relative inline-block" aria-label="Months">
         <button id="sumMonthMultiBtn" type="button" class="inline-flex items-center justify-between gap-2 bg-white text-slate-800 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm min-w-[200px]">
@@ -1802,6 +1809,7 @@
     let DAYS = [];
     let DAY_SMA_MAPS = new Map();
     let SMA_METADATA = new Map();
+    let SMA_DIRTY = true;
     let SYMBOL_META = new Map();
     let SYMBOL_LIST_CACHE = null;
     let WATCHLIST_STATE = { ...WATCHLIST_DEFAULTS };
@@ -1828,6 +1836,7 @@
     let levelDistributionChartInst = null;
     let cumulativeLevelDistributionChartInst = null;
     let AVAILABLE_MONTHS = [];
+    let AVAILABLE_YEARS = [];
     const TIMEFRAME_PRESETS = [
       { id: 'all', label: 'All', kind: 'all' },
       { id: 'today', label: 'Today', kind: 'calendar' },
@@ -1843,7 +1852,8 @@
     let TIME_FILTER_STATE = {
       mode: 'all',
       presetId: null,
-      months: new Set()
+      months: new Set(),
+      years: new Set()
     };
     let PRICE_DISTRIBUTION_VIEW = 'buy';
     const TRADE_TABLE_STATE = { page: 1, pageSize: 250 };
@@ -3066,6 +3076,16 @@
       });
     }
 
+    function yearChoicesFromDays() {
+      if (!Array.isArray(DAYS) || !DAYS.length) return [];
+      const set = new Set();
+      for (const dayKey of DAYS) {
+        if (typeof dayKey !== 'string' || dayKey.length < 4) continue;
+        set.add(dayKey.slice(0, 4));
+      }
+      return Array.from(set).sort((a, b) => Number(b) - Number(a));
+    }
+
     function parseDayKey(dayKey) {
       if (typeof dayKey !== 'string') return null;
       const match = dayKey.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -3081,6 +3101,11 @@
     function formatDayKeyToMonth(dayKey) {
       if (typeof dayKey !== 'string' || dayKey.length < 7) return null;
       return `${dayKey.slice(5, 7)}/${dayKey.slice(0, 4)}`;
+    }
+
+    function formatDayKeyToYear(dayKey) {
+      if (typeof dayKey !== 'string' || dayKey.length < 4) return null;
+      return dayKey.slice(0, 4);
     }
 
     function startOfWeekMonday(date) {
@@ -3161,9 +3186,22 @@
       return set;
     }
 
+    function getYearDayKeySet(yearSet) {
+      if (!(yearSet instanceof Set) || !yearSet.size) return null;
+      const set = new Set();
+      (Array.isArray(DAYS) ? DAYS : []).forEach((dayKey) => {
+        const yearKey = formatDayKeyToYear(dayKey);
+        if (yearKey && yearSet.has(yearKey)) set.add(dayKey);
+      });
+      return set;
+    }
+
     function getActiveDayKeySet() {
       if (TIME_FILTER_STATE.mode === 'preset') {
         return resolvePresetDayKeySet(TIME_FILTER_STATE.presetId);
+      }
+      if (TIME_FILTER_STATE.mode === 'years') {
+        return getYearDayKeySet(TIME_FILTER_STATE.years);
       }
       if (TIME_FILTER_STATE.mode === 'months') {
         return getMonthDayKeySet(TIME_FILTER_STATE.months);
@@ -3250,11 +3288,21 @@
         label.textContent = 'Mode: Months';
         return;
       }
+      if (TIME_FILTER_STATE.mode === 'years') {
+        if (!TIME_FILTER_STATE.years.size || TIME_FILTER_STATE.years.size === AVAILABLE_YEARS.length) {
+          label.textContent = 'Mode: All';
+          return;
+        }
+        const years = Array.from(TIME_FILTER_STATE.years).sort((a, b) => Number(b) - Number(a));
+        label.textContent = `Mode: Years - ${years.join(', ')}`;
+        return;
+      }
       label.textContent = 'Mode: All';
     }
 
     function refreshTimeFilterSelection() {
       updateMonthFilterLabel();
+      updateYearFilterButtons();
       updateTimeframePresetButtons();
       updateTimeFilterModeLabel();
     }
@@ -3503,8 +3551,56 @@
       lbl.textContent = `${months.size} selected`;
     }
 
+    function updateYearFilterButtons() {
+      document.querySelectorAll('#yearFilterGroup button[data-year-filter]').forEach((btn) => {
+        const year = btn.getAttribute('data-year-filter');
+        const active = TIME_FILTER_STATE.mode === 'years' && TIME_FILTER_STATE.years.has(year);
+        btn.classList.remove(
+          'border-slate-200',
+          'bg-white',
+          'text-slate-700',
+          'hover:bg-slate-50',
+          'border-emerald-500',
+          'bg-emerald-600',
+          'text-white'
+        );
+        if (active) {
+          btn.classList.add('border-emerald-500', 'bg-emerald-600', 'text-white');
+          btn.setAttribute('aria-pressed', 'true');
+        } else {
+          btn.classList.add('border-slate-200', 'bg-white', 'text-slate-700', 'hover:bg-slate-50');
+          btn.setAttribute('aria-pressed', 'false');
+        }
+      });
+    }
+
+    function buildYearFilterOptions() {
+      AVAILABLE_YEARS = yearChoicesFromDays();
+      const container = document.getElementById('yearFilterGroup');
+      if (!container) return;
+      const validYears = new Set();
+      TIME_FILTER_STATE.years.forEach((key) => {
+        if (AVAILABLE_YEARS.includes(key)) validYears.add(key);
+      });
+      TIME_FILTER_STATE.years = validYears;
+      if (!AVAILABLE_YEARS.length) {
+        container.innerHTML = '<div class="px-2 py-1 text-xs text-slate-500">No data loaded.</div>';
+      } else {
+        container.innerHTML = AVAILABLE_YEARS.map((year) => `
+          <button
+            type="button"
+            data-year-filter="${year}"
+            class="inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+          >
+            ${year}
+          </button>
+        `).join('');
+      }
+    }
+
     function buildMonthFilterOptions() {
       AVAILABLE_MONTHS = monthChoicesFromDays();
+      buildYearFilterOptions();
       const list = document.getElementById('sumMonthMultiList');
       if (!list) return;
       const validMonths = new Set();
@@ -3551,22 +3647,58 @@
         TIME_FILTER_STATE = {
           mode: 'all',
           presetId: null,
-          months: new Set()
+          months: new Set(),
+          years: new Set()
         };
       } else if (TIME_FILTER_STATE.mode === 'preset' && TIME_FILTER_STATE.presetId === presetId) {
         TIME_FILTER_STATE = {
           mode: 'all',
           presetId: null,
-          months: new Set()
+          months: new Set(),
+          years: new Set()
         };
       } else {
         TIME_FILTER_STATE = {
           mode: 'preset',
           presetId,
-          months: new Set()
+          months: new Set(),
+          years: new Set()
         };
       }
       buildMonthFilterOptions();
+      renderGridTrades(GRID_STATE.trades || [], { resetPage: true });
+      rerunBacktestIfDataLoaded();
+    });
+
+    document.addEventListener('click', (e) => {
+      const yearBtn = e.target.closest('#yearFilterGroup button[data-year-filter]');
+      if (!yearBtn) return;
+      const year = yearBtn.getAttribute('data-year-filter');
+      if (!year) return;
+      if (TIME_FILTER_STATE.mode !== 'years') {
+        TIME_FILTER_STATE.mode = 'years';
+        TIME_FILTER_STATE.presetId = null;
+        TIME_FILTER_STATE.months = new Set();
+        TIME_FILTER_STATE.years = new Set();
+      }
+      if (TIME_FILTER_STATE.years.has(year)) {
+        TIME_FILTER_STATE.years.delete(year);
+      } else {
+        TIME_FILTER_STATE.years.add(year);
+      }
+      refreshTimeFilterSelection();
+      renderGridTrades(GRID_STATE.trades || [], { resetPage: true });
+      rerunBacktestIfDataLoaded();
+    });
+
+    document.addEventListener('click', (e) => {
+      const clearYearsBtn = e.target.closest('#yearFilterClearBtn');
+      if (!clearYearsBtn) return;
+      TIME_FILTER_STATE.mode = 'all';
+      TIME_FILTER_STATE.presetId = null;
+      TIME_FILTER_STATE.months = new Set();
+      TIME_FILTER_STATE.years = new Set();
+      refreshTimeFilterSelection();
       renderGridTrades(GRID_STATE.trades || [], { resetPage: true });
       rerunBacktestIfDataLoaded();
     });
@@ -3579,11 +3711,13 @@
         TIME_FILTER_STATE.mode = 'months';
         TIME_FILTER_STATE.presetId = null;
         TIME_FILTER_STATE.months = new Set(AVAILABLE_MONTHS);
+        TIME_FILTER_STATE.years = new Set();
       }
       if (clrAll) {
         TIME_FILTER_STATE.mode = 'months';
         TIME_FILTER_STATE.presetId = null;
         TIME_FILTER_STATE.months = new Set();
+        TIME_FILTER_STATE.years = new Set();
       }
       document.querySelectorAll('#sumMonthMultiList input[data-month]').forEach(cb => {
         const key = cb.getAttribute('data-month');
@@ -3601,6 +3735,7 @@
       if (!key) return;
       TIME_FILTER_STATE.mode = 'months';
       TIME_FILTER_STATE.presetId = null;
+      TIME_FILTER_STATE.years = new Set();
       if (cb.checked) TIME_FILTER_STATE.months.add(key); else TIME_FILTER_STATE.months.delete(key);
       refreshTimeFilterSelection();
       renderGridTrades(GRID_STATE.trades || [], { resetPage: true });
@@ -4966,7 +5101,7 @@
       }
       for (const [, arr] of DAY_GROUPS.entries()) arr.sort((a, b) => a.caldt - b.caldt);
       DAYS = Array.from(DAY_GROUPS.keys()).sort();
-      computeDailySmaMaps();
+      SMA_DIRTY = true;
       buildMonthFilterOptions();
     }
 
@@ -5250,17 +5385,22 @@
       const activeBuys = new Map();
       const activeSells = new Map();
       const queuedBuyActivations = [];
+      const queuedBuyKeySet = new Set();
+      let activeSellOrderCount = 0;
       let orderSeq = 1;
       let highestSeededBuyLevel = Number.NEGATIVE_INFINITY;
 
       const removeOrder = (map, order) => {
-        if (!order || !Number.isFinite(order.level)) return;
+        if (!order || !Number.isFinite(order.level)) return false;
         const key = keyFor(order.level);
         const arr = map.get(key);
-        if (!arr) return;
+        if (!arr) return false;
         const idx = arr.indexOf(order);
-        if (idx >= 0) arr.splice(idx, 1);
+        if (idx < 0) return false;
+        arr.splice(idx, 1);
         if (!arr.length) map.delete(key);
+        if (map === activeSells) activeSellOrderCount--;
+        return true;
       };
 
       const addBuyOrder = (level) => {
@@ -5294,6 +5434,7 @@
           buyRung: Number.isFinite(buyInfo?.rungIndex) ? buyInfo.rungIndex : computeRungIndex(price)
         };
         activeSells.get(key).push(order);
+        activeSellOrderCount++;
         return order;
       };
 
@@ -5348,8 +5489,8 @@
       let minNetCashflow = 0;
       const initialEquity = cash;
       let openPositions = 0;
-      const firstEquityTime = rows[0]?.caldt instanceof Date ? new Date(rows[0].caldt.getTime()) : null;
-      let lastEquityTime = firstEquityTime;
+      const firstEquityTimeMs = rows[0]?.caldt instanceof Date ? rows[0].caldt.getTime() : 0;
+      let lastEquityTimeMs = firstEquityTimeMs;
       let shares = 0;
       let realizedProfit = 0;
       let cumulativeRetained = 0;
@@ -5357,9 +5498,9 @@
       let prevPrice = firstPrice;
       let peakEquity = initialEquity;
       let maxDrawdown = 0;
-      let maxDrawdownDate = null;
+      let maxDrawdownDateMs = 0;
       let maxDrawdownPct = 0;
-      let maxDrawdownPctDate = null;
+      let maxDrawdownPctDateMs = 0;
       let maxSharesHeld = shares;
 
       const recordNetCashflowMin = () => {
@@ -5380,10 +5521,7 @@
       const hasQueuedBuyActivation = (level) => {
         const price = snapLevel(level);
         if (!Number.isFinite(price)) return false;
-        return queuedBuyActivations.some(entry => {
-          const diff = Math.abs(entry.buyLevel - price);
-          return diff <= priceTolerance * Math.max(1, entry.buyLevel);
-        });
+        return queuedBuyKeySet.has(keyFor(price));
       };
 
       const queueDelayedBuy = (sellPrice) => {
@@ -5394,6 +5532,7 @@
         if (!Number.isFinite(triggerLevel) || triggerLevel <= 0) return;
         if (Math.abs(triggerLevel - buyPrice) <= priceTolerance * Math.max(1, triggerLevel)) return;
         queuedBuyActivations.push({ buyLevel: buyPrice, trigger: triggerLevel });
+        queuedBuyKeySet.add(keyFor(buyPrice));
       };
 
       const ensureRunupBuys = (maxPrice) => {
@@ -5414,15 +5553,19 @@
 
       const activateQueuedBuys = (maxPrice) => {
         if (!Number.isFinite(maxPrice) || !queuedBuyActivations.length) return;
-        for (let i = queuedBuyActivations.length - 1; i >= 0; i--) {
+        let writeIdx = 0;
+        for (let i = 0; i < queuedBuyActivations.length; i++) {
           const entry = queuedBuyActivations[i];
           if (!entry) continue;
           const tolerance = priceTolerance * Math.max(1, entry.trigger);
           if (maxPrice >= entry.trigger - tolerance) {
             addBuyOrder(entry.buyLevel);
-            queuedBuyActivations.splice(i, 1);
+            queuedBuyKeySet.delete(keyFor(entry.buyLevel));
+          } else {
+            queuedBuyActivations[writeIdx++] = entry;
           }
         }
+        queuedBuyActivations.length = writeIdx;
       };
 
       const executeBuy = (order, timestamp, contextRow) => {
@@ -5482,7 +5625,7 @@
         if (!order) return false;
         const price = order.level;
         const openQty = shares;
-        const openLevelSnapshot = Array.from(activeSells.values()).reduce((acc, arr) => acc + (Array.isArray(arr) ? arr.length : 0), 0);
+        const openLevelSnapshot = activeSellOrderCount;
         const tradeValueForOrder = Number.isFinite(order.tradeValue) ? order.tradeValue : baseTradeValue;
         const desiredRaw = tradeValueForOrder / price;
         let desired = fractional ? desiredRaw : Math.floor(desiredRaw);
@@ -5558,15 +5701,44 @@
         return true;
       };
 
+      const collectOrdersLocal = (map, minVal, maxVal, ascending) => {
+        const out = [];
+        if (!map || !map.size) return out;
+        const lower = Math.min(minVal, maxVal);
+        const upper = Math.max(minVal, maxVal);
+        const tol = priceTolerance * Math.max(1, lower, upper);
+        let level = spacing.floor ? spacing.floor(lower - tol) : snapLevel(lower);
+        if (!Number.isFinite(level) || level <= 0) level = snapLevel(lower);
+        if (!Number.isFinite(level) || level <= 0) return out;
+        let safety = 0;
+        while (Number.isFinite(level) && level > 0 && safety < 10000) {
+          if (level > upper + tol) break;
+          if (level >= lower - tol) {
+            const arr = map.get(keyFor(level));
+            if (arr) {
+              for (let j = 0; j < arr.length; j++) out.push(arr[j]);
+            }
+          }
+          const next = nextUpLevel(level);
+          if (!Number.isFinite(next) || next <= level + priceTolerance) break;
+          level = next;
+          safety++;
+        }
+        if (out.length > 1) {
+          out.sort((a, b) => ascending ? (a.level - b.level) : (b.level - a.level));
+        }
+        return out;
+      };
+
       const processMove = (start, end, timestamp, contextRow) => {
         if (!Number.isFinite(start) || !Number.isFinite(end)) return;
         const scale = Math.max(1, Math.abs(start), Math.abs(end));
         const threshold = priceTolerance * scale;
         if (end > start + threshold) {
-          const sells = collectOrdersInRange(activeSells, start, end, true);
+          const sells = collectOrdersLocal(activeSells, start, end, true);
           for (const order of sells) executeSell(order, timestamp);
         } else if (end < start - threshold) {
-          const buys = collectOrdersInRange(activeBuys, end, start, false);
+          const buys = collectOrdersLocal(activeBuys, end, start, false);
           for (const order of buys) executeBuy(order, timestamp, contextRow);
         }
         const maxVal = Math.max(start, end);
@@ -5599,16 +5771,17 @@
         const high = Number(row.high);
         const low = Number(row.low);
         const close = Number(row.close);
-        // Require at least one valid OHLC value to build a path
-        const validPrices = [open, high, low, close].filter(v => Number.isFinite(v) && v > 0);
-        if (!validPrices.length) {
-          return null; // Signal to skip this row entirely
+        const openOk = Number.isFinite(open) && open > 0;
+        const highOk = Number.isFinite(high) && high > 0;
+        const lowOk = Number.isFinite(low) && low > 0;
+        const closeOk = Number.isFinite(close) && close > 0;
+        if (!openOk && !highOk && !lowOk && !closeOk) {
+          return null;
         }
         const path = [];
         let start = Number(fromPrice);
-        // Fall back to first valid OHLC value, never to 0
         if (!Number.isFinite(start) || start <= 0) {
-          start = validPrices[0];
+          start = openOk ? open : (highOk ? high : (lowOk ? low : close));
         }
         path.push(start);
         const addPoint = (value) => {
@@ -5650,21 +5823,22 @@
           peakEquity = equity;
         }
         const drawdown = equity - peakEquity;
+        const rowTimeMs = row.caldt.getTime();
         if (drawdown < maxDrawdown) {
           maxDrawdown = drawdown;
-          maxDrawdownDate = new Date(row.caldt.getTime());
+          maxDrawdownDateMs = rowTimeMs;
         }
         if (peakEquity > 0) {
           const equityPct = drawdown / peakEquity;
           if (equityPct < maxDrawdownPct) {
             maxDrawdownPct = equityPct;
-            maxDrawdownPctDate = new Date(row.caldt.getTime());
+            maxDrawdownPctDateMs = rowTimeMs;
           }
         }
-        lastEquityTime = new Date(row.caldt.getTime());
+        lastEquityTimeMs = rowTimeMs;
         const deployedCapitalSnapshot = Math.max(0, openPositionCost);
         equitySeries.push({
-          time: new Date(row.caldt.getTime()),
+          time: rowTimeMs,
           equity,
           cash: cash,
           capitalContributed,
@@ -5682,7 +5856,7 @@
       const finalHoldings = shares * prevPrice;
       const netPLFinal = netCashflowTrades + finalHoldings;
       const finalEquity = cash + finalHoldings;
-      const millis = firstEquityTime && lastEquityTime ? (lastEquityTime.getTime() - firstEquityTime.getTime()) : 0;
+      const millis = firstEquityTimeMs && lastEquityTimeMs ? (lastEquityTimeMs - firstEquityTimeMs) : 0;
       const years = millis > 0 ? (millis / (365.25 * 24 * 60 * 60 * 1000)) : 0;
       const maxLevelsUsed = Number.isFinite(summary.maxOpenLevels) ? summary.maxOpenLevels : 0;
       const derivedMaxCapital = (baseTradeValue > 0 && maxLevelsUsed > 0)
@@ -5709,8 +5883,8 @@
       summary.openLevelsFinal = openPositions;
       summary.maxDrawdown = maxDrawdown;
       summary.maxDrawdownPct = maxDrawdownPct * 100;
-      summary.maxDrawdownDate = maxDrawdownDate ? maxDrawdownDate.toISOString() : null;
-      summary.maxDrawdownPctDate = maxDrawdownPctDate ? maxDrawdownPctDate.toISOString() : null;
+      summary.maxDrawdownDate = maxDrawdownDateMs ? new Date(maxDrawdownDateMs).toISOString() : null;
+      summary.maxDrawdownPctDate = maxDrawdownPctDateMs ? new Date(maxDrawdownPctDateMs).toISOString() : null;
       summary.maxSharesHeld = maxSharesHeld;
       summary.cagr = cagr;
       summary.mar = mar;
@@ -5760,6 +5934,10 @@
       const entryFilter = params?.entryFilter || 'none';
       const filterWindow = getEntryFilterWindow(entryFilter);
       if (filterWindow) {
+        if (SMA_DIRTY) {
+          computeDailySmaMaps();
+          SMA_DIRTY = false;
+        }
         const info = describeSmaAvailability(entryFilter);
         const available = info?.availableDays || 0;
         if (available <= 0) {
