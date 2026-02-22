@@ -817,6 +817,69 @@
       opacity: 1;
       transform: translate(-50%, -0.35rem) scale(1);
     }
+    .summary-tile .peak-funding-popup-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1rem;
+      height: 1rem;
+      border-radius: 9999px;
+      border: 1px solid var(--app-border-muted);
+      background: var(--app-surface);
+      color: var(--app-text-subtle);
+      transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+    }
+    .summary-tile .peak-funding-popup-toggle:hover {
+      border-color: rgba(16, 185, 129, 0.55);
+      color: #059669;
+      background: rgba(16, 185, 129, 0.08);
+    }
+    .summary-tile .peak-funding-popup-toggle:focus-visible {
+      outline: 2px solid var(--app-focus-ring);
+      outline-offset: 2px;
+    }
+    .summary-tile .peak-funding-popup {
+      position: absolute;
+      left: 0.75rem;
+      right: 0.75rem;
+      top: calc(100% + 0.4rem);
+      border: 1px solid var(--app-border);
+      border-radius: 0.75rem;
+      background: var(--app-surface);
+      color: var(--app-text);
+      box-shadow: var(--app-shadow-elevated);
+      padding: 0.7rem 0.75rem;
+      z-index: 60;
+    }
+    .summary-tile .peak-funding-popup-title {
+      margin: 0 0 0.45rem;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      color: var(--app-text-muted);
+    }
+    .summary-tile .peak-funding-popup-grid {
+      margin: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 0.3rem 0.6rem;
+      font-size: 0.74rem;
+      line-height: 1.3;
+    }
+    .summary-tile .peak-funding-popup-grid dt {
+      color: var(--app-text-muted);
+    }
+    .summary-tile .peak-funding-popup-grid dd {
+      text-align: right;
+      font-weight: 600;
+      color: var(--app-text);
+    }
+    .summary-tile[data-peak-popup-open="true"] .summary-tooltip {
+      opacity: 0;
+      pointer-events: none;
+      transform: translate(-50%, 0) scale(0.98);
+    }
     #gridTradesSection table {
       color: var(--app-text-muted);
     }
@@ -1398,9 +1461,41 @@
       </div>
       <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
         <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
-            <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Peak Funding</dt>
+          <div id="summaryPeakFundingTile" class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0" data-peak-popup-open="false">
+            <dt class="flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-slate-500">
+              <span>Peak Funding</span>
+              <button
+                id="summaryPeakFundingPopupToggle"
+                type="button"
+                class="peak-funding-popup-toggle"
+                aria-label="Show peak funding snapshot"
+                aria-expanded="false"
+                aria-controls="summaryPeakFundingPopup"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-2.5 w-2.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path fill-rule="evenodd" d="M18 10A8 8 0 114 4.69V4a1 1 0 112 0v.06A8 8 0 0118 10zm-7-3a1 1 0 10-2 0 1 1 0 002 0zM9 8a1 1 0 000 2v3a1 1 0 102 0V9a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                </svg>
+              </button>
+            </dt>
             <dd id="summaryPeakFunding" class="mt-2 text-xl font-semibold text-slate-800">—</dd>
+            <p id="summaryPeakFundingDate" class="mt-1 text-[11px] text-slate-500">—</p>
+            <div id="summaryPeakFundingPopup" class="peak-funding-popup hidden" role="dialog" aria-label="Peak funding snapshot">
+              <p class="peak-funding-popup-title">At Peak Funding</p>
+              <dl class="peak-funding-popup-grid">
+                <dt>Peak Funding Date:</dt>
+                <dd id="summaryPeakFundingPopupDate">—</dd>
+                <dt>Peak Funding:</dt>
+                <dd id="summaryPeakFundingPopupFunding">—</dd>
+                <dt>Cashflow:</dt>
+                <dd id="summaryPeakFundingPopupCashflow">—</dd>
+                <dt>Harvested Profit:</dt>
+                <dd id="summaryPeakFundingPopupHarvestedProfit">—</dd>
+                <dt>Holdings Value:</dt>
+                <dd id="summaryPeakFundingPopupHoldingsValue">—</dd>
+                <dt>Net P/L (if liquidated):</dt>
+                <dd id="summaryPeakFundingPopupNetPL">—</dd>
+              </dl>
+            </div>
             <span class="summary-tooltip">Peak funding requirement: the worst negative net trade cashflow. Equivalent to the capital committed to keep the ladder fully funded.</span>
           </div>
           <div class="summary-tile rounded-xl border border-slate-200 p-4 shadow-sm" tabindex="0">
@@ -2797,6 +2892,13 @@
       const totalTradesEl = document.getElementById('summaryTotalTrades');
       const maxLevelsEl = document.getElementById('summaryMaxLevels');
       const peakFundingEl = document.getElementById('summaryPeakFunding');
+      const peakFundingDateEl = document.getElementById('summaryPeakFundingDate');
+      const peakFundingPopupDateEl = document.getElementById('summaryPeakFundingPopupDate');
+      const peakFundingPopupFundingEl = document.getElementById('summaryPeakFundingPopupFunding');
+      const peakFundingPopupCashflowEl = document.getElementById('summaryPeakFundingPopupCashflow');
+      const peakFundingPopupHarvestedEl = document.getElementById('summaryPeakFundingPopupHarvestedProfit');
+      const peakFundingPopupHoldingsEl = document.getElementById('summaryPeakFundingPopupHoldingsValue');
+      const peakFundingPopupNetPlEl = document.getElementById('summaryPeakFundingPopupNetPL');
       const netCashflowEl = document.getElementById('summaryNetCashflow');
       const harvestedEl = document.getElementById('summaryHarvestedProfit');
       const holdingsValueEl = document.getElementById('summaryHoldingsValue');
@@ -2884,6 +2986,21 @@
         : NaN;
       const maxDrawdownValue = Number.isFinite(maxDrawdown) ? maxDrawdown : NaN;
       const maxDrawdownPctValue = Number.isFinite(maxDrawdownPct) ? maxDrawdownPct : NaN;
+      const peakFundingDateKey = dateKeyFromStr(safeSummary?.peakFundingDate);
+      const peakFundingCashflowAtPeak = Number.isFinite(safeSummary?.peakFundingCashflow)
+        ? safeSummary.peakFundingCashflow
+        : (Number.isFinite(peakFundingValue) ? -peakFundingValue : NaN);
+      const peakFundingHarvestedAtPeak = Number.isFinite(safeSummary?.peakFundingHarvestedProfit)
+        ? safeSummary.peakFundingHarvestedProfit
+        : NaN;
+      const peakFundingHoldingsAtPeak = Number.isFinite(safeSummary?.peakFundingHoldingsValue)
+        ? safeSummary.peakFundingHoldingsValue
+        : NaN;
+      const peakFundingNetPlAtPeak = Number.isFinite(safeSummary?.peakFundingNetPLIfLiquidated)
+        ? safeSummary.peakFundingNetPLIfLiquidated
+        : (Number.isFinite(peakFundingCashflowAtPeak) && Number.isFinite(peakFundingHoldingsAtPeak)
+          ? (peakFundingCashflowAtPeak + peakFundingHoldingsAtPeak)
+          : NaN);
       const drawdownDateKey = dateKeyFromStr(safeSummary?.maxDrawdownDate);
       const drawdownPctDateKey = dateKeyFromStr(safeSummary?.maxDrawdownPctDate);
       if (!hasLedger && !Number.isFinite(netProfitFallback)) {
@@ -2892,6 +3009,13 @@
       if (totalTradesEl) totalTradesEl.textContent = String(safeSummary.totalTrades ?? 0);
       if (maxLevelsEl) maxLevelsEl.textContent = maxLevels.toLocaleString();
       if (peakFundingEl) peakFundingEl.textContent = formatCurrencyOrDash(peakFundingValue);
+      if (peakFundingDateEl) peakFundingDateEl.textContent = peakFundingDateKey ? `on ${peakFundingDateKey}` : '—';
+      if (peakFundingPopupDateEl) peakFundingPopupDateEl.textContent = peakFundingDateKey || '—';
+      if (peakFundingPopupFundingEl) peakFundingPopupFundingEl.textContent = formatCurrencyOrDash(peakFundingValue);
+      if (peakFundingPopupCashflowEl) peakFundingPopupCashflowEl.textContent = formatCurrencyOrDash(peakFundingCashflowAtPeak);
+      if (peakFundingPopupHarvestedEl) peakFundingPopupHarvestedEl.textContent = formatCurrencyOrDash(peakFundingHarvestedAtPeak);
+      if (peakFundingPopupHoldingsEl) peakFundingPopupHoldingsEl.textContent = formatCurrencyOrDash(peakFundingHoldingsAtPeak);
+      if (peakFundingPopupNetPlEl) peakFundingPopupNetPlEl.textContent = formatCurrencyOrDash(peakFundingNetPlAtPeak);
       if (netCashflowEl) netCashflowEl.textContent = formatCurrencyOrDash(netCashflowValue);
       if (harvestedEl) {
         harvestedEl.textContent = formatCurrencyOrDash(harvestedProfit);
@@ -2981,6 +3105,36 @@
       if (sharesEl) sharesEl.textContent = formatNumberOrDash(safeSummary.shares, 4);
       if (lastPriceEl) lastPriceEl.textContent = formatCurrencyOrDash(lastPrice);
       if (openLevelsEl) openLevelsEl.textContent = formatNumberOrDash(openLevelsFinal, 0);
+    }
+
+    function initPeakFundingPopup() {
+      const tile = document.getElementById('summaryPeakFundingTile');
+      const toggle = document.getElementById('summaryPeakFundingPopupToggle');
+      const popup = document.getElementById('summaryPeakFundingPopup');
+      if (!tile || !toggle || !popup) return;
+
+      const setOpen = (open) => {
+        const isOpen = !!open;
+        popup.classList.toggle('hidden', !isOpen);
+        toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        tile.setAttribute('data-peak-popup-open', isOpen ? 'true' : 'false');
+      };
+
+      setOpen(false);
+      toggle.addEventListener('click', (e) => {
+        e.preventDefault();
+        const isOpen = toggle.getAttribute('aria-expanded') === 'true';
+        setOpen(!isOpen);
+      });
+      document.addEventListener('click', (e) => {
+        const target = e.target;
+        if (!target) return;
+        if (target.closest('#summaryPeakFundingPopup') || target.closest('#summaryPeakFundingPopupToggle')) return;
+        setOpen(false);
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') setOpen(false);
+      });
     }
 
     function getTradeSortValue(trade, key) {
@@ -5276,6 +5430,10 @@
         maxSharesHeld: 0,
         maxOpenLevels: 0,
         maxDeployedCapital: 0,
+        peakFundingCashflow: null,
+        peakFundingHarvestedProfit: null,
+        peakFundingHoldingsValue: null,
+        peakFundingNetPLIfLiquidated: null,
         cagr: 0,
         mar: null
       };
@@ -5501,11 +5659,34 @@
       let maxDrawdownDateMs = 0;
       let maxDrawdownPct = 0;
       let maxDrawdownPctDateMs = 0;
+      let peakFundingDateMs = 0;
+      let peakFundingSnapshot = null;
       let maxSharesHeld = shares;
 
-      const recordNetCashflowMin = () => {
+      const recordNetCashflowMin = (timestamp, snapshot = null) => {
+        const previousCapitalContributed = capitalContributed;
         minNetCashflow = Math.min(minNetCashflow, netCashflowTrades);
         capitalContributed = Math.max(0, -minNetCashflow);
+        if (capitalContributed > previousCapitalContributed + 1e-9) {
+          const tsMs = timestamp instanceof Date ? timestamp.getTime() : new Date(timestamp).getTime();
+          if (Number.isFinite(tsMs) && tsMs > 0) {
+            peakFundingDateMs = tsMs;
+          }
+          const cashflowAtPeak = Number.isFinite(snapshot?.cashflow) ? snapshot.cashflow : netCashflowTrades;
+          const harvestedProfitAtPeak = Number.isFinite(snapshot?.harvestedProfit) ? snapshot.harvestedProfit : realizedProfit;
+          const holdingsValueAtPeak = Number.isFinite(snapshot?.holdingsValue) ? snapshot.holdingsValue : NaN;
+          const netPLAtPeak = Number.isFinite(snapshot?.netPLIfLiquidated)
+            ? snapshot.netPLIfLiquidated
+            : (Number.isFinite(cashflowAtPeak) && Number.isFinite(holdingsValueAtPeak)
+              ? (cashflowAtPeak + holdingsValueAtPeak)
+              : NaN);
+          peakFundingSnapshot = {
+            cashflow: cashflowAtPeak,
+            harvestedProfit: harvestedProfitAtPeak,
+            holdingsValue: holdingsValueAtPeak,
+            netPLIfLiquidated: netPLAtPeak
+          };
+        }
         if (capitalContributed > summary.maxDeployedCapital) {
           summary.maxDeployedCapital = capitalContributed;
         }
@@ -5599,8 +5780,15 @@
         if (!Number.isFinite(openPositionCost) || openPositionCost < 0) {
           openPositionCost = Math.max(0, openPositionCost);
         }
-        recordNetCashflowMin();
         shares += qty;
+        const holdingsValueAfterBuy = shares * price;
+        const netPLAfterBuy = netCashflowTrades + holdingsValueAfterBuy;
+        recordNetCashflowMin(timestamp, {
+          cashflow: netCashflowTrades,
+          harvestedProfit: realizedProfit,
+          holdingsValue: holdingsValueAfterBuy,
+          netPLIfLiquidated: netPLAfterBuy
+        });
         if (shares > maxSharesHeld) maxSharesHeld = shares;
         openPositions += 1;
         if (openPositions > summary.maxOpenLevels) summary.maxOpenLevels = openPositions;
@@ -5651,7 +5839,7 @@
         if (openPositionCost < 0 || !Number.isFinite(openPositionCost)) {
           openPositionCost = 0;
         }
-        recordNetCashflowMin();
+        recordNetCashflowMin(timestamp);
         shares -= qty;
         if (openPositions > 0) openPositions -= 1;
         removeOrder(activeSells, order);
@@ -5894,6 +6082,11 @@
       summary.capitalContributed = capitalContributed;
       summary.minNetCashflow = minNetCashflow;
       summary.peakFunding = capitalContributed;
+      summary.peakFundingDate = peakFundingDateMs ? new Date(peakFundingDateMs).toISOString() : null;
+      summary.peakFundingCashflow = Number.isFinite(peakFundingSnapshot?.cashflow) ? peakFundingSnapshot.cashflow : null;
+      summary.peakFundingHarvestedProfit = Number.isFinite(peakFundingSnapshot?.harvestedProfit) ? peakFundingSnapshot.harvestedProfit : null;
+      summary.peakFundingHoldingsValue = Number.isFinite(peakFundingSnapshot?.holdingsValue) ? peakFundingSnapshot.holdingsValue : null;
+      summary.peakFundingNetPLIfLiquidated = Number.isFinite(peakFundingSnapshot?.netPLIfLiquidated) ? peakFundingSnapshot.netPLIfLiquidated : null;
       summary.startingEquity = initialEquity;
       summary.startupFundedLevels = startupFundedLevels;
       summary.netCashflowTrades = netCashflowTrades;
@@ -7299,6 +7492,7 @@
       }
       initGridControls();
       initTradeTableControls();
+      initPeakFundingPopup();
       setupEquityCarousel();
       initWatchlistControls();
       renderBatchResults();
