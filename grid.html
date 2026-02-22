@@ -1385,23 +1385,10 @@
       </div>
       <div class="space-y-2">
         <div class="flex items-center justify-between gap-2">
-          <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Years</p>
-          <button id="yearFilterClearBtn" type="button" class="text-xs text-slate-600 hover:text-slate-800 hover:underline">All years</button>
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Year / Month</p>
+          <button id="yearFilterClearBtn" type="button" class="text-xs text-slate-600 hover:text-slate-800 hover:underline">All months</button>
         </div>
-        <div id="yearFilterGroup" class="flex flex-wrap gap-2" aria-label="Year filters"></div>
-      </div>
-      <div class="relative inline-block" aria-label="Months">
-        <button id="sumMonthMultiBtn" type="button" class="inline-flex items-center justify-between gap-2 bg-white text-slate-800 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/60 shadow-sm rounded-xl px-3 py-2 text-sm min-w-[200px]">
-          <span id="sumMonthMultiLabel" class="truncate">All months</span>
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd"/></svg>
-        </button>
-        <div id="sumMonthMultiMenu" class="absolute z-30 mt-1 w-64 bg-white border border-slate-200 rounded-xl shadow-soft p-2 hidden">
-          <div class="sticky top-0 bg-white z-10 px-2 pb-2 border-b border-slate-200 flex items-center justify-between gap-2">
-            <button id="sumMonthSelectAll" type="button" class="text-xs font-medium text-emerald-700 hover:text-emerald-900 hover:underline">Select all</button>
-            <button id="sumMonthClearAll" type="button" class="text-xs text-slate-600 hover:text-slate-800 hover:underline">Clear</button>
-          </div>
-          <div id="sumMonthMultiList" class="max-h-64 overflow-auto text-sm text-slate-700"></div>
-        </div>
+        <div id="yearFilterGroup" class="space-y-2" aria-label="Year and month filters"></div>
       </div>
     </section>
 
@@ -1932,6 +1919,8 @@
     let cumulativeLevelDistributionChartInst = null;
     let AVAILABLE_MONTHS = [];
     let AVAILABLE_YEARS = [];
+    let AVAILABLE_MONTHS_BY_YEAR = new Map();
+    const MONTH_ABBR_3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const TIMEFRAME_PRESETS = [
       { id: 'all', label: 'All', kind: 'all' },
       { id: 'today', label: 'Today', kind: 'calendar' },
@@ -3262,6 +3251,22 @@
       return dayKey.slice(0, 4);
     }
 
+    function parseMonthKey(monthKey) {
+      if (typeof monthKey !== 'string') return null;
+      const match = monthKey.match(/^(\d{2})\/(\d{4})$/);
+      if (!match) return null;
+      const month = Number(match[1]);
+      const year = match[2];
+      if (!Number.isFinite(month) || month < 1 || month > 12) return null;
+      return { month, year, key: monthKey };
+    }
+
+    function getMonthShortLabel(monthKey) {
+      const parsed = parseMonthKey(monthKey);
+      if (!parsed) return monthKey;
+      return MONTH_ABBR_3[parsed.month - 1] || monthKey;
+    }
+
     function startOfWeekMonday(date) {
       if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
       const out = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -3439,7 +3444,17 @@
         return;
       }
       if (TIME_FILTER_STATE.mode === 'months') {
-        label.textContent = 'Mode: Months';
+        const selected = TIME_FILTER_STATE.months instanceof Set ? TIME_FILTER_STATE.months.size : 0;
+        if (!selected) {
+          label.textContent = 'Mode: All';
+          return;
+        }
+        const yearSet = new Set();
+        TIME_FILTER_STATE.months.forEach((key) => {
+          const parsed = parseMonthKey(key);
+          if (parsed?.year) yearSet.add(parsed.year);
+        });
+        label.textContent = `Mode: Months - ${selected} selected (${yearSet.size} year${yearSet.size === 1 ? '' : 's'})`;
         return;
       }
       if (TIME_FILTER_STATE.mode === 'years') {
@@ -3687,28 +3702,42 @@
     }
 
     function updateMonthFilterLabel() {
-      const lbl = document.getElementById('sumMonthMultiLabel');
-      const btn = document.getElementById('sumMonthMultiBtn');
-      if (!lbl) return;
-      const months = TIME_FILTER_STATE.months;
-      if (btn) {
-        btn.classList.toggle('border-emerald-500', TIME_FILTER_STATE.mode === 'months');
-      }
-      if (!months.size || months.size === AVAILABLE_MONTHS.length) {
-        lbl.textContent = 'All months';
-        return;
-      }
-      if (months.size <= 2) {
-        lbl.textContent = Array.from(months).sort().join(', ');
-        return;
-      }
-      lbl.textContent = `${months.size} selected`;
+      const resetBtn = document.getElementById('yearFilterClearBtn');
+      if (!resetBtn) return;
+      const hasMonthSelection = TIME_FILTER_STATE.mode === 'months' && TIME_FILTER_STATE.months.size > 0;
+      resetBtn.classList.toggle('font-semibold', hasMonthSelection);
+      resetBtn.textContent = 'All months';
     }
 
     function updateYearFilterButtons() {
+      const monthSet = TIME_FILTER_STATE.mode === 'months' ? TIME_FILTER_STATE.months : new Set();
+      const hasMonthSelection = TIME_FILTER_STATE.mode === 'months' && monthSet.size > 0;
+      document.querySelectorAll('#yearFilterGroup button[data-month-filter]').forEach((btn) => {
+        const monthKey = btn.getAttribute('data-month-filter');
+        const active = hasMonthSelection && monthKey && monthSet.has(monthKey);
+        btn.classList.remove(
+          'border-slate-200',
+          'bg-white',
+          'text-slate-600',
+          'hover:bg-slate-50',
+          'border-emerald-500',
+          'bg-emerald-50',
+          'text-emerald-700'
+        );
+        if (active) {
+          btn.classList.add('border-emerald-500', 'bg-emerald-50', 'text-emerald-700');
+          btn.setAttribute('aria-pressed', 'true');
+        } else {
+          btn.classList.add('border-slate-200', 'bg-white', 'text-slate-600', 'hover:bg-slate-50');
+          btn.setAttribute('aria-pressed', 'false');
+        }
+      });
       document.querySelectorAll('#yearFilterGroup button[data-year-filter]').forEach((btn) => {
         const year = btn.getAttribute('data-year-filter');
-        const active = TIME_FILTER_STATE.mode === 'years' && TIME_FILTER_STATE.years.has(year);
+        const yearMonths = year ? (AVAILABLE_MONTHS_BY_YEAR.get(year) || []) : [];
+        const selectedCount = yearMonths.reduce((count, key) => count + (monthSet.has(key) ? 1 : 0), 0);
+        const allSelected = hasMonthSelection && yearMonths.length > 0 && selectedCount === yearMonths.length;
+        const partialSelected = hasMonthSelection && selectedCount > 0 && selectedCount < yearMonths.length;
         btn.classList.remove(
           'border-slate-200',
           'bg-white',
@@ -3716,81 +3745,114 @@
           'hover:bg-slate-50',
           'border-emerald-500',
           'bg-emerald-600',
-          'text-white'
+          'text-white',
+          'border-emerald-300',
+          'bg-emerald-50',
+          'text-emerald-700'
         );
-        if (active) {
+        if (allSelected) {
           btn.classList.add('border-emerald-500', 'bg-emerald-600', 'text-white');
           btn.setAttribute('aria-pressed', 'true');
-        } else {
-          btn.classList.add('border-slate-200', 'bg-white', 'text-slate-700', 'hover:bg-slate-50');
-          btn.setAttribute('aria-pressed', 'false');
+          return;
         }
+        if (partialSelected) {
+          btn.classList.add('border-emerald-300', 'bg-emerald-50', 'text-emerald-700');
+          btn.setAttribute('aria-pressed', 'mixed');
+          return;
+        }
+        btn.classList.add('border-slate-200', 'bg-white', 'text-slate-700', 'hover:bg-slate-50');
+        btn.setAttribute('aria-pressed', 'false');
       });
     }
 
     function buildYearFilterOptions() {
-      AVAILABLE_YEARS = yearChoicesFromDays();
-      const container = document.getElementById('yearFilterGroup');
-      if (!container) return;
-      const validYears = new Set();
-      TIME_FILTER_STATE.years.forEach((key) => {
-        if (AVAILABLE_YEARS.includes(key)) validYears.add(key);
-      });
-      TIME_FILTER_STATE.years = validYears;
-      if (!AVAILABLE_YEARS.length) {
-        container.innerHTML = '<div class="px-2 py-1 text-xs text-slate-500">No data loaded.</div>';
-      } else {
-        container.innerHTML = AVAILABLE_YEARS.map((year) => `
-          <button
-            type="button"
-            data-year-filter="${year}"
-            class="inline-flex items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
-          >
-            ${year}
-          </button>
-        `).join('');
-      }
+      buildMonthFilterOptions();
     }
 
     function buildMonthFilterOptions() {
       AVAILABLE_MONTHS = monthChoicesFromDays();
-      buildYearFilterOptions();
-      const list = document.getElementById('sumMonthMultiList');
-      if (!list) return;
+      AVAILABLE_YEARS = yearChoicesFromDays();
+      AVAILABLE_MONTHS_BY_YEAR = new Map();
+      for (const key of AVAILABLE_MONTHS) {
+        const parsed = parseMonthKey(key);
+        if (!parsed) continue;
+        if (!AVAILABLE_MONTHS_BY_YEAR.has(parsed.year)) {
+          AVAILABLE_MONTHS_BY_YEAR.set(parsed.year, []);
+        }
+        AVAILABLE_MONTHS_BY_YEAR.get(parsed.year).push(key);
+      }
+      for (const [, monthKeys] of AVAILABLE_MONTHS_BY_YEAR.entries()) {
+        monthKeys.sort((a, b) => {
+          const pa = parseMonthKey(a);
+          const pb = parseMonthKey(b);
+          if (!pa || !pb) return 0;
+          return pa.month - pb.month;
+        });
+      }
+      const container = document.getElementById('yearFilterGroup');
+      if (!container) return;
       const validMonths = new Set();
       TIME_FILTER_STATE.months.forEach((key) => {
         if (AVAILABLE_MONTHS.includes(key)) validMonths.add(key);
       });
       TIME_FILTER_STATE.months = validMonths;
-      if (!AVAILABLE_MONTHS.length) {
-        list.innerHTML = '<div class="px-2 py-1 text-xs text-slate-500">No data loaded.</div>';
-      } else {
-        list.innerHTML = AVAILABLE_MONTHS.map(key => `
-          <label class="flex items-center gap-2 px-2 py-1 rounded hover:bg-slate-50 cursor-pointer">
-            <input type="checkbox" class="h-4 w-4 rounded border-slate-300" data-month="${key}" ${TIME_FILTER_STATE.months.has(key) ? 'checked' : ''} />
-            <span class="text-sm text-slate-800">${key}</span>
-          </label>
-        `).join('');
+      if (TIME_FILTER_STATE.mode === 'months' && !TIME_FILTER_STATE.months.size) {
+        TIME_FILTER_STATE.mode = 'all';
       }
-      document.querySelectorAll('#sumMonthMultiList input[data-month]').forEach(cb => {
-        const key = cb.getAttribute('data-month');
-        cb.checked = TIME_FILTER_STATE.months.has(key);
-      });
+      if (!AVAILABLE_YEARS.length) {
+        container.innerHTML = '<div class="px-2 py-1 text-xs text-slate-500">No data loaded.</div>';
+      } else {
+        container.innerHTML = AVAILABLE_YEARS.map((year) => {
+          const monthKeys = AVAILABLE_MONTHS_BY_YEAR.get(year) || [];
+          const monthButtons = monthKeys.map((monthKey) => `
+            <button
+              type="button"
+              data-month-filter="${monthKey}"
+              class="inline-flex min-w-[2.8rem] items-center justify-center rounded-full border px-2.5 py-1 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+              title="${monthKey}"
+            >
+              ${getMonthShortLabel(monthKey)}
+            </button>
+          `).join('');
+          return `
+          <div class="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              data-year-filter="${year}"
+              class="inline-flex min-w-[4.5rem] items-center justify-center rounded-full border px-3 py-1.5 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+            >
+              ${year}
+            </button>
+            <div class="flex flex-wrap gap-1.5">
+              ${monthButtons || '<span class="px-2 py-1 text-xs text-slate-400">—</span>'}
+            </div>
+          </div>
+        `;
+        }).join('');
+      }
       refreshTimeFilterSelection();
     }
 
-    document.addEventListener('click', (e) => {
-      const menu = document.getElementById('sumMonthMultiMenu');
-      if (!menu) return;
-      const btn = e.target.closest('#sumMonthMultiBtn');
-      if (btn) {
-        menu.classList.toggle('hidden');
-        return;
+    function applyMonthSelectionFromSet(nextSet) {
+      const validMonths = new Set();
+      if (nextSet instanceof Set) {
+        nextSet.forEach((key) => {
+          if (AVAILABLE_MONTHS.includes(key)) validMonths.add(key);
+        });
       }
-      if (!menu.contains(e.target)) {
-        menu.classList.add('hidden');
+      TIME_FILTER_STATE.presetId = null;
+      TIME_FILTER_STATE.years = new Set();
+      if (!validMonths.size) {
+        TIME_FILTER_STATE.mode = 'all';
+        TIME_FILTER_STATE.months = new Set();
+      } else {
+        TIME_FILTER_STATE.mode = 'months';
+        TIME_FILTER_STATE.months = validMonths;
       }
-    });
+      refreshTimeFilterSelection();
+      renderGridTrades(GRID_STATE.trades || [], { resetPage: true });
+      rerunBacktestIfDataLoaded();
+    }
 
     document.addEventListener('click', (e) => {
       const presetBtn = e.target.closest('#timeframePresetGroup button[data-timeframe-preset]');
@@ -3829,25 +3891,23 @@
       if (!yearBtn) return;
       const year = yearBtn.getAttribute('data-year-filter');
       if (!year) return;
-      if (TIME_FILTER_STATE.mode !== 'years') {
-        TIME_FILTER_STATE.mode = 'years';
-        TIME_FILTER_STATE.presetId = null;
-        TIME_FILTER_STATE.months = new Set();
-        TIME_FILTER_STATE.years = new Set();
-      }
-      if (TIME_FILTER_STATE.years.has(year)) {
-        TIME_FILTER_STATE.years.delete(year);
+      const yearMonths = AVAILABLE_MONTHS_BY_YEAR.get(year) || [];
+      if (!yearMonths.length) return;
+      const currentSelection = TIME_FILTER_STATE.mode === 'months'
+        ? new Set(TIME_FILTER_STATE.months)
+        : new Set();
+      const allSelected = yearMonths.every((key) => currentSelection.has(key));
+      if (allSelected) {
+        yearMonths.forEach((key) => currentSelection.delete(key));
       } else {
-        TIME_FILTER_STATE.years.add(year);
+        yearMonths.forEach((key) => currentSelection.add(key));
       }
-      refreshTimeFilterSelection();
-      renderGridTrades(GRID_STATE.trades || [], { resetPage: true });
-      rerunBacktestIfDataLoaded();
+      applyMonthSelectionFromSet(currentSelection);
     });
 
     document.addEventListener('click', (e) => {
-      const clearYearsBtn = e.target.closest('#yearFilterClearBtn');
-      if (!clearYearsBtn) return;
+      const clearBtn = e.target.closest('#yearFilterClearBtn');
+      if (!clearBtn) return;
       TIME_FILTER_STATE.mode = 'all';
       TIME_FILTER_STATE.presetId = null;
       TIME_FILTER_STATE.months = new Set();
@@ -3858,42 +3918,19 @@
     });
 
     document.addEventListener('click', (e) => {
-      const selAll = e.target.closest('#sumMonthSelectAll');
-      const clrAll = e.target.closest('#sumMonthClearAll');
-      if (!selAll && !clrAll) return;
-      if (selAll) {
-        TIME_FILTER_STATE.mode = 'months';
-        TIME_FILTER_STATE.presetId = null;
-        TIME_FILTER_STATE.months = new Set(AVAILABLE_MONTHS);
-        TIME_FILTER_STATE.years = new Set();
+      const monthBtn = e.target.closest('#yearFilterGroup button[data-month-filter]');
+      if (!monthBtn) return;
+      const monthKey = monthBtn.getAttribute('data-month-filter');
+      if (!monthKey) return;
+      const currentSelection = TIME_FILTER_STATE.mode === 'months'
+        ? new Set(TIME_FILTER_STATE.months)
+        : new Set();
+      if (currentSelection.has(monthKey)) {
+        currentSelection.delete(monthKey);
+      } else {
+        currentSelection.add(monthKey);
       }
-      if (clrAll) {
-        TIME_FILTER_STATE.mode = 'months';
-        TIME_FILTER_STATE.presetId = null;
-        TIME_FILTER_STATE.months = new Set();
-        TIME_FILTER_STATE.years = new Set();
-      }
-      document.querySelectorAll('#sumMonthMultiList input[data-month]').forEach(cb => {
-        const key = cb.getAttribute('data-month');
-        cb.checked = TIME_FILTER_STATE.months.has(key);
-      });
-      refreshTimeFilterSelection();
-      renderGridTrades(GRID_STATE.trades || [], { resetPage: true });
-      rerunBacktestIfDataLoaded();
-    });
-
-    document.addEventListener('change', (e) => {
-      const cb = e.target.closest('#sumMonthMultiList input[data-month]');
-      if (!cb) return;
-      const key = cb.getAttribute('data-month');
-      if (!key) return;
-      TIME_FILTER_STATE.mode = 'months';
-      TIME_FILTER_STATE.presetId = null;
-      TIME_FILTER_STATE.years = new Set();
-      if (cb.checked) TIME_FILTER_STATE.months.add(key); else TIME_FILTER_STATE.months.delete(key);
-      refreshTimeFilterSelection();
-      renderGridTrades(GRID_STATE.trades || [], { resetPage: true });
-      rerunBacktestIfDataLoaded();
+      applyMonthSelectionFromSet(currentSelection);
     });
 
     document.addEventListener('click', (e) => {
