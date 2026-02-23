@@ -1172,6 +1172,7 @@
               </svg>
             </span>
           </div>
+          <p class="mt-1 text-xs text-slate-500">SMA is calculated from the full loaded dataset; timeframe filters only limit execution bars.</p>
         </label>
         <label class="block">
           <span class="text-sm text-slate-600">Retained Shares</span>
@@ -1440,6 +1441,7 @@
         <div>
           <h2 id="gridSummaryTitle" class="font-semibold text-slate-700">Summary</h2>
           <p id="gridStatus" class="text-sm text-slate-500">Load data and run the backtest to populate results.</p>
+          <p id="gridPerfStatus" class="text-xs text-slate-400" title="Perf timings are shown as last / average / p95.">Perf: no runs yet.</p>
         </div>
         <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-slate-500">
           <span title="Number of trading days included in the current backtest run (after active filters).">Days:</span>
@@ -1834,6 +1836,8 @@
     };
     const STARTUP_FUNDED_LEVEL_OPTIONS = [25, 50, 75, 100, 125, 150, 175, 200];
     const GRID_PARAMS_STORAGE_KEY = 'grid_last_params';
+    const GRID_PERF_STORAGE_KEY = 'grid_perf_metrics_v1';
+    const PERF_HISTORY_LIMIT = 120;
     const GRID_TYPE = 'buy_the_dip';
     const WATCHLIST_ALL = '__all__';
     const WATCHLIST_DEFAULTS = { active: WATCHLIST_ALL, watchlists: { Default: [] }, symbol_meta: {} };
@@ -1950,6 +1954,7 @@
       years: new Set(),
       weeks: new Set()
     };
+    let GRID_PERF_METRICS = { load: [], backtest: [] };
     let PRICE_DISTRIBUTION_VIEW = 'buy';
     const TRADE_TABLE_STATE = { page: 1, pageSize: 250 };
     const WATCHLIST_UPDATE_DELAY_MS = 10000;
@@ -1999,6 +2004,102 @@
     function setGridStatus(msg) {
       const el = document.getElementById('gridStatus');
       if (el) el.textContent = msg || '';
+    }
+
+    function readGridPerfMetrics() {
+      try {
+        const raw = localStorage.getItem(GRID_PERF_STORAGE_KEY);
+        if (!raw) return { load: [], backtest: [] };
+        const parsed = JSON.parse(raw);
+        const load = Array.isArray(parsed?.load) ? parsed.load : [];
+        const backtest = Array.isArray(parsed?.backtest) ? parsed.backtest : [];
+        return {
+          load: load.filter((entry) => Number.isFinite(Number(entry?.ms))).slice(-PERF_HISTORY_LIMIT),
+          backtest: backtest.filter((entry) => Number.isFinite(Number(entry?.ms))).slice(-PERF_HISTORY_LIMIT)
+        };
+      } catch {
+        return { load: [], backtest: [] };
+      }
+    }
+
+    function saveGridPerfMetrics() {
+      try {
+        const payload = {
+          load: Array.isArray(GRID_PERF_METRICS?.load) ? GRID_PERF_METRICS.load.slice(-PERF_HISTORY_LIMIT) : [],
+          backtest: Array.isArray(GRID_PERF_METRICS?.backtest) ? GRID_PERF_METRICS.backtest.slice(-PERF_HISTORY_LIMIT) : []
+        };
+        localStorage.setItem(GRID_PERF_STORAGE_KEY, JSON.stringify(payload));
+      } catch {}
+    }
+
+    function formatDurationMs(value) {
+      const ms = Number(value);
+      if (!Number.isFinite(ms) || ms < 0) return '—';
+      if (ms < 1000) return `${Math.round(ms)} ms`;
+      if (ms < 60000) return `${formatNumber(ms / 1000, 2)} s`;
+      return `${formatNumber(ms / 60000, 2)} min`;
+    }
+
+    function summarizePerfRuns(runs) {
+      const entries = Array.isArray(runs)
+        ? runs.filter((entry) => Number.isFinite(Number(entry?.ms))).map((entry) => Number(entry.ms))
+        : [];
+      if (!entries.length) {
+        return { count: 0, last: NaN, avg: NaN, p95: NaN };
+      }
+      const last = entries[entries.length - 1];
+      const sorted = entries.slice().sort((a, b) => a - b);
+      const sum = sorted.reduce((acc, val) => acc + val, 0);
+      const avg = sum / sorted.length;
+      const p95Index = Math.max(0, Math.ceil(sorted.length * 0.95) - 1);
+      const p95 = sorted[p95Index];
+      return { count: sorted.length, last, avg, p95 };
+    }
+
+    function formatPerfSummary(summary) {
+      if (!summary || !summary.count) return '—';
+      return `${formatDurationMs(summary.last)} / ${formatDurationMs(summary.avg)} / ${formatDurationMs(summary.p95)} (n=${summary.count})`;
+    }
+
+    function renderGridPerfStatus() {
+      const el = document.getElementById('gridPerfStatus');
+      if (!el) return;
+      const loadSummary = summarizePerfRuns(GRID_PERF_METRICS?.load);
+      const backtestSummary = summarizePerfRuns(GRID_PERF_METRICS?.backtest);
+      if (!loadSummary.count && !backtestSummary.count) {
+        el.textContent = 'Perf: no runs yet.';
+        return;
+      }
+      el.textContent = `Perf (last/avg/p95): Load ${formatPerfSummary(loadSummary)} | Backtest ${formatPerfSummary(backtestSummary)}`;
+    }
+
+    function recordGridPerfSample(kind, sample) {
+      if (kind !== 'load' && kind !== 'backtest') return;
+      if (!sample || !Number.isFinite(Number(sample.ms))) return;
+      if (!GRID_PERF_METRICS || typeof GRID_PERF_METRICS !== 'object') {
+        GRID_PERF_METRICS = { load: [], backtest: [] };
+      }
+      if (!Array.isArray(GRID_PERF_METRICS.load)) GRID_PERF_METRICS.load = [];
+      if (!Array.isArray(GRID_PERF_METRICS.backtest)) GRID_PERF_METRICS.backtest = [];
+      const bucket = kind === 'load' ? GRID_PERF_METRICS.load : GRID_PERF_METRICS.backtest;
+      bucket.push({
+        ms: Number(sample.ms),
+        symbol: sample.symbol || '',
+        rows: Number.isFinite(Number(sample.rows)) ? Number(sample.rows) : null,
+        dayCount: Number.isFinite(Number(sample.dayCount)) ? Number(sample.dayCount) : null,
+        trades: Number.isFinite(Number(sample.trades)) ? Number(sample.trades) : null,
+        success: sample.success !== false,
+        timestamp: new Date().toISOString()
+      });
+      if (bucket.length > PERF_HISTORY_LIMIT) {
+        bucket.splice(0, bucket.length - PERF_HISTORY_LIMIT);
+      }
+      saveGridPerfMetrics();
+      renderGridPerfStatus();
+      try {
+        const label = kind === 'load' ? 'LOAD' : 'BACKTEST';
+        console.info(`[PERF:${label}] ${formatDurationMs(sample.ms)} (${sample.symbol || 'n/a'})`);
+      } catch {}
     }
 
     function setBatchResultsStatus(msg) {
@@ -6438,6 +6539,7 @@
       }
       const params = getGridParamsFromUI();
       const rowsForRun = filterRowsBySelectedMonths(ROWS);
+      const filteredDayCount = new Set(rowsForRun.map(row => row?.dayKey).filter(Boolean)).size;
       if (!rowsForRun.length) {
         setGridStatus('No data available for the selected timeframe filter. Clear the filter or load more data.');
         renderGridSummary(null);
@@ -6455,7 +6557,6 @@
         renderGridLevels([], [], null);
         return;
       }
-      const uniqueFilteredDays = new Set(rowsForRun.map(row => row?.dayKey).filter(Boolean));
       const entryFilter = params?.entryFilter || 'none';
       const filterWindow = getEntryFilterWindow(entryFilter);
       if (filterWindow) {
@@ -6483,24 +6584,8 @@
           renderGridLevels([], [], null);
           return;
         }
-        if (uniqueFilteredDays.size < filterWindow) {
-          setGridStatus(`Entry filter (${filterWindow}-day SMA) needs ${filterWindow} completed day(s), but the current timeframe filter only leaves ${uniqueFilteredDays.size.toLocaleString()} day${uniqueFilteredDays.size === 1 ? '' : 's'}. Adjust the filter or load additional data.`);
-          renderGridSummary(null);
-          renderGridTrades([], { resetPage: true });
-          renderAccountEquityChart(null);
-          renderGridEquityChart(null);
-          renderNetPnlChart(null);
-          renderLadderChart([]);
-          renderFillsPerDayChart([]);
-          renderOpenLevelsChart([]);
-          renderFillsPerMonthChart([]);
-          renderPriceDistributionChart([]);
-          renderLevelDistributionChart([]);
-          renderCumulativeLevelDistributionChart([]);
-          renderGridLevels([], [], null);
-          return;
-        }
       }
+      const backtestStartMs = performance.now();
       setGridStatus('Running backtest…');
       try {
         const result = runBuyTheDipSimulation(rowsForRun, params) || {};
@@ -6516,7 +6601,7 @@
           gridLevels: Array.isArray(result.gridLevels) ? result.gridLevels : []
         };
         if (safeResult.summary) {
-          safeResult.summary.dayCount = uniqueFilteredDays.size;
+          safeResult.summary.dayCount = filteredDayCount;
         }
         GRID_STATE = safeResult;
         const backtestOutput = {
@@ -6531,8 +6616,6 @@
         console.log('GRID_BACKTEST_OUTPUT');
         console.log(JSON.stringify(backtestOutput, null, 2));
         window.GRID_FILL_SEQUENCE = safeResult.fillSequence.slice();
-        console.log('GRID_FILL_SEQUENCE', window.GRID_FILL_SEQUENCE);
-        console.log('GRID_FILL_SEQUENCE_JSON', JSON.stringify(window.GRID_FILL_SEQUENCE));
         renderGridSummary(safeResult.summary);
         renderGridTrades(safeResult.trades, { resetPage: true });
         renderAccountEquityChart(safeResult.equitySeries);
@@ -6547,15 +6630,33 @@
         renderCumulativeLevelDistributionChart(safeResult.trades);
         renderGridLevels(safeResult.buyLevels, safeResult.sellLevels, safeResult.baseLevel ?? null);
         setSaveButtonEnabled(!!safeResult.summary);
+        const backtestDurationMs = performance.now() - backtestStartMs;
+        recordGridPerfSample('backtest', {
+          ms: backtestDurationMs,
+          symbol: currentTicker || '',
+          rows: rowsForRun.length,
+          dayCount: filteredDayCount,
+          trades: safeResult.trades.length,
+          success: true
+        });
         if (safeResult.trades.length) {
           const profitLabel = formatCurrency(safeResult.summary?.netProfit ?? 0);
-          setGridStatus(`Backtest completed with ${safeResult.trades.length} trade${safeResult.trades.length === 1 ? '' : 's'}. Net profit ${profitLabel}.`);
+          setGridStatus(`Backtest completed in ${formatDurationMs(backtestDurationMs)} with ${safeResult.trades.length} trade${safeResult.trades.length === 1 ? '' : 's'}. Net profit ${profitLabel}.`);
         } else {
-          setGridStatus('No completed trades for the selected parameters.');
+          setGridStatus(`Backtest completed in ${formatDurationMs(backtestDurationMs)}. No completed trades for the selected parameters.`);
         }
       } catch (err) {
         console.error('Buy the Dip backtest error', err);
-        setGridStatus('Failed to run backtest. See console for details.');
+        const backtestDurationMs = performance.now() - backtestStartMs;
+        recordGridPerfSample('backtest', {
+          ms: backtestDurationMs,
+          symbol: currentTicker || '',
+          rows: rowsForRun.length,
+          dayCount: filteredDayCount,
+          trades: 0,
+          success: false
+        });
+        setGridStatus(`Failed to run backtest after ${formatDurationMs(backtestDurationMs)}. See console for details.`);
         renderLadderChart([]);
         renderFillsPerDayChart([]);
         renderOpenLevelsChart([]);
@@ -6775,6 +6876,7 @@
     async function loadSymbolData(sym) {
       const baseSymbol = (sym || '').trim();
       if (!baseSymbol) return false;
+      const loadStartMs = performance.now();
       setStatus(`Loading data for ${baseSymbol}…`);
       setGridStatus(`Loading data for ${baseSymbol}…`);
       setRunButtonEnabled(false);
@@ -6820,12 +6922,28 @@
           renderDataSummary();
           updateLoadedGridStatus('Running backtest…');
           setRunButtonEnabled(true);
+          const loadDurationMs = performance.now() - loadStartMs;
+          recordGridPerfSample('load', {
+            ms: loadDurationMs,
+            symbol: baseSymbol,
+            rows: ROWS.length,
+            dayCount: DAYS.length,
+            success: true
+          });
           runGridBacktest();
           return true;
         } catch (err) {
           lastError = err && err.message ? err.message : String(err);
         }
       }
+      const loadDurationMs = performance.now() - loadStartMs;
+      recordGridPerfSample('load', {
+        ms: loadDurationMs,
+        symbol: baseSymbol,
+        rows: 0,
+        dayCount: 0,
+        success: false
+      });
       console.error(`Failed to load ${baseSymbol}: ${lastError || 'not found'}`);
       setStatus(`Error loading ${baseSymbol}: ${lastError || 'File not found.'}`);
       setGridStatus(`Error loading ${baseSymbol}: ${lastError || 'File not found.'}`);
@@ -7822,6 +7940,8 @@
           } catch {}
         });
       }
+      GRID_PERF_METRICS = readGridPerfMetrics();
+      renderGridPerfStatus();
       initGridControls();
       initTradeTableControls();
       initPeakFundingPopup();
