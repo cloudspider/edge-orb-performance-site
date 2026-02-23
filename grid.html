@@ -1131,15 +1131,61 @@
           <p class="text-sm text-slate-500">Adjust spacing and sizing, then run the backtest on the loaded symbol.</p>
         </div>
         <div class="flex flex-wrap gap-2">
-          <button
-            type="button"
-            id="btnRunGridBacktest"
-            class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-300"
-            disabled
-          >
-            <ion-icon name="play-outline" class="text-lg"></ion-icon>
-            <span>Run Backtest</span>
-          </button>
+          <div id="runBacktestSplit" class="relative inline-flex">
+            <button
+              type="button"
+              id="btnRunGridBacktest"
+              class="inline-flex items-center justify-center gap-2 rounded-l-xl rounded-r-none bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+              disabled
+            >
+              <ion-icon name="play-outline" class="text-lg"></ion-icon>
+              <span id="btnRunGridBacktestLabel">Run Backtest</span>
+            </button>
+            <button
+              type="button"
+              id="btnRunGridBacktestMenu"
+              class="inline-flex items-center justify-center rounded-r-xl rounded-l-none border-l border-emerald-500/40 bg-emerald-600 px-3 py-2 text-white shadow-sm transition hover:bg-emerald-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300"
+              aria-haspopup="menu"
+              aria-expanded="false"
+              aria-controls="runBacktestMenu"
+              title="Backtest run modes"
+              disabled
+            >
+              <ion-icon name="chevron-down-outline" class="text-base"></ion-icon>
+            </button>
+            <div
+              id="runBacktestMenu"
+              role="menu"
+              class="absolute right-0 top-full z-20 mt-2 hidden min-w-[15rem] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+            >
+              <button
+                type="button"
+                role="menuitem"
+                data-run-action="single"
+                class="flex w-full items-center justify-start px-3 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+              >
+                Run Backtest
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                data-run-action="weekly"
+                class="flex w-full items-center justify-start border-t border-slate-100 px-3 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+              >
+                Run Weekly Backtest
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                data-run-action="monthly"
+                class="flex w-full items-center justify-start border-t border-slate-100 px-3 py-2 text-left text-sm font-medium text-slate-400"
+                disabled
+                aria-disabled="true"
+              >
+                Run Monthly Backtest (Coming soon)
+              </button>
+            </div>
+          </div>
           <button
             type="button"
             id="btnSaveGridBacktest"
@@ -1439,6 +1485,43 @@
           <tbody id="batchResultsBody" class="divide-y divide-slate-100"></tbody>
         </table>
         <div id="batchResultsEmpty" class="py-6 text-center text-sm text-slate-500">No batch results yet.</div>
+      </div>
+    </section>
+
+    <section id="weeklyBacktestSummary" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-3 hidden">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="font-semibold text-slate-700">Weekly Batch Summary</h2>
+        <p id="weeklyBacktestSummaryMeta" class="text-xs text-slate-500">—</p>
+      </div>
+      <div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-7">
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Winning Weeks</p>
+          <p id="weeklySummaryWinningWeeks" class="mt-1 text-sm font-semibold text-emerald-700">0</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Losing Weeks</p>
+          <p id="weeklySummaryLosingWeeks" class="mt-1 text-sm font-semibold text-red-700">0</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Skipped Weeks</p>
+          <p id="weeklySummarySkippedWeeks" class="mt-1 text-sm font-semibold text-slate-700">0</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Win %</p>
+          <p id="weeklySummaryWinRate" class="mt-1 text-sm font-semibold text-slate-800">0.00%</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Net P/L</p>
+          <p id="weeklySummaryNetPnl" class="mt-1 text-sm font-semibold text-slate-800">$0.00</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Gross Profit</p>
+          <p id="weeklySummaryGrossProfit" class="mt-1 text-sm font-semibold text-emerald-700">$0.00</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Gross Loss</p>
+          <p id="weeklySummaryGrossLoss" class="mt-1 text-sm font-semibold text-red-700">$0.00</p>
+        </div>
       </div>
     </section>
 
@@ -1960,6 +2043,14 @@
     let levelDistributionChartInst = null;
     let cumulativeLevelDistributionChartInst = null;
     let SHOW_VISUALS = false;
+    let WEEKLY_BACKTEST_RUNNING = false;
+    let WEEKLY_BACKTEST_RESULTS = new Map();
+    const RUN_BACKTEST_MODE_DEFAULT = 'single';
+    const RUN_BACKTEST_MODE_LABELS = {
+      single: 'Run Backtest',
+      weekly: 'Run Weekly Backtest'
+    };
+    let RUN_BACKTEST_MODE = RUN_BACKTEST_MODE_DEFAULT;
     const WEEK_SELECTION_MODE_DEFAULT = 'radio';
     let WEEK_SELECTION_MODE = WEEK_SELECTION_MODE_DEFAULT;
     let LAST_SELECTED_WEEK_KEY = null;
@@ -2316,11 +2407,284 @@
       });
     }
 
-    function setRunButtonEnabled(enabled) {
+    function closeRunBacktestMenu() {
+      const menu = document.getElementById('runBacktestMenu');
+      const trigger = document.getElementById('btnRunGridBacktestMenu');
+      if (menu) menu.classList.add('hidden');
+      if (trigger) trigger.setAttribute('aria-expanded', 'false');
+    }
+
+    function normalizeRunBacktestMode(mode) {
+      const key = String(mode || '').toLowerCase();
+      return key === 'weekly' ? 'weekly' : 'single';
+    }
+
+    function updateRunBacktestModeUI() {
+      const mode = normalizeRunBacktestMode(RUN_BACKTEST_MODE);
+      const label = RUN_BACKTEST_MODE_LABELS[mode] || RUN_BACKTEST_MODE_LABELS.single;
+      const labelEl = document.getElementById('btnRunGridBacktestLabel');
+      if (labelEl) {
+        labelEl.textContent = label;
+      }
       const btn = document.getElementById('btnRunGridBacktest');
-      if (!btn) return;
-      btn.disabled = !enabled;
-      btn.classList.toggle('opacity-70', !enabled);
+      if (btn) {
+        btn.setAttribute('aria-label', label);
+        btn.setAttribute('title', label);
+      }
+      document.querySelectorAll('#runBacktestMenu button[data-run-action]').forEach((actionBtn) => {
+        const action = normalizeRunBacktestMode(actionBtn.getAttribute('data-run-action'));
+        const isMonthly = actionBtn.getAttribute('data-run-action') === 'monthly';
+        const active = !isMonthly && action === mode;
+        actionBtn.classList.remove('bg-slate-50', 'text-slate-900', 'font-semibold', 'text-slate-700', 'text-slate-400');
+        if (isMonthly) {
+          actionBtn.classList.add('text-slate-400');
+          return;
+        }
+        if (actionBtn.disabled) {
+          actionBtn.classList.add('text-slate-400');
+          return;
+        }
+        if (active) {
+          actionBtn.classList.add('bg-slate-50', 'text-slate-900', 'font-semibold');
+        } else {
+          actionBtn.classList.add('text-slate-700');
+        }
+      });
+    }
+
+    function setRunBacktestMode(mode) {
+      RUN_BACKTEST_MODE = normalizeRunBacktestMode(mode);
+      updateRunBacktestModeUI();
+    }
+
+    function runSelectedBacktest() {
+      if (RUN_BACKTEST_MODE === 'weekly') {
+        runWeeklyBacktest();
+        return;
+      }
+      runGridBacktest();
+    }
+
+    function toggleRunBacktestMenu() {
+      const menu = document.getElementById('runBacktestMenu');
+      const trigger = document.getElementById('btnRunGridBacktestMenu');
+      if (!menu || !trigger || trigger.disabled) return;
+      const opening = menu.classList.contains('hidden');
+      menu.classList.toggle('hidden', !opening);
+      trigger.setAttribute('aria-expanded', opening ? 'true' : 'false');
+    }
+
+    function setRunButtonEnabled(enabled) {
+      const baseEnabled = !!enabled;
+      const canUseControls = baseEnabled && !WEEKLY_BACKTEST_RUNNING;
+      const btn = document.getElementById('btnRunGridBacktest');
+      if (btn) {
+        btn.disabled = !canUseControls;
+        btn.classList.toggle('opacity-70', !canUseControls);
+      }
+      const menuBtn = document.getElementById('btnRunGridBacktestMenu');
+      if (menuBtn) {
+        menuBtn.disabled = !canUseControls;
+        menuBtn.classList.toggle('opacity-70', !canUseControls);
+      }
+      document.querySelectorAll('#runBacktestMenu button[data-run-action]').forEach((actionBtn) => {
+        const action = (actionBtn.getAttribute('data-run-action') || '').toLowerCase();
+        if (action === 'monthly') {
+          actionBtn.disabled = true;
+          return;
+        }
+        actionBtn.disabled = !canUseControls;
+      });
+      if (!canUseControls) {
+        closeRunBacktestMenu();
+      }
+      updateRunBacktestModeUI();
+    }
+
+    function setWeeklyBacktestResult(weekKey, payload) {
+      if (!weekKey) return;
+      if (!(WEEKLY_BACKTEST_RESULTS instanceof Map)) {
+        WEEKLY_BACKTEST_RESULTS = new Map();
+      }
+      const next = payload && typeof payload === 'object' ? payload : {};
+      WEEKLY_BACKTEST_RESULTS.set(weekKey, {
+        status: String(next.status || 'ok'),
+        netProfit: Number.isFinite(next.netProfit) ? Number(next.netProfit) : null,
+        trades: Number.isFinite(next.trades) ? Number(next.trades) : null,
+        message: next.message ? String(next.message) : ''
+      });
+    }
+
+    function summarizeWeeklyBacktestResults() {
+      const out = {
+        totalWeeks: 0,
+        evaluatedWeeks: 0,
+        winningWeeks: 0,
+        losingWeeks: 0,
+        skippedWeeks: 0,
+        flatWeeks: 0,
+        winRatePct: 0,
+        netPnl: 0,
+        grossProfit: 0,
+        grossLoss: 0
+      };
+      if (!(WEEKLY_BACKTEST_RESULTS instanceof Map) || !WEEKLY_BACKTEST_RESULTS.size) {
+        return out;
+      }
+      out.totalWeeks = WEEKLY_BACKTEST_RESULTS.size;
+      for (const result of WEEKLY_BACKTEST_RESULTS.values()) {
+        const status = String(result?.status || '');
+        const netProfit = Number(result?.netProfit);
+        if (status !== 'ok' || !Number.isFinite(netProfit)) {
+          out.skippedWeeks += 1;
+          continue;
+        }
+        out.netPnl += netProfit;
+        if (netProfit > 0) {
+          out.winningWeeks += 1;
+          out.grossProfit += netProfit;
+        } else if (netProfit < 0) {
+          out.losingWeeks += 1;
+          out.grossLoss += Math.abs(netProfit);
+        } else {
+          out.flatWeeks += 1;
+        }
+      }
+      out.evaluatedWeeks = Math.max(0, out.totalWeeks - out.skippedWeeks);
+      out.winRatePct = out.evaluatedWeeks > 0
+        ? (out.winningWeeks / out.evaluatedWeeks) * 100
+        : 0;
+      return out;
+    }
+
+    function renderWeeklyBacktestSummary() {
+      const panel = document.getElementById('weeklyBacktestSummary');
+      if (!panel) return;
+      const summary = summarizeWeeklyBacktestResults();
+      const hasResults = summary.totalWeeks > 0;
+      panel.classList.toggle('hidden', !hasResults);
+      const winningEl = document.getElementById('weeklySummaryWinningWeeks');
+      const losingEl = document.getElementById('weeklySummaryLosingWeeks');
+      const skippedEl = document.getElementById('weeklySummarySkippedWeeks');
+      const winRateEl = document.getElementById('weeklySummaryWinRate');
+      const netEl = document.getElementById('weeklySummaryNetPnl');
+      const grossProfitEl = document.getElementById('weeklySummaryGrossProfit');
+      const grossLossEl = document.getElementById('weeklySummaryGrossLoss');
+      const metaEl = document.getElementById('weeklyBacktestSummaryMeta');
+      if (!hasResults) {
+        if (winningEl) winningEl.textContent = '0';
+        if (losingEl) losingEl.textContent = '0';
+        if (skippedEl) skippedEl.textContent = '0';
+        if (winRateEl) {
+          winRateEl.textContent = '0.00%';
+          winRateEl.classList.remove('text-emerald-700', 'text-red-700');
+          winRateEl.classList.add('text-slate-800');
+        }
+        if (netEl) {
+          netEl.textContent = '$0.00';
+          netEl.classList.remove('text-emerald-700', 'text-red-700');
+          netEl.classList.add('text-slate-800');
+        }
+        if (grossProfitEl) grossProfitEl.textContent = '$0.00';
+        if (grossLossEl) grossLossEl.textContent = '$0.00';
+        if (metaEl) metaEl.textContent = '—';
+        return;
+      }
+      if (winningEl) winningEl.textContent = summary.winningWeeks.toLocaleString();
+      if (losingEl) losingEl.textContent = summary.losingWeeks.toLocaleString();
+      if (skippedEl) skippedEl.textContent = summary.skippedWeeks.toLocaleString();
+      if (winRateEl) {
+        winRateEl.textContent = formatPercent(summary.winRatePct);
+        winRateEl.classList.remove('text-slate-800', 'text-emerald-700', 'text-red-700');
+        if (summary.winRatePct >= 50) {
+          winRateEl.classList.add('text-emerald-700');
+        } else if (summary.evaluatedWeeks > 0) {
+          winRateEl.classList.add('text-red-700');
+        } else {
+          winRateEl.classList.add('text-slate-800');
+        }
+      }
+      if (netEl) {
+        netEl.textContent = formatCurrency(summary.netPnl);
+        netEl.classList.remove('text-slate-800', 'text-emerald-700', 'text-red-700');
+        if (summary.netPnl > 0) {
+          netEl.classList.add('text-emerald-700');
+        } else if (summary.netPnl < 0) {
+          netEl.classList.add('text-red-700');
+        } else {
+          netEl.classList.add('text-slate-800');
+        }
+      }
+      if (grossProfitEl) grossProfitEl.textContent = formatCurrency(summary.grossProfit);
+      if (grossLossEl) grossLossEl.textContent = formatCurrency(summary.grossLoss);
+      if (metaEl) {
+        const flatLabel = summary.flatWeeks > 0
+          ? ` \u00b7 ${summary.flatWeeks.toLocaleString()} flat`
+          : '';
+        const evaluatedLabel = ` \u00b7 ${summary.evaluatedWeeks.toLocaleString()} evaluated`;
+        metaEl.textContent = `${summary.totalWeeks.toLocaleString()} weeks analyzed${evaluatedLabel}${flatLabel}`;
+      }
+    }
+
+    function clearWeeklyBacktestResults({ rerender = true } = {}) {
+      if (!(WEEKLY_BACKTEST_RESULTS instanceof Map)) {
+        WEEKLY_BACKTEST_RESULTS = new Map();
+      } else if (WEEKLY_BACKTEST_RESULTS.size) {
+        WEEKLY_BACKTEST_RESULTS.clear();
+      }
+      if (rerender) {
+        updateWeekFilterButtons();
+      }
+      renderWeeklyBacktestSummary();
+    }
+
+    function getRowsForWeekKey(weekKey) {
+      if (!weekKey) return [];
+      const weekSet = new Set([weekKey]);
+      const daySet = getWeekDayKeySet(weekSet);
+      if (!(daySet instanceof Set) || !daySet.size) return [];
+      const rows = [];
+      daySet.forEach((dayKey) => {
+        const dayRows = DAY_GROUPS.get(dayKey);
+        if (!Array.isArray(dayRows) || !dayRows.length) return;
+        rows.push(...dayRows);
+      });
+      return rows;
+    }
+
+    function formatWeeklyWeekTooltip(weekKey, result) {
+      const parsed = parseWeekKey(weekKey);
+      const weekLabel = parsed ? parsed.week : weekKey;
+      const base = `Week ${weekLabel} (${weekKey})`;
+      if (!result || typeof result !== 'object') {
+        return base;
+      }
+      if (result.status === 'ok' && Number.isFinite(result.netProfit)) {
+        const parts = [
+          base,
+          `Net P/L (if liquidated): ${formatCurrency(result.netProfit)}`
+        ];
+        if (Number.isFinite(result.trades)) {
+          parts.push(`Trades: ${Math.max(0, Math.trunc(result.trades))}`);
+        }
+        return parts.join('\n');
+      }
+      if (result.status === 'no_rows') {
+        return `${base}\nNo rows in selected week segment.`;
+      }
+      if (result.status === 'no_trades') {
+        const netLabel = Number.isFinite(result.netProfit)
+          ? `\nNet P/L (if liquidated): ${formatCurrency(result.netProfit)}`
+          : '';
+        return `${base}\nNo completed trades in this week.${netLabel}`;
+      }
+      if (result.status === 'insufficient_sma') {
+        return `${base}\n${result.message || 'Insufficient dataset for selected SMA filter.'}`;
+      }
+      if (result.status === 'error') {
+        return `${base}\n${result.message || 'Backtest failed for this week.'}`;
+      }
+      return base;
     }
 
     function setSaveButtonEnabled(enabled) {
@@ -3767,7 +4131,7 @@
 
     function rerunBacktestIfDataLoaded() {
       if (Array.isArray(ROWS) && ROWS.length) {
-        runGridBacktest();
+        runSelectedBacktest();
       }
     }
 
@@ -4138,7 +4502,10 @@
       const hasWeekSelection = TIME_FILTER_STATE.mode === 'weeks' && weekSet.size > 0;
       document.querySelectorAll('#weekFilterGroup button[data-week-filter]').forEach((btn) => {
         const weekKey = btn.getAttribute('data-week-filter');
+        const weekResult = weekKey && WEEKLY_BACKTEST_RESULTS instanceof Map ? WEEKLY_BACKTEST_RESULTS.get(weekKey) : null;
         const active = hasWeekSelection && weekKey && weekSet.has(weekKey);
+        const netProfit = Number(weekResult?.netProfit);
+        const hasNetProfit = weekResult?.status === 'ok' && Number.isFinite(netProfit);
         btn.classList.remove(
           'border-slate-200',
           'bg-white',
@@ -4146,15 +4513,53 @@
           'hover:bg-slate-50',
           'border-sky-500',
           'bg-sky-50',
-          'text-sky-700'
+          'text-sky-700',
+          'border-emerald-300',
+          'bg-emerald-50',
+          'text-emerald-700',
+          'hover:bg-emerald-100',
+          'border-red-300',
+          'bg-red-50',
+          'text-red-700',
+          'hover:bg-red-100',
+          'border-slate-300',
+          'bg-slate-100',
+          'text-slate-700',
+          'hover:bg-slate-200',
+          'ring-1',
+          'ring-emerald-400',
+          'ring-red-400',
+          'ring-slate-400'
         );
+        if (weekKey) {
+          btn.title = formatWeeklyWeekTooltip(weekKey, weekResult);
+        }
         if (active) {
           btn.classList.add('border-sky-500', 'bg-sky-50', 'text-sky-700');
+          if (hasNetProfit) {
+            if (netProfit > 0) {
+              btn.classList.add('ring-1', 'ring-emerald-400');
+            } else if (netProfit < 0) {
+              btn.classList.add('ring-1', 'ring-red-400');
+            } else {
+              btn.classList.add('ring-1', 'ring-slate-400');
+            }
+          }
           btn.setAttribute('aria-pressed', 'true');
+          return;
+        }
+        if (hasNetProfit) {
+          if (netProfit > 0) {
+            btn.classList.add('border-emerald-300', 'bg-emerald-50', 'text-emerald-700', 'hover:bg-emerald-100');
+          } else if (netProfit < 0) {
+            btn.classList.add('border-red-300', 'bg-red-50', 'text-red-700', 'hover:bg-red-100');
+          } else {
+            btn.classList.add('border-slate-300', 'bg-slate-100', 'text-slate-700', 'hover:bg-slate-200');
+          }
         } else {
           btn.classList.add('border-slate-200', 'bg-white', 'text-slate-600', 'hover:bg-slate-50');
-          btn.setAttribute('aria-pressed', 'false');
         }
+        btn.setAttribute('aria-pressed', 'false');
       });
       document.querySelectorAll('#weekFilterGroup button[data-week-year-filter]').forEach((btn) => {
         const year = btn.getAttribute('data-week-year-filter');
@@ -4277,6 +4682,14 @@
           return pa.week - pb.week;
         });
       }
+      if (WEEKLY_BACKTEST_RESULTS instanceof Map && WEEKLY_BACKTEST_RESULTS.size) {
+        const validWeekKeySet = new Set(AVAILABLE_WEEKS);
+        for (const key of Array.from(WEEKLY_BACKTEST_RESULTS.keys())) {
+          if (!validWeekKeySet.has(key)) {
+            WEEKLY_BACKTEST_RESULTS.delete(key);
+          }
+        }
+      }
       const container = document.getElementById('weekFilterGroup');
       if (!container) return;
       const validWeeks = new Set();
@@ -4323,9 +4736,11 @@
         `;
         }).join('');
       }
+      renderWeeklyBacktestSummary();
     }
 
     function applyMonthSelectionFromSet(nextSet) {
+      clearWeeklyBacktestResults({ rerender: false });
       const validMonths = new Set();
       if (nextSet instanceof Set) {
         nextSet.forEach((key) => {
@@ -4348,6 +4763,7 @@
     }
 
     function applyWeekSelectionFromSet(nextSet) {
+      clearWeeklyBacktestResults({ rerender: false });
       const validWeeks = new Set();
       if (nextSet instanceof Set) {
         nextSet.forEach((key) => {
@@ -4375,6 +4791,7 @@
       if (!presetBtn) return;
       const presetId = presetBtn.getAttribute('data-timeframe-preset');
       if (!presetId) return;
+      clearWeeklyBacktestResults({ rerender: false });
       if (presetId === 'all') {
         TIME_FILTER_STATE = {
           mode: 'all',
@@ -4427,6 +4844,7 @@
     document.addEventListener('click', (e) => {
       const clearBtn = e.target.closest('#yearFilterClearBtn');
       if (!clearBtn) return;
+      clearWeeklyBacktestResults({ rerender: false });
       TIME_FILTER_STATE.mode = 'all';
       TIME_FILTER_STATE.presetId = null;
       TIME_FILTER_STATE.months = new Set();
@@ -4515,6 +4933,7 @@
     document.addEventListener('click', (e) => {
       const clearBtn = e.target.closest('#weekFilterClearBtn');
       if (!clearBtn) return;
+      clearWeeklyBacktestResults({ rerender: false });
       TIME_FILTER_STATE.mode = 'all';
       TIME_FILTER_STATE.presetId = null;
       TIME_FILTER_STATE.months = new Set();
@@ -5889,6 +6308,7 @@
     }
 
     function resetGridOutputs(message) {
+      clearWeeklyBacktestResults({ rerender: false });
       GRID_STATE = createEmptyGridState();
       renderGridSummary(null);
       updateSellFillSummaryFromTrades([]);
@@ -5900,6 +6320,7 @@
     }
 
     function applyResamplingFromBase() {
+      clearWeeklyBacktestResults({ rerender: false });
       if (!Array.isArray(BASE_ROWS) || !BASE_ROWS.length) {
         ROWS = [];
         DAY_GROUPS = new Map();
@@ -6755,10 +7176,130 @@
       return finalizeResult();
     }
 
+    async function runWeeklyBacktest() {
+      if (WEEKLY_BACKTEST_RUNNING) return;
+      closeRunBacktestMenu();
+      if (!Array.isArray(ROWS) || !ROWS.length) {
+        setGridStatus('Load symbol data before running weekly backtest.');
+        return;
+      }
+      const weeks = Array.isArray(AVAILABLE_WEEKS) ? AVAILABLE_WEEKS.slice() : [];
+      if (!weeks.length) {
+        clearWeeklyBacktestResults({ rerender: true });
+        setGridStatus('No available weeks in loaded data.');
+        return;
+      }
+      const params = getGridParamsFromUI();
+      const entryFilter = params?.entryFilter || 'none';
+      const filterWindow = getEntryFilterWindow(entryFilter);
+      let positiveCount = 0;
+      let negativeCount = 0;
+      let flatCount = 0;
+      let missingCount = 0;
+      WEEKLY_BACKTEST_RUNNING = true;
+      setRunButtonEnabled(Array.isArray(ROWS) && ROWS.length > 0);
+      clearWeeklyBacktestResults({ rerender: true });
+      try {
+        if (filterWindow) {
+          if (SMA_DIRTY) {
+            computeDailySmaMaps();
+            SMA_DIRTY = false;
+          }
+          const info = describeSmaAvailability(entryFilter);
+          const available = info?.availableDays || 0;
+          if (available <= 0) {
+            const totalDays = info?.totalDays ?? DAYS.length;
+            const message = `Entry filter (${filterWindow}-day SMA) needs ${filterWindow} completed days. Dataset has ${totalDays.toLocaleString()} day${totalDays === 1 ? '' : 's'} — insufficient for this filter.`;
+            weeks.forEach((weekKey) => {
+              setWeeklyBacktestResult(weekKey, {
+                status: 'insufficient_sma',
+                message
+              });
+            });
+            missingCount = weeks.length;
+            refreshTimeFilterSelection();
+            renderWeeklyBacktestSummary();
+            setGridStatus(`Weekly backtest skipped. ${message}`);
+            return;
+          }
+        }
+        for (let i = 0; i < weeks.length; i += 1) {
+          const weekKey = weeks[i];
+          setGridStatus(`Running weekly backtest ${i + 1}/${weeks.length}: ${weekKey}…`);
+          const rowsForWeek = getRowsForWeekKey(weekKey);
+          if (!rowsForWeek.length) {
+            missingCount += 1;
+            setWeeklyBacktestResult(weekKey, { status: 'no_rows' });
+          } else {
+            try {
+              const result = runBuyTheDipSimulation(rowsForWeek, params) || {};
+              const summary = result.summary || null;
+              const netProfit = Number(summary?.netProfit);
+              const tradesRaw = Number.isFinite(summary?.totalTrades)
+                ? Number(summary.totalTrades)
+                : (Array.isArray(result.trades) ? result.trades.length : null);
+              const trades = Number.isFinite(tradesRaw) ? Math.max(0, Math.trunc(tradesRaw)) : 0;
+              if (Number.isFinite(netProfit) && trades > 0) {
+                if (netProfit > 0) {
+                  positiveCount += 1;
+                } else if (netProfit < 0) {
+                  negativeCount += 1;
+                } else {
+                  flatCount += 1;
+                }
+                setWeeklyBacktestResult(weekKey, {
+                  status: 'ok',
+                  netProfit,
+                  trades
+                });
+              } else if (Number.isFinite(netProfit) && trades === 0) {
+                missingCount += 1;
+                setWeeklyBacktestResult(weekKey, {
+                  status: 'no_trades',
+                  netProfit,
+                  trades,
+                  message: 'No completed trades in this week.'
+                });
+              } else {
+                missingCount += 1;
+                setWeeklyBacktestResult(weekKey, {
+                  status: 'error',
+                  message: 'No net P/L output for this week.'
+                });
+              }
+            } catch (err) {
+              missingCount += 1;
+              const message = err && err.message ? err.message : String(err);
+              setWeeklyBacktestResult(weekKey, {
+                status: 'error',
+                message: `Weekly run failed: ${message}`
+              });
+            }
+          }
+          if ((i + 1) % 8 === 0 || i === weeks.length - 1) {
+            refreshTimeFilterSelection();
+            renderWeeklyBacktestSummary();
+            await sleep(0);
+          }
+        }
+        renderWeeklyBacktestSummary();
+        setGridStatus(
+          `Weekly backtest complete for ${weeks.length} week${weeks.length === 1 ? '' : 's'}. Positive: ${positiveCount}, Negative: ${negativeCount}, Flat: ${flatCount}, Missing/Error: ${missingCount}.`
+        );
+      } finally {
+        WEEKLY_BACKTEST_RUNNING = false;
+        setRunButtonEnabled(Array.isArray(ROWS) && ROWS.length > 0);
+      }
+    }
+
     function runGridBacktest() {
       if (GRID_BACKTEST_DEBOUNCE_TIMER) {
         clearTimeout(GRID_BACKTEST_DEBOUNCE_TIMER);
         GRID_BACKTEST_DEBOUNCE_TIMER = null;
+      }
+      if (WEEKLY_BACKTEST_RUNNING) {
+        setGridStatus('Weekly backtest is running. Wait for it to finish before running a full backtest.');
+        return;
       }
       if (!Array.isArray(ROWS) || !ROWS.length) {
         setGridStatus('Load symbol data before running the backtest.');
@@ -6878,12 +7419,13 @@
     }
 
     function scheduleGridBacktest() {
+      if (WEEKLY_BACKTEST_RUNNING) return;
       if (GRID_BACKTEST_DEBOUNCE_TIMER) {
         clearTimeout(GRID_BACKTEST_DEBOUNCE_TIMER);
       }
       GRID_BACKTEST_DEBOUNCE_TIMER = setTimeout(() => {
         GRID_BACKTEST_DEBOUNCE_TIMER = null;
-        runGridBacktest();
+        runSelectedBacktest();
       }, GRID_BACKTEST_DEBOUNCE_MS);
     }
 
@@ -6894,8 +7436,40 @@
       refreshTimeFilterSelection();
       const btn = document.getElementById('btnRunGridBacktest');
       if (btn) {
-        btn.addEventListener('click', () => runGridBacktest());
+        btn.addEventListener('click', () => {
+          closeRunBacktestMenu();
+          runSelectedBacktest();
+        });
       }
+      const runMenuTrigger = document.getElementById('btnRunGridBacktestMenu');
+      if (runMenuTrigger) {
+        runMenuTrigger.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          toggleRunBacktestMenu();
+        });
+      }
+      const runMenu = document.getElementById('runBacktestMenu');
+      if (runMenu) {
+        runMenu.addEventListener('click', (e) => {
+          const actionBtn = e.target.closest('button[data-run-action]');
+          if (!actionBtn || actionBtn.disabled) return;
+          const action = normalizeRunBacktestMode(actionBtn.getAttribute('data-run-action'));
+          setRunBacktestMode(action);
+          closeRunBacktestMenu();
+          runSelectedBacktest();
+        });
+      }
+      document.addEventListener('click', (e) => {
+        if (e.target.closest('#runBacktestSplit')) return;
+        closeRunBacktestMenu();
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          closeRunBacktestMenu();
+        }
+      });
+      setRunBacktestMode(RUN_BACKTEST_MODE_DEFAULT);
       const saveBtn = document.getElementById('btnSaveGridBacktest');
       if (saveBtn) {
         saveBtn.addEventListener('click', async () => {
@@ -6928,7 +7502,7 @@
           renderDataSummary();
           if (Array.isArray(ROWS) && ROWS.length) {
             updateLoadedGridStatus('Running backtest…');
-            runGridBacktest();
+            runSelectedBacktest();
           }
         });
       }
@@ -7021,6 +7595,7 @@
         if (!el) return;
         const handler = () => {
           if (el.id === 'selGridSpacing') updateGridSizeLabel();
+          clearWeeklyBacktestResults({ rerender: true });
           persistGridParamsFromUI();
           if (!Array.isArray(ROWS) || !ROWS.length) return;
           scheduleGridBacktest();
@@ -7088,6 +7663,7 @@
       const baseSymbol = (sym || '').trim();
       if (!baseSymbol) return false;
       const loadStartMs = performance.now();
+      clearWeeklyBacktestResults({ rerender: true });
       setStatus(`Loading data for ${baseSymbol}…`);
       setGridStatus(`Loading data for ${baseSymbol}…`);
       setRunButtonEnabled(false);
@@ -7133,7 +7709,7 @@
             dayCount: DAYS.length,
             success: true
           });
-          runGridBacktest();
+          runSelectedBacktest();
           return true;
         } catch (err) {
           lastError = err && err.message ? err.message : String(err);
