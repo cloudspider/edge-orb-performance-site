@@ -1394,7 +1394,13 @@
       <div class="space-y-2">
         <div class="flex items-center justify-between gap-2">
           <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Year / Week</p>
-          <button id="weekFilterClearBtn" type="button" class="text-xs text-slate-600 hover:text-slate-800 hover:underline">All weeks</button>
+          <div class="flex items-center gap-3">
+            <div id="weekSelectModeGroup" class="inline-flex rounded-full border border-slate-200 bg-slate-100 p-0.5 text-[11px] font-semibold text-slate-600" aria-label="Week selection mode">
+              <button type="button" data-week-select-mode="radio" class="rounded-full px-2.5 py-1 transition">Radio</button>
+              <button type="button" data-week-select-mode="checkbox" class="rounded-full px-2.5 py-1 transition">Checkbox</button>
+            </div>
+            <button id="weekFilterClearBtn" type="button" class="text-xs text-slate-600 hover:text-slate-800 hover:underline">All weeks</button>
+          </div>
         </div>
         <p class="text-[11px] text-slate-500">Week number (Sunday-Saturday)</p>
         <div id="weekFilterGroup" class="space-y-2" aria-label="Year and week filters"></div>
@@ -1442,6 +1448,17 @@
           <h2 id="gridSummaryTitle" class="font-semibold text-slate-700">Summary</h2>
           <p id="gridStatus" class="text-sm text-slate-500">Load data and run the backtest to populate results.</p>
           <p id="gridPerfStatus" class="text-xs text-slate-400" title="Perf timings are shown as last / average / p95.">Perf: no runs yet.</p>
+          <div class="mt-2 flex flex-wrap items-center gap-3">
+            <label class="inline-flex items-center gap-2 text-xs text-slate-500 cursor-pointer">
+              <span>Show Charts</span>
+              <span class="relative inline-flex h-5 w-9 items-center">
+                <input id="toggleShowVisuals" type="checkbox" class="peer sr-only">
+                <span class="absolute inset-0 rounded-full bg-slate-200 transition peer-checked:bg-emerald-500"></span>
+                <span class="absolute left-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition peer-checked:translate-x-4"></span>
+              </span>
+            </label>
+            <span class="text-[11px] text-slate-400">Includes charts and trade table.</span>
+          </div>
         </div>
         <div class="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-slate-500">
           <span title="Number of trading days included in the current backtest run (after active filters).">Days:</span>
@@ -1837,6 +1854,7 @@
     const STARTUP_FUNDED_LEVEL_OPTIONS = [25, 50, 75, 100, 125, 150, 175, 200];
     const GRID_PARAMS_STORAGE_KEY = 'grid_last_params';
     const GRID_PERF_STORAGE_KEY = 'grid_perf_metrics_v1';
+    const GRID_SHOW_VISUALS_STORAGE_KEY = 'grid_show_visuals_v1';
     const PERF_HISTORY_LIMIT = 120;
     const GRID_TYPE = 'buy_the_dip';
     const WATCHLIST_ALL = '__all__';
@@ -1863,9 +1881,21 @@
     };
     const SMA_PROPERTIES = Object.values(SMA_PROPERTY_BY_WINDOW);
     const PRICE_FORMATTERS = new Map();
+    const VISUAL_SECTION_IDS = [
+      'gridEquitySection',
+      'gridLadderSection',
+      'fillsPerMonthSection',
+      'fillsPerDaySection',
+      'openLevelsSection',
+      'priceDistributionSection',
+      'levelDistributionSection',
+      'cumulativeLevelDistributionSection',
+      'gridTradesSection'
+    ];
     const THEME_STORAGE_KEY = 'grid_theme';
     const THEME_DARK = 'dark';
     const THEME_LIGHT = 'light';
+    const DEBUG_BACKTEST_LOGS = false;
 
     const pad2 = (n) => String(n).padStart(2, '0');
     const dateKeyFromStr = (val) => {
@@ -1909,7 +1939,7 @@
     let WATCHLIST_STATE = { ...WATCHLIST_DEFAULTS };
     let LAST_ACTIVE_WATCHLIST = 'Default';
     let LAST_ADHOC_SYMBOL = '';
-    let GRID_STATE = { trades: [], fillSequence: [], summary: null, equitySeries: [], ladderHistory: [], buyLevels: [], sellLevels: [], baseLevel: null, gridLevels: [] };
+    let GRID_STATE = null;
     let BACKTEST_ALL_RESULTS = [];
     let BACKTEST_ALL_RUNNING = false;
     let BACKTEST_ALL_SELECTED = '';
@@ -1929,6 +1959,10 @@
     let priceDistributionChartInst = null;
     let levelDistributionChartInst = null;
     let cumulativeLevelDistributionChartInst = null;
+    let SHOW_VISUALS = false;
+    const WEEK_SELECTION_MODE_DEFAULT = 'radio';
+    let WEEK_SELECTION_MODE = WEEK_SELECTION_MODE_DEFAULT;
+    let LAST_SELECTED_WEEK_KEY = null;
     let AVAILABLE_MONTHS = [];
     let AVAILABLE_YEARS = [];
     let AVAILABLE_MONTHS_BY_YEAR = new Map();
@@ -1974,6 +2008,22 @@
       };
     }
 
+    function createEmptyGridState() {
+      return {
+        trades: [],
+        fillSequence: [],
+        summary: null,
+        equitySeries: [],
+        ladderHistory: [],
+        buyLevels: [],
+        sellLevels: [],
+        baseLevel: null,
+        gridLevels: []
+      };
+    }
+
+    GRID_STATE = createEmptyGridState();
+
     function setStatus(msg) {
       const el = document.getElementById('status');
       if (el) el.textContent = msg || '';
@@ -2004,6 +2054,48 @@
     function setGridStatus(msg) {
       const el = document.getElementById('gridStatus');
       if (el) el.textContent = msg || '';
+    }
+
+    function readShowVisualsPreference() {
+      try {
+        const raw = localStorage.getItem(GRID_SHOW_VISUALS_STORAGE_KEY);
+        if (raw == null) return false;
+        if (raw === 'true') return true;
+        if (raw === 'false') return false;
+        const parsed = JSON.parse(raw);
+        if (typeof parsed === 'boolean') return parsed;
+        if (parsed && typeof parsed === 'object' && typeof parsed.showVisuals === 'boolean') {
+          return parsed.showVisuals;
+        }
+      } catch {}
+      return false;
+    }
+
+    function saveShowVisualsPreference(value) {
+      try {
+        localStorage.setItem(GRID_SHOW_VISUALS_STORAGE_KEY, JSON.stringify({ showVisuals: !!value }));
+      } catch {}
+    }
+
+    function syncVisualSectionsVisibility() {
+      VISUAL_SECTION_IDS.forEach((id) => {
+        const section = document.getElementById(id);
+        if (!section) return;
+        section.classList.toggle('hidden', !SHOW_VISUALS);
+      });
+    }
+
+    function setShowVisuals(value, { renderFromState = true, persist = true } = {}) {
+      SHOW_VISUALS = !!value;
+      const toggle = document.getElementById('toggleShowVisuals');
+      if (toggle) toggle.checked = SHOW_VISUALS;
+      syncVisualSectionsVisibility();
+      if (persist) {
+        saveShowVisualsPreference(SHOW_VISUALS);
+      }
+      if (SHOW_VISUALS && renderFromState) {
+        renderVisualOutputsFromState({ resetPage: true });
+      }
     }
 
     function readGridPerfMetrics() {
@@ -2040,9 +2132,11 @@
       return `${formatNumber(ms / 60000, 2)} min`;
     }
 
-    function summarizePerfRuns(runs) {
+    function summarizePerfRuns(runs, field = 'ms') {
       const entries = Array.isArray(runs)
-        ? runs.filter((entry) => Number.isFinite(Number(entry?.ms))).map((entry) => Number(entry.ms))
+        ? runs
+          .filter((entry) => Number.isFinite(Number(entry?.[field])))
+          .map((entry) => Number(entry[field]))
         : [];
       if (!entries.length) {
         return { count: 0, last: NaN, avg: NaN, p95: NaN };
@@ -2066,11 +2160,13 @@
       if (!el) return;
       const loadSummary = summarizePerfRuns(GRID_PERF_METRICS?.load);
       const backtestSummary = summarizePerfRuns(GRID_PERF_METRICS?.backtest);
+      const backtestComputeSummary = summarizePerfRuns(GRID_PERF_METRICS?.backtest, 'computeMs');
+      const backtestVisualSummary = summarizePerfRuns(GRID_PERF_METRICS?.backtest, 'visualMs');
       if (!loadSummary.count && !backtestSummary.count) {
         el.textContent = 'Perf: no runs yet.';
         return;
       }
-      el.textContent = `Perf (last/avg/p95): Load ${formatPerfSummary(loadSummary)} | Backtest ${formatPerfSummary(backtestSummary)}`;
+      el.textContent = `Perf (last/avg/p95): Load ${formatPerfSummary(loadSummary)} | Backtest Total ${formatPerfSummary(backtestSummary)} | Compute ${formatPerfSummary(backtestComputeSummary)} | Visual ${formatPerfSummary(backtestVisualSummary)}`;
     }
 
     function recordGridPerfSample(kind, sample) {
@@ -2084,6 +2180,9 @@
       const bucket = kind === 'load' ? GRID_PERF_METRICS.load : GRID_PERF_METRICS.backtest;
       bucket.push({
         ms: Number(sample.ms),
+        computeMs: Number.isFinite(Number(sample.computeMs)) ? Number(sample.computeMs) : null,
+        visualMs: Number.isFinite(Number(sample.visualMs)) ? Number(sample.visualMs) : null,
+        visualsEnabled: !!sample.visualsEnabled,
         symbol: sample.symbol || '',
         rows: Number.isFinite(Number(sample.rows)) ? Number(sample.rows) : null,
         dayCount: Number.isFinite(Number(sample.dayCount)) ? Number(sample.dayCount) : null,
@@ -2631,7 +2730,7 @@
               anchor = snappedBase;
             }
           }
-          if (Array.isArray(levels.pairs)) {
+          if (DEBUG_BACKTEST_LOGS && Array.isArray(levels.pairs)) {
             console.log('Percent fixed grid levels:', levels.pairs);
           }
           const ladder = Array.isArray(levels.ladder) ? levels.ladder : [];
@@ -3661,6 +3760,7 @@
       updateYearFilterButtons();
       updateWeekFilterLabel();
       updateWeekFilterButtons();
+      updateWeekSelectionModeButtons();
       updateTimeframePresetButtons();
       updateTimeFilterModeLabel();
     }
@@ -3823,6 +3923,7 @@
       const emptyState = document.getElementById('gridTradesEmpty');
       const label = document.getElementById('tradeCountLabel');
       if (!tbody) return;
+      if (!SHOW_VISUALS) return;
       const source = Array.isArray(trades) ? trades : [];
       const filtered = applyMonthFilter(source);
       const filterActive = isMonthFilterStrict();
@@ -3960,6 +4061,76 @@
       const hasWeekSelection = TIME_FILTER_STATE.mode === 'weeks' && TIME_FILTER_STATE.weeks.size > 0;
       resetBtn.classList.toggle('font-semibold', hasWeekSelection);
       resetBtn.textContent = 'All weeks';
+    }
+
+    function pickSingleWeekFromSelection(weekSet) {
+      if (!(weekSet instanceof Set) || !weekSet.size) return null;
+      if (LAST_SELECTED_WEEK_KEY && weekSet.has(LAST_SELECTED_WEEK_KEY)) {
+        return LAST_SELECTED_WEEK_KEY;
+      }
+      const ordered = Array.from(weekSet).sort((a, b) => {
+        const pa = parseWeekKey(a);
+        const pb = parseWeekKey(b);
+        if (!pa && !pb) return String(a).localeCompare(String(b));
+        if (!pa) return 1;
+        if (!pb) return -1;
+        const yearDiff = Number(pb.year) - Number(pa.year);
+        if (yearDiff !== 0) return yearDiff;
+        return pb.week - pa.week;
+      });
+      return ordered[0] || null;
+    }
+
+    function syncWeekSelectionForMode(weekSet) {
+      if (!(weekSet instanceof Set) || !weekSet.size) {
+        LAST_SELECTED_WEEK_KEY = null;
+        return new Set();
+      }
+      if (WEEK_SELECTION_MODE !== 'radio') {
+        const selected = pickSingleWeekFromSelection(weekSet);
+        if (selected) LAST_SELECTED_WEEK_KEY = selected;
+        return new Set(weekSet);
+      }
+      const selected = pickSingleWeekFromSelection(weekSet);
+      if (!selected) {
+        LAST_SELECTED_WEEK_KEY = null;
+        return new Set();
+      }
+      LAST_SELECTED_WEEK_KEY = selected;
+      return new Set([selected]);
+    }
+
+    function updateWeekSelectionModeButtons() {
+      document.querySelectorAll('#weekSelectModeGroup button[data-week-select-mode]').forEach((btn) => {
+        const mode = (btn.getAttribute('data-week-select-mode') || '').toLowerCase();
+        const active = mode === WEEK_SELECTION_MODE;
+        btn.classList.remove('bg-white', 'text-slate-700', 'shadow-sm', 'text-slate-500', 'hover:text-slate-700');
+        if (active) {
+          btn.classList.add('bg-white', 'text-slate-700', 'shadow-sm');
+          btn.setAttribute('aria-pressed', 'true');
+        } else {
+          btn.classList.add('text-slate-500', 'hover:text-slate-700');
+          btn.setAttribute('aria-pressed', 'false');
+        }
+      });
+    }
+
+    function setWeekSelectionMode(mode, { rerun = true } = {}) {
+      const normalized = String(mode || '').toLowerCase() === 'checkbox' ? 'checkbox' : 'radio';
+      const changed = normalized !== WEEK_SELECTION_MODE;
+      WEEK_SELECTION_MODE = normalized;
+      const hasWeekSelection = TIME_FILTER_STATE.mode === 'weeks' && TIME_FILTER_STATE.weeks instanceof Set && TIME_FILTER_STATE.weeks.size > 0;
+      if (hasWeekSelection) {
+        TIME_FILTER_STATE.weeks = syncWeekSelectionForMode(TIME_FILTER_STATE.weeks);
+        if (!TIME_FILTER_STATE.weeks.size) {
+          TIME_FILTER_STATE.mode = 'all';
+        }
+      }
+      refreshTimeFilterSelection();
+      if (changed && rerun) {
+        renderGridTrades(GRID_STATE.trades || [], { resetPage: true });
+        rerunBacktestIfDataLoaded();
+      }
     }
 
     function updateWeekFilterButtons() {
@@ -4183,15 +4354,16 @@
           if (AVAILABLE_WEEKS.includes(key)) validWeeks.add(key);
         });
       }
+      const normalizedWeeks = syncWeekSelectionForMode(validWeeks);
       TIME_FILTER_STATE.presetId = null;
       TIME_FILTER_STATE.years = new Set();
       TIME_FILTER_STATE.months = new Set();
-      if (!validWeeks.size) {
+      if (!normalizedWeeks.size) {
         TIME_FILTER_STATE.mode = 'all';
         TIME_FILTER_STATE.weeks = new Set();
       } else {
         TIME_FILTER_STATE.mode = 'weeks';
-        TIME_FILTER_STATE.weeks = validWeeks;
+        TIME_FILTER_STATE.weeks = normalizedWeeks;
       }
       refreshTimeFilterSelection();
       renderGridTrades(GRID_STATE.trades || [], { resetPage: true });
@@ -4288,6 +4460,9 @@
       if (!year) return;
       const yearWeeks = AVAILABLE_WEEKS_BY_YEAR.get(year) || [];
       if (!yearWeeks.length) return;
+      if (WEEK_SELECTION_MODE === 'radio') {
+        setWeekSelectionMode('checkbox', { rerun: false });
+      }
       const currentSelection = TIME_FILTER_STATE.mode === 'weeks'
         ? new Set(TIME_FILTER_STATE.weeks)
         : new Set();
@@ -4305,6 +4480,19 @@
       if (!weekBtn) return;
       const weekKey = weekBtn.getAttribute('data-week-filter');
       if (!weekKey) return;
+      if (WEEK_SELECTION_MODE === 'radio') {
+        const currentSelection = TIME_FILTER_STATE.mode === 'weeks'
+          ? new Set(TIME_FILTER_STATE.weeks)
+          : new Set();
+        const isSame = currentSelection.size === 1 && currentSelection.has(weekKey);
+        if (isSame) {
+          applyWeekSelectionFromSet(new Set());
+        } else {
+          LAST_SELECTED_WEEK_KEY = weekKey;
+          applyWeekSelectionFromSet(new Set([weekKey]));
+        }
+        return;
+      }
       const currentSelection = TIME_FILTER_STATE.mode === 'weeks'
         ? new Set(TIME_FILTER_STATE.weeks)
         : new Set();
@@ -4314,6 +4502,14 @@
         currentSelection.add(weekKey);
       }
       applyWeekSelectionFromSet(currentSelection);
+    });
+
+    document.addEventListener('click', (e) => {
+      const modeBtn = e.target.closest('#weekSelectModeGroup button[data-week-select-mode]');
+      if (!modeBtn) return;
+      const mode = modeBtn.getAttribute('data-week-select-mode');
+      if (!mode) return;
+      setWeekSelectionMode(mode, { rerun: true });
     });
 
     document.addEventListener('click', (e) => {
@@ -4391,6 +4587,45 @@
           summaryEl.textContent = defaultMsg;
         }
       }
+    }
+
+    function updateSellFillSummaryFromTrades(trades) {
+      const { entries } = computeDailyFillEntries(trades);
+      updateSellFillSummaryTiles(computeSellFillStats(entries));
+    }
+
+    function clearVisualOutputs({ resetPage = true } = {}) {
+      if (!SHOW_VISUALS) return;
+      renderGridTrades([], { resetPage });
+      renderAccountEquityChart(null);
+      renderGridEquityChart(null);
+      renderNetPnlChart(null);
+      renderLadderChart([]);
+      renderFillsPerDayChart([]);
+      renderOpenLevelsChart([]);
+      renderFillsPerMonthChart([]);
+      renderPriceDistributionChart([]);
+      renderLevelDistributionChart([]);
+      renderCumulativeLevelDistributionChart([]);
+    }
+
+    function renderVisualOutputsFromState({ resetPage = true } = {}) {
+      if (!SHOW_VISUALS) return;
+      const state = GRID_STATE || {};
+      const trades = Array.isArray(state.trades) ? state.trades : [];
+      const equitySeries = Array.isArray(state.equitySeries) ? state.equitySeries : [];
+      const ladderHistory = Array.isArray(state.ladderHistory) ? state.ladderHistory : [];
+      renderGridTrades(trades, { resetPage });
+      renderAccountEquityChart(equitySeries);
+      renderGridEquityChart(equitySeries);
+      renderNetPnlChart(equitySeries);
+      renderLadderChart(trades);
+      renderFillsPerDayChart(trades);
+      renderOpenLevelsChart(ladderHistory);
+      renderFillsPerMonthChart(trades);
+      renderPriceDistributionChart(trades);
+      renderLevelDistributionChart(trades);
+      renderCumulativeLevelDistributionChart(trades);
     }
 
     function setupEquityCarousel() {
@@ -4969,7 +5204,6 @@
         fillsPerDayChartInst = echarts.init(container);
       }
       const { entries, totals } = computeDailyFillEntries(trades);
-      updateSellFillSummaryTiles(computeSellFillStats(entries));
       if (!entries.length) {
         fillsPerDayChartInst.clear();
         if (emptyState) emptyState.classList.remove('hidden');
@@ -5241,7 +5475,9 @@
       if (PRICE_DISTRIBUTION_VIEW === next) return;
       PRICE_DISTRIBUTION_VIEW = next;
       updatePriceDistributionToggle();
-      renderPriceDistributionChart(GRID_STATE.trades || []);
+      if (SHOW_VISUALS) {
+        renderPriceDistributionChart(GRID_STATE.trades || []);
+      }
     }
 
     function computePriceFillCounts(trades) {
@@ -5653,21 +5889,12 @@
     }
 
     function resetGridOutputs(message) {
-      GRID_STATE = { trades: [], fillSequence: [], summary: null, equitySeries: [], ladderHistory: [], buyLevels: [], sellLevels: [], baseLevel: null, gridLevels: [] };
+      GRID_STATE = createEmptyGridState();
       renderGridSummary(null);
-      renderGridTrades([], { resetPage: true });
+      updateSellFillSummaryFromTrades([]);
       setGridStatus(message || 'Load data and run the backtest to populate results.');
       setSaveButtonEnabled(false);
-      renderAccountEquityChart(null);
-      renderGridEquityChart(null);
-      renderNetPnlChart(null);
-      renderLadderChart([]);
-      renderFillsPerDayChart([]);
-      renderOpenLevelsChart([]);
-      renderFillsPerMonthChart([]);
-      renderPriceDistributionChart([]);
-      renderLevelDistributionChart([]);
-      renderCumulativeLevelDistributionChart([]);
+      clearVisualOutputs({ resetPage: true });
       renderGridLevels([], [], null);
       buildMonthFilterOptions();
     }
@@ -6542,18 +6769,11 @@
       const filteredDayCount = new Set(rowsForRun.map(row => row?.dayKey).filter(Boolean)).size;
       if (!rowsForRun.length) {
         setGridStatus('No data available for the selected timeframe filter. Clear the filter or load more data.');
+        GRID_STATE = createEmptyGridState();
         renderGridSummary(null);
-        renderGridTrades([], { resetPage: true });
-        renderAccountEquityChart(null);
-        renderGridEquityChart(null);
-        renderNetPnlChart(null);
-        renderLadderChart([]);
-        renderFillsPerDayChart([]);
-        renderOpenLevelsChart([]);
-        renderFillsPerMonthChart([]);
-        renderPriceDistributionChart([]);
-        renderLevelDistributionChart([]);
-        renderCumulativeLevelDistributionChart([]);
+        setSaveButtonEnabled(false);
+        updateSellFillSummaryFromTrades([]);
+        clearVisualOutputs({ resetPage: true });
         renderGridLevels([], [], null);
         return;
       }
@@ -6569,18 +6789,11 @@
         if (available <= 0) {
           const totalDays = info?.totalDays ?? DAYS.length;
           setGridStatus(`Entry filter (${filterWindow}-day SMA) needs ${filterWindow} completed days. Dataset has ${totalDays.toLocaleString()} day${totalDays === 1 ? '' : 's'} — insufficient for this filter.`);
+          GRID_STATE = createEmptyGridState();
           renderGridSummary(null);
-          renderGridTrades([], { resetPage: true });
-          renderAccountEquityChart(null);
-          renderGridEquityChart(null);
-          renderNetPnlChart(null);
-          renderLadderChart([]);
-          renderFillsPerDayChart([]);
-          renderOpenLevelsChart([]);
-          renderFillsPerMonthChart([]);
-          renderPriceDistributionChart([]);
-          renderLevelDistributionChart([]);
-          renderCumulativeLevelDistributionChart([]);
+          setSaveButtonEnabled(false);
+          updateSellFillSummaryFromTrades([]);
+          clearVisualOutputs({ resetPage: true });
           renderGridLevels([], [], null);
           return;
         }
@@ -6604,35 +6817,24 @@
           safeResult.summary.dayCount = filteredDayCount;
         }
         GRID_STATE = safeResult;
-        const backtestOutput = {
-          generated_at: new Date().toISOString(),
-          symbol: currentTicker || null,
-          params: params || null,
-          meta: collectGridBacktestPayload(),
-          results: {
-            summary: safeResult.summary || null
-          }
-        };
-        console.log('GRID_BACKTEST_OUTPUT');
-        console.log(JSON.stringify(backtestOutput, null, 2));
+        updateSellFillSummaryFromTrades(safeResult.trades);
         window.GRID_FILL_SEQUENCE = safeResult.fillSequence.slice();
         renderGridSummary(safeResult.summary);
-        renderGridTrades(safeResult.trades, { resetPage: true });
-        renderAccountEquityChart(safeResult.equitySeries);
-        renderGridEquityChart(safeResult.equitySeries);
-        renderNetPnlChart(safeResult.equitySeries);
-        renderLadderChart(safeResult.trades);
-        renderFillsPerDayChart(safeResult.trades);
-        renderOpenLevelsChart(safeResult.ladderHistory);
-        renderFillsPerMonthChart(safeResult.trades);
-        renderPriceDistributionChart(safeResult.trades);
-        renderLevelDistributionChart(safeResult.trades);
-        renderCumulativeLevelDistributionChart(safeResult.trades);
         renderGridLevels(safeResult.buyLevels, safeResult.sellLevels, safeResult.baseLevel ?? null);
         setSaveButtonEnabled(!!safeResult.summary);
+        const computeDurationMs = performance.now() - backtestStartMs;
+        let visualDurationMs = 0;
+        if (SHOW_VISUALS) {
+          const visualsStartMs = performance.now();
+          renderVisualOutputsFromState({ resetPage: true });
+          visualDurationMs = performance.now() - visualsStartMs;
+        }
         const backtestDurationMs = performance.now() - backtestStartMs;
         recordGridPerfSample('backtest', {
           ms: backtestDurationMs,
+          computeMs: computeDurationMs,
+          visualMs: visualDurationMs,
+          visualsEnabled: SHOW_VISUALS,
           symbol: currentTicker || '',
           rows: rowsForRun.length,
           dayCount: filteredDayCount,
@@ -6647,9 +6849,23 @@
         }
       } catch (err) {
         console.error('Buy the Dip backtest error', err);
+        GRID_STATE = createEmptyGridState();
+        renderGridSummary(null);
+        setSaveButtonEnabled(false);
+        const computeDurationMs = performance.now() - backtestStartMs;
+        let visualDurationMs = 0;
+        if (SHOW_VISUALS) {
+          const visualsStartMs = performance.now();
+          clearVisualOutputs({ resetPage: true });
+          visualDurationMs = performance.now() - visualsStartMs;
+        }
+        updateSellFillSummaryFromTrades([]);
         const backtestDurationMs = performance.now() - backtestStartMs;
         recordGridPerfSample('backtest', {
           ms: backtestDurationMs,
+          computeMs: computeDurationMs,
+          visualMs: visualDurationMs,
+          visualsEnabled: SHOW_VISUALS,
           symbol: currentTicker || '',
           rows: rowsForRun.length,
           dayCount: filteredDayCount,
@@ -6657,13 +6873,6 @@
           success: false
         });
         setGridStatus(`Failed to run backtest after ${formatDurationMs(backtestDurationMs)}. See console for details.`);
-        renderLadderChart([]);
-        renderFillsPerDayChart([]);
-        renderOpenLevelsChart([]);
-        renderFillsPerMonthChart([]);
-        renderPriceDistributionChart([]);
-        renderLevelDistributionChart([]);
-        renderCumulativeLevelDistributionChart([]);
         renderGridLevels([], [], null);
       }
     }
@@ -6679,6 +6888,8 @@
     }
 
     function initGridControls() {
+      WEEK_SELECTION_MODE = WEEK_SELECTION_MODE_DEFAULT;
+      LAST_SELECTED_WEEK_KEY = null;
       buildTimeframePresetButtons();
       refreshTimeFilterSelection();
       const btn = document.getElementById('btnRunGridBacktest');
@@ -6907,18 +7118,10 @@
           updateSymbolPrecisionFromRows(baseSymbol, parsed.data);
           updateSymbolBasePriceFromRows(baseSymbol);
           updateLoadedStatus();
+          GRID_STATE = createEmptyGridState();
           renderGridSummary(null);
-          renderGridTrades([], { resetPage: true });
-          renderAccountEquityChart(null);
-          renderGridEquityChart(null);
-          renderNetPnlChart(null);
-          renderLadderChart([]);
-          renderFillsPerDayChart([]);
-          renderOpenLevelsChart([]);
-          renderFillsPerMonthChart([]);
-          renderPriceDistributionChart([]);
-          renderLevelDistributionChart([]);
-          renderCumulativeLevelDistributionChart([]);
+          updateSellFillSummaryFromTrades([]);
+          clearVisualOutputs({ resetPage: true });
           renderDataSummary();
           updateLoadedGridStatus('Running backtest…');
           setRunButtonEnabled(true);
@@ -6951,18 +7154,10 @@
       ROWS = [];
       DAY_GROUPS = new Map();
       DAYS = [];
+      GRID_STATE = createEmptyGridState();
       renderGridSummary(null);
-      renderGridTrades([], { resetPage: true });
-      renderAccountEquityChart(null);
-      renderGridEquityChart(null);
-      renderNetPnlChart(null);
-      renderLadderChart([]);
-      renderFillsPerDayChart([]);
-      renderOpenLevelsChart([]);
-      renderFillsPerMonthChart([]);
-      renderPriceDistributionChart([]);
-      renderLevelDistributionChart([]);
-      renderCumulativeLevelDistributionChart([]);
+      updateSellFillSummaryFromTrades([]);
+      clearVisualOutputs({ resetPage: true });
       renderGridLevels([], [], null);
       buildMonthFilterOptions();
       setRunButtonEnabled(false);
@@ -7942,6 +8137,7 @@
       }
       GRID_PERF_METRICS = readGridPerfMetrics();
       renderGridPerfStatus();
+      setShowVisuals(readShowVisualsPreference(), { renderFromState: false, persist: false });
       initGridControls();
       initTradeTableControls();
       initPeakFundingPopup();
@@ -8003,6 +8199,12 @@
         profileToggle.addEventListener('change', syncProfileVisibility);
         syncProfileVisibility();
       }
+      const showVisualsToggle = document.getElementById('toggleShowVisuals');
+      if (showVisualsToggle) {
+        showVisualsToggle.addEventListener('change', () => {
+          setShowVisuals(showVisualsToggle.checked, { renderFromState: true, persist: true });
+        });
+      }
       loadWatchlists().finally(() => populateTickerSegment());
       document.addEventListener('click', (e) => {
       const target = e.target;
@@ -8037,6 +8239,7 @@
     });
 
     window.addEventListener('resize', () => {
+      if (!SHOW_VISUALS) return;
       if (gridAccountEquityChartInst) {
         try { gridAccountEquityChartInst.resize(); } catch {}
       }
