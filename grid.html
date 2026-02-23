@@ -1178,11 +1178,9 @@
                 type="button"
                 role="menuitem"
                 data-run-action="monthly"
-                class="flex w-full items-center justify-start border-t border-slate-100 px-3 py-2 text-left text-sm font-medium text-slate-400"
-                disabled
-                aria-disabled="true"
+                class="flex w-full items-center justify-start border-t border-slate-100 px-3 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
               >
-                Run Monthly Backtest (Coming soon)
+                Run Monthly Backtest
               </button>
             </div>
           </div>
@@ -1488,12 +1486,59 @@
       </div>
     </section>
 
+    <section id="monthlyBacktestSummary" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-3 hidden">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="font-semibold text-slate-700">Monthly Batch Summary</h2>
+        <p id="monthlyBacktestSummaryMeta" class="text-xs text-slate-500">—</p>
+      </div>
+      <div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-9">
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Winning Months</p>
+          <p id="monthlySummaryWinningMonths" class="mt-1 text-sm font-semibold text-emerald-700">0</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Losing Months</p>
+          <p id="monthlySummaryLosingMonths" class="mt-1 text-sm font-semibold text-red-700">0</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Skipped Months</p>
+          <p id="monthlySummarySkippedMonths" class="mt-1 text-sm font-semibold text-slate-700">0</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Win %</p>
+          <p id="monthlySummaryWinRate" class="mt-1 text-sm font-semibold text-slate-800">0.00%</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Net P/L</p>
+          <p id="monthlySummaryNetPnl" class="mt-1 text-sm font-semibold text-slate-800">$0.00</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Gross Profit</p>
+          <p id="monthlySummaryGrossProfit" class="mt-1 text-sm font-semibold text-emerald-700">$0.00</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Gross Loss</p>
+          <p id="monthlySummaryGrossLoss" class="mt-1 text-sm font-semibold text-red-700">$0.00</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Max Drawdown</p>
+          <p id="monthlySummaryMaxDrawdown" class="mt-1 text-sm font-semibold text-slate-800">—</p>
+          <p id="monthlySummaryMaxDrawdownDate" class="mt-1 text-[11px] text-slate-500">—</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Max Drawdown %</p>
+          <p id="monthlySummaryMaxDrawdownPct" class="mt-1 text-sm font-semibold text-slate-800">—</p>
+          <p id="monthlySummaryMaxDrawdownPctDate" class="mt-1 text-[11px] text-slate-500">—</p>
+        </div>
+      </div>
+    </section>
+
     <section id="weeklyBacktestSummary" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-3 hidden">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <h2 class="font-semibold text-slate-700">Weekly Batch Summary</h2>
         <p id="weeklyBacktestSummaryMeta" class="text-xs text-slate-500">—</p>
       </div>
-      <div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-7">
+      <div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-9">
         <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
           <p class="text-[11px] uppercase tracking-wide text-slate-500">Winning Weeks</p>
           <p id="weeklySummaryWinningWeeks" class="mt-1 text-sm font-semibold text-emerald-700">0</p>
@@ -1521,6 +1566,16 @@
         <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
           <p class="text-[11px] uppercase tracking-wide text-slate-500">Gross Loss</p>
           <p id="weeklySummaryGrossLoss" class="mt-1 text-sm font-semibold text-red-700">$0.00</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Max Drawdown</p>
+          <p id="weeklySummaryMaxDrawdown" class="mt-1 text-sm font-semibold text-slate-800">—</p>
+          <p id="weeklySummaryMaxDrawdownDate" class="mt-1 text-[11px] text-slate-500">—</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Max Drawdown %</p>
+          <p id="weeklySummaryMaxDrawdownPct" class="mt-1 text-sm font-semibold text-slate-800">—</p>
+          <p id="weeklySummaryMaxDrawdownPctDate" class="mt-1 text-[11px] text-slate-500">—</p>
         </div>
       </div>
     </section>
@@ -2044,11 +2099,14 @@
     let cumulativeLevelDistributionChartInst = null;
     let SHOW_VISUALS = false;
     let WEEKLY_BACKTEST_RUNNING = false;
+    let MONTHLY_BACKTEST_RUNNING = false;
     let WEEKLY_BACKTEST_RESULTS = new Map();
+    let MONTHLY_BACKTEST_RESULTS = new Map();
     const RUN_BACKTEST_MODE_DEFAULT = 'single';
     const RUN_BACKTEST_MODE_LABELS = {
       single: 'Run Backtest',
-      weekly: 'Run Weekly Backtest'
+      weekly: 'Run Weekly Backtest',
+      monthly: 'Run Monthly Backtest'
     };
     let RUN_BACKTEST_MODE = RUN_BACKTEST_MODE_DEFAULT;
     const WEEK_SELECTION_MODE_DEFAULT = 'radio';
@@ -2416,7 +2474,13 @@
 
     function normalizeRunBacktestMode(mode) {
       const key = String(mode || '').toLowerCase();
-      return key === 'weekly' ? 'weekly' : 'single';
+      if (key === 'weekly') return 'weekly';
+      if (key === 'monthly') return 'monthly';
+      return 'single';
+    }
+
+    function isBatchBacktestRunning() {
+      return WEEKLY_BACKTEST_RUNNING || MONTHLY_BACKTEST_RUNNING;
     }
 
     function updateRunBacktestModeUI() {
@@ -2433,13 +2497,8 @@
       }
       document.querySelectorAll('#runBacktestMenu button[data-run-action]').forEach((actionBtn) => {
         const action = normalizeRunBacktestMode(actionBtn.getAttribute('data-run-action'));
-        const isMonthly = actionBtn.getAttribute('data-run-action') === 'monthly';
-        const active = !isMonthly && action === mode;
+        const active = action === mode;
         actionBtn.classList.remove('bg-slate-50', 'text-slate-900', 'font-semibold', 'text-slate-700', 'text-slate-400');
-        if (isMonthly) {
-          actionBtn.classList.add('text-slate-400');
-          return;
-        }
         if (actionBtn.disabled) {
           actionBtn.classList.add('text-slate-400');
           return;
@@ -2457,9 +2516,14 @@
       updateRunBacktestModeUI();
     }
 
-    function runSelectedBacktest() {
-      if (RUN_BACKTEST_MODE === 'weekly') {
+    function runSelectedBacktest(modeOverride = null) {
+      const mode = normalizeRunBacktestMode(modeOverride || RUN_BACKTEST_MODE);
+      if (mode === 'weekly') {
         runWeeklyBacktest();
+        return;
+      }
+      if (mode === 'monthly') {
+        runMonthlyBacktest();
         return;
       }
       runGridBacktest();
@@ -2476,7 +2540,7 @@
 
     function setRunButtonEnabled(enabled) {
       const baseEnabled = !!enabled;
-      const canUseControls = baseEnabled && !WEEKLY_BACKTEST_RUNNING;
+      const canUseControls = baseEnabled && !isBatchBacktestRunning();
       const btn = document.getElementById('btnRunGridBacktest');
       if (btn) {
         btn.disabled = !canUseControls;
@@ -2488,11 +2552,6 @@
         menuBtn.classList.toggle('opacity-70', !canUseControls);
       }
       document.querySelectorAll('#runBacktestMenu button[data-run-action]').forEach((actionBtn) => {
-        const action = (actionBtn.getAttribute('data-run-action') || '').toLowerCase();
-        if (action === 'monthly') {
-          actionBtn.disabled = true;
-          return;
-        }
         actionBtn.disabled = !canUseControls;
       });
       if (!canUseControls) {
@@ -2511,6 +2570,28 @@
         status: String(next.status || 'ok'),
         netProfit: Number.isFinite(next.netProfit) ? Number(next.netProfit) : null,
         trades: Number.isFinite(next.trades) ? Number(next.trades) : null,
+        maxDrawdown: Number.isFinite(next.maxDrawdown) ? Number(next.maxDrawdown) : null,
+        maxDrawdownDate: next.maxDrawdownDate ? String(next.maxDrawdownDate) : '',
+        maxDrawdownPct: Number.isFinite(next.maxDrawdownPct) ? Number(next.maxDrawdownPct) : null,
+        maxDrawdownPctDate: next.maxDrawdownPctDate ? String(next.maxDrawdownPctDate) : '',
+        message: next.message ? String(next.message) : ''
+      });
+    }
+
+    function setMonthlyBacktestResult(monthKey, payload) {
+      if (!monthKey) return;
+      if (!(MONTHLY_BACKTEST_RESULTS instanceof Map)) {
+        MONTHLY_BACKTEST_RESULTS = new Map();
+      }
+      const next = payload && typeof payload === 'object' ? payload : {};
+      MONTHLY_BACKTEST_RESULTS.set(monthKey, {
+        status: String(next.status || 'ok'),
+        netProfit: Number.isFinite(next.netProfit) ? Number(next.netProfit) : null,
+        trades: Number.isFinite(next.trades) ? Number(next.trades) : null,
+        maxDrawdown: Number.isFinite(next.maxDrawdown) ? Number(next.maxDrawdown) : null,
+        maxDrawdownDate: next.maxDrawdownDate ? String(next.maxDrawdownDate) : '',
+        maxDrawdownPct: Number.isFinite(next.maxDrawdownPct) ? Number(next.maxDrawdownPct) : null,
+        maxDrawdownPctDate: next.maxDrawdownPctDate ? String(next.maxDrawdownPctDate) : '',
         message: next.message ? String(next.message) : ''
       });
     }
@@ -2526,7 +2607,11 @@
         winRatePct: 0,
         netPnl: 0,
         grossProfit: 0,
-        grossLoss: 0
+        grossLoss: 0,
+        maxDrawdown: null,
+        maxDrawdownDate: '',
+        maxDrawdownPct: null,
+        maxDrawdownPctDate: ''
       };
       if (!(WEEKLY_BACKTEST_RESULTS instanceof Map) || !WEEKLY_BACKTEST_RESULTS.size) {
         return out;
@@ -2538,6 +2623,16 @@
         if (status !== 'ok' || !Number.isFinite(netProfit)) {
           out.skippedWeeks += 1;
           continue;
+        }
+        const maxDrawdown = Number(result?.maxDrawdown);
+        if (Number.isFinite(maxDrawdown) && (!Number.isFinite(out.maxDrawdown) || maxDrawdown < out.maxDrawdown)) {
+          out.maxDrawdown = maxDrawdown;
+          out.maxDrawdownDate = result?.maxDrawdownDate ? String(result.maxDrawdownDate) : '';
+        }
+        const maxDrawdownPct = Number(result?.maxDrawdownPct);
+        if (Number.isFinite(maxDrawdownPct) && (!Number.isFinite(out.maxDrawdownPct) || maxDrawdownPct < out.maxDrawdownPct)) {
+          out.maxDrawdownPct = maxDrawdownPct;
+          out.maxDrawdownPctDate = result?.maxDrawdownPctDate ? String(result.maxDrawdownPctDate) : '';
         }
         out.netPnl += netProfit;
         if (netProfit > 0) {
@@ -2570,6 +2665,10 @@
       const netEl = document.getElementById('weeklySummaryNetPnl');
       const grossProfitEl = document.getElementById('weeklySummaryGrossProfit');
       const grossLossEl = document.getElementById('weeklySummaryGrossLoss');
+      const maxDrawdownEl = document.getElementById('weeklySummaryMaxDrawdown');
+      const maxDrawdownDateEl = document.getElementById('weeklySummaryMaxDrawdownDate');
+      const maxDrawdownPctEl = document.getElementById('weeklySummaryMaxDrawdownPct');
+      const maxDrawdownPctDateEl = document.getElementById('weeklySummaryMaxDrawdownPctDate');
       const metaEl = document.getElementById('weeklyBacktestSummaryMeta');
       if (!hasResults) {
         if (winningEl) winningEl.textContent = '0';
@@ -2587,6 +2686,18 @@
         }
         if (grossProfitEl) grossProfitEl.textContent = '$0.00';
         if (grossLossEl) grossLossEl.textContent = '$0.00';
+        if (maxDrawdownEl) {
+          maxDrawdownEl.textContent = '—';
+          maxDrawdownEl.classList.remove('text-red-700');
+          maxDrawdownEl.classList.add('text-slate-800');
+        }
+        if (maxDrawdownDateEl) maxDrawdownDateEl.textContent = '—';
+        if (maxDrawdownPctEl) {
+          maxDrawdownPctEl.textContent = '—';
+          maxDrawdownPctEl.classList.remove('text-red-700');
+          maxDrawdownPctEl.classList.add('text-slate-800');
+        }
+        if (maxDrawdownPctDateEl) maxDrawdownPctDateEl.textContent = '—';
         if (metaEl) metaEl.textContent = '—';
         return;
       }
@@ -2617,6 +2728,34 @@
       }
       if (grossProfitEl) grossProfitEl.textContent = formatCurrency(summary.grossProfit);
       if (grossLossEl) grossLossEl.textContent = formatCurrency(summary.grossLoss);
+      if (maxDrawdownEl) {
+        const drawdownValue = Number(summary?.maxDrawdown);
+        maxDrawdownEl.textContent = Number.isFinite(drawdownValue) ? formatCurrency(drawdownValue) : '—';
+        maxDrawdownEl.classList.remove('text-slate-800', 'text-red-700');
+        if (Number.isFinite(drawdownValue) && drawdownValue < -1e-8) {
+          maxDrawdownEl.classList.add('text-red-700');
+        } else {
+          maxDrawdownEl.classList.add('text-slate-800');
+        }
+      }
+      if (maxDrawdownDateEl) {
+        const drawdownDate = dateKeyFromStr(summary?.maxDrawdownDate);
+        maxDrawdownDateEl.textContent = drawdownDate || '—';
+      }
+      if (maxDrawdownPctEl) {
+        const drawdownPctValue = Number(summary?.maxDrawdownPct);
+        maxDrawdownPctEl.textContent = Number.isFinite(drawdownPctValue) ? formatPercent(drawdownPctValue) : '—';
+        maxDrawdownPctEl.classList.remove('text-slate-800', 'text-red-700');
+        if (Number.isFinite(drawdownPctValue) && drawdownPctValue < -1e-8) {
+          maxDrawdownPctEl.classList.add('text-red-700');
+        } else {
+          maxDrawdownPctEl.classList.add('text-slate-800');
+        }
+      }
+      if (maxDrawdownPctDateEl) {
+        const drawdownPctDate = dateKeyFromStr(summary?.maxDrawdownPctDate);
+        maxDrawdownPctDateEl.textContent = drawdownPctDate || '—';
+      }
       if (metaEl) {
         const flatLabel = summary.flatWeeks > 0
           ? ` \u00b7 ${summary.flatWeeks.toLocaleString()} flat`
@@ -2626,22 +2765,212 @@
       }
     }
 
+    function summarizeMonthlyBacktestResults() {
+      const out = {
+        totalMonths: 0,
+        evaluatedMonths: 0,
+        winningMonths: 0,
+        losingMonths: 0,
+        skippedMonths: 0,
+        flatMonths: 0,
+        winRatePct: 0,
+        netPnl: 0,
+        grossProfit: 0,
+        grossLoss: 0,
+        maxDrawdown: null,
+        maxDrawdownDate: '',
+        maxDrawdownPct: null,
+        maxDrawdownPctDate: ''
+      };
+      if (!(MONTHLY_BACKTEST_RESULTS instanceof Map) || !MONTHLY_BACKTEST_RESULTS.size) {
+        return out;
+      }
+      out.totalMonths = MONTHLY_BACKTEST_RESULTS.size;
+      for (const result of MONTHLY_BACKTEST_RESULTS.values()) {
+        const status = String(result?.status || '');
+        const netProfit = Number(result?.netProfit);
+        if (status !== 'ok' || !Number.isFinite(netProfit)) {
+          out.skippedMonths += 1;
+          continue;
+        }
+        const maxDrawdown = Number(result?.maxDrawdown);
+        if (Number.isFinite(maxDrawdown) && (!Number.isFinite(out.maxDrawdown) || maxDrawdown < out.maxDrawdown)) {
+          out.maxDrawdown = maxDrawdown;
+          out.maxDrawdownDate = result?.maxDrawdownDate ? String(result.maxDrawdownDate) : '';
+        }
+        const maxDrawdownPct = Number(result?.maxDrawdownPct);
+        if (Number.isFinite(maxDrawdownPct) && (!Number.isFinite(out.maxDrawdownPct) || maxDrawdownPct < out.maxDrawdownPct)) {
+          out.maxDrawdownPct = maxDrawdownPct;
+          out.maxDrawdownPctDate = result?.maxDrawdownPctDate ? String(result.maxDrawdownPctDate) : '';
+        }
+        out.netPnl += netProfit;
+        if (netProfit > 0) {
+          out.winningMonths += 1;
+          out.grossProfit += netProfit;
+        } else if (netProfit < 0) {
+          out.losingMonths += 1;
+          out.grossLoss += Math.abs(netProfit);
+        } else {
+          out.flatMonths += 1;
+        }
+      }
+      out.evaluatedMonths = Math.max(0, out.totalMonths - out.skippedMonths);
+      out.winRatePct = out.evaluatedMonths > 0
+        ? (out.winningMonths / out.evaluatedMonths) * 100
+        : 0;
+      return out;
+    }
+
+    function renderMonthlyBacktestSummary() {
+      const panel = document.getElementById('monthlyBacktestSummary');
+      if (!panel) return;
+      const summary = summarizeMonthlyBacktestResults();
+      const hasResults = summary.totalMonths > 0;
+      panel.classList.toggle('hidden', !hasResults);
+      const winningEl = document.getElementById('monthlySummaryWinningMonths');
+      const losingEl = document.getElementById('monthlySummaryLosingMonths');
+      const skippedEl = document.getElementById('monthlySummarySkippedMonths');
+      const winRateEl = document.getElementById('monthlySummaryWinRate');
+      const netEl = document.getElementById('monthlySummaryNetPnl');
+      const grossProfitEl = document.getElementById('monthlySummaryGrossProfit');
+      const grossLossEl = document.getElementById('monthlySummaryGrossLoss');
+      const maxDrawdownEl = document.getElementById('monthlySummaryMaxDrawdown');
+      const maxDrawdownDateEl = document.getElementById('monthlySummaryMaxDrawdownDate');
+      const maxDrawdownPctEl = document.getElementById('monthlySummaryMaxDrawdownPct');
+      const maxDrawdownPctDateEl = document.getElementById('monthlySummaryMaxDrawdownPctDate');
+      const metaEl = document.getElementById('monthlyBacktestSummaryMeta');
+      if (!hasResults) {
+        if (winningEl) winningEl.textContent = '0';
+        if (losingEl) losingEl.textContent = '0';
+        if (skippedEl) skippedEl.textContent = '0';
+        if (winRateEl) {
+          winRateEl.textContent = '0.00%';
+          winRateEl.classList.remove('text-emerald-700', 'text-red-700');
+          winRateEl.classList.add('text-slate-800');
+        }
+        if (netEl) {
+          netEl.textContent = '$0.00';
+          netEl.classList.remove('text-emerald-700', 'text-red-700');
+          netEl.classList.add('text-slate-800');
+        }
+        if (grossProfitEl) grossProfitEl.textContent = '$0.00';
+        if (grossLossEl) grossLossEl.textContent = '$0.00';
+        if (maxDrawdownEl) {
+          maxDrawdownEl.textContent = '—';
+          maxDrawdownEl.classList.remove('text-red-700');
+          maxDrawdownEl.classList.add('text-slate-800');
+        }
+        if (maxDrawdownDateEl) maxDrawdownDateEl.textContent = '—';
+        if (maxDrawdownPctEl) {
+          maxDrawdownPctEl.textContent = '—';
+          maxDrawdownPctEl.classList.remove('text-red-700');
+          maxDrawdownPctEl.classList.add('text-slate-800');
+        }
+        if (maxDrawdownPctDateEl) maxDrawdownPctDateEl.textContent = '—';
+        if (metaEl) metaEl.textContent = '—';
+        return;
+      }
+      if (winningEl) winningEl.textContent = summary.winningMonths.toLocaleString();
+      if (losingEl) losingEl.textContent = summary.losingMonths.toLocaleString();
+      if (skippedEl) skippedEl.textContent = summary.skippedMonths.toLocaleString();
+      if (winRateEl) {
+        winRateEl.textContent = formatPercent(summary.winRatePct);
+        winRateEl.classList.remove('text-slate-800', 'text-emerald-700', 'text-red-700');
+        if (summary.winRatePct >= 50) {
+          winRateEl.classList.add('text-emerald-700');
+        } else if (summary.evaluatedMonths > 0) {
+          winRateEl.classList.add('text-red-700');
+        } else {
+          winRateEl.classList.add('text-slate-800');
+        }
+      }
+      if (netEl) {
+        netEl.textContent = formatCurrency(summary.netPnl);
+        netEl.classList.remove('text-slate-800', 'text-emerald-700', 'text-red-700');
+        if (summary.netPnl > 0) {
+          netEl.classList.add('text-emerald-700');
+        } else if (summary.netPnl < 0) {
+          netEl.classList.add('text-red-700');
+        } else {
+          netEl.classList.add('text-slate-800');
+        }
+      }
+      if (grossProfitEl) grossProfitEl.textContent = formatCurrency(summary.grossProfit);
+      if (grossLossEl) grossLossEl.textContent = formatCurrency(summary.grossLoss);
+      if (maxDrawdownEl) {
+        const drawdownValue = Number(summary?.maxDrawdown);
+        maxDrawdownEl.textContent = Number.isFinite(drawdownValue) ? formatCurrency(drawdownValue) : '—';
+        maxDrawdownEl.classList.remove('text-slate-800', 'text-red-700');
+        if (Number.isFinite(drawdownValue) && drawdownValue < -1e-8) {
+          maxDrawdownEl.classList.add('text-red-700');
+        } else {
+          maxDrawdownEl.classList.add('text-slate-800');
+        }
+      }
+      if (maxDrawdownDateEl) {
+        const drawdownDate = dateKeyFromStr(summary?.maxDrawdownDate);
+        maxDrawdownDateEl.textContent = drawdownDate || '—';
+      }
+      if (maxDrawdownPctEl) {
+        const drawdownPctValue = Number(summary?.maxDrawdownPct);
+        maxDrawdownPctEl.textContent = Number.isFinite(drawdownPctValue) ? formatPercent(drawdownPctValue) : '—';
+        maxDrawdownPctEl.classList.remove('text-slate-800', 'text-red-700');
+        if (Number.isFinite(drawdownPctValue) && drawdownPctValue < -1e-8) {
+          maxDrawdownPctEl.classList.add('text-red-700');
+        } else {
+          maxDrawdownPctEl.classList.add('text-slate-800');
+        }
+      }
+      if (maxDrawdownPctDateEl) {
+        const drawdownPctDate = dateKeyFromStr(summary?.maxDrawdownPctDate);
+        maxDrawdownPctDateEl.textContent = drawdownPctDate || '—';
+      }
+      if (metaEl) {
+        const flatLabel = summary.flatMonths > 0
+          ? ` \u00b7 ${summary.flatMonths.toLocaleString()} flat`
+          : '';
+        const evaluatedLabel = ` \u00b7 ${summary.evaluatedMonths.toLocaleString()} evaluated`;
+        metaEl.textContent = `${summary.totalMonths.toLocaleString()} months analyzed${evaluatedLabel}${flatLabel}`;
+      }
+    }
+
     function clearWeeklyBacktestResults({ rerender = true } = {}) {
       if (!(WEEKLY_BACKTEST_RESULTS instanceof Map)) {
         WEEKLY_BACKTEST_RESULTS = new Map();
       } else if (WEEKLY_BACKTEST_RESULTS.size) {
         WEEKLY_BACKTEST_RESULTS.clear();
       }
+      if (!(MONTHLY_BACKTEST_RESULTS instanceof Map)) {
+        MONTHLY_BACKTEST_RESULTS = new Map();
+      } else if (MONTHLY_BACKTEST_RESULTS.size) {
+        MONTHLY_BACKTEST_RESULTS.clear();
+      }
       if (rerender) {
         updateWeekFilterButtons();
+        updateYearFilterButtons();
       }
       renderWeeklyBacktestSummary();
+      renderMonthlyBacktestSummary();
     }
 
     function getRowsForWeekKey(weekKey) {
       if (!weekKey) return [];
       const weekSet = new Set([weekKey]);
       const daySet = getWeekDayKeySet(weekSet);
+      if (!(daySet instanceof Set) || !daySet.size) return [];
+      const rows = [];
+      daySet.forEach((dayKey) => {
+        const dayRows = DAY_GROUPS.get(dayKey);
+        if (!Array.isArray(dayRows) || !dayRows.length) return;
+        rows.push(...dayRows);
+      });
+      return rows;
+    }
+
+    function getRowsForMonthKey(monthKey) {
+      if (!monthKey) return [];
+      const monthSet = new Set([monthKey]);
+      const daySet = getMonthDayKeySet(monthSet);
       if (!(daySet instanceof Set) || !daySet.size) return [];
       const rows = [];
       daySet.forEach((dayKey) => {
@@ -2667,6 +2996,20 @@
         if (Number.isFinite(result.trades)) {
           parts.push(`Trades: ${Math.max(0, Math.trunc(result.trades))}`);
         }
+        if (Number.isFinite(result.maxDrawdown)) {
+          parts.push(`Max Drawdown: ${formatCurrency(result.maxDrawdown)}`);
+        }
+        if (Number.isFinite(result.maxDrawdownPct)) {
+          parts.push(`Max Drawdown %: ${formatPercent(result.maxDrawdownPct)}`);
+        }
+        const drawdownDate = dateKeyFromStr(result.maxDrawdownDate);
+        if (drawdownDate) {
+          parts.push(`Max Drawdown Date: ${drawdownDate}`);
+        }
+        const drawdownPctDate = dateKeyFromStr(result.maxDrawdownPctDate);
+        if (drawdownPctDate) {
+          parts.push(`Max Drawdown % Date: ${drawdownPctDate}`);
+        }
         return parts.join('\n');
       }
       if (result.status === 'no_rows') {
@@ -2683,6 +3026,55 @@
       }
       if (result.status === 'error') {
         return `${base}\n${result.message || 'Backtest failed for this week.'}`;
+      }
+      return base;
+    }
+
+    function formatMonthlyFilterTooltip(monthKey, result) {
+      const parsed = parseMonthKey(monthKey);
+      const monthLabel = parsed ? `${getMonthShortLabel(monthKey)} ${parsed.year}` : monthKey;
+      const base = `Month ${monthLabel} (${monthKey})`;
+      if (!result || typeof result !== 'object') {
+        return base;
+      }
+      if (result.status === 'ok' && Number.isFinite(result.netProfit)) {
+        const parts = [
+          base,
+          `Net P/L (if liquidated): ${formatCurrency(result.netProfit)}`
+        ];
+        if (Number.isFinite(result.trades)) {
+          parts.push(`Trades: ${Math.max(0, Math.trunc(result.trades))}`);
+        }
+        if (Number.isFinite(result.maxDrawdown)) {
+          parts.push(`Max Drawdown: ${formatCurrency(result.maxDrawdown)}`);
+        }
+        if (Number.isFinite(result.maxDrawdownPct)) {
+          parts.push(`Max Drawdown %: ${formatPercent(result.maxDrawdownPct)}`);
+        }
+        const drawdownDate = dateKeyFromStr(result.maxDrawdownDate);
+        if (drawdownDate) {
+          parts.push(`Max Drawdown Date: ${drawdownDate}`);
+        }
+        const drawdownPctDate = dateKeyFromStr(result.maxDrawdownPctDate);
+        if (drawdownPctDate) {
+          parts.push(`Max Drawdown % Date: ${drawdownPctDate}`);
+        }
+        return parts.join('\n');
+      }
+      if (result.status === 'no_rows') {
+        return `${base}\nNo rows in selected month segment.`;
+      }
+      if (result.status === 'no_trades') {
+        const netLabel = Number.isFinite(result.netProfit)
+          ? `\nNet P/L (if liquidated): ${formatCurrency(result.netProfit)}`
+          : '';
+        return `${base}\nNo completed trades in this month.${netLabel}`;
+      }
+      if (result.status === 'insufficient_sma') {
+        return `${base}\n${result.message || 'Insufficient dataset for selected SMA filter.'}`;
+      }
+      if (result.status === 'error') {
+        return `${base}\n${result.message || 'Backtest failed for this month.'}`;
       }
       return base;
     }
@@ -3890,6 +4282,44 @@
       return { year: match[1], week, key: weekKey };
     }
 
+    function sortWeekKeysChronological(weekKeys) {
+      if (!Array.isArray(weekKeys) || !weekKeys.length) return [];
+      return weekKeys.slice().sort((a, b) => {
+        const pa = parseWeekKey(a);
+        const pb = parseWeekKey(b);
+        if (!pa || !pb) return String(a || '').localeCompare(String(b || ''));
+        const ay = Number(pa.year);
+        const by = Number(pb.year);
+        if (ay !== by) return ay - by;
+        return pa.week - pb.week;
+      });
+    }
+
+    function sortMonthKeysChronological(monthKeys) {
+      if (!Array.isArray(monthKeys) || !monthKeys.length) return [];
+      return monthKeys.slice().sort((a, b) => {
+        const pa = parseMonthKey(a);
+        const pb = parseMonthKey(b);
+        if (!pa || !pb) return String(a || '').localeCompare(String(b || ''));
+        const ay = Number(pa.year);
+        const by = Number(pb.year);
+        if (ay !== by) return ay - by;
+        return pa.month - pb.month;
+      });
+    }
+
+    function resolveCompoundedTradeValue(currentTradeValue, plSizingPct, segmentNetProfit) {
+      const current = Number(currentTradeValue);
+      if (!Number.isFinite(current)) return 0;
+      const sizingPct = Number(plSizingPct);
+      if (!Number.isFinite(sizingPct) || sizingPct === 0) {
+        return Math.max(0, current);
+      }
+      const netProfit = Number.isFinite(segmentNetProfit) ? Number(segmentNetProfit) : 0;
+      const next = current + (sizingPct / 100) * netProfit;
+      return Math.max(0, next);
+    }
+
     function startOfWeekSunday(date) {
       if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
       const out = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -4368,7 +4798,10 @@
       const hasMonthSelection = TIME_FILTER_STATE.mode === 'months' && monthSet.size > 0;
       document.querySelectorAll('#yearFilterGroup button[data-month-filter]').forEach((btn) => {
         const monthKey = btn.getAttribute('data-month-filter');
+        const monthResult = monthKey && MONTHLY_BACKTEST_RESULTS instanceof Map ? MONTHLY_BACKTEST_RESULTS.get(monthKey) : null;
         const active = hasMonthSelection && monthKey && monthSet.has(monthKey);
+        const netProfit = Number(monthResult?.netProfit);
+        const hasNetProfit = monthResult?.status === 'ok' && Number.isFinite(netProfit);
         btn.classList.remove(
           'border-slate-200',
           'bg-white',
@@ -4376,15 +4809,49 @@
           'hover:bg-slate-50',
           'border-emerald-500',
           'bg-emerald-50',
-          'text-emerald-700'
+          'text-emerald-700',
+          'border-red-300',
+          'bg-red-50',
+          'text-red-700',
+          'hover:bg-red-100',
+          'border-slate-300',
+          'bg-slate-100',
+          'text-slate-700',
+          'hover:bg-slate-200',
+          'ring-1',
+          'ring-emerald-400',
+          'ring-red-400',
+          'ring-slate-400'
         );
+        if (monthKey) {
+          btn.title = formatMonthlyFilterTooltip(monthKey, monthResult);
+        }
         if (active) {
           btn.classList.add('border-emerald-500', 'bg-emerald-50', 'text-emerald-700');
+          if (hasNetProfit) {
+            if (netProfit > 0) {
+              btn.classList.add('ring-1', 'ring-emerald-400');
+            } else if (netProfit < 0) {
+              btn.classList.add('ring-1', 'ring-red-400');
+            } else {
+              btn.classList.add('ring-1', 'ring-slate-400');
+            }
+          }
           btn.setAttribute('aria-pressed', 'true');
+          return;
+        }
+        if (hasNetProfit) {
+          if (netProfit > 0) {
+            btn.classList.add('border-emerald-500', 'bg-emerald-50', 'text-emerald-700');
+          } else if (netProfit < 0) {
+            btn.classList.add('border-red-300', 'bg-red-50', 'text-red-700', 'hover:bg-red-100');
+          } else {
+            btn.classList.add('border-slate-300', 'bg-slate-100', 'text-slate-700', 'hover:bg-slate-200');
+          }
         } else {
           btn.classList.add('border-slate-200', 'bg-white', 'text-slate-600', 'hover:bg-slate-50');
-          btn.setAttribute('aria-pressed', 'false');
         }
+        btn.setAttribute('aria-pressed', 'false');
       });
       document.querySelectorAll('#yearFilterGroup button[data-year-filter]').forEach((btn) => {
         const year = btn.getAttribute('data-year-filter');
@@ -4618,6 +5085,14 @@
           return pa.month - pb.month;
         });
       }
+      if (MONTHLY_BACKTEST_RESULTS instanceof Map && MONTHLY_BACKTEST_RESULTS.size) {
+        const validMonthKeySet = new Set(AVAILABLE_MONTHS);
+        for (const key of Array.from(MONTHLY_BACKTEST_RESULTS.keys())) {
+          if (!validMonthKeySet.has(key)) {
+            MONTHLY_BACKTEST_RESULTS.delete(key);
+          }
+        }
+      }
       const container = document.getElementById('yearFilterGroup');
       if (!container) return;
       const validMonths = new Set();
@@ -4661,6 +5136,7 @@
       }
       buildWeekFilterOptions();
       refreshTimeFilterSelection();
+      renderMonthlyBacktestSummary();
     }
 
     function buildWeekFilterOptions() {
@@ -7177,13 +7653,13 @@
     }
 
     async function runWeeklyBacktest() {
-      if (WEEKLY_BACKTEST_RUNNING) return;
+      if (isBatchBacktestRunning()) return;
       closeRunBacktestMenu();
       if (!Array.isArray(ROWS) || !ROWS.length) {
         setGridStatus('Load symbol data before running weekly backtest.');
         return;
       }
-      const weeks = Array.isArray(AVAILABLE_WEEKS) ? AVAILABLE_WEEKS.slice() : [];
+      const weeks = sortWeekKeysChronological(Array.isArray(AVAILABLE_WEEKS) ? AVAILABLE_WEEKS.slice() : []);
       if (!weeks.length) {
         clearWeeklyBacktestResults({ rerender: true });
         setGridStatus('No available weeks in loaded data.');
@@ -7192,6 +7668,8 @@
       const params = getGridParamsFromUI();
       const entryFilter = params?.entryFilter || 'none';
       const filterWindow = getEntryFilterWindow(entryFilter);
+      const initialTradeValue = Number.isFinite(params?.tradeValue) ? Math.max(0, Number(params.tradeValue)) : 0;
+      let compoundedTradeValue = initialTradeValue;
       let positiveCount = 0;
       let negativeCount = 0;
       let flatCount = 0;
@@ -7232,9 +7710,17 @@
             setWeeklyBacktestResult(weekKey, { status: 'no_rows' });
           } else {
             try {
-              const result = runBuyTheDipSimulation(rowsForWeek, params) || {};
+              const paramsForWeek = {
+                ...params,
+                tradeValue: compoundedTradeValue
+              };
+              const result = runBuyTheDipSimulation(rowsForWeek, paramsForWeek) || {};
               const summary = result.summary || null;
               const netProfit = Number(summary?.netProfit);
+              const maxDrawdown = Number(summary?.maxDrawdown);
+              const maxDrawdownDate = summary?.maxDrawdownDate ? String(summary.maxDrawdownDate) : '';
+              const maxDrawdownPct = Number(summary?.maxDrawdownPct);
+              const maxDrawdownPctDate = summary?.maxDrawdownPctDate ? String(summary.maxDrawdownPctDate) : '';
               const tradesRaw = Number.isFinite(summary?.totalTrades)
                 ? Number(summary.totalTrades)
                 : (Array.isArray(result.trades) ? result.trades.length : null);
@@ -7250,8 +7736,13 @@
                 setWeeklyBacktestResult(weekKey, {
                   status: 'ok',
                   netProfit,
-                  trades
+                  trades,
+                  maxDrawdown,
+                  maxDrawdownDate,
+                  maxDrawdownPct,
+                  maxDrawdownPctDate
                 });
+                compoundedTradeValue = resolveCompoundedTradeValue(compoundedTradeValue, params?.plSizingPct, netProfit);
               } else if (Number.isFinite(netProfit) && trades === 0) {
                 missingCount += 1;
                 setWeeklyBacktestResult(weekKey, {
@@ -7284,10 +7775,141 @@
         }
         renderWeeklyBacktestSummary();
         setGridStatus(
-          `Weekly backtest complete for ${weeks.length} week${weeks.length === 1 ? '' : 's'}. Positive: ${positiveCount}, Negative: ${negativeCount}, Flat: ${flatCount}, Missing/Error: ${missingCount}.`
+          `Weekly backtest complete for ${weeks.length} week${weeks.length === 1 ? '' : 's'}. Positive: ${positiveCount}, Negative: ${negativeCount}, Flat: ${flatCount}, Missing/Error: ${missingCount}. Trade Value compounded: ${formatCurrency(initialTradeValue)} -> ${formatCurrency(compoundedTradeValue)}.`
         );
       } finally {
         WEEKLY_BACKTEST_RUNNING = false;
+        setRunButtonEnabled(Array.isArray(ROWS) && ROWS.length > 0);
+      }
+    }
+
+    async function runMonthlyBacktest() {
+      if (isBatchBacktestRunning()) return;
+      closeRunBacktestMenu();
+      if (!Array.isArray(ROWS) || !ROWS.length) {
+        setGridStatus('Load symbol data before running monthly backtest.');
+        return;
+      }
+      const months = sortMonthKeysChronological(Array.isArray(AVAILABLE_MONTHS) ? AVAILABLE_MONTHS.slice() : []);
+      if (!months.length) {
+        clearWeeklyBacktestResults({ rerender: true });
+        setGridStatus('No available months in loaded data.');
+        return;
+      }
+      const params = getGridParamsFromUI();
+      const entryFilter = params?.entryFilter || 'none';
+      const filterWindow = getEntryFilterWindow(entryFilter);
+      const initialTradeValue = Number.isFinite(params?.tradeValue) ? Math.max(0, Number(params.tradeValue)) : 0;
+      let compoundedTradeValue = initialTradeValue;
+      let positiveCount = 0;
+      let negativeCount = 0;
+      let flatCount = 0;
+      let skippedCount = 0;
+      MONTHLY_BACKTEST_RUNNING = true;
+      setRunButtonEnabled(Array.isArray(ROWS) && ROWS.length > 0);
+      clearWeeklyBacktestResults({ rerender: true });
+      try {
+        if (filterWindow) {
+          if (SMA_DIRTY) {
+            computeDailySmaMaps();
+            SMA_DIRTY = false;
+          }
+          const info = describeSmaAvailability(entryFilter);
+          const available = info?.availableDays || 0;
+          if (available <= 0) {
+            const totalDays = info?.totalDays ?? DAYS.length;
+            const message = `Entry filter (${filterWindow}-day SMA) needs ${filterWindow} completed days. Dataset has ${totalDays.toLocaleString()} day${totalDays === 1 ? '' : 's'} — insufficient for this filter.`;
+            months.forEach((monthKey) => {
+              setMonthlyBacktestResult(monthKey, {
+                status: 'insufficient_sma',
+                message
+              });
+            });
+            skippedCount = months.length;
+            refreshTimeFilterSelection();
+            renderMonthlyBacktestSummary();
+            setGridStatus(`Monthly backtest skipped. ${message}`);
+            return;
+          }
+        }
+        for (let i = 0; i < months.length; i += 1) {
+          const monthKey = months[i];
+          setGridStatus(`Running monthly backtest ${i + 1}/${months.length}: ${monthKey}…`);
+          const rowsForMonth = getRowsForMonthKey(monthKey);
+          if (!rowsForMonth.length) {
+            skippedCount += 1;
+            setMonthlyBacktestResult(monthKey, { status: 'no_rows' });
+          } else {
+            try {
+              const paramsForMonth = {
+                ...params,
+                tradeValue: compoundedTradeValue
+              };
+              const result = runBuyTheDipSimulation(rowsForMonth, paramsForMonth) || {};
+              const summary = result.summary || null;
+              const netProfit = Number(summary?.netProfit);
+              const maxDrawdown = Number(summary?.maxDrawdown);
+              const maxDrawdownDate = summary?.maxDrawdownDate ? String(summary.maxDrawdownDate) : '';
+              const maxDrawdownPct = Number(summary?.maxDrawdownPct);
+              const maxDrawdownPctDate = summary?.maxDrawdownPctDate ? String(summary.maxDrawdownPctDate) : '';
+              const tradesRaw = Number.isFinite(summary?.totalTrades)
+                ? Number(summary.totalTrades)
+                : (Array.isArray(result.trades) ? result.trades.length : null);
+              const trades = Number.isFinite(tradesRaw) ? Math.max(0, Math.trunc(tradesRaw)) : 0;
+              if (Number.isFinite(netProfit) && trades > 0) {
+                if (netProfit > 0) {
+                  positiveCount += 1;
+                } else if (netProfit < 0) {
+                  negativeCount += 1;
+                } else {
+                  flatCount += 1;
+                }
+                setMonthlyBacktestResult(monthKey, {
+                  status: 'ok',
+                  netProfit,
+                  trades,
+                  maxDrawdown,
+                  maxDrawdownDate,
+                  maxDrawdownPct,
+                  maxDrawdownPctDate
+                });
+                compoundedTradeValue = resolveCompoundedTradeValue(compoundedTradeValue, params?.plSizingPct, netProfit);
+              } else if (Number.isFinite(netProfit) && trades === 0) {
+                skippedCount += 1;
+                setMonthlyBacktestResult(monthKey, {
+                  status: 'no_trades',
+                  netProfit,
+                  trades,
+                  message: 'No completed trades in this month.'
+                });
+              } else {
+                skippedCount += 1;
+                setMonthlyBacktestResult(monthKey, {
+                  status: 'error',
+                  message: 'No net P/L output for this month.'
+                });
+              }
+            } catch (err) {
+              skippedCount += 1;
+              const message = err && err.message ? err.message : String(err);
+              setMonthlyBacktestResult(monthKey, {
+                status: 'error',
+                message: `Monthly run failed: ${message}`
+              });
+            }
+          }
+          if ((i + 1) % 4 === 0 || i === months.length - 1) {
+            refreshTimeFilterSelection();
+            renderMonthlyBacktestSummary();
+            await sleep(0);
+          }
+        }
+        renderMonthlyBacktestSummary();
+        setGridStatus(
+          `Monthly backtest complete for ${months.length} month${months.length === 1 ? '' : 's'}. Positive: ${positiveCount}, Negative: ${negativeCount}, Flat: ${flatCount}, Skipped: ${skippedCount}. Trade Value compounded: ${formatCurrency(initialTradeValue)} -> ${formatCurrency(compoundedTradeValue)}.`
+        );
+      } finally {
+        MONTHLY_BACKTEST_RUNNING = false;
         setRunButtonEnabled(Array.isArray(ROWS) && ROWS.length > 0);
       }
     }
@@ -7297,8 +7919,8 @@
         clearTimeout(GRID_BACKTEST_DEBOUNCE_TIMER);
         GRID_BACKTEST_DEBOUNCE_TIMER = null;
       }
-      if (WEEKLY_BACKTEST_RUNNING) {
-        setGridStatus('Weekly backtest is running. Wait for it to finish before running a full backtest.');
+      if (isBatchBacktestRunning()) {
+        setGridStatus('Batch backtest is running. Wait for it to finish before running a full backtest.');
         return;
       }
       if (!Array.isArray(ROWS) || !ROWS.length) {
@@ -7419,7 +8041,7 @@
     }
 
     function scheduleGridBacktest() {
-      if (WEEKLY_BACKTEST_RUNNING) return;
+      if (isBatchBacktestRunning()) return;
       if (GRID_BACKTEST_DEBOUNCE_TIMER) {
         clearTimeout(GRID_BACKTEST_DEBOUNCE_TIMER);
       }
@@ -7659,7 +8281,7 @@
     }
 
 
-    async function loadSymbolData(sym) {
+    async function loadSymbolData(sym, { runMode = null } = {}) {
       const baseSymbol = (sym || '').trim();
       if (!baseSymbol) return false;
       const loadStartMs = performance.now();
@@ -7709,7 +8331,7 @@
             dayCount: DAYS.length,
             success: true
           });
-          runSelectedBacktest();
+          runSelectedBacktest(runMode);
           return true;
         } catch (err) {
           lastError = err && err.message ? err.message : String(err);
@@ -8140,7 +8762,7 @@
           const symbol = symbols[i];
           setBatchResultsStatus(`Backtesting ${symbol} (${i + 1}/${symbols.length})…`);
           setTicker(symbol);
-          const loaded = await loadSymbolData(symbol);
+          const loaded = await loadSymbolData(symbol, { runMode: 'single' });
           if (!loaded || !GRID_STATE?.summary) {
             BACKTEST_ALL_RESULTS.push({
               symbol,
