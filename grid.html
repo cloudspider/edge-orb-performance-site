@@ -1377,7 +1377,7 @@
     <section id="gridFiltersSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4">
       <div class="flex flex-col gap-2">
         <h2 class="font-semibold text-slate-700">Filters</h2>
-        <p class="text-sm text-slate-500">Use quick timeframe presets or advanced year/month selection to limit displayed results.</p>
+        <p class="text-sm text-slate-500">Use quick timeframe presets or advanced year/month/week selection to limit displayed results.</p>
       </div>
       <div class="space-y-2">
         <div id="timeframePresetGroup" class="flex flex-wrap gap-2" aria-label="Timeframe presets"></div>
@@ -1389,6 +1389,14 @@
           <button id="yearFilterClearBtn" type="button" class="text-xs text-slate-600 hover:text-slate-800 hover:underline">All months</button>
         </div>
         <div id="yearFilterGroup" class="space-y-2" aria-label="Year and month filters"></div>
+      </div>
+      <div class="space-y-2">
+        <div class="flex items-center justify-between gap-2">
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Year / Week</p>
+          <button id="weekFilterClearBtn" type="button" class="text-xs text-slate-600 hover:text-slate-800 hover:underline">All weeks</button>
+        </div>
+        <p class="text-[11px] text-slate-500">Week number (Sunday-Saturday)</p>
+        <div id="weekFilterGroup" class="space-y-2" aria-label="Year and week filters"></div>
       </div>
     </section>
 
@@ -1920,6 +1928,8 @@
     let AVAILABLE_MONTHS = [];
     let AVAILABLE_YEARS = [];
     let AVAILABLE_MONTHS_BY_YEAR = new Map();
+    let AVAILABLE_WEEKS = [];
+    let AVAILABLE_WEEKS_BY_YEAR = new Map();
     const MONTH_ABBR_3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const TIMEFRAME_PRESETS = [
       { id: 'all', label: 'All', kind: 'all' },
@@ -1937,7 +1947,8 @@
       mode: 'all',
       presetId: null,
       months: new Set(),
-      years: new Set()
+      years: new Set(),
+      weeks: new Set()
     };
     let PRICE_DISTRIBUTION_VIEW = 'buy';
     const TRADE_TABLE_STATE = { page: 1, pageSize: 250 };
@@ -3229,6 +3240,22 @@
       return Array.from(set).sort((a, b) => Number(b) - Number(a));
     }
 
+    function weekChoicesFromDays() {
+      if (!Array.isArray(DAYS) || !DAYS.length) return [];
+      const set = new Set();
+      for (const dayKey of DAYS) {
+        const key = formatDayKeyToWeek(dayKey);
+        if (key) set.add(key);
+      }
+      return Array.from(set).sort((a, b) => {
+        const pa = parseWeekKey(a);
+        const pb = parseWeekKey(b);
+        if (!pa || !pb) return a.localeCompare(b);
+        if (pa.year !== pb.year) return Number(pb.year) - Number(pa.year);
+        return pa.week - pb.week;
+      });
+    }
+
     function parseDayKey(dayKey) {
       if (typeof dayKey !== 'string') return null;
       const match = dayKey.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -3251,6 +3278,13 @@
       return dayKey.slice(0, 4);
     }
 
+    function formatDayKeyToWeek(dayKey) {
+      const dayDate = parseDayKey(dayKey);
+      if (!dayDate) return null;
+      const info = getWeekInfoFromDate(dayDate);
+      return info ? info.key : null;
+    }
+
     function parseMonthKey(monthKey) {
       if (typeof monthKey !== 'string') return null;
       const match = monthKey.match(/^(\d{2})\/(\d{4})$/);
@@ -3267,11 +3301,36 @@
       return MONTH_ABBR_3[parsed.month - 1] || monthKey;
     }
 
-    function startOfWeekMonday(date) {
+    function getWeekInfoFromDate(dateInput) {
+      const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
+      if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
+      const day = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      const year = day.getFullYear();
+      const jan1 = new Date(year, 0, 1);
+      const dayIndex = Math.floor((day.getTime() - jan1.getTime()) / (24 * 60 * 60 * 1000));
+      const week = Math.floor((dayIndex + jan1.getDay()) / 7) + 1;
+      if (!Number.isFinite(week) || week < 1) return null;
+      return {
+        year: String(year),
+        week,
+        key: `${year}-W${week}`
+      };
+    }
+
+    function parseWeekKey(weekKey) {
+      if (typeof weekKey !== 'string') return null;
+      const match = weekKey.match(/^(\d{4})-W(\d{1,2})$/);
+      if (!match) return null;
+      const week = Number(match[2]);
+      if (!Number.isFinite(week) || week < 1 || week > 53) return null;
+      return { year: match[1], week, key: weekKey };
+    }
+
+    function startOfWeekSunday(date) {
       if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
       const out = new Date(date.getFullYear(), date.getMonth(), date.getDate());
       const weekday = out.getDay(); // 0-6, Sunday=0
-      const delta = weekday === 0 ? -6 : (1 - weekday);
+      const delta = -weekday;
       out.setDate(out.getDate() + delta);
       return out;
     }
@@ -3313,7 +3372,7 @@
         return set;
       }
       if (preset.id === 'this_week' || preset.id === 'last_week') {
-        const thisWeekStart = startOfWeekMonday(latestDate);
+        const thisWeekStart = startOfWeekSunday(latestDate);
         if (!thisWeekStart) return set;
         const windowStart = preset.id === 'last_week' ? addDays(thisWeekStart, -7) : thisWeekStart;
         const windowEnd = preset.id === 'last_week' ? addDays(thisWeekStart, -1) : latestDate;
@@ -3345,6 +3404,16 @@
       return set;
     }
 
+    function getWeekDayKeySet(weekSet) {
+      if (!(weekSet instanceof Set) || !weekSet.size) return null;
+      const set = new Set();
+      (Array.isArray(DAYS) ? DAYS : []).forEach((dayKey) => {
+        const weekKey = formatDayKeyToWeek(dayKey);
+        if (weekKey && weekSet.has(weekKey)) set.add(dayKey);
+      });
+      return set;
+    }
+
     function getYearDayKeySet(yearSet) {
       if (!(yearSet instanceof Set) || !yearSet.size) return null;
       const set = new Set();
@@ -3364,6 +3433,9 @@
       }
       if (TIME_FILTER_STATE.mode === 'months') {
         return getMonthDayKeySet(TIME_FILTER_STATE.months);
+      }
+      if (TIME_FILTER_STATE.mode === 'weeks') {
+        return getWeekDayKeySet(TIME_FILTER_STATE.weeks);
       }
       return null;
     }
@@ -3457,6 +3529,20 @@
         label.textContent = `Mode: Months - ${selected} selected (${yearSet.size} year${yearSet.size === 1 ? '' : 's'})`;
         return;
       }
+      if (TIME_FILTER_STATE.mode === 'weeks') {
+        const selected = TIME_FILTER_STATE.weeks instanceof Set ? TIME_FILTER_STATE.weeks.size : 0;
+        if (!selected) {
+          label.textContent = 'Mode: All';
+          return;
+        }
+        const yearSet = new Set();
+        TIME_FILTER_STATE.weeks.forEach((key) => {
+          const parsed = parseWeekKey(key);
+          if (parsed?.year) yearSet.add(parsed.year);
+        });
+        label.textContent = `Mode: Weeks - ${selected} selected (${yearSet.size} year${yearSet.size === 1 ? '' : 's'})`;
+        return;
+      }
       if (TIME_FILTER_STATE.mode === 'years') {
         if (!TIME_FILTER_STATE.years.size || TIME_FILTER_STATE.years.size === AVAILABLE_YEARS.length) {
           label.textContent = 'Mode: All';
@@ -3472,6 +3558,8 @@
     function refreshTimeFilterSelection() {
       updateMonthFilterLabel();
       updateYearFilterButtons();
+      updateWeekFilterLabel();
+      updateWeekFilterButtons();
       updateTimeframePresetButtons();
       updateTimeFilterModeLabel();
     }
@@ -3765,6 +3853,70 @@
       });
     }
 
+    function updateWeekFilterLabel() {
+      const resetBtn = document.getElementById('weekFilterClearBtn');
+      if (!resetBtn) return;
+      const hasWeekSelection = TIME_FILTER_STATE.mode === 'weeks' && TIME_FILTER_STATE.weeks.size > 0;
+      resetBtn.classList.toggle('font-semibold', hasWeekSelection);
+      resetBtn.textContent = 'All weeks';
+    }
+
+    function updateWeekFilterButtons() {
+      const weekSet = TIME_FILTER_STATE.mode === 'weeks' ? TIME_FILTER_STATE.weeks : new Set();
+      const hasWeekSelection = TIME_FILTER_STATE.mode === 'weeks' && weekSet.size > 0;
+      document.querySelectorAll('#weekFilterGroup button[data-week-filter]').forEach((btn) => {
+        const weekKey = btn.getAttribute('data-week-filter');
+        const active = hasWeekSelection && weekKey && weekSet.has(weekKey);
+        btn.classList.remove(
+          'border-slate-200',
+          'bg-white',
+          'text-slate-600',
+          'hover:bg-slate-50',
+          'border-sky-500',
+          'bg-sky-50',
+          'text-sky-700'
+        );
+        if (active) {
+          btn.classList.add('border-sky-500', 'bg-sky-50', 'text-sky-700');
+          btn.setAttribute('aria-pressed', 'true');
+        } else {
+          btn.classList.add('border-slate-200', 'bg-white', 'text-slate-600', 'hover:bg-slate-50');
+          btn.setAttribute('aria-pressed', 'false');
+        }
+      });
+      document.querySelectorAll('#weekFilterGroup button[data-week-year-filter]').forEach((btn) => {
+        const year = btn.getAttribute('data-week-year-filter');
+        const yearWeeks = year ? (AVAILABLE_WEEKS_BY_YEAR.get(year) || []) : [];
+        const selectedCount = yearWeeks.reduce((count, key) => count + (weekSet.has(key) ? 1 : 0), 0);
+        const allSelected = hasWeekSelection && yearWeeks.length > 0 && selectedCount === yearWeeks.length;
+        const partialSelected = hasWeekSelection && selectedCount > 0 && selectedCount < yearWeeks.length;
+        btn.classList.remove(
+          'border-slate-200',
+          'bg-white',
+          'text-slate-700',
+          'hover:bg-slate-50',
+          'border-sky-500',
+          'bg-sky-600',
+          'text-white',
+          'border-sky-300',
+          'bg-sky-50',
+          'text-sky-700'
+        );
+        if (allSelected) {
+          btn.classList.add('border-sky-500', 'bg-sky-600', 'text-white');
+          btn.setAttribute('aria-pressed', 'true');
+          return;
+        }
+        if (partialSelected) {
+          btn.classList.add('border-sky-300', 'bg-sky-50', 'text-sky-700');
+          btn.setAttribute('aria-pressed', 'mixed');
+          return;
+        }
+        btn.classList.add('border-slate-200', 'bg-white', 'text-slate-700', 'hover:bg-slate-50');
+        btn.setAttribute('aria-pressed', 'false');
+      });
+    }
+
     function buildYearFilterOptions() {
       buildMonthFilterOptions();
     }
@@ -3830,7 +3982,75 @@
         `;
         }).join('');
       }
+      buildWeekFilterOptions();
       refreshTimeFilterSelection();
+    }
+
+    function buildWeekFilterOptions() {
+      AVAILABLE_WEEKS = weekChoicesFromDays();
+      AVAILABLE_WEEKS_BY_YEAR = new Map();
+      for (const key of AVAILABLE_WEEKS) {
+        const parsed = parseWeekKey(key);
+        if (!parsed) continue;
+        if (!AVAILABLE_WEEKS_BY_YEAR.has(parsed.year)) {
+          AVAILABLE_WEEKS_BY_YEAR.set(parsed.year, []);
+        }
+        AVAILABLE_WEEKS_BY_YEAR.get(parsed.year).push(key);
+      }
+      for (const [, weekKeys] of AVAILABLE_WEEKS_BY_YEAR.entries()) {
+        weekKeys.sort((a, b) => {
+          const pa = parseWeekKey(a);
+          const pb = parseWeekKey(b);
+          if (!pa || !pb) return 0;
+          return pa.week - pb.week;
+        });
+      }
+      const container = document.getElementById('weekFilterGroup');
+      if (!container) return;
+      const validWeeks = new Set();
+      TIME_FILTER_STATE.weeks.forEach((key) => {
+        if (AVAILABLE_WEEKS.includes(key)) validWeeks.add(key);
+      });
+      TIME_FILTER_STATE.weeks = validWeeks;
+      if (TIME_FILTER_STATE.mode === 'weeks' && !TIME_FILTER_STATE.weeks.size) {
+        TIME_FILTER_STATE.mode = 'all';
+      }
+      if (!AVAILABLE_WEEKS.length) {
+        container.innerHTML = '<div class="px-2 py-1 text-xs text-slate-500">No data loaded.</div>';
+      } else {
+        const years = Array.from(AVAILABLE_WEEKS_BY_YEAR.keys()).sort((a, b) => Number(b) - Number(a));
+        container.innerHTML = years.map((year) => {
+          const weekKeys = AVAILABLE_WEEKS_BY_YEAR.get(year) || [];
+          const weekButtons = weekKeys.map((weekKey) => {
+            const parsed = parseWeekKey(weekKey);
+            const weekLabel = parsed ? String(parsed.week) : weekKey;
+            return `
+            <button
+              type="button"
+              data-week-filter="${weekKey}"
+              class="inline-flex min-w-[2.2rem] items-center justify-center rounded-full border px-2 py-1 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-sky-500/60"
+              title="Week ${weekLabel}"
+            >
+              ${weekLabel}
+            </button>
+          `;
+          }).join('');
+          return `
+          <div class="grid grid-cols-[4.5rem_minmax(0,1fr)] items-start gap-x-2 gap-y-2">
+            <button
+              type="button"
+              data-week-year-filter="${year}"
+              class="inline-flex w-full items-center justify-center rounded-full border px-3 py-1.5 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-sky-500/60"
+            >
+              ${year}
+            </button>
+            <div class="flex flex-wrap gap-1.5 min-w-0">
+              ${weekButtons || '<span class="px-2 py-1 text-xs text-slate-400">—</span>'}
+            </div>
+          </div>
+        `;
+        }).join('');
+      }
     }
 
     function applyMonthSelectionFromSet(nextSet) {
@@ -3842,12 +4062,35 @@
       }
       TIME_FILTER_STATE.presetId = null;
       TIME_FILTER_STATE.years = new Set();
+      TIME_FILTER_STATE.weeks = new Set();
       if (!validMonths.size) {
         TIME_FILTER_STATE.mode = 'all';
         TIME_FILTER_STATE.months = new Set();
       } else {
         TIME_FILTER_STATE.mode = 'months';
         TIME_FILTER_STATE.months = validMonths;
+      }
+      refreshTimeFilterSelection();
+      renderGridTrades(GRID_STATE.trades || [], { resetPage: true });
+      rerunBacktestIfDataLoaded();
+    }
+
+    function applyWeekSelectionFromSet(nextSet) {
+      const validWeeks = new Set();
+      if (nextSet instanceof Set) {
+        nextSet.forEach((key) => {
+          if (AVAILABLE_WEEKS.includes(key)) validWeeks.add(key);
+        });
+      }
+      TIME_FILTER_STATE.presetId = null;
+      TIME_FILTER_STATE.years = new Set();
+      TIME_FILTER_STATE.months = new Set();
+      if (!validWeeks.size) {
+        TIME_FILTER_STATE.mode = 'all';
+        TIME_FILTER_STATE.weeks = new Set();
+      } else {
+        TIME_FILTER_STATE.mode = 'weeks';
+        TIME_FILTER_STATE.weeks = validWeeks;
       }
       refreshTimeFilterSelection();
       renderGridTrades(GRID_STATE.trades || [], { resetPage: true });
@@ -3864,21 +4107,24 @@
           mode: 'all',
           presetId: null,
           months: new Set(),
-          years: new Set()
+          years: new Set(),
+          weeks: new Set()
         };
       } else if (TIME_FILTER_STATE.mode === 'preset' && TIME_FILTER_STATE.presetId === presetId) {
         TIME_FILTER_STATE = {
           mode: 'all',
           presetId: null,
           months: new Set(),
-          years: new Set()
+          years: new Set(),
+          weeks: new Set()
         };
       } else {
         TIME_FILTER_STATE = {
           mode: 'preset',
           presetId,
           months: new Set(),
-          years: new Set()
+          years: new Set(),
+          weeks: new Set()
         };
       }
       buildMonthFilterOptions();
@@ -3912,6 +4158,7 @@
       TIME_FILTER_STATE.presetId = null;
       TIME_FILTER_STATE.months = new Set();
       TIME_FILTER_STATE.years = new Set();
+      TIME_FILTER_STATE.weeks = new Set();
       refreshTimeFilterSelection();
       renderGridTrades(GRID_STATE.trades || [], { resetPage: true });
       rerunBacktestIfDataLoaded();
@@ -3931,6 +4178,54 @@
         currentSelection.add(monthKey);
       }
       applyMonthSelectionFromSet(currentSelection);
+    });
+
+    document.addEventListener('click', (e) => {
+      const yearBtn = e.target.closest('#weekFilterGroup button[data-week-year-filter]');
+      if (!yearBtn) return;
+      const year = yearBtn.getAttribute('data-week-year-filter');
+      if (!year) return;
+      const yearWeeks = AVAILABLE_WEEKS_BY_YEAR.get(year) || [];
+      if (!yearWeeks.length) return;
+      const currentSelection = TIME_FILTER_STATE.mode === 'weeks'
+        ? new Set(TIME_FILTER_STATE.weeks)
+        : new Set();
+      const allSelected = yearWeeks.every((key) => currentSelection.has(key));
+      if (allSelected) {
+        yearWeeks.forEach((key) => currentSelection.delete(key));
+      } else {
+        yearWeeks.forEach((key) => currentSelection.add(key));
+      }
+      applyWeekSelectionFromSet(currentSelection);
+    });
+
+    document.addEventListener('click', (e) => {
+      const weekBtn = e.target.closest('#weekFilterGroup button[data-week-filter]');
+      if (!weekBtn) return;
+      const weekKey = weekBtn.getAttribute('data-week-filter');
+      if (!weekKey) return;
+      const currentSelection = TIME_FILTER_STATE.mode === 'weeks'
+        ? new Set(TIME_FILTER_STATE.weeks)
+        : new Set();
+      if (currentSelection.has(weekKey)) {
+        currentSelection.delete(weekKey);
+      } else {
+        currentSelection.add(weekKey);
+      }
+      applyWeekSelectionFromSet(currentSelection);
+    });
+
+    document.addEventListener('click', (e) => {
+      const clearBtn = e.target.closest('#weekFilterClearBtn');
+      if (!clearBtn) return;
+      TIME_FILTER_STATE.mode = 'all';
+      TIME_FILTER_STATE.presetId = null;
+      TIME_FILTER_STATE.months = new Set();
+      TIME_FILTER_STATE.years = new Set();
+      TIME_FILTER_STATE.weeks = new Set();
+      refreshTimeFilterSelection();
+      renderGridTrades(GRID_STATE.trades || [], { resetPage: true });
+      rerunBacktestIfDataLoaded();
     });
 
     document.addEventListener('click', (e) => {
