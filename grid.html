@@ -1491,7 +1491,7 @@
         <h2 class="font-semibold text-slate-700">Monthly Batch Summary</h2>
         <p id="monthlyBacktestSummaryMeta" class="text-xs text-slate-500">—</p>
       </div>
-      <div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-9">
+      <div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-11">
         <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
           <p class="text-[11px] uppercase tracking-wide text-slate-500">Winning Months</p>
           <p id="monthlySummaryWinningMonths" class="mt-1 text-sm font-semibold text-emerald-700">0</p>
@@ -1530,6 +1530,15 @@
           <p id="monthlySummaryMaxDrawdownPct" class="mt-1 text-sm font-semibold text-slate-800">—</p>
           <p id="monthlySummaryMaxDrawdownPctDate" class="mt-1 text-[11px] text-slate-500">—</p>
         </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Peak Funding</p>
+          <p id="monthlySummaryPeakFunding" class="mt-1 text-sm font-semibold text-slate-800">—</p>
+          <p id="monthlySummaryPeakFundingDate" class="mt-1 text-[11px] text-slate-500">—</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Max Levels</p>
+          <p id="monthlySummaryMaxLevels" class="mt-1 text-sm font-semibold text-slate-800">—</p>
+        </div>
       </div>
     </section>
 
@@ -1538,7 +1547,7 @@
         <h2 class="font-semibold text-slate-700">Weekly Batch Summary</h2>
         <p id="weeklyBacktestSummaryMeta" class="text-xs text-slate-500">—</p>
       </div>
-      <div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-9">
+      <div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-11">
         <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
           <p class="text-[11px] uppercase tracking-wide text-slate-500">Winning Weeks</p>
           <p id="weeklySummaryWinningWeeks" class="mt-1 text-sm font-semibold text-emerald-700">0</p>
@@ -1576,6 +1585,15 @@
           <p class="text-[11px] uppercase tracking-wide text-slate-500">Max Drawdown %</p>
           <p id="weeklySummaryMaxDrawdownPct" class="mt-1 text-sm font-semibold text-slate-800">—</p>
           <p id="weeklySummaryMaxDrawdownPctDate" class="mt-1 text-[11px] text-slate-500">—</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Peak Funding</p>
+          <p id="weeklySummaryPeakFunding" class="mt-1 text-sm font-semibold text-slate-800">—</p>
+          <p id="weeklySummaryPeakFundingDate" class="mt-1 text-[11px] text-slate-500">—</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Max Levels</p>
+          <p id="weeklySummaryMaxLevels" class="mt-1 text-sm font-semibold text-slate-800">—</p>
         </div>
       </div>
     </section>
@@ -2574,6 +2592,9 @@
         maxDrawdownDate: next.maxDrawdownDate ? String(next.maxDrawdownDate) : '',
         maxDrawdownPct: Number.isFinite(next.maxDrawdownPct) ? Number(next.maxDrawdownPct) : null,
         maxDrawdownPctDate: next.maxDrawdownPctDate ? String(next.maxDrawdownPctDate) : '',
+        peakFunding: Number.isFinite(next.peakFunding) ? Number(next.peakFunding) : null,
+        peakFundingDate: next.peakFundingDate ? String(next.peakFundingDate) : '',
+        maxLevels: Number.isFinite(next.maxLevels) ? Number(next.maxLevels) : null,
         message: next.message ? String(next.message) : ''
       });
     }
@@ -2592,6 +2613,9 @@
         maxDrawdownDate: next.maxDrawdownDate ? String(next.maxDrawdownDate) : '',
         maxDrawdownPct: Number.isFinite(next.maxDrawdownPct) ? Number(next.maxDrawdownPct) : null,
         maxDrawdownPctDate: next.maxDrawdownPctDate ? String(next.maxDrawdownPctDate) : '',
+        peakFunding: Number.isFinite(next.peakFunding) ? Number(next.peakFunding) : null,
+        peakFundingDate: next.peakFundingDate ? String(next.peakFundingDate) : '',
+        maxLevels: Number.isFinite(next.maxLevels) ? Number(next.maxLevels) : null,
         message: next.message ? String(next.message) : ''
       });
     }
@@ -2611,7 +2635,10 @@
         maxDrawdown: null,
         maxDrawdownDate: '',
         maxDrawdownPct: null,
-        maxDrawdownPctDate: ''
+        maxDrawdownPctDate: '',
+        peakFunding: null,
+        peakFundingDate: '',
+        maxLevels: null
       };
       if (!(WEEKLY_BACKTEST_RESULTS instanceof Map) || !WEEKLY_BACKTEST_RESULTS.size) {
         return out;
@@ -2633,6 +2660,15 @@
         if (Number.isFinite(maxDrawdownPct) && (!Number.isFinite(out.maxDrawdownPct) || maxDrawdownPct < out.maxDrawdownPct)) {
           out.maxDrawdownPct = maxDrawdownPct;
           out.maxDrawdownPctDate = result?.maxDrawdownPctDate ? String(result.maxDrawdownPctDate) : '';
+        }
+        const peakFunding = Number(result?.peakFunding);
+        if (Number.isFinite(peakFunding) && (!Number.isFinite(out.peakFunding) || peakFunding > out.peakFunding)) {
+          out.peakFunding = peakFunding;
+          out.peakFundingDate = result?.peakFundingDate ? String(result.peakFundingDate) : '';
+        }
+        const maxLevels = Number(result?.maxLevels);
+        if (Number.isFinite(maxLevels) && (!Number.isFinite(out.maxLevels) || maxLevels > out.maxLevels)) {
+          out.maxLevels = maxLevels;
         }
         out.netPnl += netProfit;
         if (netProfit > 0) {
@@ -2669,6 +2705,9 @@
       const maxDrawdownDateEl = document.getElementById('weeklySummaryMaxDrawdownDate');
       const maxDrawdownPctEl = document.getElementById('weeklySummaryMaxDrawdownPct');
       const maxDrawdownPctDateEl = document.getElementById('weeklySummaryMaxDrawdownPctDate');
+      const peakFundingEl = document.getElementById('weeklySummaryPeakFunding');
+      const peakFundingDateEl = document.getElementById('weeklySummaryPeakFundingDate');
+      const maxLevelsEl = document.getElementById('weeklySummaryMaxLevels');
       const metaEl = document.getElementById('weeklyBacktestSummaryMeta');
       if (!hasResults) {
         if (winningEl) winningEl.textContent = '0';
@@ -2698,6 +2737,9 @@
           maxDrawdownPctEl.classList.add('text-slate-800');
         }
         if (maxDrawdownPctDateEl) maxDrawdownPctDateEl.textContent = '—';
+        if (peakFundingEl) peakFundingEl.textContent = '—';
+        if (peakFundingDateEl) peakFundingDateEl.textContent = '—';
+        if (maxLevelsEl) maxLevelsEl.textContent = '—';
         if (metaEl) metaEl.textContent = '—';
         return;
       }
@@ -2756,6 +2798,20 @@
         const drawdownPctDate = dateKeyFromStr(summary?.maxDrawdownPctDate);
         maxDrawdownPctDateEl.textContent = drawdownPctDate || '—';
       }
+      if (peakFundingEl) {
+        const peakFundingValue = Number(summary?.peakFunding);
+        peakFundingEl.textContent = Number.isFinite(peakFundingValue) ? formatCurrency(peakFundingValue) : '—';
+      }
+      if (peakFundingDateEl) {
+        const peakFundingDate = dateKeyFromStr(summary?.peakFundingDate);
+        peakFundingDateEl.textContent = peakFundingDate || '—';
+      }
+      if (maxLevelsEl) {
+        const maxLevelsValue = Number(summary?.maxLevels);
+        maxLevelsEl.textContent = Number.isFinite(maxLevelsValue)
+          ? Math.max(0, Math.trunc(maxLevelsValue)).toLocaleString()
+          : '—';
+      }
       if (metaEl) {
         const flatLabel = summary.flatWeeks > 0
           ? ` \u00b7 ${summary.flatWeeks.toLocaleString()} flat`
@@ -2780,7 +2836,10 @@
         maxDrawdown: null,
         maxDrawdownDate: '',
         maxDrawdownPct: null,
-        maxDrawdownPctDate: ''
+        maxDrawdownPctDate: '',
+        peakFunding: null,
+        peakFundingDate: '',
+        maxLevels: null
       };
       if (!(MONTHLY_BACKTEST_RESULTS instanceof Map) || !MONTHLY_BACKTEST_RESULTS.size) {
         return out;
@@ -2802,6 +2861,15 @@
         if (Number.isFinite(maxDrawdownPct) && (!Number.isFinite(out.maxDrawdownPct) || maxDrawdownPct < out.maxDrawdownPct)) {
           out.maxDrawdownPct = maxDrawdownPct;
           out.maxDrawdownPctDate = result?.maxDrawdownPctDate ? String(result.maxDrawdownPctDate) : '';
+        }
+        const peakFunding = Number(result?.peakFunding);
+        if (Number.isFinite(peakFunding) && (!Number.isFinite(out.peakFunding) || peakFunding > out.peakFunding)) {
+          out.peakFunding = peakFunding;
+          out.peakFundingDate = result?.peakFundingDate ? String(result.peakFundingDate) : '';
+        }
+        const maxLevels = Number(result?.maxLevels);
+        if (Number.isFinite(maxLevels) && (!Number.isFinite(out.maxLevels) || maxLevels > out.maxLevels)) {
+          out.maxLevels = maxLevels;
         }
         out.netPnl += netProfit;
         if (netProfit > 0) {
@@ -2838,6 +2906,9 @@
       const maxDrawdownDateEl = document.getElementById('monthlySummaryMaxDrawdownDate');
       const maxDrawdownPctEl = document.getElementById('monthlySummaryMaxDrawdownPct');
       const maxDrawdownPctDateEl = document.getElementById('monthlySummaryMaxDrawdownPctDate');
+      const peakFundingEl = document.getElementById('monthlySummaryPeakFunding');
+      const peakFundingDateEl = document.getElementById('monthlySummaryPeakFundingDate');
+      const maxLevelsEl = document.getElementById('monthlySummaryMaxLevels');
       const metaEl = document.getElementById('monthlyBacktestSummaryMeta');
       if (!hasResults) {
         if (winningEl) winningEl.textContent = '0';
@@ -2867,6 +2938,9 @@
           maxDrawdownPctEl.classList.add('text-slate-800');
         }
         if (maxDrawdownPctDateEl) maxDrawdownPctDateEl.textContent = '—';
+        if (peakFundingEl) peakFundingEl.textContent = '—';
+        if (peakFundingDateEl) peakFundingDateEl.textContent = '—';
+        if (maxLevelsEl) maxLevelsEl.textContent = '—';
         if (metaEl) metaEl.textContent = '—';
         return;
       }
@@ -2924,6 +2998,20 @@
       if (maxDrawdownPctDateEl) {
         const drawdownPctDate = dateKeyFromStr(summary?.maxDrawdownPctDate);
         maxDrawdownPctDateEl.textContent = drawdownPctDate || '—';
+      }
+      if (peakFundingEl) {
+        const peakFundingValue = Number(summary?.peakFunding);
+        peakFundingEl.textContent = Number.isFinite(peakFundingValue) ? formatCurrency(peakFundingValue) : '—';
+      }
+      if (peakFundingDateEl) {
+        const peakFundingDate = dateKeyFromStr(summary?.peakFundingDate);
+        peakFundingDateEl.textContent = peakFundingDate || '—';
+      }
+      if (maxLevelsEl) {
+        const maxLevelsValue = Number(summary?.maxLevels);
+        maxLevelsEl.textContent = Number.isFinite(maxLevelsValue)
+          ? Math.max(0, Math.trunc(maxLevelsValue)).toLocaleString()
+          : '—';
       }
       if (metaEl) {
         const flatLabel = summary.flatMonths > 0
@@ -3002,6 +3090,12 @@
         if (Number.isFinite(result.maxDrawdownPct)) {
           parts.push(`Max Drawdown %: ${formatPercent(result.maxDrawdownPct)}`);
         }
+        if (Number.isFinite(result.peakFunding)) {
+          parts.push(`Peak Funding: ${formatCurrency(result.peakFunding)}`);
+        }
+        if (Number.isFinite(result.maxLevels)) {
+          parts.push(`Max Levels: ${Math.max(0, Math.trunc(result.maxLevels)).toLocaleString()}`);
+        }
         const drawdownDate = dateKeyFromStr(result.maxDrawdownDate);
         if (drawdownDate) {
           parts.push(`Max Drawdown Date: ${drawdownDate}`);
@@ -3050,6 +3144,12 @@
         }
         if (Number.isFinite(result.maxDrawdownPct)) {
           parts.push(`Max Drawdown %: ${formatPercent(result.maxDrawdownPct)}`);
+        }
+        if (Number.isFinite(result.peakFunding)) {
+          parts.push(`Peak Funding: ${formatCurrency(result.peakFunding)}`);
+        }
+        if (Number.isFinite(result.maxLevels)) {
+          parts.push(`Max Levels: ${Math.max(0, Math.trunc(result.maxLevels)).toLocaleString()}`);
         }
         const drawdownDate = dateKeyFromStr(result.maxDrawdownDate);
         if (drawdownDate) {
@@ -7721,6 +7821,9 @@
               const maxDrawdownDate = summary?.maxDrawdownDate ? String(summary.maxDrawdownDate) : '';
               const maxDrawdownPct = Number(summary?.maxDrawdownPct);
               const maxDrawdownPctDate = summary?.maxDrawdownPctDate ? String(summary.maxDrawdownPctDate) : '';
+              const peakFunding = Number(summary?.peakFunding);
+              const peakFundingDate = summary?.peakFundingDate ? String(summary.peakFundingDate) : '';
+              const maxLevels = Number(summary?.maxOpenLevels);
               const tradesRaw = Number.isFinite(summary?.totalTrades)
                 ? Number(summary.totalTrades)
                 : (Array.isArray(result.trades) ? result.trades.length : null);
@@ -7740,7 +7843,10 @@
                   maxDrawdown,
                   maxDrawdownDate,
                   maxDrawdownPct,
-                  maxDrawdownPctDate
+                  maxDrawdownPctDate,
+                  peakFunding,
+                  peakFundingDate,
+                  maxLevels
                 });
                 compoundedTradeValue = resolveCompoundedTradeValue(compoundedTradeValue, params?.plSizingPct, netProfit);
               } else if (Number.isFinite(netProfit) && trades === 0) {
@@ -7852,6 +7958,9 @@
               const maxDrawdownDate = summary?.maxDrawdownDate ? String(summary.maxDrawdownDate) : '';
               const maxDrawdownPct = Number(summary?.maxDrawdownPct);
               const maxDrawdownPctDate = summary?.maxDrawdownPctDate ? String(summary.maxDrawdownPctDate) : '';
+              const peakFunding = Number(summary?.peakFunding);
+              const peakFundingDate = summary?.peakFundingDate ? String(summary.peakFundingDate) : '';
+              const maxLevels = Number(summary?.maxOpenLevels);
               const tradesRaw = Number.isFinite(summary?.totalTrades)
                 ? Number(summary.totalTrades)
                 : (Array.isArray(result.trades) ? result.trades.length : null);
@@ -7871,7 +7980,10 @@
                   maxDrawdown,
                   maxDrawdownDate,
                   maxDrawdownPct,
-                  maxDrawdownPctDate
+                  maxDrawdownPctDate,
+                  peakFunding,
+                  peakFundingDate,
+                  maxLevels
                 });
                 compoundedTradeValue = resolveCompoundedTradeValue(compoundedTradeValue, params?.plSizingPct, netProfit);
               } else if (Number.isFinite(netProfit) && trades === 0) {
