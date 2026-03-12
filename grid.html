@@ -6031,7 +6031,7 @@
           <div class="text-xs">
             <div class="font-semibold">${params.seriesName}</div>
             <div>${timeStr}</div>
-            <div>Price: ${formatNumber(price, 4)}</div>
+            <div>Share Price: ${formatNumber(price, 2)}</div>
             <div>Qty: ${formatNumber(qty, 4)}</div>
           </div>
         `;
@@ -6065,8 +6065,12 @@
         yAxis: {
           type: 'value',
           scale: true,
+          name: 'Share Price ($)',
+          nameLocation: 'middle',
+          nameGap: 55,
+          nameTextStyle: { color: '#475569', fontWeight: 600 },
           axisLabel: {
-            formatter: (val) => formatNumber(val, 4),
+            formatter: (val) => formatNumber(val, 2),
             color: '#64748b'
           },
           splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.2)' } }
