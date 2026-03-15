@@ -658,10 +658,58 @@
       height: 100%;
       overflow: hidden;
     }
+    #tickerSegment .symbol-tile {
+      position: relative;
+      min-width: 0;
+    }
+    #tickerSegment .symbol-tile button {
+      padding-left: 2.4rem;
+    }
+    #tickerSegment .symbol-tile-batch-check {
+      position: absolute;
+      top: 0.6rem;
+      left: 0.65rem;
+      z-index: 70;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1rem;
+      height: 1rem;
+      border-radius: 0.28rem;
+      background: transparent;
+      box-shadow: none;
+    }
+    #tickerSegment .symbol-tile-batch-check input {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 1rem;
+      height: 1rem;
+      border: 1px solid #64748b;
+      border-radius: 0.28rem;
+      background: rgba(15, 23, 42, 0.04);
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: 0.56rem 0.56rem;
+      cursor: pointer;
+      transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+    }
+    #tickerSegment .symbol-tile-batch-check input:hover {
+      border-color: #475569;
+      background-color: rgba(15, 23, 42, 0.07);
+    }
+    #tickerSegment .symbol-tile-batch-check input:checked {
+      border-color: #3b82f6;
+      background-color: rgba(59, 130, 246, 0.14);
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='white' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M3.5 8.5l3 3 6-7'/%3E%3C/svg%3E");
+    }
+    #tickerSegment .symbol-tile-batch-check input:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.18);
+    }
     #tickerSegment button .symbol-update-badge {
       position: absolute;
-      top: 0.45rem;
-      left: 0.45rem;
+      top: 0.58rem;
+      left: 1.95rem;
       width: 0.72rem;
       height: 0.72rem;
       border-radius: 9999px;
@@ -1041,6 +1089,13 @@
             <ion-icon name="bookmark-outline" class="text-base"></ion-icon>
             <span>Add to Watchlist</span>
           </button>
+          <button
+            type="button"
+            id="watchlistUpdateAllBtn"
+            class="inline-flex items-center gap-2 rounded-lg border border-sky-300 bg-sky-300 px-3 py-1.5 text-sm font-semibold text-slate-900 shadow-sm transition hover:bg-sky-200 disabled:cursor-not-allowed disabled:text-slate-400"
+          >
+            Update Watchlist Data
+          </button>
         </div>
         <div class="flex flex-wrap items-center gap-2 mb-2">
           <label class="text-sm text-slate-600" for="watchlistSelect">Watchlist</label>
@@ -1081,10 +1136,10 @@
           </button>
           <button
             type="button"
-            id="watchlistUpdateAllBtn"
-            class="inline-flex items-center gap-1 rounded-lg border border-sky-300 bg-sky-300 px-2.5 py-1.5 text-xs font-semibold text-slate-900 shadow-sm transition hover:bg-sky-200 disabled:cursor-not-allowed disabled:text-slate-400"
+            id="watchlistClearAllBtn"
+            class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
           >
-            Update Watchlist Data
+            Clear All
           </button>
         </div>
         <div id="watchlistUpdateStatus" class="mb-2 text-xs text-slate-500"></div>
@@ -1454,8 +1509,8 @@
     <section id="batchResultsSection" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-4 hidden">
       <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 class="font-semibold text-slate-700">Batch Results</h2>
-          <p class="text-sm text-slate-500">Backtest all symbols in the active watchlist and compare summary outcomes.</p>
+          <h2 class="font-semibold text-slate-700">Backtest Comparison</h2>
+          <p class="text-sm text-slate-500">Checked symbol tiles auto-populate this comparison list. Use Backtest All to run the full active watchlist.</p>
         </div>
         <div id="batchResultsStatus" class="text-xs text-slate-500"></div>
       </div>
@@ -1482,7 +1537,7 @@
           </thead>
           <tbody id="batchResultsBody" class="divide-y divide-slate-100"></tbody>
         </table>
-        <div id="batchResultsEmpty" class="py-6 text-center text-sm text-slate-500">No batch results yet.</div>
+        <div id="batchResultsEmpty" class="py-6 text-center text-sm text-slate-500">No comparison results yet.</div>
       </div>
     </section>
 
@@ -2100,6 +2155,10 @@
     let BACKTEST_ALL_RUNNING = false;
     let BACKTEST_ALL_SELECTED = '';
     let BACKTEST_ALL_CHECKED = new Set();
+    let TICKER_BATCH_SELECTION = new Set();
+    let TICKER_COMPARISON_QUEUE = [];
+    let TICKER_COMPARISON_INFLIGHT = new Set();
+    let TICKER_COMPARISON_PROCESSING = false;
     let BACKTEST_ALL_SORT = { key: 'symbol', dir: 'asc' };
     let TRADE_SORT_STATE = { key: 'buyTime', dir: 'asc' };
     let gridAccountEquityChartInst = null;
@@ -2385,18 +2444,31 @@
       });
     }
 
+    function syncBatchBacktestButtonLabel() {
+      const batchBtn = document.getElementById('watchlistBacktestAllBtn');
+      if (!batchBtn) return;
+      batchBtn.textContent = 'Backtest All';
+      batchBtn.title = 'Run comparison for all symbols in the active watchlist.';
+    }
+
     function syncBatchAndUpdateButtons() {
       const batchBtn = document.getElementById('watchlistBacktestAllBtn');
+      const clearBtn = document.getElementById('watchlistClearAllBtn');
       const updateBtn = document.getElementById('watchlistUpdateAllBtn');
       const disable = BACKTEST_ALL_RUNNING || WATCHLIST_UPDATE_RUNNING;
       if (batchBtn) {
         batchBtn.disabled = disable;
         batchBtn.classList.toggle('opacity-70', disable);
       }
+      if (clearBtn) {
+        clearBtn.disabled = disable;
+        clearBtn.classList.toggle('opacity-70', disable);
+      }
       if (updateBtn) {
         updateBtn.disabled = disable;
         updateBtn.classList.toggle('opacity-70', disable);
       }
+      syncBatchBacktestButtonLabel();
     }
 
     function syncWatchlistManagementControls() {
@@ -2588,6 +2660,8 @@
         status: String(next.status || 'ok'),
         netProfit: Number.isFinite(next.netProfit) ? Number(next.netProfit) : null,
         trades: Number.isFinite(next.trades) ? Number(next.trades) : null,
+        tradeValueStart: Number.isFinite(next.tradeValueStart) ? Number(next.tradeValueStart) : null,
+        tradeValueEnd: Number.isFinite(next.tradeValueEnd) ? Number(next.tradeValueEnd) : null,
         maxDrawdown: Number.isFinite(next.maxDrawdown) ? Number(next.maxDrawdown) : null,
         maxDrawdownDate: next.maxDrawdownDate ? String(next.maxDrawdownDate) : '',
         maxDrawdownPct: Number.isFinite(next.maxDrawdownPct) ? Number(next.maxDrawdownPct) : null,
@@ -2609,6 +2683,8 @@
         status: String(next.status || 'ok'),
         netProfit: Number.isFinite(next.netProfit) ? Number(next.netProfit) : null,
         trades: Number.isFinite(next.trades) ? Number(next.trades) : null,
+        tradeValueStart: Number.isFinite(next.tradeValueStart) ? Number(next.tradeValueStart) : null,
+        tradeValueEnd: Number.isFinite(next.tradeValueEnd) ? Number(next.tradeValueEnd) : null,
         maxDrawdown: Number.isFinite(next.maxDrawdown) ? Number(next.maxDrawdown) : null,
         maxDrawdownDate: next.maxDrawdownDate ? String(next.maxDrawdownDate) : '',
         maxDrawdownPct: Number.isFinite(next.maxDrawdownPct) ? Number(next.maxDrawdownPct) : null,
@@ -3081,6 +3157,12 @@
           base,
           `Net P/L (if liquidated): ${formatCurrency(result.netProfit)}`
         ];
+        if (Number.isFinite(result.tradeValueStart)) {
+          parts.push(`Trade Value Start: ${formatCurrency(result.tradeValueStart)}`);
+        }
+        if (Number.isFinite(result.tradeValueEnd)) {
+          parts.push(`Trade Value End: ${formatCurrency(result.tradeValueEnd)}`);
+        }
         if (Number.isFinite(result.trades)) {
           parts.push(`Trades: ${Math.max(0, Math.trunc(result.trades))}`);
         }
@@ -3110,10 +3192,17 @@
         return `${base}\nNo rows in selected week segment.`;
       }
       if (result.status === 'no_trades') {
-        const netLabel = Number.isFinite(result.netProfit)
-          ? `\nNet P/L (if liquidated): ${formatCurrency(result.netProfit)}`
-          : '';
-        return `${base}\nNo completed trades in this week.${netLabel}`;
+        const parts = [`${base}`, 'No completed trades in this week.'];
+        if (Number.isFinite(result.netProfit)) {
+          parts.push(`Net P/L (if liquidated): ${formatCurrency(result.netProfit)}`);
+        }
+        if (Number.isFinite(result.tradeValueStart)) {
+          parts.push(`Trade Value Start: ${formatCurrency(result.tradeValueStart)}`);
+        }
+        if (Number.isFinite(result.tradeValueEnd)) {
+          parts.push(`Trade Value End: ${formatCurrency(result.tradeValueEnd)}`);
+        }
+        return parts.join('\n');
       }
       if (result.status === 'insufficient_sma') {
         return `${base}\n${result.message || 'Insufficient dataset for selected SMA filter.'}`;
@@ -3136,6 +3225,12 @@
           base,
           `Net P/L (if liquidated): ${formatCurrency(result.netProfit)}`
         ];
+        if (Number.isFinite(result.tradeValueStart)) {
+          parts.push(`Trade Value Start: ${formatCurrency(result.tradeValueStart)}`);
+        }
+        if (Number.isFinite(result.tradeValueEnd)) {
+          parts.push(`Trade Value End: ${formatCurrency(result.tradeValueEnd)}`);
+        }
         if (Number.isFinite(result.trades)) {
           parts.push(`Trades: ${Math.max(0, Math.trunc(result.trades))}`);
         }
@@ -3165,10 +3260,17 @@
         return `${base}\nNo rows in selected month segment.`;
       }
       if (result.status === 'no_trades') {
-        const netLabel = Number.isFinite(result.netProfit)
-          ? `\nNet P/L (if liquidated): ${formatCurrency(result.netProfit)}`
-          : '';
-        return `${base}\nNo completed trades in this month.${netLabel}`;
+        const parts = [`${base}`, 'No completed trades in this month.'];
+        if (Number.isFinite(result.netProfit)) {
+          parts.push(`Net P/L (if liquidated): ${formatCurrency(result.netProfit)}`);
+        }
+        if (Number.isFinite(result.tradeValueStart)) {
+          parts.push(`Trade Value Start: ${formatCurrency(result.tradeValueStart)}`);
+        }
+        if (Number.isFinite(result.tradeValueEnd)) {
+          parts.push(`Trade Value End: ${formatCurrency(result.tradeValueEnd)}`);
+        }
+        return parts.join('\n');
       }
       if (result.status === 'insufficient_sma') {
         return `${base}\n${result.message || 'Insufficient dataset for selected SMA filter.'}`;
@@ -7814,9 +7916,10 @@
             setWeeklyBacktestResult(weekKey, { status: 'no_rows' });
           } else {
             try {
+              const tradeValueStart = compoundedTradeValue;
               const paramsForWeek = {
                 ...params,
-                tradeValue: compoundedTradeValue
+                tradeValue: tradeValueStart
               };
               const result = runBuyTheDipSimulation(rowsForWeek, paramsForWeek) || {};
               const summary = result.summary || null;
@@ -7832,6 +7935,7 @@
                 ? Number(summary.totalTrades)
                 : (Array.isArray(result.trades) ? result.trades.length : null);
               const trades = Number.isFinite(tradesRaw) ? Math.max(0, Math.trunc(tradesRaw)) : 0;
+              const tradeValueEnd = resolveCompoundedTradeValue(tradeValueStart, params?.plSizingPct, netProfit);
               if (Number.isFinite(netProfit) && trades > 0) {
                 if (netProfit > 0) {
                   positiveCount += 1;
@@ -7844,6 +7948,8 @@
                   status: 'ok',
                   netProfit,
                   trades,
+                  tradeValueStart,
+                  tradeValueEnd,
                   maxDrawdown,
                   maxDrawdownDate,
                   maxDrawdownPct,
@@ -7852,13 +7958,15 @@
                   peakFundingDate,
                   maxLevels
                 });
-                compoundedTradeValue = resolveCompoundedTradeValue(compoundedTradeValue, params?.plSizingPct, netProfit);
+                compoundedTradeValue = tradeValueEnd;
               } else if (Number.isFinite(netProfit) && trades === 0) {
                 missingCount += 1;
                 setWeeklyBacktestResult(weekKey, {
                   status: 'no_trades',
                   netProfit,
                   trades,
+                  tradeValueStart,
+                  tradeValueEnd: tradeValueStart,
                   message: 'No completed trades in this week.'
                 });
               } else {
@@ -7951,9 +8059,10 @@
             setMonthlyBacktestResult(monthKey, { status: 'no_rows' });
           } else {
             try {
+              const tradeValueStart = compoundedTradeValue;
               const paramsForMonth = {
                 ...params,
-                tradeValue: compoundedTradeValue
+                tradeValue: tradeValueStart
               };
               const result = runBuyTheDipSimulation(rowsForMonth, paramsForMonth) || {};
               const summary = result.summary || null;
@@ -7969,6 +8078,7 @@
                 ? Number(summary.totalTrades)
                 : (Array.isArray(result.trades) ? result.trades.length : null);
               const trades = Number.isFinite(tradesRaw) ? Math.max(0, Math.trunc(tradesRaw)) : 0;
+              const tradeValueEnd = resolveCompoundedTradeValue(tradeValueStart, params?.plSizingPct, netProfit);
               if (Number.isFinite(netProfit) && trades > 0) {
                 if (netProfit > 0) {
                   positiveCount += 1;
@@ -7981,6 +8091,8 @@
                   status: 'ok',
                   netProfit,
                   trades,
+                  tradeValueStart,
+                  tradeValueEnd,
                   maxDrawdown,
                   maxDrawdownDate,
                   maxDrawdownPct,
@@ -7989,13 +8101,15 @@
                   peakFundingDate,
                   maxLevels
                 });
-                compoundedTradeValue = resolveCompoundedTradeValue(compoundedTradeValue, params?.plSizingPct, netProfit);
+                compoundedTradeValue = tradeValueEnd;
               } else if (Number.isFinite(netProfit) && trades === 0) {
                 skippedCount += 1;
                 setMonthlyBacktestResult(monthKey, {
                   status: 'no_trades',
                   netProfit,
                   trades,
+                  tradeValueStart,
+                  tradeValueEnd: tradeValueStart,
                   message: 'No completed trades in this month.'
                 });
               } else {
@@ -8852,6 +8966,140 @@
       window.BACKTEST_ALL_RESULTS = BACKTEST_ALL_RESULTS;
     }
 
+    function upsertComparisonResult(entry) {
+      const symbol = normalizeSymbolInput(entry?.symbol);
+      if (!symbol || !entry) return;
+      const next = {
+        ...entry,
+        symbol
+      };
+      const idx = BACKTEST_ALL_RESULTS.findIndex((item) => normalizeSymbolInput(item?.symbol) === symbol);
+      if (idx >= 0) {
+        BACKTEST_ALL_RESULTS[idx] = next;
+      } else {
+        BACKTEST_ALL_RESULTS.push(next);
+      }
+    }
+
+    function removeComparisonResult(symbol) {
+      const sym = normalizeSymbolInput(symbol);
+      if (!sym) return;
+      BACKTEST_ALL_RESULTS = BACKTEST_ALL_RESULTS.filter((entry) => normalizeSymbolInput(entry?.symbol) !== sym);
+      BACKTEST_ALL_CHECKED.delete(sym);
+      if (BACKTEST_ALL_SELECTED === sym) BACKTEST_ALL_SELECTED = '';
+      if (!BACKTEST_ALL_RESULTS.length && !BACKTEST_ALL_RUNNING) {
+        setBatchResultsStatus('');
+      }
+      renderBatchResults();
+    }
+
+    function clearAllBacktestOutputs() {
+      if (BACKTEST_ALL_RUNNING || WATCHLIST_UPDATE_RUNNING) return;
+      TICKER_BATCH_SELECTION = new Set();
+      TICKER_COMPARISON_QUEUE = [];
+      TICKER_COMPARISON_INFLIGHT = new Set();
+      TICKER_COMPARISON_PROCESSING = false;
+      BACKTEST_ALL_RESULTS = [];
+      BACKTEST_ALL_SELECTED = '';
+      BACKTEST_ALL_CHECKED = new Set();
+      BACKTEST_ALL_SORT = { key: 'symbol', dir: 'asc' };
+      clearWeeklyBacktestResults();
+      GRID_STATE = createEmptyGridState();
+      window.GRID_FILL_SEQUENCE = [];
+      renderGridSummary(null);
+      setSaveButtonEnabled(false);
+      updateSellFillSummaryFromTrades([]);
+      clearVisualOutputs({ resetPage: true });
+      renderGridLevels([], [], null);
+      setBatchResultsStatus('');
+      if (Array.isArray(ROWS) && ROWS.length) {
+        updateLoadedGridStatus('Backtest outputs cleared.');
+      } else {
+        setGridStatus('Backtest outputs cleared.');
+      }
+      document.querySelectorAll('input[type="checkbox"][data-ticker-batch-check]').forEach((input) => {
+        input.checked = false;
+      });
+      renderBatchResults();
+      syncBatchBacktestButtonLabel();
+    }
+
+    async function buildComparisonResultForSymbol(symbol) {
+      const sym = normalizeSymbolInput(symbol);
+      if (!sym) return null;
+      setTicker(sym);
+      const loaded = await loadSymbolData(sym, { runMode: 'single' });
+      if (!loaded || !GRID_STATE?.summary) {
+        return {
+          symbol: sym,
+          status: 'error',
+          error: loaded ? 'No summary generated' : 'Data load failed',
+          summary: null,
+          sellFillStats: null,
+          params: getGridParamsFromUI(),
+          meta: null,
+          generatedAt: new Date().toISOString()
+        };
+      }
+      const fillEntries = computeDailyFillEntries(GRID_STATE.trades).entries;
+      const sellFillStats = computeSellFillStats(fillEntries);
+      return {
+        symbol: sym,
+        status: 'ok',
+        summary: GRID_STATE.summary,
+        sellFillStats,
+        params: getGridParamsFromUI(),
+        meta: collectGridBacktestPayload(),
+        generatedAt: new Date().toISOString()
+      };
+    }
+
+    function enqueueTickerComparisonBacktest(symbol) {
+      const sym = normalizeSymbolInput(symbol);
+      if (!sym || !TICKER_BATCH_SELECTION.has(sym)) return;
+      if (TICKER_COMPARISON_INFLIGHT.has(sym) || TICKER_COMPARISON_QUEUE.includes(sym)) return;
+      TICKER_COMPARISON_QUEUE.push(sym);
+      void processTickerComparisonQueue();
+    }
+
+    async function processTickerComparisonQueue() {
+      if (TICKER_COMPARISON_PROCESSING || WATCHLIST_UPDATE_RUNNING || BACKTEST_ALL_RUNNING) return;
+      if (!TICKER_COMPARISON_QUEUE.length) return;
+      TICKER_COMPARISON_PROCESSING = true;
+      BACKTEST_ALL_RUNNING = true;
+      syncBatchAndUpdateButtons();
+      try {
+        while (TICKER_COMPARISON_QUEUE.length) {
+          const symbol = TICKER_COMPARISON_QUEUE.shift();
+          const sym = normalizeSymbolInput(symbol);
+          if (!sym || !TICKER_BATCH_SELECTION.has(sym)) continue;
+          TICKER_COMPARISON_INFLIGHT.add(sym);
+          setBatchResultsStatus(`Backtesting ${sym} for comparison…`);
+          const result = await buildComparisonResultForSymbol(sym);
+          TICKER_COMPARISON_INFLIGHT.delete(sym);
+          if (!TICKER_BATCH_SELECTION.has(sym)) {
+            removeComparisonResult(sym);
+            continue;
+          }
+          if (result) {
+            upsertComparisonResult(result);
+            BACKTEST_ALL_CHECKED.add(sym);
+            renderBatchResults();
+          }
+        }
+      } finally {
+        TICKER_COMPARISON_PROCESSING = false;
+        BACKTEST_ALL_RUNNING = false;
+        syncBatchAndUpdateButtons();
+        if (TICKER_BATCH_SELECTION.size) {
+          setBatchResultsStatus(`Tracking ${TICKER_BATCH_SELECTION.size} comparison symbol${TICKER_BATCH_SELECTION.size === 1 ? '' : 's'}.`);
+        } else if (!BACKTEST_ALL_RESULTS.length) {
+          setBatchResultsStatus('');
+        }
+        renderBatchResults();
+      }
+    }
+
     function formatWatchlistUpdateSummary(prefix = 'Completed') {
       const { done, total, ok, uptodate, error } = WATCHLIST_UPDATE_PROGRESS;
       return `${prefix} ${done}/${total} symbols. Updated: ${ok}, up-to-date: ${uptodate}, failed: ${error}.`;
@@ -8877,33 +9125,8 @@
         for (let i = 0; i < symbols.length; i += 1) {
           const symbol = symbols[i];
           setBatchResultsStatus(`Backtesting ${symbol} (${i + 1}/${symbols.length})…`);
-          setTicker(symbol);
-          const loaded = await loadSymbolData(symbol, { runMode: 'single' });
-          if (!loaded || !GRID_STATE?.summary) {
-            BACKTEST_ALL_RESULTS.push({
-              symbol,
-              status: 'error',
-              error: loaded ? 'No summary generated' : 'Data load failed',
-              summary: null,
-              sellFillStats: null,
-              params: getGridParamsFromUI(),
-              meta: null,
-              generatedAt: new Date().toISOString()
-            });
-            renderBatchResults();
-            continue;
-          }
-          const fillEntries = computeDailyFillEntries(GRID_STATE.trades).entries;
-          const sellFillStats = computeSellFillStats(fillEntries);
-          BACKTEST_ALL_RESULTS.push({
-            symbol,
-            status: 'ok',
-            summary: GRID_STATE.summary,
-            sellFillStats,
-            params: getGridParamsFromUI(),
-            meta: collectGridBacktestPayload(),
-            generatedAt: new Date().toISOString()
-          });
+          const result = await buildComparisonResultForSymbol(symbol);
+          if (result) BACKTEST_ALL_RESULTS.push(result);
           renderBatchResults();
         }
         setBatchResultsStatus(`Completed ${BACKTEST_ALL_RESULTS.length} / ${symbols.length} symbols.`);
@@ -8911,6 +9134,9 @@
         BACKTEST_ALL_RUNNING = false;
         syncBatchAndUpdateButtons();
         renderBatchResults();
+        if (TICKER_COMPARISON_QUEUE.length) {
+          void processTickerComparisonQueue();
+        }
       }
     }
 
@@ -8982,6 +9208,9 @@
         WATCHLIST_UPDATE_PROGRESS.currentSymbol = '';
         applySymbolUpdateStatesToTiles();
         setWatchlistUpdateControlsBusy(false);
+        if (TICKER_COMPARISON_QUEUE.length) {
+          void processTickerComparisonQueue();
+        }
       }
     }
 
@@ -9143,14 +9372,21 @@
       if (activeSet) {
         list = list.filter((meta) => activeSet.has(meta.symbol));
       }
+      const availableSymbols = new Set(list.map((meta) => normalizeSymbolInput(meta.symbol)).filter(Boolean));
+      TICKER_BATCH_SELECTION = new Set(
+        Array.from(TICKER_BATCH_SELECTION).filter((symbol) => availableSymbols.has(normalizeSymbolInput(symbol)))
+      );
       container.innerHTML = '';
       if (!list.length) {
         container.innerHTML = '<span class="px-3 py-1.5 text-sm text-slate-500">No symbols available.</span>';
+        syncBatchBacktestButtonLabel();
         highlightTickerButton(currentTicker);
         return;
       }
       list.forEach((meta) => {
         const isWatchlistMode = getActiveWatchlistName() !== WATCHLIST_ALL;
+        const tileSymbol = normalizeSymbolInput(meta.symbol);
+        const isBatchSelected = !!tileSymbol && TICKER_BATCH_SELECTION.has(tileSymbol);
         const isInList = isWatchlistMode && (WATCHLIST_STATE.watchlists[getActiveWatchlistName()] || []).includes(meta.symbol);
         const metaOverride = WATCHLIST_STATE.symbol_meta ? WATCHLIST_STATE.symbol_meta[meta.symbol] : null;
         const displayName = (metaOverride && metaOverride.name) || meta.name || meta.symbol;
@@ -9171,6 +9407,8 @@
                </span>`
             : `<span class="absolute top-1 right-1 inline-flex items-center justify-center text-[10px] uppercase tracking-wide font-semibold px-2 py-0.5 rounded-full border border-slate-200 text-slate-500 bg-white" data-watchlist-toggle="1" data-symbol="${meta.symbol}">Add</span>`)
           : '';
+        const tile = document.createElement('div');
+        tile.className = 'symbol-tile';
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'w-full h-full px-3 py-2 text-left bg-white hover:bg-emerald-50 transition relative overflow-visible';
@@ -9188,8 +9426,15 @@
             ${toggleHtml}
           </div>
         `;
-        container.appendChild(btn);
+        const checkboxWrap = document.createElement('label');
+        checkboxWrap.className = 'symbol-tile-batch-check';
+        checkboxWrap.setAttribute('title', `Include ${meta.symbol} in backtest comparison`);
+        checkboxWrap.innerHTML = `<input type="checkbox" data-ticker-batch-check="${meta.symbol}" ${isBatchSelected ? 'checked' : ''} aria-label="Include ${meta.symbol} in backtest comparison" />`;
+        tile.appendChild(checkboxWrap);
+        tile.appendChild(btn);
+        container.appendChild(tile);
       });
+      syncBatchBacktestButtonLabel();
       highlightTickerButton(currentTicker);
       applySymbolUpdateStatesToTiles();
       if (!currentTicker && list[0]) {
@@ -9300,6 +9545,10 @@
       if (batchBtn) {
         batchBtn.addEventListener('click', () => runBatchBacktest());
       }
+      const clearBtn = document.getElementById('watchlistClearAllBtn');
+      if (clearBtn) {
+        clearBtn.addEventListener('click', () => clearAllBacktestOutputs());
+      }
       const updateBtn = document.getElementById('watchlistUpdateAllBtn');
       if (updateBtn) {
         updateBtn.addEventListener('click', () => runWatchlistDataUpdate());
@@ -9395,6 +9644,23 @@
         renderTradingViewProfile(currentTicker);
       }
     }
+
+    document.addEventListener('change', (e) => {
+      const checkbox = e.target.closest('input[type="checkbox"][data-ticker-batch-check]');
+      if (!checkbox) return;
+      const symbol = normalizeSymbolInput(checkbox.getAttribute('data-ticker-batch-check'));
+      if (!symbol) return;
+      if (checkbox.checked) {
+        TICKER_BATCH_SELECTION.add(symbol);
+        setBatchResultsStatus(`Backtesting ${symbol} for comparison…`);
+        enqueueTickerComparisonBacktest(symbol);
+      } else {
+        TICKER_BATCH_SELECTION.delete(symbol);
+        TICKER_COMPARISON_QUEUE = TICKER_COMPARISON_QUEUE.filter((entry) => normalizeSymbolInput(entry) !== symbol);
+        removeComparisonResult(symbol);
+      }
+      syncBatchBacktestButtonLabel();
+    });
 
     document.addEventListener('click', (e) => {
       const menuToggle = e.target.closest('[data-watchlist-menu][data-symbol]');
