@@ -1224,6 +1224,14 @@
               <button
                 type="button"
                 role="menuitem"
+                data-run-action="daily"
+                class="flex w-full items-center justify-start border-t border-slate-100 px-3 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
+              >
+                Run Daily Backtest
+              </button>
+              <button
+                type="button"
+                role="menuitem"
                 data-run-action="weekly"
                 class="flex w-full items-center justify-start border-t border-slate-100 px-3 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/60"
               >
@@ -1483,14 +1491,14 @@
         <div id="timeframePresetGroup" class="flex flex-wrap gap-2" aria-label="Timeframe presets"></div>
         <p id="timeFilterModeLabel" class="text-xs text-slate-500">Mode: All</p>
       </div>
-      <div class="space-y-2">
+      <div id="monthFilterSection" class="space-y-2 hidden">
         <div class="flex items-center justify-between gap-2">
           <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Year / Month</p>
           <button id="yearFilterClearBtn" type="button" class="text-xs text-slate-600 hover:text-slate-800 hover:underline">All months</button>
         </div>
         <div id="yearFilterGroup" class="space-y-2" aria-label="Year and month filters"></div>
       </div>
-      <div class="space-y-2">
+      <div id="weekFilterSection" class="space-y-2 hidden">
         <div class="flex items-center justify-between gap-2">
           <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Year / Week</p>
           <div class="flex items-center gap-3">
@@ -1503,6 +1511,14 @@
         </div>
         <p class="text-[11px] text-slate-500">Week number (Sunday-Saturday)</p>
         <div id="weekFilterGroup" class="space-y-2" aria-label="Year and week filters"></div>
+      </div>
+      <div id="dayFilterSection" class="space-y-2 hidden">
+        <div class="flex items-center justify-between gap-2">
+          <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Year / Day</p>
+          <button id="dayFilterClearBtn" type="button" class="text-xs text-slate-600 hover:text-slate-800 hover:underline">All days</button>
+        </div>
+        <p class="text-[11px] text-slate-500">Daily periods appear plain until a daily batch run has been completed.</p>
+        <div id="dayFilterGroup" class="space-y-2" aria-label="Year and day filters"></div>
       </div>
     </section>
 
@@ -1649,6 +1665,62 @@
         <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
           <p class="text-[11px] uppercase tracking-wide text-slate-500">Max Levels</p>
           <p id="weeklySummaryMaxLevels" class="mt-1 text-sm font-semibold text-slate-800">—</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="dailyBacktestSummary" class="bg-white rounded-2xl shadow-soft p-3 md:p-4 space-y-3 hidden">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="font-semibold text-slate-700">Daily Batch Summary</h2>
+        <p id="dailyBacktestSummaryMeta" class="text-xs text-slate-500">—</p>
+      </div>
+      <div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-11">
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Winning Days</p>
+          <p id="dailySummaryWinningDays" class="mt-1 text-sm font-semibold text-emerald-700">0</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Losing Days</p>
+          <p id="dailySummaryLosingDays" class="mt-1 text-sm font-semibold text-red-700">0</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Skipped Days</p>
+          <p id="dailySummarySkippedDays" class="mt-1 text-sm font-semibold text-slate-700">0</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Win %</p>
+          <p id="dailySummaryWinRate" class="mt-1 text-sm font-semibold text-slate-800">0.00%</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Net P/L</p>
+          <p id="dailySummaryNetPnl" class="mt-1 text-sm font-semibold text-slate-800">$0.00</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Gross Profit</p>
+          <p id="dailySummaryGrossProfit" class="mt-1 text-sm font-semibold text-emerald-700">$0.00</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Gross Loss</p>
+          <p id="dailySummaryGrossLoss" class="mt-1 text-sm font-semibold text-red-700">$0.00</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Max Drawdown</p>
+          <p id="dailySummaryMaxDrawdown" class="mt-1 text-sm font-semibold text-slate-800">—</p>
+          <p id="dailySummaryMaxDrawdownDate" class="mt-1 text-[11px] text-slate-500">—</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Max Drawdown %</p>
+          <p id="dailySummaryMaxDrawdownPct" class="mt-1 text-sm font-semibold text-slate-800">—</p>
+          <p id="dailySummaryMaxDrawdownPctDate" class="mt-1 text-[11px] text-slate-500">—</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Peak Funding</p>
+          <p id="dailySummaryPeakFunding" class="mt-1 text-sm font-semibold text-slate-800">—</p>
+          <p id="dailySummaryPeakFundingDate" class="mt-1 text-[11px] text-slate-500">—</p>
+        </div>
+        <div class="rounded-lg border border-slate-200 bg-white px-2.5 py-2">
+          <p class="text-[11px] uppercase tracking-wide text-slate-500">Max Levels</p>
+          <p id="dailySummaryMaxLevels" class="mt-1 text-sm font-semibold text-slate-800">—</p>
         </div>
       </div>
     </section>
@@ -2175,13 +2247,16 @@
     let levelDistributionChartInst = null;
     let cumulativeLevelDistributionChartInst = null;
     let SHOW_VISUALS = false;
+    let DAILY_BACKTEST_RUNNING = false;
     let WEEKLY_BACKTEST_RUNNING = false;
     let MONTHLY_BACKTEST_RUNNING = false;
+    let DAILY_BACKTEST_RESULTS = new Map();
     let WEEKLY_BACKTEST_RESULTS = new Map();
     let MONTHLY_BACKTEST_RESULTS = new Map();
     const RUN_BACKTEST_MODE_DEFAULT = 'single';
     const RUN_BACKTEST_MODE_LABELS = {
       single: 'Run Backtest',
+      daily: 'Run Daily Backtest',
       weekly: 'Run Weekly Backtest',
       monthly: 'Run Monthly Backtest'
     };
@@ -2194,6 +2269,7 @@
     let AVAILABLE_MONTHS_BY_YEAR = new Map();
     let AVAILABLE_WEEKS = [];
     let AVAILABLE_WEEKS_BY_YEAR = new Map();
+    let AVAILABLE_DAYS_BY_YEAR = new Map();
     const MONTH_ABBR_3 = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const TIMEFRAME_PRESETS = [
       { id: 'all', label: 'All', kind: 'all' },
@@ -2212,7 +2288,8 @@
       presetId: null,
       months: new Set(),
       years: new Set(),
-      weeks: new Set()
+      weeks: new Set(),
+      days: new Set()
     };
     let GRID_PERF_METRICS = { load: [], backtest: [] };
     let PRICE_DISTRIBUTION_VIEW = 'buy';
@@ -2564,13 +2641,14 @@
 
     function normalizeRunBacktestMode(mode) {
       const key = String(mode || '').toLowerCase();
+      if (key === 'daily') return 'daily';
       if (key === 'weekly') return 'weekly';
       if (key === 'monthly') return 'monthly';
       return 'single';
     }
 
     function isBatchBacktestRunning() {
-      return WEEKLY_BACKTEST_RUNNING || MONTHLY_BACKTEST_RUNNING;
+      return DAILY_BACKTEST_RUNNING || WEEKLY_BACKTEST_RUNNING || MONTHLY_BACKTEST_RUNNING;
     }
 
     function updateRunBacktestModeUI() {
@@ -2608,6 +2686,10 @@
 
     function runSelectedBacktest(modeOverride = null) {
       const mode = normalizeRunBacktestMode(modeOverride || RUN_BACKTEST_MODE);
+      if (mode === 'daily') {
+        runDailyBacktest();
+        return;
+      }
       if (mode === 'weekly') {
         runWeeklyBacktest();
         return;
@@ -2696,6 +2778,243 @@
       });
     }
 
+    function setDailyBacktestResult(dayKey, payload) {
+      if (!dayKey) return;
+      if (!(DAILY_BACKTEST_RESULTS instanceof Map)) {
+        DAILY_BACKTEST_RESULTS = new Map();
+      }
+      const next = payload && typeof payload === 'object' ? payload : {};
+      DAILY_BACKTEST_RESULTS.set(dayKey, {
+        status: String(next.status || 'ok'),
+        netProfit: Number.isFinite(next.netProfit) ? Number(next.netProfit) : null,
+        trades: Number.isFinite(next.trades) ? Number(next.trades) : null,
+        tradeValueStart: Number.isFinite(next.tradeValueStart) ? Number(next.tradeValueStart) : null,
+        tradeValueEnd: Number.isFinite(next.tradeValueEnd) ? Number(next.tradeValueEnd) : null,
+        maxDrawdown: Number.isFinite(next.maxDrawdown) ? Number(next.maxDrawdown) : null,
+        maxDrawdownDate: next.maxDrawdownDate ? String(next.maxDrawdownDate) : '',
+        maxDrawdownPct: Number.isFinite(next.maxDrawdownPct) ? Number(next.maxDrawdownPct) : null,
+        maxDrawdownPctDate: next.maxDrawdownPctDate ? String(next.maxDrawdownPctDate) : '',
+        peakFunding: Number.isFinite(next.peakFunding) ? Number(next.peakFunding) : null,
+        peakFundingDate: next.peakFundingDate ? String(next.peakFundingDate) : '',
+        maxLevels: Number.isFinite(next.maxLevels) ? Number(next.maxLevels) : null,
+        message: next.message ? String(next.message) : ''
+      });
+    }
+
+    function summarizeDailyBacktestResults() {
+      const out = {
+        totalDays: 0,
+        evaluatedDays: 0,
+        winningDays: 0,
+        losingDays: 0,
+        skippedDays: 0,
+        flatDays: 0,
+        winRatePct: 0,
+        netPnl: 0,
+        grossProfit: 0,
+        grossLoss: 0,
+        maxDrawdown: null,
+        maxDrawdownDate: '',
+        maxDrawdownPct: null,
+        maxDrawdownPctDate: '',
+        peakFunding: null,
+        peakFundingDate: '',
+        maxLevels: null
+      };
+      if (!(DAILY_BACKTEST_RESULTS instanceof Map) || !DAILY_BACKTEST_RESULTS.size) {
+        return out;
+      }
+      out.totalDays = DAILY_BACKTEST_RESULTS.size;
+      for (const result of DAILY_BACKTEST_RESULTS.values()) {
+        const status = String(result?.status || '');
+        const netProfit = Number(result?.netProfit);
+        if (status !== 'ok' || !Number.isFinite(netProfit)) {
+          out.skippedDays += 1;
+          continue;
+        }
+        const maxDrawdown = Number(result?.maxDrawdown);
+        if (Number.isFinite(maxDrawdown) && (!Number.isFinite(out.maxDrawdown) || maxDrawdown < out.maxDrawdown)) {
+          out.maxDrawdown = maxDrawdown;
+          out.maxDrawdownDate = result?.maxDrawdownDate ? String(result.maxDrawdownDate) : '';
+        }
+        const maxDrawdownPct = Number(result?.maxDrawdownPct);
+        if (Number.isFinite(maxDrawdownPct) && (!Number.isFinite(out.maxDrawdownPct) || maxDrawdownPct < out.maxDrawdownPct)) {
+          out.maxDrawdownPct = maxDrawdownPct;
+          out.maxDrawdownPctDate = result?.maxDrawdownPctDate ? String(result.maxDrawdownPctDate) : '';
+        }
+        const peakFunding = Number(result?.peakFunding);
+        if (Number.isFinite(peakFunding) && (!Number.isFinite(out.peakFunding) || peakFunding > out.peakFunding)) {
+          out.peakFunding = peakFunding;
+          out.peakFundingDate = result?.peakFundingDate ? String(result.peakFundingDate) : '';
+        }
+        const maxLevels = Number(result?.maxLevels);
+        if (Number.isFinite(maxLevels) && (!Number.isFinite(out.maxLevels) || maxLevels > out.maxLevels)) {
+          out.maxLevels = maxLevels;
+        }
+        out.netPnl += netProfit;
+        if (netProfit > 0) {
+          out.winningDays += 1;
+          out.grossProfit += netProfit;
+        } else if (netProfit < 0) {
+          out.losingDays += 1;
+          out.grossLoss += Math.abs(netProfit);
+        } else {
+          out.flatDays += 1;
+        }
+      }
+      out.evaluatedDays = Math.max(0, out.totalDays - out.skippedDays);
+      out.winRatePct = out.evaluatedDays > 0
+        ? (out.winningDays / out.evaluatedDays) * 100
+        : 0;
+      return out;
+    }
+
+    function renderDailyBacktestSummary() {
+      const panel = document.getElementById('dailyBacktestSummary');
+      if (!panel) return;
+      updateBatchFilterVisibility();
+      const summary = summarizeDailyBacktestResults();
+      const hasResults = summary.totalDays > 0;
+      panel.classList.toggle('hidden', !hasResults);
+      const winningEl = document.getElementById('dailySummaryWinningDays');
+      const losingEl = document.getElementById('dailySummaryLosingDays');
+      const skippedEl = document.getElementById('dailySummarySkippedDays');
+      const winRateEl = document.getElementById('dailySummaryWinRate');
+      const netEl = document.getElementById('dailySummaryNetPnl');
+      const grossProfitEl = document.getElementById('dailySummaryGrossProfit');
+      const grossLossEl = document.getElementById('dailySummaryGrossLoss');
+      const maxDrawdownEl = document.getElementById('dailySummaryMaxDrawdown');
+      const maxDrawdownDateEl = document.getElementById('dailySummaryMaxDrawdownDate');
+      const maxDrawdownPctEl = document.getElementById('dailySummaryMaxDrawdownPct');
+      const maxDrawdownPctDateEl = document.getElementById('dailySummaryMaxDrawdownPctDate');
+      const peakFundingEl = document.getElementById('dailySummaryPeakFunding');
+      const peakFundingDateEl = document.getElementById('dailySummaryPeakFundingDate');
+      const maxLevelsEl = document.getElementById('dailySummaryMaxLevels');
+      const metaEl = document.getElementById('dailyBacktestSummaryMeta');
+      if (!hasResults) {
+        if (winningEl) winningEl.textContent = '0';
+        if (losingEl) losingEl.textContent = '0';
+        if (skippedEl) skippedEl.textContent = '0';
+        if (winRateEl) {
+          winRateEl.textContent = '0.00%';
+          winRateEl.classList.remove('text-emerald-700', 'text-red-700');
+          winRateEl.classList.add('text-slate-800');
+        }
+        if (netEl) {
+          netEl.textContent = '$0.00';
+          netEl.classList.remove('text-emerald-700', 'text-red-700');
+          netEl.classList.add('text-slate-800');
+        }
+        if (grossProfitEl) grossProfitEl.textContent = '$0.00';
+        if (grossLossEl) grossLossEl.textContent = '$0.00';
+        if (maxDrawdownEl) {
+          maxDrawdownEl.textContent = '—';
+          maxDrawdownEl.classList.remove('text-red-700');
+          maxDrawdownEl.classList.add('text-slate-800');
+        }
+        if (maxDrawdownDateEl) maxDrawdownDateEl.textContent = '—';
+        if (maxDrawdownPctEl) {
+          maxDrawdownPctEl.textContent = '—';
+          maxDrawdownPctEl.classList.remove('text-red-700');
+          maxDrawdownPctEl.classList.add('text-slate-800');
+        }
+        if (maxDrawdownPctDateEl) maxDrawdownPctDateEl.textContent = '—';
+        if (peakFundingEl) peakFundingEl.textContent = '—';
+        if (peakFundingDateEl) peakFundingDateEl.textContent = '—';
+        if (maxLevelsEl) maxLevelsEl.textContent = '—';
+        if (metaEl) metaEl.textContent = '—';
+        return;
+      }
+      if (winningEl) winningEl.textContent = summary.winningDays.toLocaleString();
+      if (losingEl) losingEl.textContent = summary.losingDays.toLocaleString();
+      if (skippedEl) skippedEl.textContent = summary.skippedDays.toLocaleString();
+      if (winRateEl) {
+        winRateEl.textContent = formatPercent(summary.winRatePct);
+        winRateEl.classList.remove('text-slate-800', 'text-emerald-700', 'text-red-700');
+        if (summary.winRatePct >= 50) {
+          winRateEl.classList.add('text-emerald-700');
+        } else if (summary.evaluatedDays > 0) {
+          winRateEl.classList.add('text-red-700');
+        } else {
+          winRateEl.classList.add('text-slate-800');
+        }
+      }
+      if (netEl) {
+        netEl.textContent = formatCurrency(summary.netPnl);
+        netEl.classList.remove('text-slate-800', 'text-emerald-700', 'text-red-700');
+        if (summary.netPnl > 0) {
+          netEl.classList.add('text-emerald-700');
+        } else if (summary.netPnl < 0) {
+          netEl.classList.add('text-red-700');
+        } else {
+          netEl.classList.add('text-slate-800');
+        }
+      }
+      if (grossProfitEl) grossProfitEl.textContent = formatCurrency(summary.grossProfit);
+      if (grossLossEl) grossLossEl.textContent = formatCurrency(summary.grossLoss);
+      if (maxDrawdownEl) {
+        const drawdownValue = Number(summary?.maxDrawdown);
+        maxDrawdownEl.textContent = Number.isFinite(drawdownValue) ? formatCurrency(drawdownValue) : '—';
+        maxDrawdownEl.classList.remove('text-slate-800', 'text-red-700');
+        if (Number.isFinite(drawdownValue) && drawdownValue < -1e-8) {
+          maxDrawdownEl.classList.add('text-red-700');
+        } else {
+          maxDrawdownEl.classList.add('text-slate-800');
+        }
+      }
+      if (maxDrawdownDateEl) {
+        const drawdownDate = dateKeyFromStr(summary?.maxDrawdownDate);
+        maxDrawdownDateEl.textContent = drawdownDate || '—';
+      }
+      if (maxDrawdownPctEl) {
+        const drawdownPctValue = Number(summary?.maxDrawdownPct);
+        maxDrawdownPctEl.textContent = Number.isFinite(drawdownPctValue) ? formatPercent(drawdownPctValue) : '—';
+        maxDrawdownPctEl.classList.remove('text-slate-800', 'text-red-700');
+        if (Number.isFinite(drawdownPctValue) && drawdownPctValue < -1e-8) {
+          maxDrawdownPctEl.classList.add('text-red-700');
+        } else {
+          maxDrawdownPctEl.classList.add('text-slate-800');
+        }
+      }
+      if (maxDrawdownPctDateEl) {
+        const drawdownPctDate = dateKeyFromStr(summary?.maxDrawdownPctDate);
+        maxDrawdownPctDateEl.textContent = drawdownPctDate || '—';
+      }
+      if (peakFundingEl) {
+        const peakFundingValue = Number(summary?.peakFunding);
+        peakFundingEl.textContent = Number.isFinite(peakFundingValue) ? formatCurrency(peakFundingValue) : '—';
+      }
+      if (peakFundingDateEl) {
+        const peakFundingDate = dateKeyFromStr(summary?.peakFundingDate);
+        peakFundingDateEl.textContent = peakFundingDate || '—';
+      }
+      if (maxLevelsEl) {
+        const maxLevelsValue = Number(summary?.maxLevels);
+        maxLevelsEl.textContent = Number.isFinite(maxLevelsValue)
+          ? Math.max(0, Math.trunc(maxLevelsValue)).toLocaleString()
+          : '—';
+      }
+      if (metaEl) {
+        const flatLabel = summary.flatDays > 0
+          ? ` · ${summary.flatDays.toLocaleString()} flat`
+          : '';
+        const evaluatedLabel = ` · ${summary.evaluatedDays.toLocaleString()} evaluated`;
+        metaEl.textContent = `${summary.totalDays.toLocaleString()} days analyzed${evaluatedLabel}${flatLabel}`;
+      }
+    }
+
+    function updateBatchFilterVisibility() {
+      const monthSection = document.getElementById('monthFilterSection');
+      const weekSection = document.getElementById('weekFilterSection');
+      const daySection = document.getElementById('dayFilterSection');
+      const showMonthly = MONTHLY_BACKTEST_RUNNING || (MONTHLY_BACKTEST_RESULTS instanceof Map && MONTHLY_BACKTEST_RESULTS.size > 0);
+      const showWeekly = WEEKLY_BACKTEST_RUNNING || (WEEKLY_BACKTEST_RESULTS instanceof Map && WEEKLY_BACKTEST_RESULTS.size > 0);
+      const showDaily = DAILY_BACKTEST_RUNNING || (DAILY_BACKTEST_RESULTS instanceof Map && DAILY_BACKTEST_RESULTS.size > 0);
+      if (monthSection) monthSection.classList.toggle('hidden', !showMonthly);
+      if (weekSection) weekSection.classList.toggle('hidden', !showWeekly);
+      if (daySection) daySection.classList.toggle('hidden', !showDaily);
+    }
+
     function summarizeWeeklyBacktestResults() {
       const out = {
         totalWeeks: 0,
@@ -2767,6 +3086,7 @@
     function renderWeeklyBacktestSummary() {
       const panel = document.getElementById('weeklyBacktestSummary');
       if (!panel) return;
+      updateBatchFilterVisibility();
       const summary = summarizeWeeklyBacktestResults();
       const hasResults = summary.totalWeeks > 0;
       panel.classList.toggle('hidden', !hasResults);
@@ -2968,6 +3288,7 @@
     function renderMonthlyBacktestSummary() {
       const panel = document.getElementById('monthlyBacktestSummary');
       if (!panel) return;
+      updateBatchFilterVisibility();
       const summary = summarizeMonthlyBacktestResults();
       const hasResults = summary.totalMonths > 0;
       panel.classList.toggle('hidden', !hasResults);
@@ -3099,6 +3420,11 @@
     }
 
     function clearWeeklyBacktestResults({ rerender = true } = {}) {
+      if (!(DAILY_BACKTEST_RESULTS instanceof Map)) {
+        DAILY_BACKTEST_RESULTS = new Map();
+      } else if (DAILY_BACKTEST_RESULTS.size) {
+        DAILY_BACKTEST_RESULTS.clear();
+      }
       if (!(WEEKLY_BACKTEST_RESULTS instanceof Map)) {
         WEEKLY_BACKTEST_RESULTS = new Map();
       } else if (WEEKLY_BACKTEST_RESULTS.size) {
@@ -3110,11 +3436,20 @@
         MONTHLY_BACKTEST_RESULTS.clear();
       }
       if (rerender) {
+        updateDayFilterButtons();
         updateWeekFilterButtons();
         updateYearFilterButtons();
       }
+      updateBatchFilterVisibility();
+      renderDailyBacktestSummary();
       renderWeeklyBacktestSummary();
       renderMonthlyBacktestSummary();
+    }
+
+    function getRowsForDayKey(dayKey) {
+      if (!dayKey) return [];
+      const dayRows = DAY_GROUPS.get(dayKey);
+      return Array.isArray(dayRows) ? dayRows.slice() : [];
     }
 
     function getRowsForWeekKey(weekKey) {
@@ -3143,6 +3478,72 @@
         rows.push(...dayRows);
       });
       return rows;
+    }
+
+    function formatDailyFilterTooltip(dayKey, result) {
+      const base = `Day ${getDayLongLabel(dayKey)} (${dayKey})`;
+      if (!result || typeof result !== 'object') {
+        return base;
+      }
+      if (result.status === 'ok' && Number.isFinite(result.netProfit)) {
+        const parts = [
+          base,
+          `Net P/L (if liquidated): ${formatCurrency(result.netProfit)}`
+        ];
+        if (Number.isFinite(result.tradeValueStart)) {
+          parts.push(`Trade Value Start: ${formatCurrency(result.tradeValueStart)}`);
+        }
+        if (Number.isFinite(result.tradeValueEnd)) {
+          parts.push(`Trade Value End: ${formatCurrency(result.tradeValueEnd)}`);
+        }
+        if (Number.isFinite(result.trades)) {
+          parts.push(`Trades: ${Math.max(0, Math.trunc(result.trades))}`);
+        }
+        if (Number.isFinite(result.maxDrawdown)) {
+          parts.push(`Max Drawdown: ${formatCurrency(result.maxDrawdown)}`);
+        }
+        if (Number.isFinite(result.maxDrawdownPct)) {
+          parts.push(`Max Drawdown %: ${formatPercent(result.maxDrawdownPct)}`);
+        }
+        if (Number.isFinite(result.peakFunding)) {
+          parts.push(`Peak Funding: ${formatCurrency(result.peakFunding)}`);
+        }
+        if (Number.isFinite(result.maxLevels)) {
+          parts.push(`Max Levels: ${Math.max(0, Math.trunc(result.maxLevels)).toLocaleString()}`);
+        }
+        const drawdownDate = dateKeyFromStr(result.maxDrawdownDate);
+        if (drawdownDate) {
+          parts.push(`Max Drawdown Date: ${drawdownDate}`);
+        }
+        const drawdownPctDate = dateKeyFromStr(result.maxDrawdownPctDate);
+        if (drawdownPctDate) {
+          parts.push(`Max Drawdown % Date: ${drawdownPctDate}`);
+        }
+        return parts.join('\n');
+      }
+      if (result.status === 'no_rows') {
+        return `${base}\nNo rows in selected day segment.`;
+      }
+      if (result.status === 'no_trades') {
+        const parts = [`${base}`, 'No completed trades in this day.'];
+        if (Number.isFinite(result.netProfit)) {
+          parts.push(`Net P/L (if liquidated): ${formatCurrency(result.netProfit)}`);
+        }
+        if (Number.isFinite(result.tradeValueStart)) {
+          parts.push(`Trade Value Start: ${formatCurrency(result.tradeValueStart)}`);
+        }
+        if (Number.isFinite(result.tradeValueEnd)) {
+          parts.push(`Trade Value End: ${formatCurrency(result.tradeValueEnd)}`);
+        }
+        return parts.join('\n');
+      }
+      if (result.status === 'insufficient_sma') {
+        return `${base}\n${result.message || 'Insufficient dataset for selected SMA filter.'}`;
+      }
+      if (result.status === 'error') {
+        return `${base}\n${result.message || 'Backtest failed for this day.'}`;
+      }
+      return base;
     }
 
     function formatWeeklyWeekTooltip(weekKey, result) {
@@ -4426,6 +4827,26 @@
       return Number.isNaN(date.getTime()) ? null : date;
     }
 
+    function getDayShortLabel(dayKey) {
+      const parsed = parseDayKey(dayKey);
+      if (!parsed) return dayKey;
+      const monthLabel = MONTH_ABBR_3[parsed.getMonth()] || dayKey.slice(5, 7);
+      return `${monthLabel} ${parsed.getDate()}`;
+    }
+
+    function getDayNumberLabel(dayKey) {
+      const parsed = parseDayKey(dayKey);
+      if (!parsed) return dayKey;
+      return String(parsed.getDate());
+    }
+
+    function getDayLongLabel(dayKey) {
+      const parsed = parseDayKey(dayKey);
+      if (!parsed) return dayKey;
+      const monthLabel = MONTH_ABBR_3[parsed.getMonth()] || dayKey.slice(5, 7);
+      return `${monthLabel} ${parsed.getDate()}, ${parsed.getFullYear()}`;
+    }
+
     function formatDayKeyToMonth(dayKey) {
       if (typeof dayKey !== 'string' || dayKey.length < 7) return null;
       return `${dayKey.slice(5, 7)}/${dayKey.slice(0, 4)}`;
@@ -4627,6 +5048,9 @@
       if (TIME_FILTER_STATE.mode === 'years') {
         return getYearDayKeySet(TIME_FILTER_STATE.years);
       }
+      if (TIME_FILTER_STATE.mode === 'days') {
+        return TIME_FILTER_STATE.days instanceof Set ? new Set(TIME_FILTER_STATE.days) : new Set();
+      }
       if (TIME_FILTER_STATE.mode === 'months') {
         return getMonthDayKeySet(TIME_FILTER_STATE.months);
       }
@@ -4739,6 +5163,20 @@
         label.textContent = `Mode: Weeks - ${selected} selected (${yearSet.size} year${yearSet.size === 1 ? '' : 's'})`;
         return;
       }
+      if (TIME_FILTER_STATE.mode === 'days') {
+        const selected = TIME_FILTER_STATE.days instanceof Set ? TIME_FILTER_STATE.days.size : 0;
+        if (!selected) {
+          label.textContent = 'Mode: All';
+          return;
+        }
+        const yearSet = new Set();
+        TIME_FILTER_STATE.days.forEach((key) => {
+          const year = formatDayKeyToYear(key);
+          if (year) yearSet.add(year);
+        });
+        label.textContent = `Mode: Days - ${selected} selected (${yearSet.size} year${yearSet.size === 1 ? '' : 's'})`;
+        return;
+      }
       if (TIME_FILTER_STATE.mode === 'years') {
         if (!TIME_FILTER_STATE.years.size || TIME_FILTER_STATE.years.size === AVAILABLE_YEARS.length) {
           label.textContent = 'Mode: All';
@@ -4756,6 +5194,8 @@
       updateYearFilterButtons();
       updateWeekFilterLabel();
       updateWeekFilterButtons();
+      updateDayFilterLabel();
+      updateDayFilterButtons();
       updateWeekSelectionModeButtons();
       updateTimeframePresetButtons();
       updateTimeFilterModeLabel();
@@ -4763,7 +5203,7 @@
 
     function rerunBacktestIfDataLoaded() {
       if (Array.isArray(ROWS) && ROWS.length) {
-        runSelectedBacktest();
+        runGridBacktest();
       }
     }
 
@@ -5263,6 +5703,111 @@
       });
     }
 
+    function updateDayFilterLabel() {
+      const resetBtn = document.getElementById('dayFilterClearBtn');
+      if (!resetBtn) return;
+      const hasDaySelection = TIME_FILTER_STATE.mode === 'days' && TIME_FILTER_STATE.days.size > 0;
+      resetBtn.classList.toggle('font-semibold', hasDaySelection);
+      resetBtn.textContent = 'All days';
+    }
+
+    function updateDayFilterButtons() {
+      const daySet = TIME_FILTER_STATE.mode === 'days' ? TIME_FILTER_STATE.days : new Set();
+      const hasDaySelection = TIME_FILTER_STATE.mode === 'days' && daySet.size > 0;
+      document.querySelectorAll('#dayFilterGroup button[data-day-filter]').forEach((btn) => {
+        const dayKey = btn.getAttribute('data-day-filter');
+        const dayResult = dayKey && DAILY_BACKTEST_RESULTS instanceof Map ? DAILY_BACKTEST_RESULTS.get(dayKey) : null;
+        const active = hasDaySelection && dayKey && daySet.has(dayKey);
+        const netProfit = Number(dayResult?.netProfit);
+        const hasNetProfit = dayResult?.status === 'ok' && Number.isFinite(netProfit);
+        btn.classList.remove(
+          'border-slate-200',
+          'bg-white',
+          'text-slate-600',
+          'hover:bg-slate-50',
+          'border-sky-500',
+          'bg-sky-50',
+          'text-sky-700',
+          'border-emerald-300',
+          'bg-emerald-50',
+          'text-emerald-700',
+          'hover:bg-emerald-100',
+          'border-red-300',
+          'bg-red-50',
+          'text-red-700',
+          'hover:bg-red-100',
+          'border-slate-300',
+          'bg-slate-100',
+          'text-slate-700',
+          'hover:bg-slate-200',
+          'ring-1',
+          'ring-emerald-400',
+          'ring-red-400',
+          'ring-slate-400'
+        );
+        if (dayKey) {
+          btn.title = formatDailyFilterTooltip(dayKey, dayResult);
+        }
+        if (active) {
+          btn.classList.add('border-sky-500', 'bg-sky-50', 'text-sky-700');
+          if (hasNetProfit) {
+            if (netProfit > 0) {
+              btn.classList.add('ring-1', 'ring-emerald-400');
+            } else if (netProfit < 0) {
+              btn.classList.add('ring-1', 'ring-red-400');
+            } else {
+              btn.classList.add('ring-1', 'ring-slate-400');
+            }
+          }
+          btn.setAttribute('aria-pressed', 'true');
+          return;
+        }
+        if (hasNetProfit) {
+          if (netProfit > 0) {
+            btn.classList.add('border-emerald-300', 'bg-emerald-50', 'text-emerald-700', 'hover:bg-emerald-100');
+          } else if (netProfit < 0) {
+            btn.classList.add('border-red-300', 'bg-red-50', 'text-red-700', 'hover:bg-red-100');
+          } else {
+            btn.classList.add('border-slate-300', 'bg-slate-100', 'text-slate-700', 'hover:bg-slate-200');
+          }
+        } else {
+          btn.classList.add('border-slate-200', 'bg-white', 'text-slate-600', 'hover:bg-slate-50');
+        }
+        btn.setAttribute('aria-pressed', 'false');
+      });
+      document.querySelectorAll('#dayFilterGroup button[data-day-year-filter]').forEach((btn) => {
+        const year = btn.getAttribute('data-day-year-filter');
+        const yearDays = year ? (AVAILABLE_DAYS_BY_YEAR.get(year) || []) : [];
+        const selectedCount = yearDays.reduce((count, key) => count + (daySet.has(key) ? 1 : 0), 0);
+        const allSelected = hasDaySelection && yearDays.length > 0 && selectedCount === yearDays.length;
+        const partialSelected = hasDaySelection && selectedCount > 0 && selectedCount < yearDays.length;
+        btn.classList.remove(
+          'border-slate-200',
+          'bg-white',
+          'text-slate-700',
+          'hover:bg-slate-50',
+          'border-sky-500',
+          'bg-sky-600',
+          'text-white',
+          'border-sky-300',
+          'bg-sky-50',
+          'text-sky-700'
+        );
+        if (allSelected) {
+          btn.classList.add('border-sky-500', 'bg-sky-600', 'text-white');
+          btn.setAttribute('aria-pressed', 'true');
+          return;
+        }
+        if (partialSelected) {
+          btn.classList.add('border-sky-300', 'bg-sky-50', 'text-sky-700');
+          btn.setAttribute('aria-pressed', 'mixed');
+          return;
+        }
+        btn.classList.add('border-slate-200', 'bg-white', 'text-slate-700', 'hover:bg-slate-50');
+        btn.setAttribute('aria-pressed', 'false');
+      });
+    }
+
     function buildYearFilterOptions() {
       buildMonthFilterOptions();
     }
@@ -5414,7 +5959,110 @@
         `;
         }).join('');
       }
+      buildDayFilterOptions();
       renderWeeklyBacktestSummary();
+    }
+
+    function buildDayFilterOptions() {
+      AVAILABLE_DAYS_BY_YEAR = new Map();
+      const daysByYearAndMonth = new Map();
+      for (const dayKey of Array.isArray(DAYS) ? DAYS : []) {
+        const year = formatDayKeyToYear(dayKey);
+        const monthKey = formatDayKeyToMonth(dayKey);
+        if (!year) continue;
+        if (!AVAILABLE_DAYS_BY_YEAR.has(year)) {
+          AVAILABLE_DAYS_BY_YEAR.set(year, []);
+        }
+        AVAILABLE_DAYS_BY_YEAR.get(year).push(dayKey);
+        if (!monthKey) continue;
+        if (!daysByYearAndMonth.has(year)) {
+          daysByYearAndMonth.set(year, new Map());
+        }
+        const monthMap = daysByYearAndMonth.get(year);
+        if (!monthMap.has(monthKey)) {
+          monthMap.set(monthKey, []);
+        }
+        monthMap.get(monthKey).push(dayKey);
+      }
+      for (const [, dayKeys] of AVAILABLE_DAYS_BY_YEAR.entries()) {
+        dayKeys.sort((a, b) => String(a).localeCompare(String(b)));
+      }
+      for (const [, monthMap] of daysByYearAndMonth.entries()) {
+        for (const [, dayKeys] of monthMap.entries()) {
+          dayKeys.sort((a, b) => String(a).localeCompare(String(b)));
+        }
+      }
+      if (DAILY_BACKTEST_RESULTS instanceof Map && DAILY_BACKTEST_RESULTS.size) {
+        const validDayKeySet = new Set(Array.isArray(DAYS) ? DAYS : []);
+        for (const key of Array.from(DAILY_BACKTEST_RESULTS.keys())) {
+          if (!validDayKeySet.has(key)) {
+            DAILY_BACKTEST_RESULTS.delete(key);
+          }
+        }
+      }
+      const container = document.getElementById('dayFilterGroup');
+      if (!container) return;
+      const validDays = new Set();
+      TIME_FILTER_STATE.days.forEach((key) => {
+        if (Array.isArray(DAYS) && DAYS.includes(key)) validDays.add(key);
+      });
+      TIME_FILTER_STATE.days = validDays;
+      if (TIME_FILTER_STATE.mode === 'days' && !TIME_FILTER_STATE.days.size) {
+        TIME_FILTER_STATE.mode = 'all';
+      }
+      if (!Array.isArray(DAYS) || !DAYS.length) {
+        container.innerHTML = '<div class="px-2 py-1 text-xs text-slate-500">No data loaded.</div>';
+      } else {
+        const years = Array.from(AVAILABLE_DAYS_BY_YEAR.keys()).sort((a, b) => Number(b) - Number(a));
+        container.innerHTML = years.map((year) => {
+          const monthMap = daysByYearAndMonth.get(year) || new Map();
+          const monthKeys = Array.from(monthMap.keys()).sort((a, b) => {
+            const pa = parseMonthKey(a);
+            const pb = parseMonthKey(b);
+            if (!pa || !pb) return String(b).localeCompare(String(a));
+            if (pa.year !== pb.year) return Number(pb.year) - Number(pa.year);
+            return pb.month - pa.month;
+          });
+          const monthRows = monthKeys.map((monthKey) => {
+            const dayKeys = monthMap.get(monthKey) || [];
+            const dayButtons = dayKeys.map((dayKey) => `
+              <button
+                type="button"
+                data-day-filter="${dayKey}"
+                class="inline-flex min-w-[2rem] items-center justify-center rounded-full border px-2 py-1 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-sky-500/60"
+                title="${getDayLongLabel(dayKey)}"
+              >
+                ${getDayNumberLabel(dayKey)}
+              </button>
+            `).join('');
+            return `
+            <div class="grid grid-cols-[2.75rem_minmax(0,1fr)] items-start gap-x-2 gap-y-1">
+              <div class="px-1 py-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                ${getMonthShortLabel(monthKey)}
+              </div>
+              <div class="flex flex-wrap gap-1.5 min-w-0">
+                ${dayButtons || '<span class="px-2 py-1 text-xs text-slate-400">—</span>'}
+              </div>
+            </div>
+          `;
+          }).join('');
+          return `
+          <div class="grid grid-cols-[4.5rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2">
+            <button
+              type="button"
+              data-day-year-filter="${year}"
+              class="inline-flex w-full items-center justify-center self-start rounded-full border px-3 py-1.5 text-xs font-semibold transition focus:outline-none focus:ring-2 focus:ring-sky-500/60"
+            >
+              ${year}
+            </button>
+            <div class="space-y-1.5 min-w-0">
+              ${monthRows || '<span class="px-2 py-1 text-xs text-slate-400">—</span>'}
+            </div>
+          </div>
+        `;
+        }).join('');
+      }
+      renderDailyBacktestSummary();
     }
 
     function applyMonthSelectionFromSet(nextSet) {
@@ -5428,6 +6076,7 @@
       TIME_FILTER_STATE.presetId = null;
       TIME_FILTER_STATE.years = new Set();
       TIME_FILTER_STATE.weeks = new Set();
+      TIME_FILTER_STATE.days = new Set();
       if (!validMonths.size) {
         TIME_FILTER_STATE.mode = 'all';
         TIME_FILTER_STATE.months = new Set();
@@ -5452,12 +6101,37 @@
       TIME_FILTER_STATE.presetId = null;
       TIME_FILTER_STATE.years = new Set();
       TIME_FILTER_STATE.months = new Set();
+      TIME_FILTER_STATE.days = new Set();
       if (!normalizedWeeks.size) {
         TIME_FILTER_STATE.mode = 'all';
         TIME_FILTER_STATE.weeks = new Set();
       } else {
         TIME_FILTER_STATE.mode = 'weeks';
         TIME_FILTER_STATE.weeks = normalizedWeeks;
+      }
+      refreshTimeFilterSelection();
+      renderGridTrades(GRID_STATE.trades || [], { resetPage: true });
+      rerunBacktestIfDataLoaded();
+    }
+
+    function applyDaySelectionFromSet(nextSet) {
+      clearWeeklyBacktestResults({ rerender: false });
+      const validDays = new Set();
+      if (nextSet instanceof Set) {
+        nextSet.forEach((key) => {
+          if (Array.isArray(DAYS) && DAYS.includes(key)) validDays.add(key);
+        });
+      }
+      TIME_FILTER_STATE.presetId = null;
+      TIME_FILTER_STATE.years = new Set();
+      TIME_FILTER_STATE.months = new Set();
+      TIME_FILTER_STATE.weeks = new Set();
+      if (!validDays.size) {
+        TIME_FILTER_STATE.mode = 'all';
+        TIME_FILTER_STATE.days = new Set();
+      } else {
+        TIME_FILTER_STATE.mode = 'days';
+        TIME_FILTER_STATE.days = validDays;
       }
       refreshTimeFilterSelection();
       renderGridTrades(GRID_STATE.trades || [], { resetPage: true });
@@ -5476,7 +6150,8 @@
           presetId: null,
           months: new Set(),
           years: new Set(),
-          weeks: new Set()
+          weeks: new Set(),
+          days: new Set()
         };
       } else if (TIME_FILTER_STATE.mode === 'preset' && TIME_FILTER_STATE.presetId === presetId) {
         TIME_FILTER_STATE = {
@@ -5484,7 +6159,8 @@
           presetId: null,
           months: new Set(),
           years: new Set(),
-          weeks: new Set()
+          weeks: new Set(),
+          days: new Set()
         };
       } else {
         TIME_FILTER_STATE = {
@@ -5492,7 +6168,8 @@
           presetId,
           months: new Set(),
           years: new Set(),
-          weeks: new Set()
+          weeks: new Set(),
+          days: new Set()
         };
       }
       buildMonthFilterOptions();
@@ -5528,6 +6205,7 @@
       TIME_FILTER_STATE.months = new Set();
       TIME_FILTER_STATE.years = new Set();
       TIME_FILTER_STATE.weeks = new Set();
+      TIME_FILTER_STATE.days = new Set();
       refreshTimeFilterSelection();
       renderGridTrades(GRID_STATE.trades || [], { resetPage: true });
       rerunBacktestIfDataLoaded();
@@ -5617,6 +6295,57 @@
       TIME_FILTER_STATE.months = new Set();
       TIME_FILTER_STATE.years = new Set();
       TIME_FILTER_STATE.weeks = new Set();
+      TIME_FILTER_STATE.days = new Set();
+      refreshTimeFilterSelection();
+      renderGridTrades(GRID_STATE.trades || [], { resetPage: true });
+      rerunBacktestIfDataLoaded();
+    });
+
+    document.addEventListener('click', (e) => {
+      const yearBtn = e.target.closest('#dayFilterGroup button[data-day-year-filter]');
+      if (!yearBtn) return;
+      const year = yearBtn.getAttribute('data-day-year-filter');
+      if (!year) return;
+      const yearDays = AVAILABLE_DAYS_BY_YEAR.get(year) || [];
+      if (!yearDays.length) return;
+      const currentSelection = TIME_FILTER_STATE.mode === 'days'
+        ? new Set(TIME_FILTER_STATE.days)
+        : new Set();
+      const allSelected = yearDays.every((key) => currentSelection.has(key));
+      if (allSelected) {
+        yearDays.forEach((key) => currentSelection.delete(key));
+      } else {
+        yearDays.forEach((key) => currentSelection.add(key));
+      }
+      applyDaySelectionFromSet(currentSelection);
+    });
+
+    document.addEventListener('click', (e) => {
+      const dayBtn = e.target.closest('#dayFilterGroup button[data-day-filter]');
+      if (!dayBtn) return;
+      const dayKey = dayBtn.getAttribute('data-day-filter');
+      if (!dayKey) return;
+      const currentSelection = TIME_FILTER_STATE.mode === 'days'
+        ? new Set(TIME_FILTER_STATE.days)
+        : new Set();
+      if (currentSelection.has(dayKey)) {
+        currentSelection.delete(dayKey);
+      } else {
+        currentSelection.add(dayKey);
+      }
+      applyDaySelectionFromSet(currentSelection);
+    });
+
+    document.addEventListener('click', (e) => {
+      const clearBtn = e.target.closest('#dayFilterClearBtn');
+      if (!clearBtn) return;
+      clearWeeklyBacktestResults({ rerender: false });
+      TIME_FILTER_STATE.mode = 'all';
+      TIME_FILTER_STATE.presetId = null;
+      TIME_FILTER_STATE.months = new Set();
+      TIME_FILTER_STATE.years = new Set();
+      TIME_FILTER_STATE.weeks = new Set();
+      TIME_FILTER_STATE.days = new Set();
       refreshTimeFilterSelection();
       renderGridTrades(GRID_STATE.trades || [], { resetPage: true });
       rerunBacktestIfDataLoaded();
@@ -7856,6 +8585,149 @@
       summary.holdingsValueFinal = finalHoldings;
       summary.accountEquityFinal = finalEquity;
       return finalizeResult();
+    }
+
+    async function runDailyBacktest() {
+      if (isBatchBacktestRunning()) return;
+      closeRunBacktestMenu();
+      if (!Array.isArray(ROWS) || !ROWS.length) {
+        setGridStatus('Load symbol data before running daily backtest.');
+        return;
+      }
+      const days = Array.isArray(DAYS) ? DAYS.slice() : [];
+      if (!days.length) {
+        clearWeeklyBacktestResults({ rerender: true });
+        setGridStatus('No available days in loaded data.');
+        return;
+      }
+      const params = getGridParamsFromUI();
+      const entryFilter = params?.entryFilter || 'none';
+      const filterWindow = getEntryFilterWindow(entryFilter);
+      const initialTradeValue = Number.isFinite(params?.tradeValue) ? Math.max(0, Number(params.tradeValue)) : 0;
+      let compoundedTradeValue = initialTradeValue;
+      let positiveCount = 0;
+      let negativeCount = 0;
+      let flatCount = 0;
+      let skippedCount = 0;
+      DAILY_BACKTEST_RUNNING = true;
+      setRunButtonEnabled(Array.isArray(ROWS) && ROWS.length > 0);
+      clearWeeklyBacktestResults({ rerender: true });
+      try {
+        if (filterWindow) {
+          if (SMA_DIRTY) {
+            computeDailySmaMaps();
+            SMA_DIRTY = false;
+          }
+          const info = describeSmaAvailability(entryFilter);
+          const available = info?.availableDays || 0;
+          if (available <= 0) {
+            const totalDays = info?.totalDays ?? DAYS.length;
+            const message = `Entry filter (${filterWindow}-day SMA) needs ${filterWindow} completed days. Dataset has ${totalDays.toLocaleString()} day${totalDays === 1 ? '' : 's'} — insufficient for this filter.`;
+            days.forEach((dayKey) => {
+              setDailyBacktestResult(dayKey, {
+                status: 'insufficient_sma',
+                message
+              });
+            });
+            skippedCount = days.length;
+            refreshTimeFilterSelection();
+            renderDailyBacktestSummary();
+            setGridStatus(`Daily backtest skipped. ${message}`);
+            return;
+          }
+        }
+        for (let i = 0; i < days.length; i += 1) {
+          const dayKey = days[i];
+          setGridStatus(`Running daily backtest ${i + 1}/${days.length}: ${dayKey}…`);
+          const rowsForDay = getRowsForDayKey(dayKey);
+          if (!rowsForDay.length) {
+            skippedCount += 1;
+            setDailyBacktestResult(dayKey, { status: 'no_rows' });
+          } else {
+            try {
+              const tradeValueStart = compoundedTradeValue;
+              const paramsForDay = {
+                ...params,
+                tradeValue: tradeValueStart
+              };
+              const result = runBuyTheDipSimulation(rowsForDay, paramsForDay) || {};
+              const summary = result.summary || null;
+              const netProfit = Number(summary?.netProfit);
+              const maxDrawdown = Number(summary?.maxDrawdown);
+              const maxDrawdownDate = summary?.maxDrawdownDate ? String(summary.maxDrawdownDate) : '';
+              const maxDrawdownPct = Number(summary?.maxDrawdownPct);
+              const maxDrawdownPctDate = summary?.maxDrawdownPctDate ? String(summary.maxDrawdownPctDate) : '';
+              const peakFunding = Number(summary?.peakFunding);
+              const peakFundingDate = summary?.peakFundingDate ? String(summary.peakFundingDate) : '';
+              const maxLevels = Number(summary?.maxOpenLevels);
+              const tradesRaw = Number.isFinite(summary?.totalTrades)
+                ? Number(summary.totalTrades)
+                : (Array.isArray(result.trades) ? result.trades.length : null);
+              const trades = Number.isFinite(tradesRaw) ? Math.max(0, Math.trunc(tradesRaw)) : 0;
+              const tradeValueEnd = resolveCompoundedTradeValue(tradeValueStart, params?.plSizingPct, netProfit);
+              if (Number.isFinite(netProfit) && trades > 0) {
+                if (netProfit > 0) {
+                  positiveCount += 1;
+                } else if (netProfit < 0) {
+                  negativeCount += 1;
+                } else {
+                  flatCount += 1;
+                }
+                setDailyBacktestResult(dayKey, {
+                  status: 'ok',
+                  netProfit,
+                  trades,
+                  tradeValueStart,
+                  tradeValueEnd,
+                  maxDrawdown,
+                  maxDrawdownDate,
+                  maxDrawdownPct,
+                  maxDrawdownPctDate,
+                  peakFunding,
+                  peakFundingDate,
+                  maxLevels
+                });
+                compoundedTradeValue = tradeValueEnd;
+              } else if (Number.isFinite(netProfit) && trades === 0) {
+                skippedCount += 1;
+                setDailyBacktestResult(dayKey, {
+                  status: 'no_trades',
+                  netProfit,
+                  trades,
+                  tradeValueStart,
+                  tradeValueEnd: tradeValueStart,
+                  message: 'No completed trades in this day.'
+                });
+              } else {
+                skippedCount += 1;
+                setDailyBacktestResult(dayKey, {
+                  status: 'error',
+                  message: 'No net P/L output for this day.'
+                });
+              }
+            } catch (err) {
+              skippedCount += 1;
+              const message = err && err.message ? err.message : String(err);
+              setDailyBacktestResult(dayKey, {
+                status: 'error',
+                message: `Daily run failed: ${message}`
+              });
+            }
+          }
+          if ((i + 1) % 12 === 0 || i === days.length - 1) {
+            refreshTimeFilterSelection();
+            renderDailyBacktestSummary();
+            await sleep(0);
+          }
+        }
+        renderDailyBacktestSummary();
+        setGridStatus(
+          `Daily backtest complete for ${days.length} day${days.length === 1 ? '' : 's'}. Positive: ${positiveCount}, Negative: ${negativeCount}, Flat: ${flatCount}, Skipped: ${skippedCount}. Trade Value compounded: ${formatCurrency(initialTradeValue)} -> ${formatCurrency(compoundedTradeValue)}.`
+        );
+      } finally {
+        DAILY_BACKTEST_RUNNING = false;
+        setRunButtonEnabled(Array.isArray(ROWS) && ROWS.length > 0);
+      }
     }
 
     async function runWeeklyBacktest() {
