@@ -1388,6 +1388,18 @@
           />
         </label>
         <label class="block">
+          <span class="text-sm text-slate-600">Max Open Levels</span>
+          <input
+            id="inpMaxOpenLevels"
+            type="number"
+            step="1"
+            min="1"
+            placeholder="Unlimited"
+            class="mt-1 w-full appearance-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+          />
+          <p class="mt-1 text-[11px] text-slate-500">Leave blank for unlimited.</p>
+        </label>
+        <label class="block">
           <span class="text-sm text-slate-600">Levels Funded at Start</span>
           <div class="relative mt-1">
             <select
@@ -2128,6 +2140,7 @@
       gridSize: 5,
       gridSpacingType: 'percent_fixed',
       tradeValue: 1000,
+      maxOpenLevels: null,
       startupFundedLevels: 100,
       plSizingPct: 0,
       fractionalShares: true,
@@ -4355,10 +4368,19 @@
         : GRID_DEFAULTS.startupFundedLevels;
     }
 
+    function normalizeMaxOpenLevels(value) {
+      if (value == null || value === '') return GRID_DEFAULTS.maxOpenLevels;
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric)) return GRID_DEFAULTS.maxOpenLevels;
+      const rounded = Math.round(numeric);
+      return rounded >= 1 ? rounded : GRID_DEFAULTS.maxOpenLevels;
+    }
+
     function getGridParamsFromUI() {
       const gridSize = Number(document.getElementById('inpGridSize')?.value ?? GRID_DEFAULTS.gridSize);
       const basePrice = Number(document.getElementById('inpBasePrice')?.value ?? 100);
       const tradeValue = Number(document.getElementById('inpTradeValue')?.value ?? GRID_DEFAULTS.tradeValue);
+      const maxOpenLevelsRaw = document.getElementById('inpMaxOpenLevels')?.value ?? GRID_DEFAULTS.maxOpenLevels;
       const startupFundedLevelsRaw = Number(document.getElementById('inpStartupFundedLevels')?.value ?? GRID_DEFAULTS.startupFundedLevels);
       const plSizingPct = Number(document.getElementById('inpPlSizingPct')?.value ?? GRID_DEFAULTS.plSizingPct);
       const fractionalShares = true;
@@ -4369,10 +4391,12 @@
       const entryFilter = (document.getElementById('selEntryFilter')?.value || GRID_DEFAULTS.entryFilter).toLowerCase();
       const tickSize = getActiveTickSize();
       const startupFundedLevels = normalizeStartupFundedLevels(startupFundedLevelsRaw);
+      const maxOpenLevels = normalizeMaxOpenLevels(maxOpenLevelsRaw);
       return {
         gridSize: Number.isFinite(gridSize) ? gridSize : GRID_DEFAULTS.gridSize,
         basePrice: Number.isFinite(basePrice) ? basePrice : 100,
         tradeValue: Number.isFinite(tradeValue) ? tradeValue : GRID_DEFAULTS.tradeValue,
+        maxOpenLevels,
         startupFundedLevels,
         plSizingPct: Number.isFinite(plSizingPct) ? plSizingPct : GRID_DEFAULTS.plSizingPct,
         fractionalShares,
@@ -4401,6 +4425,7 @@
         gridSize: Number.isFinite(params.gridSize) ? params.gridSize : null,
         basePrice: Number.isFinite(params.basePrice) ? params.basePrice : null,
         tradeValue: Number.isFinite(params.tradeValue) ? params.tradeValue : null,
+        maxOpenLevels: Number.isFinite(params.maxOpenLevels) ? params.maxOpenLevels : null,
         startupFundedLevels: Number.isFinite(params.startupFundedLevels) ? params.startupFundedLevels : null,
         plSizingPct: Number.isFinite(params.plSizingPct) ? params.plSizingPct : null,
         fractionalShares: !!params.fractionalShares,
@@ -4439,6 +4464,7 @@
       setNumberValue('inpGridSize', stored.gridSize);
       setNumberValue('inpBasePrice', stored.basePrice);
       setNumberValue('inpTradeValue', stored.tradeValue);
+      setNumberValue('inpMaxOpenLevels', normalizeMaxOpenLevels(stored.maxOpenLevels));
       setSelectValue('inpStartupFundedLevels', String(normalizeStartupFundedLevels(stored.startupFundedLevels)));
       setNumberValue('inpPlSizingPct', stored.plSizingPct);
       setNumberValue('inpRetentionPortionPct', stored.retentionPortionPct);
@@ -5239,6 +5265,7 @@
         grid_type: params?.gridType || null,
         grid_size: Number.isFinite(params?.gridSize) ? params.gridSize : null,
         trade_value: Number.isFinite(params?.tradeValue) ? params.tradeValue : null,
+        max_open_levels: Number.isFinite(params?.maxOpenLevels) ? params.maxOpenLevels : null,
         startup_funded_levels: Number.isFinite(params?.startupFundedLevels) ? params.startupFundedLevels : null,
         starting_equity: Number.isFinite(summary?.startingEquity) ? summary.startingEquity : null,
         retention_mode: params?.retentionMode || null,
@@ -7960,6 +7987,7 @@
         ? baseTradeValue * startupFundedLevels
         : 0;
       const plSizingPct = Number(params?.plSizingPct);
+      const maxOpenLevelsLimit = normalizeMaxOpenLevels(params?.maxOpenLevels);
       const tickSize = Number(params?.tickSize);
       const resolvedTickSize = Number.isFinite(tickSize) && tickSize > 0 ? tickSize : 0.01;
       const fractional = true;
@@ -8245,6 +8273,9 @@
         if (!order) return false;
         const price = order.level;
         if (!passesEntryFilter(price, contextRow, entryFilter)) {
+          return false;
+        }
+        if (Number.isFinite(maxOpenLevelsLimit) && openPositions >= maxOpenLevelsLimit) {
           return false;
         }
         const holdingsValue = shares * price;
@@ -9311,6 +9342,7 @@
         document.getElementById('inpGridSize'),
         document.getElementById('inpBasePrice'),
         document.getElementById('inpTradeValue'),
+        document.getElementById('inpMaxOpenLevels'),
         document.getElementById('inpStartupFundedLevels'),
         document.getElementById('inpPlSizingPct'),
         retentionPortionInput
