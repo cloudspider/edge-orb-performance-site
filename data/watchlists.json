@@ -1,5 +1,5 @@
 {
-  "active": "GROWTH STOCKS 2026",
+  "active": "SEMI",
   "watchlists": {
     "Default": [
       "NBIS"
@@ -48,125 +48,653 @@
       "ACHR",
       "ALAB",
       "ZETA",
-      "PLTR"
+      "PLTR",
+      "MRVL"
+    ],
+    "Robotics": [
+      "TER",
+      "ADI",
+      "MOG.A",
+      "USAR",
+      "MP",
+      "ROK",
+      "SYM",
+      "RDW",
+      "KITT"
+    ],
+    "HOT": [
+      "ASTS",
+      "TMC",
+      "IREN",
+      "RKLB",
+      "WULF",
+      "GDXU",
+      "ONDS",
+      "APLD",
+      "BE",
+      "SNDK",
+      "HYLN",
+      "CIFR",
+      "NUAI",
+      "AEHR",
+      "GRAL",
+      "PONY",
+      "SLNH",
+      "UMAC",
+      "AAOI",
+      "EOSE",
+      "SYM",
+      "OKLO",
+      "NBIS"
+    ],
+    "LIVE": [
+      "IREN",
+      "RKLB",
+      "BE",
+      "ONDS",
+      "APLD",
+      "SLV",
+      "HYLN",
+      "WRN",
+      "ASTS",
+      "PLG",
+      "TSLA",
+      "SNDK",
+      "USAS",
+      "EONR"
+    ],
+    "OTHER": [
+      "SILJ",
+      "FSM",
+      "AG",
+      "TFPM",
+      "DNN",
+      "UEC",
+      "NXE",
+      "NGD",
+      "PAAS",
+      "MTA",
+      "IE",
+      "VCUFF",
+      "VZLA",
+      "AVR",
+      "SOFI",
+      "HGRAF",
+      "BIAF"
+    ],
+    "GOLD": [
+      "CDE",
+      "NGD",
+      "EQX",
+      "HL",
+      "PAAS",
+      "WPM",
+      "AU",
+      "GFI",
+      "SVM",
+      "IE",
+      "B",
+      "SCCO",
+      "TGB",
+      "ELE",
+      "GLTR",
+      "FNV",
+      "RGLD",
+      "AEM",
+      "MTA",
+      "USAS",
+      "PLG",
+      "TRX",
+      "UAMY",
+      "LAC",
+      "HYMC",
+      "AUMBF",
+      "GROY",
+      "WRN",
+      "GLD"
+    ],
+    "Drone": [
+      "KTOS",
+      "AVAV",
+      "ONDS",
+      "RCAT",
+      "UAVS",
+      "LHX",
+      "UMAC",
+      "DPRO",
+      "AMPX",
+      "LASR"
+    ],
+    "Copper": [
+      "COPP",
+      "COPX",
+      "FCX",
+      "IE",
+      "WRN",
+      "SCCO",
+      "TGB",
+      "TECK",
+      "HBM",
+      "ERO"
+    ],
+    "SEMI": [
+      "RMBS",
+      "SNDK",
+      "WDC",
+      "MU",
+      "AAOI",
+      "MRVL",
+      "AVGO",
+      "LITE",
+      "COHR",
+      "FN",
+      "ALAB",
+      "AXTI",
+      "LWLG",
+      "NVDA"
+    ],
+    "Quantum": [
+      "QTUM",
+      "QUBT",
+      "QBTS"
+    ],
+    "Mining": [
+      "CRML",
+      "BHLL"
+    ],
+    "AI": [
+      "VRT",
+      "IREN",
+      "NBIS",
+      "CRWV",
+      "IREX"
+    ],
+    "SOLAR": [
+      "ARRY",
+      "FSLR",
+      "AES",
+      "NEE",
+      "MWH",
+      "NXT",
+      "ENPH"
+    ],
+    "SPACE": [
+      "SIDU",
+      "RKLB",
+      "LUNR",
+      "ASTS",
+      "FTAI",
+      "FLY"
+    ],
+    "3D PRINTING": [
+      "VELO"
+    ],
+    "10K": [
+      "LUNR",
+      "UAMY",
+      "SLNH",
+      "TMC",
+      "ONDS",
+      "AMPX",
+      "UMAC",
+      "IREN"
+    ],
+    "ENERGY": [
+      "FLNC",
+      "BE",
+      "EONR"
     ]
   },
   "symbol_meta": {
     "MVST": {
       "name": "Microvast",
-      "sector": "Battery & Storage"
+      "sector": "Battery & Storage",
+      "exchange": "NASDAQ"
     },
     "CIEN": {
       "name": "Ciena",
-      "sector": "Optical"
+      "sector": "Optical",
+      "exchange": "NASDAQ"
     },
     "LITE": {
       "name": "Lumentum",
-      "sector": "Optical"
+      "sector": "Optical",
+      "exchange": "NASDAQ"
     },
     "COHR": {
       "name": "Coherent",
-      "sector": "Optical"
+      "sector": "Optical",
+      "exchange": "NYSE"
     },
     "TSLA": {
       "name": "Tesla Inc.",
-      "sector": "Robots, Automation"
+      "sector": "Robots, Automation",
+      "exchange": "NASDAQ"
     },
     "RR": {
       "name": "Richtech Robotics",
-      "sector": "Robots, Automation"
+      "sector": "Robots, Automation",
+      "exchange": "NASDAQ"
     },
     "SERV": {
       "name": "Serve Robotics Inc.",
-      "sector": "Robots, Automation"
+      "sector": "Robots, Automation",
+      "exchange": "NASDAQ"
     },
     "ONDS": {
       "name": "Ondas",
-      "sector": "Drones, Autonomous Defence & Edge AI"
+      "sector": "Drones, Autonomous Defence & Edge AI",
+      "exchange": "NASDAQ"
     },
     "NU": {
       "name": "Nu Holdings Ltd",
-      "sector": "Fintech"
+      "sector": "Fintech",
+      "exchange": "NASDAQ"
     },
     "HOOD": {
       "name": "Robinhood Markets Inc.",
-      "sector": "Fintech"
+      "sector": "Fintech",
+      "exchange": "NASDAQ"
     },
     "SOFI": {
       "name": "SOFI",
-      "sector": "Fintech"
+      "sector": "Fintech",
+      "exchange": "NASDAQ"
     },
     "AVAV": {
       "name": "AeroVironment",
-      "sector": "Drones, Autonomous Defence & Edge AI"
+      "sector": "Drones, Autonomous Defence & Edge AI",
+      "exchange": "NASDAQ"
     },
     "WULF": {
       "name": "TeraWulf Inc",
-      "sector": "Data Center"
+      "sector": "Data Center",
+      "exchange": "NASDAQ"
     },
     "KTOS": {
       "name": "Kratos Defense & Security Solutions",
-      "sector": "Drones, Autonomous Defence & Edge AI"
+      "sector": "Drones, Autonomous Defence & Edge AI",
+      "exchange": "NASDAQ"
     },
     "OKLO": {
       "name": "Oklo Inc.",
-      "sector": "Nulear Power"
+      "sector": "Nulear Power",
+      "exchange": "NASDAQ"
     },
     "RKLB": {
       "name": "Rocket Lab Corp",
-      "sector": "Space Infrastructure & Orbital Economy"
+      "sector": "Space Infrastructure & Orbital Economy",
+      "exchange": "NASDAQ"
     },
     "ASTS": {
       "name": "AST Spacemobile, Inc",
-      "sector": "Space Infrastructure & Orbital Economy"
+      "sector": "Space Infrastructure & Orbital Economy",
+      "exchange": "NASDAQ"
     },
     "PL": {
       "name": "Planet Labs PBC",
-      "sector": "Space Infrastructure & Orbital Economy"
+      "sector": "Space Infrastructure & Orbital Economy",
+      "exchange": "NYSE"
     },
     "AVGO": {
       "name": "Broadcom Inc.",
-      "sector": "Semiconductor (AI Stack)"
+      "sector": "Semiconductor (AI Stack)",
+      "exchange": "NASDAQ"
     },
     "AMD": {
       "name": "AMD",
-      "sector": "Semiconductor (AI Stack)"
+      "sector": "Semiconductor (AI Stack)",
+      "exchange": "NASDAQ"
     },
     "ALB": {
       "name": "ALB",
-      "sector": "Battery & Storage"
+      "sector": "Battery & Storage",
+      "exchange": "NASDAQ"
     },
     "SMR": {
       "name": "NuScale Power Corp",
-      "sector": "Nulear Power"
+      "sector": "Nulear Power",
+      "exchange": "NASDAQ"
     },
     "JOBY": {
       "name": "JOBY",
-      "sector": "Autonomy Transportation"
+      "sector": "Autonomy Transportation",
+      "exchange": "NASDAQ"
     },
     "PONY": {
       "name": "Pony.ai, Inc.",
-      "sector": "Autonomy Transportation"
+      "sector": "Autonomy Transportation",
+      "exchange": "NASDAQ"
     },
     "ACHR": {
       "name": "Archer Aviation, Inc",
-      "sector": "Autonomy Transportation"
+      "sector": "Autonomy Transportation",
+      "exchange": "NASDAQ"
     },
     "ALAB": {
       "name": "Astera Labs, Inc",
-      "sector": "AI Infrastructure"
+      "sector": "AI Infrastructure",
+      "exchange": "NASDAQ"
     },
     "ZETA": {
       "name": "Zeta Global Holdings Corp",
-      "sector": "AI Software"
+      "sector": "AI Software",
+      "exchange": "NASDAQ"
     },
     "CEG": {
       "name": "Constellation Energy Corp",
-      "sector": "Nulear Power"
+      "sector": "Nulear Power",
+      "exchange": "NASDAQ"
     },
     "PLTR": {
       "name": "Palantir Technologies, Inc.",
-      "sector": "AI Software"
+      "sector": "AI Software",
+      "exchange": "NASDAQ"
+    },
+    "MOG.A": {
+      "name": "MOG.A",
+      "sector": "",
+      "exchange": "NYSE"
+    },
+    "MP": {
+      "name": "MP",
+      "sector": "Rare Earths",
+      "exchange": "NYSE"
+    },
+    "USAR": {
+      "name": "USAR",
+      "sector": "Rare Earths",
+      "exchange": "NASDAQ"
+    },
+    "FCX": {
+      "name": "FCX",
+      "sector": "Copper",
+      "exchange": "NYSE"
+    },
+    "COPX": {
+      "name": "COPX ETF",
+      "sector": "Copper",
+      "exchange": "AMEX"
+    },
+    "ROK": {
+      "name": "ROK",
+      "sector": "",
+      "exchange": "NYSE"
+    },
+    "GDXU": {
+      "name": "Direxion Daily Gold Miners Bull 2x Shares",
+      "sector": "",
+      "exchange": "AMEX"
+    },
+    "APLD": {
+      "name": "Applied Digital Corp",
+      "sector": "",
+      "exchange": "NASDAQ"
+    },
+    "UMAC": {
+      "name": "Unusual Machines,",
+      "sector": "",
+      "exchange": "AMEX"
+    },
+    "DNN": {
+      "name": "Denison Mines Corp",
+      "sector": "",
+      "exchange": "AMEX"
+    },
+    "NGD": {
+      "name": "New Gold, Inc.",
+      "sector": "",
+      "exchange": "AMEX"
+    },
+    "SLNH": {
+      "name": "Soluna Holdings",
+      "sector": "",
+      "exchange": "NASDAQ"
+    },
+    "AAOI": {
+      "name": "Applied Optoelectronics",
+      "sector": "",
+      "exchange": "NASDAQ"
+    },
+    "UEC": {
+      "name": "UEC",
+      "sector": "",
+      "exchange": "AMEX"
+    },
+    "NXE": {
+      "name": "NXE",
+      "sector": "",
+      "exchange": "NYSE"
+    },
+    "BE": {
+      "name": "Bloom Energy Corporation",
+      "sector": "",
+      "exchange": "NYSE"
+    },
+    "SLV": {
+      "name": "iShares Silver Trust",
+      "sector": "",
+      "exchange": "AMEX"
+    },
+    "GLD": {
+      "name": "SPDR Gold Shares ETF",
+      "sector": "",
+      "exchange": "AMEX"
+    },
+    "IE": {
+      "name": "Ivanhoe Electric, Inc.",
+      "sector": "",
+      "exchange": "AMEX"
+    },
+    "HL": {
+      "name": "Hecla Mining Co.",
+      "sector": "",
+      "exchange": "NYSE"
+    },
+    "VCUFF": {
+      "name": "VCUFF",
+      "sector": "",
+      "exchange": "OTC"
+    },
+    "VZLA": {
+      "name": "VZLA",
+      "sector": "",
+      "exchange": "AMEX"
+    },
+    "ELE": {
+      "name": "Elemental Royalty Corp.",
+      "sector": "",
+      "exchange": "NASDAQ"
+    },
+    "RDW": {
+      "name": "Redwire Corp",
+      "sector": "",
+      "exchange": "NYSE"
+    },
+    "RCAT": {
+      "name": "Red Cat Holdings",
+      "sector": "Drone",
+      "exchange": "NASDAQ"
+    },
+    "UAVS": {
+      "name": "AgEagle Aerial Systems, Inc",
+      "sector": "",
+      "exchange": "AMEX"
+    },
+    "CDE": {
+      "name": "Coeur Mining, Inc.",
+      "sector": "",
+      "exchange": "NYSE"
+    },
+    "WRN": {
+      "name": "Western Copper & Gold Corp",
+      "sector": "",
+      "exchange": "AMEX"
+    },
+    "SCCO": {
+      "name": "Southern Copper Corp.",
+      "sector": "",
+      "exchange": "NYSE"
+    },
+    "PAAS": {
+      "name": "Pan American Silver Corp",
+      "sector": "",
+      "exchange": "NYSE"
+    },
+    "AEM": {
+      "name": "Agnico Eagle Mines Ltd",
+      "sector": "",
+      "exchange": "NYSE"
+    },
+    "FEIM": {
+      "name": "Frequency Electronics, Inc",
+      "sector": "",
+      "exchange": "NASDAQ"
+    },
+    "DPRO": {
+      "name": "Draganfly, Inc",
+      "sector": "",
+      "exchange": "NASDAQ"
+    },
+    "POET": {
+      "name": "POET Technologies, Inc.",
+      "sector": "",
+      "exchange": "NASDAQ"
+    },
+    "HYLN": {
+      "name": "Hyliion Holdings Corp.",
+      "sector": "",
+      "exchange": "AMEX"
+    },
+    "MTA": {
+      "name": "Metalla Royalty & Streaming Ltd",
+      "sector": "",
+      "exchange": "AMEX"
+    },
+    "USAS": {
+      "name": "Americas Gold & Silver Corp.",
+      "sector": "",
+      "exchange": "AMEX"
+    },
+    "AS": {
+      "name": "AS",
+      "sector": "",
+      "exchange": "NYSE"
+    },
+    "TECK": {
+      "name": "TECK",
+      "sector": "",
+      "exchange": "NYSE"
+    },
+    "HBM": {
+      "name": "HBM",
+      "sector": "",
+      "exchange": "NYSE"
+    },
+    "ERO": {
+      "name": "ERO",
+      "sector": "",
+      "exchange": "NYSE"
+    },
+    "TRX": {
+      "name": "TRX",
+      "sector": "",
+      "exchange": "AMEX"
+    },
+    "UAMY": {
+      "name": "UAMY",
+      "sector": "",
+      "exchange": "AMEX"
+    },
+    "LAC": {
+      "name": "LAC",
+      "sector": "",
+      "exchange": "NYSE"
+    },
+    "BHLL": {
+      "name": "BHLL",
+      "sector": "",
+      "exchange": "NYSE"
+    },
+    "PLG": {
+      "name": "PLG",
+      "sector": "",
+      "exchange": "AMEX"
+    },
+    "AMKR": {
+      "name": "Amkor Technology",
+      "sector": "",
+      "exchange": "NASDAQ"
+    },
+    "GRAL": {
+      "name": "Grail",
+      "sector": "",
+      "exchange": "NASDAQ"
+    },
+    "SYM": {
+      "name": "Symbotic",
+      "sector": "",
+      "exchange": "NASDAQ"
+    },
+    "SIDU": {
+      "name": "Sidus Space",
+      "sector": "",
+      "exchange": "NASDAQ"
+    },
+    "KITT": {
+      "name": "Nauticus Robotics",
+      "sector": "Robots, Automation",
+      "exchange": "NASDAQ"
+    },
+    "B": {
+      "name": "Barrick Mining Corp",
+      "sector": "Mining",
+      "exchange": "NYSE"
+    },
+    "LHX": {
+      "name": "LHX",
+      "sector": "",
+      "exchange": "NYSE"
+    },
+    "AES": {
+      "name": "AES",
+      "sector": "",
+      "exchange": "NYSE"
+    },
+    "SOLV": {
+      "name": "SOLV",
+      "sector": "",
+      "exchange": "NYSE"
+    },
+    "GROY": {
+      "name": "GROY",
+      "sector": "",
+      "exchange": "AMEX"
+    },
+    "AU": {
+      "name": "AU",
+      "sector": "",
+      "exchange": "NYSE"
+    },
+    "AMPX": {
+      "name": "AMPX",
+      "sector": "",
+      "exchange": "NYSE"
+    },
+    "SILJ": {
+      "name": "SILJ",
+      "sector": "",
+      "exchange": "AMEX"
+    },
+    "LUNR": {
+      "name": "Intuitive Machines",
+      "sector": "",
+      "exchange": "NASDAQ"
+    },
+    "EONR": {
+      "name": "EONR",
+      "sector": "",
+      "exchange": "AMEX"
     }
   }
 }
