@@ -1044,7 +1044,7 @@
   </script>
 
   <div class="max-w-screen-2xl mx-auto p-6">
-    <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_180px] xl:items-start">
+    <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_240px] xl:items-start">
       <div class="min-w-0 space-y-6">
         <header class="mb-2">
           <h1 id="mainTitle" class="text-2xl md:text-3xl font-semibold">Grid Backtest</h1>
@@ -2173,6 +2173,7 @@
             <span class="text-[11px] uppercase tracking-wide text-slate-400">Initial</span>
           </div>
           <p class="mt-1 text-xs text-slate-500">Initial calculated buy and sell ladder pairs for the current run.</p>
+          <div id="levelsRailMeta" class="mt-3 hidden rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-600"></div>
           <div class="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-inner">
             <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 border-b border-slate-100 bg-slate-100 px-3 py-2 font-mono text-[11px] font-semibold uppercase tracking-wide text-slate-500">
               <span>Buy</span>
@@ -2392,7 +2393,8 @@
         buyLevels: [],
         sellLevels: [],
         baseLevel: null,
-        gridLevels: []
+        gridLevels: [],
+        levelMeta: null
       };
     }
 
@@ -6681,10 +6683,31 @@
       }
     }
 
-    function renderInitialGridLevels(gridLevels) {
+    function renderInitialGridLevels(gridLevels, levelMeta = null) {
       const rowsEl = document.getElementById('levelsRailRows');
       const emptyEl = document.getElementById('levelsRailEmpty');
-      if (!rowsEl || !emptyEl) return;
+      const metaEl = document.getElementById('levelsRailMeta');
+      if (!rowsEl || !emptyEl || !metaEl) return;
+      const spacingType = String(levelMeta?.gridSpacingType || '').toLowerCase();
+      const gridSize = Number(levelMeta?.gridSize);
+      const basePrice = Number(levelMeta?.basePrice);
+      const tickSize = Number(levelMeta?.tickSize);
+      const spacingLabel = spacingType === 'fixed'
+        ? `Fixed spacing of $${formatNumber(gridSize, 4)}`
+        : Number.isFinite(gridSize)
+          ? `${formatPercent(gridSize)} spacing`
+          : 'Percent spacing';
+      if (Number.isFinite(basePrice) || Number.isFinite(gridSize) || Number.isFinite(tickSize)) {
+        const metaBits = [];
+        if (Number.isFinite(basePrice)) metaBits.push(`<div><span class="font-semibold text-slate-700">Base price:</span> $${formatNumber(basePrice, 4)}</div>`);
+        if (Number.isFinite(gridSize)) metaBits.push(`<div><span class="font-semibold text-slate-700">Calculation:</span> ${spacingLabel}</div>`);
+        if (Number.isFinite(tickSize)) metaBits.push(`<div><span class="font-semibold text-slate-700">Tick rounding:</span> $${formatNumber(tickSize, 4)}</div>`);
+        metaEl.innerHTML = metaBits.join('');
+        metaEl.classList.remove('hidden');
+      } else {
+        metaEl.innerHTML = '';
+        metaEl.classList.add('hidden');
+      }
       const rows = Array.isArray(gridLevels)
         ? gridLevels.filter((entry) => Number.isFinite(entry?.buyPrice) || Number.isFinite(entry?.sellPrice))
         : [];
@@ -6734,7 +6757,7 @@
       renderPriceDistributionChart([]);
       renderLevelDistributionChart([]);
       renderCumulativeLevelDistributionChart([]);
-      renderInitialGridLevels([]);
+      renderInitialGridLevels([], null);
     }
 
     function renderVisualOutputsFromState({ resetPage = true } = {}) {
@@ -8240,7 +8263,17 @@
       const sellLevelSet = new Set();
       let gridLevels = [];
       let resolveBaseLevel = () => NaN;
+      let levelMeta = null;
       const finalizeResult = () => ({
+        ...(levelMeta ? {
+          levelMeta: {
+            ...levelMeta,
+            basePrice: (() => {
+              const val = resolveBaseLevel();
+              return Number.isFinite(val) ? val : levelMeta.basePrice;
+            })()
+          }
+        } : { levelMeta: null }),
         trades,
         fillSequence,
         summary,
@@ -8276,6 +8309,12 @@
       const retentionPortionPctRaw = Number.isFinite(params?.retentionPortionPct) ? params.retentionPortionPct : GRID_DEFAULTS.retentionPortionPct;
       const retentionPortionFraction = Math.min(1, Math.max(0, retentionPortionPctRaw / 100));
       const entryFilter = (params?.entryFilter || 'none').toLowerCase();
+      levelMeta = {
+        basePrice: Number.isFinite(rawBasePrice) ? rawBasePrice : null,
+        gridSpacingType,
+        gridSize: Number.isFinite(rawGridSize) ? rawGridSize : null,
+        tickSize: Number.isFinite(resolvedTickSize) ? resolvedTickSize : null
+      };
       if (!Number.isFinite(rawGridSize) || rawGridSize <= 0 || !Number.isFinite(baseTradeValue) || baseTradeValue <= 0) {
         return finalizeResult();
       }
@@ -9399,7 +9438,8 @@
           buyLevels: Array.isArray(result.buyLevels) ? result.buyLevels : [],
           sellLevels: Array.isArray(result.sellLevels) ? result.sellLevels : [],
           baseLevel: Number.isFinite(result.baseLevel) ? result.baseLevel : null,
-          gridLevels: Array.isArray(result.gridLevels) ? result.gridLevels : []
+          gridLevels: Array.isArray(result.gridLevels) ? result.gridLevels : [],
+          levelMeta: result.levelMeta || null
         };
         if (safeResult.summary) {
           safeResult.summary.dayCount = filteredDayCount;
@@ -9409,7 +9449,7 @@
         window.GRID_FILL_SEQUENCE = safeResult.fillSequence.slice();
         renderGridSummary(safeResult.summary);
         renderGridLevels(safeResult.buyLevels, safeResult.sellLevels, safeResult.baseLevel ?? null);
-        renderInitialGridLevels(safeResult.gridLevels);
+        renderInitialGridLevels(safeResult.gridLevels, safeResult.levelMeta);
         setSaveButtonEnabled(!!safeResult.summary);
         const computeDurationMs = performance.now() - backtestStartMs;
         let visualDurationMs = 0;

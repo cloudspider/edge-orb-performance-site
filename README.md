@@ -51,6 +51,8 @@ If you encounter import errors for `databento`, ensure there is no local folder 
    /Users/guy/repos/edge-orb-performance-site/.venv/bin/python scripts/polygon_service.py
 ```
 
+If you use the Grid Backtest save endpoint with Supabase, apply `sql/add_first_dip_multiplier_to_grid_backtests.sql` before saving runs that include the First Dip Multiplier field.
+
 
 
 

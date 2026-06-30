@@ -22,7 +22,7 @@
       "close_ny": "11:30",
       "orb_start_ny": "03:00",
       "orb_end_ny": "11:00",
-      "entry_cutoff_ny": "07:00"
+      "entry_cutoff_ny": "10:00"
     },
     {
       "name": "Tokyo",
@@ -31,8 +31,8 @@
       "open_ny": "20:00",
       "close_ny": "02:00",
       "orb_start_ny": "20:00",
-      "orb_end_ny": "01:30",
-      "entry_cutoff_ny": "00:00"
+      "orb_end_ny": "23:30",
+      "entry_cutoff_ny": "23:00"
     },
     {
       "name": "Sydney",
@@ -42,7 +42,7 @@
       "close_ny": "00:00",
       "orb_start_ny": "18:00",
       "orb_end_ny": "23:30",
-      "entry_cutoff_ny": "22:00"
+      "entry_cutoff_ny": "23:00"
     }
   ]
 }

@@ -13,6 +13,7 @@ grid_spacing           percent_fixed    Spacing model: fixed price or percent fi
 grid_size              5                Spacing size (dollars for fixed, percent for percent fixed).
 base_price             100              Anchor price for the ladder.
 trade_value            1000             Dollar value per buy leg.
+first_dip_multiplier   1.0              Multiplies the current trade_value for the first successful buy after a sell.
 fractional_shares      true             Allow fractional share quantities.
 retention_mode         profit           Sell retention: none, profit, profit_plus_5, profit_plus_10.
 entry_filter           none             SMA filter: none, sma10, sma20, sma50, sma100.
@@ -37,9 +38,14 @@ Backtest Mechanics (Buy the Dip)
 
 3) Buy fills
    - When price trades down through a buy level, a buy fills if the entry filter passes.
-   - Quantity = trade_value / price (rounded if fractional_shares is false).
-   - Autofund deposits trade_value when a new open level is created:
-     capital_contributed += trade_value.
+   - Quantity = applied_trade_value / price (rounded if fractional_shares is false).
+   - applied_trade_value normally equals the current trade_value.
+   - If the previous successful fill was a sell, the next successful buy is the
+     First Dip Buy and uses:
+     applied_trade_value = current_trade_value * first_dip_multiplier
+   - The First Dip multiplier is applied after any existing P/L-based trade value sizing.
+   - Autofund deposits the applied trade value when a new open level is created:
+     capital_contributed += applied_trade_value.
    - After a buy, place a sell one rung above.
 
 4) Sell fills
@@ -63,14 +69,14 @@ Summary Metrics
 - shares: final share count.
 - last_price: last bar price used for holdings valuation.
 - open_levels_final: open positions at the end of the run.
-- capital_contributed: sum of autofund deposits (trade_value per new open level).
+- capital_contributed: sum of autofund deposits using the applied trade value of each buy.
 - net_trade_cashflow: sum(sells) - sum(buys), commissions included.
 - harvested_profit: realized profit from completed trades only.
 - holdings_value: shares * last_price.
 - net_pl_final: net_trade_cashflow + holdings_value.
 - account_equity: cash + holdings_value (also = capital_contributed + net_pl_final).
 - max_open_levels: peak number of concurrent open levels.
-- max_deployed_capital: peak funded levels * trade_value.
+- max_deployed_capital: peak funded capital based on the realized buy sizing path.
 - required_capital: max(-net_trade_cashflow); minimum bankroll needed without deposits.
 - max_drawdown: worst peak-to-trough drop in account equity.
 - max_drawdown_pct: max_drawdown divided by peak equity.
@@ -78,6 +84,7 @@ Summary Metrics
 
 Trade Log Fields
 - buy_time, buy_price, buy_qty
+- trade_value, first_dip_buy
 - sell_time, sell_price, sell_qty
 - qty_retained, cum_qty_retained
 - profit, roi_pct
