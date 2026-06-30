@@ -1044,7 +1044,7 @@
   </script>
 
   <div class="max-w-screen-2xl mx-auto p-6">
-    <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_200px] xl:items-start">
+    <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_180px] xl:items-start">
       <div class="min-w-0 space-y-6">
         <header class="mb-2">
           <h1 id="mainTitle" class="text-2xl md:text-3xl font-semibold">Grid Backtest</h1>
@@ -1334,6 +1334,24 @@
               </svg>
             </span>
           </div>
+        </label>
+        <label class="block">
+          <span class="text-sm text-slate-600">Grid Calc</span>
+          <div class="relative mt-1">
+            <select
+              id="selGridLevelCalcMode"
+              class="w-full appearance-none rounded-xl border border-slate-200 bg-white pl-3 pr-9 py-2 text-sm text-slate-700 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-500/60"
+            >
+              <option value="new" selected>New</option>
+              <option value="legacy">Legacy</option>
+            </select>
+            <span class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.06 1.06l-4.24 4.39a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
+              </svg>
+            </span>
+          </div>
+          <p class="mt-1 text-[11px] text-slate-500">Used for percent grid spacing only.</p>
         </label>
         <label class="block">
           <span id="gridSizeLabel" class="text-sm text-slate-600">Grid Size ($)</span>
@@ -2156,9 +2174,10 @@
           </div>
           <p class="mt-1 text-xs text-slate-500">Initial calculated buy and sell ladder pairs for the current run.</p>
           <div class="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-inner">
-            <div class="grid grid-cols-2 border-b border-slate-200 bg-white/70 px-3 py-2 font-mono text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            <div class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 border-b border-slate-100 bg-slate-100 px-3 py-2 font-mono text-[11px] font-semibold uppercase tracking-wide text-slate-500">
               <span>Buy</span>
               <span class="text-right">Sell</span>
+              <span class="text-right">Profit %</span>
             </div>
             <div id="levelsRailEmpty" class="px-3 py-4 text-center text-xs text-slate-500">
               No initial grid levels yet.
@@ -2176,6 +2195,7 @@
     const GRID_DEFAULTS = {
       gridSize: 5,
       gridSpacingType: 'percent_fixed',
+      gridLevelCalcMode: 'new',
       tradeValue: 1000,
       firstDipMultiplier: 1,
       maxOpenLevels: null,
@@ -4114,6 +4134,93 @@
       return { ladder, pairs, baseIndex };
     }
 
+    function buildPercentFixedGridLevelsExpanded({ basePrice, gridSize, minPrice, maxPrice, tickSize }) {
+      const rawPercent = Number(gridSize);
+      const stepRate = 1 + (rawPercent / 100);
+      if (!Number.isFinite(stepRate) || stepRate <= 1 || stepRate >= 2) {
+        return { ladder: [], pairs: [], baseIndex: -1 };
+      }
+      const resolvedTickSize = Number.isFinite(tickSize) && tickSize > 0 ? tickSize : 0.01;
+      const tickDecimals = Math.min(Math.max(decimalsFromStep(resolvedTickSize), 0), 8);
+      const snapDirectional = (value, direction = 'nearest') => {
+        if (!Number.isFinite(value) || value <= 0) return NaN;
+        const ratio = value / resolvedTickSize;
+        let snappedUnits;
+        if (direction === 'down') {
+          snappedUnits = Math.floor(ratio + 1e-9);
+        } else if (direction === 'up') {
+          snappedUnits = Math.ceil(ratio - 1e-9);
+        } else {
+          snappedUnits = Math.round(ratio);
+        }
+        if (!Number.isFinite(snappedUnits)) return NaN;
+        return Number((snappedUnits * resolvedTickSize).toFixed(tickDecimals));
+      };
+      const rawBase = Number(basePrice);
+      const base = snapDirectional(rawBase, 'nearest');
+      if (!Number.isFinite(base) || base <= 0) {
+        return { ladder: [], pairs: [], baseIndex: -1 };
+      }
+      const minBound = Number.isFinite(minPrice) && minPrice > 0 ? minPrice : base;
+      const maxBound = Number.isFinite(maxPrice) && maxPrice > 0 ? maxPrice : base;
+      const tolerance = 1e-9 * Math.max(1, minBound, maxBound, base);
+
+      const downPairs = [];
+      let sellPrice = base;
+      let safety = 0;
+      while (safety < 5000) {
+        const buyPrice = snapDirectional(sellPrice / stepRate, 'down');
+        if (!Number.isFinite(buyPrice) || buyPrice <= 0) break;
+        if (buyPrice >= sellPrice - tolerance) break;
+        if (buyPrice < minBound - tolerance) break;
+        downPairs.unshift({
+          buyPrice,
+          sellPrice
+        });
+        sellPrice = buyPrice;
+        safety += 1;
+      }
+
+      const upPairs = [];
+      let buyPrice = base;
+      safety = 0;
+      while (safety < 5000) {
+        const nextSell = snapDirectional(buyPrice * stepRate, 'up');
+        if (!Number.isFinite(nextSell) || nextSell <= 0) break;
+        if (nextSell <= buyPrice + tolerance) break;
+        if (nextSell > maxBound + tolerance) break;
+        upPairs.push({
+          buyPrice,
+          sellPrice: nextSell
+        });
+        buyPrice = nextSell;
+        safety += 1;
+      }
+
+      const pairs = [...downPairs, ...upPairs];
+      if (!pairs.length) {
+        return { ladder: [base], pairs: [], baseIndex: 0 };
+      }
+      const ladder = [pairs[0].buyPrice];
+      for (const pair of pairs) {
+        if (!Number.isFinite(pair?.sellPrice)) continue;
+        if (Math.abs(pair.sellPrice - ladder[ladder.length - 1]) > tolerance) {
+          ladder.push(pair.sellPrice);
+        }
+      }
+      const baseIndex = ladder.findIndex((price) => Math.abs(price - base) <= tolerance);
+      const indexedPairs = pairs.map((pair, idx) => ({
+        level: idx - Math.max(0, baseIndex),
+        buyPrice: pair.buyPrice,
+        sellPrice: pair.sellPrice
+      }));
+      return {
+        ladder,
+        pairs: indexedPairs,
+        baseIndex: baseIndex >= 0 ? baseIndex : 0
+      };
+    }
+
     function buildFixedGridLevels({ basePrice, gridSize, minPrice, maxPrice }) {
       const size = Number(gridSize);
       if (!Number.isFinite(size) || size <= 0) {
@@ -4176,8 +4283,9 @@
       return { ladder, pairs, baseIndex };
     }
 
-    function createGridSpacingHelpers({ spacingType, gridSize, basePrice, firstPrice, minPrice, maxPrice, tickSize }) {
+    function createGridSpacingHelpers({ spacingType, gridSize, gridLevelCalcMode, basePrice, firstPrice, minPrice, maxPrice, tickSize }) {
       const typeRaw = (spacingType || 'fixed').toLowerCase();
+      const calcMode = normalizeGridLevelCalcMode(gridLevelCalcMode);
       const isPercentType = typeRaw === 'percent' || typeRaw === 'percent_fixed';
       if (isPercentType) {
         const rawPercent = Number(gridSize);
@@ -4189,7 +4297,7 @@
         const anchorBase = Number.isFinite(rawBase) && rawBase > 0 ? rawBase : null;
         let anchor = Math.max(anchorBase != null ? anchorBase : Number(firstPrice) || 0, 1e-9);
         if (typeRaw === 'percent_fixed') {
-          const levels = buildPercentFixedGridLevels({
+          const levels = (calcMode === 'legacy' ? buildPercentFixedGridLevels : buildPercentFixedGridLevelsExpanded)({
             basePrice: anchor,
             gridSize: rawPercent,
             minPrice,
@@ -4489,6 +4597,11 @@
       return Math.min(10, Math.max(0.1, numeric));
     }
 
+    function normalizeGridLevelCalcMode(value) {
+      const normalized = typeof value === 'string' ? value.toLowerCase() : '';
+      return normalized === 'legacy' ? 'legacy' : GRID_DEFAULTS.gridLevelCalcMode;
+    }
+
     function getGridParamsFromUI() {
       const gridSize = Number(document.getElementById('inpGridSize')?.value ?? GRID_DEFAULTS.gridSize);
       const basePrice = Number(document.getElementById('inpBasePrice')?.value ?? 100);
@@ -4500,6 +4613,7 @@
       const fractionalShares = true;
       const gridType = GRID_TYPE;
       const gridSpacingType = (document.getElementById('selGridSpacing')?.value || GRID_DEFAULTS.gridSpacingType).toLowerCase();
+      const gridLevelCalcMode = normalizeGridLevelCalcMode(document.getElementById('selGridLevelCalcMode')?.value ?? GRID_DEFAULTS.gridLevelCalcMode);
       const retentionMode = (document.getElementById('selRetentionMode')?.value || 'profit').toLowerCase();
       const retentionPortionPct = Number(document.getElementById('inpRetentionPortionPct')?.value ?? GRID_DEFAULTS.retentionPortionPct);
       const entryFilter = (document.getElementById('selEntryFilter')?.value || GRID_DEFAULTS.entryFilter).toLowerCase();
@@ -4517,6 +4631,7 @@
         fractionalShares,
         gridType,
         gridSpacingType,
+        gridLevelCalcMode,
         retentionMode,
         retentionPortionPct,
         entryFilter,
@@ -4546,6 +4661,7 @@
         plSizingPct: Number.isFinite(params.plSizingPct) ? params.plSizingPct : null,
         fractionalShares: !!params.fractionalShares,
         gridSpacingType: typeof params.gridSpacingType === 'string' ? params.gridSpacingType : null,
+        gridLevelCalcMode: typeof params.gridLevelCalcMode === 'string' ? normalizeGridLevelCalcMode(params.gridLevelCalcMode) : null,
         retentionMode: typeof params.retentionMode === 'string' ? params.retentionMode : null,
         retentionPortionPct: Number.isFinite(params.retentionPortionPct) ? params.retentionPortionPct : null,
         entryFilter: typeof params.entryFilter === 'string' ? params.entryFilter : null
@@ -4586,6 +4702,7 @@
       setNumberValue('inpPlSizingPct', stored.plSizingPct);
       setNumberValue('inpRetentionPortionPct', stored.retentionPortionPct);
       setSelectValue('selGridSpacing', stored.gridSpacingType);
+      setSelectValue('selGridLevelCalcMode', normalizeGridLevelCalcMode(stored.gridLevelCalcMode));
       setSelectValue('selRetentionMode', stored.retentionMode);
       setSelectValue('selEntryFilter', stored.entryFilter);
     }
@@ -6580,10 +6697,16 @@
       const fragment = document.createDocumentFragment();
       for (const entry of rows) {
         const row = document.createElement('div');
-        row.className = 'grid grid-cols-2 gap-2 border-b border-slate-200/80 px-3 py-1.5 font-mono text-[11px] leading-5 text-slate-700 last:border-b-0';
-        const buyText = Number.isFinite(entry?.buyPrice) ? `$${formatNumber(entry.buyPrice, 4)}` : '—';
-        const sellText = Number.isFinite(entry?.sellPrice) ? `$${formatNumber(entry.sellPrice, 4)}` : '—';
-        row.innerHTML = `<span class="truncate">${buyText}</span><span class="truncate text-right">${sellText}</span>`;
+        row.className = 'grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-2 border-b border-slate-100 px-3 py-1.5 font-mono text-[11px] leading-5 text-slate-700 last:border-b-0';
+        const buyPrice = Number(entry?.buyPrice);
+        const sellPrice = Number(entry?.sellPrice);
+        const buyText = Number.isFinite(buyPrice) ? `$${formatNumber(buyPrice, 4)}` : '—';
+        const sellText = Number.isFinite(sellPrice) ? `$${formatNumber(sellPrice, 4)}` : '—';
+        const profitPct = Number.isFinite(buyPrice) && buyPrice > 0 && Number.isFinite(sellPrice)
+          ? ((sellPrice - buyPrice) / buyPrice) * 100
+          : null;
+        const profitText = Number.isFinite(profitPct) ? formatPercent(profitPct) : '—';
+        row.innerHTML = `<span class="truncate">${buyText}</span><span class="truncate text-right">${sellText}</span><span class="text-right ${Number.isFinite(profitPct) && profitPct < 0 ? 'text-red-600' : 'text-emerald-600'}">${profitText}</span>`;
         fragment.appendChild(row);
       }
       rowsEl.innerHTML = '';
@@ -8177,6 +8300,7 @@
       const spacing = createGridSpacingHelpers({
         spacingType: gridSpacingType,
         gridSize: rawGridSize,
+        gridLevelCalcMode: params?.gridLevelCalcMode,
         basePrice,
         firstPrice,
         minPrice,
@@ -9506,6 +9630,7 @@
       updateRetentionPortionVisibility();
       const inputs = [
         document.getElementById('selGridSpacing'),
+        document.getElementById('selGridLevelCalcMode'),
         document.getElementById('selEntryFilter'),
         retentionModeSelect,
         document.getElementById('inpGridSize'),
